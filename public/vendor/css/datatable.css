@@ -1,0 +1,434 @@
+/* =========================================
+   Modern Premium DataTable UI
+========================================= */
+
+.dataTables_wrapper {
+    font-size: 13px;
+    color: #334155;
+}
+
+/* =========================================
+   Top Controls
+========================================= */
+
+
+
+.dataTables_length label,
+.dataTables_filter label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    margin: 0;
+}
+
+/* Entries Dropdown */
+
+.dataTables_length select {
+    border: 1px solid #dbe3ee !important;
+    background: #fff;
+    border-radius: 6px !important;
+    padding: 4px 26px 4px 10px !important;
+    font-size: 12px;
+    font-weight: 600;
+    outline: none !important;
+    box-shadow: none !important;
+    min-width: 65px;
+    height: 34px;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.dataTables_length select:focus {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+/* Search */
+
+.dataTables_filter input {
+    border: 1px solid #dbe3ee !important;
+    border-radius: 6px !important;
+    padding: 6px 12px !important;
+    font-size: 12px;
+    min-width: 220px;
+    outline: none !important;
+    transition: 0.25s ease;
+    height: 36px;
+    margin-left: 0 !important;
+    background: #fff;
+}
+
+.dataTables_filter input:focus {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+/* =========================================
+   Table Design
+========================================= */
+
+table.dataTable {
+    width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 0;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* =========================================
+   Header
+========================================= */
+
+table.dataTable thead th {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    font-size: 12px;
+    font-weight: 700;
+
+    padding: 13px 36px 13px 14px !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    vertical-align: middle;
+    position: relative;
+    transition: 0.2s ease;
+}
+
+/* =========================================
+   ACTIVE SORT COLUMN BACKGROUND
+========================================= */
+
+/* Default First Column Active */
+
+table.dataTable thead th.sorting_asc,
+table.dataTable thead th.sorting_desc {
+    background: #eff6ff !important;
+    color: #2563eb !important;
+}
+
+/* =========================================
+   Remove Default Icons
+========================================= */
+
+table.dataTable thead .sorting,
+table.dataTable thead .sorting_asc,
+table.dataTable thead .sorting_desc {
+    background-image: none !important;
+}
+
+/* =========================================
+   SVG Sorting Icons
+========================================= */
+
+/* Default */
+
+table.dataTable thead .sorting::after {
+    content: "";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 18px;
+    height: 18px;
+    transform: translateY(-50%);
+    opacity: 1;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 15l4 4 4-4'/%3E%3Cpath d='M16 9l-4-4-4 4'/%3E%3C/svg%3E");
+}
+
+/* Ascending */
+
+table.dataTable thead .sorting_asc::after {
+    content: "";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    transform: translateY(-50%);
+    background-repeat: no-repeat;
+    background-size: contain;
+
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 15l-6-6-6 6'/%3E%3C/svg%3E");
+}
+
+/* Descending */
+
+table.dataTable thead .sorting_desc::after {
+    content: "";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    transform: translateY(-50%);
+    background-repeat: no-repeat;
+    background-size: contain;
+
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* Remove Extra Icons */
+
+table.dataTable thead .sorting::before,
+table.dataTable thead .sorting_asc::before,
+table.dataTable thead .sorting_desc::before {
+    display: none !important;
+}
+
+/* =========================================
+   Body
+========================================= */
+
+table.dataTable tbody td {
+    padding: 11px 14px !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    font-size: 11px;
+    color: #1e293b;
+    vertical-align: middle;
+    background: #fff;
+    transition: 0.2s ease;
+}
+
+/* Hover */
+
+table.dataTable tbody tr:hover td {
+    background: #f8fbff !important;
+}
+
+/* Alternate Rows */
+
+table.dataTable.stripe tbody tr.odd,
+table.dataTable.display tbody tr.odd {
+    background: #fcfcfd !important;
+}
+
+/* Remove Last Border */
+
+table.dataTable tbody tr:last-child td {
+    border-bottom: none !important;
+}
+
+/* =========================================
+   Pagination
+========================================= */
+
+.dataTables_paginate {
+    margin-top: 14px !important;
+}
+
+.dataTables_paginate .paginate_button {
+    border: 1px solid #dbe3ee !important;
+    background: #fff !important;
+    color: #475569 !important;
+    border-radius: 6px !important;
+    padding: 6px 11px !important;
+    margin-left: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.dataTables_paginate .paginate_button:hover {
+    background: #eff6ff !important;
+    color: #2563eb !important;
+    border-color: #bfdbfe !important;
+}
+
+.dataTables_paginate .paginate_button.current {
+    background: #2563eb !important;
+    color: #fff !important;
+    border-color: #2563eb !important;
+}
+
+/* =========================================
+   Info Text
+========================================= */
+
+.dataTables_info {
+    padding-top: 12px !important;
+    color: #64748b !important;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* =========================================
+   Responsive
+========================================= */
+
+.table-responsive {
+    overflow-x: hidden !important;
+}
+
+table.dataTable th,
+table.dataTable td {
+    white-space: nowrap;
+}
+
+/* =========================================
+   Mobile
+========================================= */
+
+@media (max-width: 768px) {
+
+    .dataTables_length,
+    .dataTables_filter,
+    .dataTables_info,
+    .dataTables_paginate {
+        text-align: center !important;
+        width: 100%;
+    }
+
+    .dataTables_filter {
+        margin-top: 10px;
+    }
+
+    .dataTables_filter input {
+        width: 100% !important;
+        min-width: 100%;
+    }
+
+    table.dataTable thead th,
+    table.dataTable tbody td {
+        white-space: nowrap;
+    }
+}
+/* =========================================
+   Active Sorted Column
+========================================= */
+
+/* Header */
+
+table.dataTable thead th.sorting_asc,
+table.dataTable thead th.sorting_desc {
+    background: #e8f1ff !important;
+    color: #2563eb !important;
+}
+
+/* First Sorted Column */
+
+table.dataTable tbody td.sorting_1 {
+    background: #f4f8ff !important;
+}
+
+/* Second Sorted Column */
+
+table.dataTable tbody td.sorting_2 {
+    background: #f8fbff !important;
+}
+
+/* Third Sorted Column */
+
+table.dataTable tbody td.sorting_3 {
+    background: #fcfdff !important;
+}
+
+/* Hover Effect Maintain */
+
+table.dataTable tbody tr:hover td.sorting_1 {
+    background: #eaf3ff !important;
+}
+
+table.dataTable tbody tr:hover td.sorting_2 {
+    background: #f1f7ff !important;
+}
+
+table.dataTable tbody tr:hover td.sorting_3 {
+    background: #f7fbff !important;
+}
+/* =========================================
+   Top DataTable Controls
+========================================= */
+
+.dataTables_wrapper .row.align-items-center {
+    align-items: center !important;
+    margin-bottom: 14px !important;
+}
+
+/* Left & Right Section */
+
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+    display: flex;
+    align-items: center;
+}
+
+/* Labels */
+
+.dataTables_wrapper .dataTables_length label,
+.dataTables_wrapper .dataTables_filter label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+}
+
+/* Select Box */
+
+.dataTables_wrapper .dataTables_length select {
+    height: 38px;
+    min-width: 80px;
+    padding: 6px 30px 6px 12px !important;
+    border: 1px solid #dbe3ee !important;
+    border-radius: 8px !important;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    outline: none !important;
+    box-shadow: none !important;
+    transition: 0.2s ease;
+}
+
+.dataTables_wrapper .dataTables_length select:focus {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.08);
+}
+
+/* Search Box */
+
+.dataTables_wrapper .dataTables_filter input {
+    height: 38px;
+    width: 240px;
+    padding: 6px 14px !important;
+    border: 1px solid #dbe3ee !important;
+    border-radius: 8px !important;
+    background: #fff;
+    font-size: 13px;
+    color: #0f172a;
+    outline: none !important;
+    box-shadow: none !important;
+    transition: 0.2s ease;
+    margin: 0 !important;
+
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.08);
+}
+
+/* Right Alignment */
+
+.dataTables_wrapper .text-md-end .dataTables_filter {
+    justify-content: flex-end;
+}
+
+/* Mobile */
+
+@media (max-width: 768px) {
+
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter {
+        justify-content: center !important;
+    }
+
+    .dataTables_wrapper .dataTables_filter input {
+        width: 100%;
+    }
+}

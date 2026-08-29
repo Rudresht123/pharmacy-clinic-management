@@ -1,0 +1,3125 @@
+/* =========================================================
+   Brand palette
+   ---------------------------------------------------------
+   One RGB triplet drives every accent in the app. The settings
+   panel overwrites these two on :root, so changing the brand
+   colour repaints buttons, links, focus rings, active nav,
+   table sorting and the auth screens together.
+   ========================================================= */
+
+:root {
+    --brand: 46, 55, 164;
+    --brand-2: 74, 84, 214;
+
+    /* Text that sits on the accent. JS recalculates it from the picked
+       colour's luminance; the default keeps buttons and the brand sidebar
+       legible in the moment before React applies the stored setting. */
+    --brand-fg: 255, 255, 255;
+}
+
+/* =========================================================
+   Surfaces, text and lines
+   ---------------------------------------------------------
+   Everything that is not the accent reads from these nine
+   tokens, which is what makes a dark theme a palette swap
+   rather than a second stylesheet.
+
+   --bg         the page behind everything
+   --surface    cards, sidebar, topbar, modals
+   --surface-2  table heads, subtle panels
+   --surface-3  hover fills
+   --ink        headings and strong text
+   --ink-2      body text
+   --ink-3      secondary text
+   --muted      labels, hints, placeholders
+   --line       hairlines between rows and sections
+   --line-2     input borders, anything that needs to be seen
+   ========================================================= */
+
+:root,
+[data-theme='light'] {
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --surface-2: #f8f9fc;
+    --surface-3: #f2f4fb;
+
+    --ink: #1f2440;
+    --ink-2: #4b5170;
+    --ink-3: #6b7191;
+    --muted: #8a90a8;
+
+    --line: #edeff6;
+    --line-2: #e3e6ef;
+
+    --shadow: 15, 23, 42;
+}
+
+/*
+   Dark is not the light palette inverted. Surfaces get *lighter* as they
+   come forward — a raised card on a dark ground reads as nearer, where a
+   darker one reads as a hole — so --surface sits above --bg, not below it.
+*/
+[data-theme='dark'] {
+    --bg: #0e1120;
+    --surface: #161a2b;
+    --surface-2: #1c2136;
+    --surface-3: #232941;
+
+    --ink: #eef0f8;
+    --ink-2: #c3c8dc;
+    --ink-3: #9aa1bd;
+    --muted: #7d859f;
+
+    --line: #262c44;
+    --line-2: #333a56;
+
+    /* Shadows on a dark ground have to be near-black to register at all. */
+    --shadow: 0, 0, 0;
+
+    color-scheme: dark;
+}
+
+body {
+    background: var(--bg);
+    color: var(--ink-2);
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
+}
+
+/* =========================================================
+   App shell — sidebar, topbar, content
+   ========================================================= */
+
+.app-shell {
+    --sb-width: 264px;
+    --sb-collapsed: 78px;
+    --sb-current: var(--sb-width);
+    --tb-height: 62px;
+
+    --sb-ink: var(--ink-2);
+    --sb-muted: var(--muted);
+    --sb-primary: rgb(var(--brand));
+    --sb-line: var(--line);
+}
+
+.app-shell[data-collapsed='true'] {
+    --sb-current: var(--sb-collapsed);
+}
+
+/* ---------------------------------------------------------
+   Sidebar
+   --------------------------------------------------------- */
+
+.app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1040;
+
+    width: var(--sb-current);
+    display: flex;
+    flex-direction: column;
+
+    background: var(--surface);
+    border-right: 1px solid var(--sb-line);
+    transition: width 0.22s ease, transform 0.22s ease;
+}
+
+/* Brand */
+
+.app-brand {
+    height: var(--tb-height);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--sb-line);
+}
+
+.app-brand img {
+    height: 28px;
+    width: auto;
+}
+
+.app-brand-mark {
+    display: none;
+    height: 28px;
+}
+
+.app-shell[data-collapsed='true'] .app-brand {
+    justify-content: center;
+    padding: 0 8px;
+}
+
+.app-shell[data-collapsed='true'] .app-brand img.app-brand-full {
+    display: none;
+}
+
+.app-shell[data-collapsed='true'] .app-brand-mark {
+    display: block;
+}
+
+.app-collapse-btn {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: background 0.16s ease, color 0.16s ease;
+}
+
+.app-collapse-btn:hover {
+    background: var(--surface-3);
+    color: var(--sb-primary);
+}
+
+.app-shell[data-collapsed='true'] .app-collapse-btn {
+    display: none;
+}
+
+/* Menu */
+
+.app-nav {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 12px 20px;
+}
+
+/* Thin scrollbar, only visible on hover */
+.app-nav::-webkit-scrollbar {
+    width: 6px;
+}
+
+.app-nav::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 3px;
+}
+
+.app-nav:hover::-webkit-scrollbar-thumb {
+    background: var(--line-2);
+}
+
+.app-nav-section + .app-nav-section {
+    margin-top: 18px;
+}
+
+.app-nav-label {
+    padding: 0 12px;
+    margin-bottom: 8px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--sb-muted);
+    white-space: nowrap;
+}
+
+/* Collapsed: swap the label for a divider */
+.app-shell[data-collapsed='true'] .app-nav-label {
+    height: 1px;
+    padding: 0;
+    margin: 0 10px 10px;
+    overflow: hidden;
+    color: transparent;
+    background: var(--sb-line);
+}
+
+.app-nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.app-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    height: 42px;
+    padding: 0 12px;
+    border-radius: 10px;
+
+    color: var(--sb-ink);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+
+    position: relative;
+    transition: background 0.16s ease, color 0.16s ease;
+}
+
+.app-nav-item i {
+    font-size: 19px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.app-nav-item:hover {
+    background: var(--surface-3);
+    color: var(--sb-primary);
+}
+
+.app-nav-item.is-active {
+    background: rgba(var(--brand), 0.09);
+    color: var(--sb-primary);
+    font-weight: 600;
+}
+
+/* Left accent on the active item */
+.app-nav-item.is-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 9px;
+    bottom: 9px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--sb-primary);
+}
+
+.app-shell[data-collapsed='true'] .app-nav-item {
+    justify-content: center;
+    padding: 0;
+}
+
+.app-shell[data-collapsed='true'] .app-nav-item span {
+    display: none;
+}
+
+.app-shell[data-collapsed='true'] .app-nav-item.is-active::before {
+    display: none;
+}
+
+/* Footer */
+
+.app-sidebar-foot {
+    flex-shrink: 0;
+    padding: 12px;
+    border-top: 1px solid var(--sb-line);
+}
+
+.app-expand-btn {
+    width: 100%;
+    height: 38px;
+    border: 1px solid var(--sb-line);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--ink-3);
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: background 0.16s ease, color 0.16s ease;
+}
+
+.app-expand-btn:hover {
+    background: var(--surface-3);
+    color: var(--sb-primary);
+}
+
+.app-shell[data-collapsed='true'] .app-expand-btn span {
+    display: none;
+}
+
+/* ---------------------------------------------------------
+   Topbar
+   --------------------------------------------------------- */
+
+.app-header {
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+
+    height: var(--tb-height);
+    margin-left: var(--sb-current);
+    padding: 0 20px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    background: var(--surface);
+    border-bottom: 1px solid var(--sb-line);
+    transition: margin-left 0.22s ease;
+}
+
+.app-menu-btn {
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--ink-3);
+    display: none;
+    place-items: center;
+    cursor: pointer;
+}
+
+.app-menu-btn:hover {
+    background: var(--surface-3);
+}
+
+/* ---------------------------------------------------------
+   Content
+   --------------------------------------------------------- */
+
+.app-content {
+    margin-left: var(--sb-current);
+    padding: 22px;
+    min-height: calc(100vh - var(--tb-height));
+    transition: margin-left 0.22s ease;
+}
+
+/* ---------------------------------------------------------
+   Mobile
+   --------------------------------------------------------- */
+
+.app-sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1039;
+    background: rgba(15, 19, 45, 0.4);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+@media (max-width: 991.98px) {
+    .app-shell {
+        --sb-current: 0px;
+    }
+
+    .app-sidebar {
+        width: var(--sb-width);
+        transform: translateX(-100%);
+        box-shadow: 0 18px 40px rgba(17, 22, 51, 0.14);
+    }
+
+    .app-shell[data-mobile-open='true'] .app-sidebar {
+        transform: translateX(0);
+    }
+
+    /* The desktop collapse never applies on mobile */
+    .app-shell[data-collapsed='true'] .app-nav-item {
+        justify-content: flex-start;
+        padding: 0 12px;
+    }
+
+    .app-shell[data-collapsed='true'] .app-nav-item span,
+    .app-shell[data-collapsed='true'] .app-brand img.app-brand-full {
+        display: inline;
+    }
+
+    .app-shell[data-collapsed='true'] .app-brand-mark {
+        display: none;
+    }
+
+    .app-menu-btn {
+        display: grid;
+    }
+
+    .app-content {
+        padding: 14px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-sidebar,
+    .app-header,
+    .app-content {
+        transition: none;
+    }
+}
+
+/* =========================================================
+   Page header + breadcrumb
+   ========================================================= */
+
+.page-head {
+    position: relative;
+    display: flex;
+    /* Two lines only — centring the icon against them reads better than
+       top-aligning it. */
+    align-items: center;
+    gap: 14px;
+
+    padding: 15px 20px;
+    margin-bottom: 22px;
+
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface-3) 100%);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(17, 22, 51, 0.03);
+    overflow: hidden;
+}
+
+/* Soft accent light in the top-right corner */
+.page-head::after {
+    content: '';
+    position: absolute;
+    top: -55%;
+    right: -4%;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(var(--brand), 0.07) 0%, transparent 68%);
+    pointer-events: none;
+}
+
+/* Identity icon */
+
+.page-head-icon {
+    position: relative;
+    z-index: 1;
+    width: 46px;
+    height: 46px;
+    flex-shrink: 0;
+
+    border-radius: 13px;
+    display: grid;
+    place-items: center;
+
+    font-size: 22px;
+    /* Colour comes from the shared tone system further down. */
+}
+
+.page-head-body {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    min-width: 0;
+}
+
+/* Crumb trail */
+
+.page-crumbs {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+
+    /* Sits under the title */
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1;
+    color: var(--muted);
+}
+
+.page-crumbs a {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 7px;
+    margin: -3px 0;
+    border-radius: 6px;
+    color: var(--muted);
+    text-decoration: none;
+    transition:
+        background 0.16s ease,
+        color 0.16s ease;
+}
+
+.page-crumbs a:hover {
+    background: rgba(var(--brand), 0.08);
+    color: rgb(var(--brand));
+}
+
+.page-crumbs .crumb-home i {
+    font-size: 14px;
+}
+
+.page-crumbs .crumb-sep {
+    color: var(--line-2);
+    font-size: 12px;
+    line-height: 1;
+}
+
+.page-crumbs .crumb-current {
+    padding: 3px 7px;
+    color: var(--ink);
+    font-weight: 600;
+}
+
+/* Title block */
+
+.page-head h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: #141936;
+    line-height: 1.22;
+}
+
+.page-head .page-lead {
+    margin: 6px 0 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 68ch;
+}
+
+.page-head-actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+@media (max-width: 767.98px) {
+    .page-head {
+        /* Icon + title on one row, crumbs above, actions below */
+        display: grid;
+        grid-template-columns: auto 1fr;
+        grid-template-areas:
+            'icon   title'
+            'crumbs crumbs'
+            'act    act';
+        align-items: center;
+        gap: 8px 12px;
+
+        padding: 14px 16px;
+        margin-bottom: 16px;
+        border-radius: 14px;
+    }
+
+    .page-head-icon {
+        grid-area: icon;
+        width: 38px;
+        height: 38px;
+        font-size: 18px;
+        border-radius: 11px;
+    }
+
+    /* The body wrapper is dissolved so its children can take grid areas */
+    .page-head-body {
+        display: contents;
+    }
+
+    .page-crumbs {
+        grid-area: crumbs;
+        margin-top: 0;
+        font-size: 11.5px;
+        gap: 2px;
+        /* Long trails scroll sideways instead of wrapping into a block */
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .page-crumbs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .page-crumbs a,
+    .page-crumbs .crumb-current {
+        white-space: nowrap;
+        padding: 2px 5px;
+    }
+
+    .page-head h1 {
+        grid-area: title;
+        font-size: 18px;
+        line-height: 1.3;
+    }
+
+    .page-head .page-lead {
+        display: none;
+    }
+
+    .page-head-actions {
+        grid-area: act;
+        width: 100%;
+        margin-top: 4px;
+    }
+
+    .page-head-actions > * {
+        flex: 1;
+    }
+
+    .page-head::after {
+        width: 190px;
+        height: 190px;
+    }
+}
+
+/* =========================================================
+   Empty / error states
+   ========================================================= */
+
+.state {
+    text-align: center;
+    padding: 54px 24px;
+}
+
+/* Icon medallion */
+
+.state-art {
+    position: relative;
+    width: 84px;
+    height: 84px;
+    margin: 0 auto 20px;
+
+    border-radius: 26px;
+    display: grid;
+    place-items: center;
+
+    font-size: 34px;
+    /* Colour comes from the shared tone system further down. */
+}
+
+/* Soft halo behind the medallion */
+.state-art::before {
+    content: '';
+    position: absolute;
+    inset: -16px;
+    border-radius: 50%;
+    z-index: -1;
+}
+
+/* Copy */
+
+.state h5 {
+    margin: 0 0 6px;
+    font-size: 16.5px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+}
+
+.state p {
+    margin: 0 auto;
+    max-width: 44ch;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--muted);
+}
+
+.state-actions {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* Highlighted search term in a no-results message */
+.state-term {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+@media (max-width: 575.98px) {
+    .state {
+        padding: 40px 16px;
+    }
+
+    .state-art {
+        width: 70px;
+        height: 70px;
+        font-size: 28px;
+        border-radius: 22px;
+        margin-bottom: 16px;
+    }
+}
+
+/* =========================================================
+   Accent tones
+   ---------------------------------------------------------
+   One channel of colour, shared by the page-header medallion
+   and the empty-state art. Each tone only sets an RGB triplet;
+   every tint below is derived from it, so adding a colour is
+   a single line.
+   ========================================================= */
+
+[data-tone] {
+    --tone: 46, 55, 164;
+}
+[data-tone='indigo'] {
+    --tone: 46, 55, 164;
+}
+[data-tone='violet'] {
+    --tone: 124, 58, 237;
+}
+[data-tone='teal'] {
+    --tone: 13, 148, 136;
+}
+[data-tone='sky'] {
+    --tone: 2, 132, 199;
+}
+[data-tone='emerald'] {
+    --tone: 5, 150, 105;
+}
+[data-tone='amber'] {
+    --tone: 217, 119, 6;
+}
+[data-tone='rose'] {
+    --tone: 225, 29, 72;
+}
+[data-tone='danger'] {
+    --tone: 229, 72, 77;
+}
+[data-tone='muted'] {
+    --tone: 120, 128, 155;
+}
+
+/* Medallion + header icon derive every tint from the inherited tone */
+
+.page-head-icon,
+.state-art {
+    color: rgb(var(--tone));
+    background: linear-gradient(140deg, rgba(var(--tone), 0.16), rgba(var(--tone), 0.06));
+    box-shadow: inset 0 0 0 1px rgba(var(--tone), 0.12);
+}
+
+.state-art::before {
+    background: radial-gradient(circle, rgba(var(--tone), 0.09) 0%, transparent 68%);
+}
+
+/* The page header's corner glow picks up the same tone */
+.page-head::after {
+    background: radial-gradient(circle, rgba(var(--tone), 0.09) 0%, transparent 68%);
+}
+
+/* Tone-coloured action button, used inside empty / error states */
+
+.btn-tone {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 10px;
+
+    border: 1px solid rgba(var(--tone), 0.24);
+    background: rgba(var(--tone), 0.09);
+    color: rgb(var(--tone));
+
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.16s ease,
+        border-color 0.16s ease;
+}
+
+.btn-tone:hover {
+    background: rgba(var(--tone), 0.16);
+    border-color: rgba(var(--tone), 0.34);
+    color: rgb(var(--tone));
+}
+
+.btn-tone--solid {
+    border-color: transparent;
+    background: rgb(var(--tone));
+    color: #fff;
+    box-shadow: 0 6px 14px -4px rgba(var(--tone), 0.5);
+}
+
+.btn-tone--solid:hover {
+    background: rgb(var(--tone));
+    border-color: transparent;
+    color: #fff;
+    filter: brightness(1.07);
+}
+
+/* =========================================================
+   Toasts
+   ---------------------------------------------------------
+   Colour comes from the same [data-tone] system as page
+   headers and empty states, so a success toast and a success
+   medallion are the same green.
+   ========================================================= */
+
+.toast-card {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+
+    width: 100%;
+    min-width: 300px;
+    max-width: 400px;
+    padding: 14px 14px 15px;
+
+    background: var(--surface);
+    border: 1px solid rgba(var(--tone), 0.2);
+    border-radius: 14px;
+    box-shadow:
+        0 1px 2px rgba(17, 22, 51, 0.04),
+        0 10px 24px -6px rgba(17, 22, 51, 0.14),
+        0 24px 48px -20px rgba(var(--tone), 0.3);
+
+    overflow: hidden;
+    pointer-events: auto;
+}
+
+/* Enter / leave */
+
+.toast-card {
+    opacity: 0;
+    transform: translateX(14px) scale(0.98);
+    transition:
+        opacity 0.22s ease,
+        transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.toast-card[data-visible='true'] {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+}
+
+.toast-icon {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+
+    border-radius: 11px;
+    display: grid;
+    place-items: center;
+
+    font-size: 19px;
+    color: rgb(var(--tone));
+    background: rgba(var(--tone), 0.13);
+    box-shadow: inset 0 0 0 1px rgba(var(--tone), 0.1);
+}
+
+.toast-body {
+    flex: 1;
+    min-width: 0;
+    padding-top: 1px;
+}
+
+.toast-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.35;
+    color: var(--ink);
+}
+
+.toast-text {
+    margin: 3px 0 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--muted);
+    word-break: break-word;
+}
+
+.toast-close {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    margin: -2px -2px 0 0;
+
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition:
+        background 0.16s ease,
+        color 0.16s ease;
+}
+
+.toast-close:hover {
+    background: rgba(var(--tone), 0.1);
+    color: rgb(var(--tone));
+}
+
+/* Time remaining */
+
+.toast-progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 100%;
+
+    background: rgb(var(--tone));
+    transform-origin: left;
+    animation: toast-drain linear forwards;
+}
+
+@keyframes toast-drain {
+    from {
+        transform: scaleX(1);
+    }
+    to {
+        transform: scaleX(0);
+    }
+}
+
+/* Pausing on hover gives the reader time to finish */
+.toast-card:hover .toast-progress {
+    animation-play-state: paused;
+}
+
+@media (max-width: 575.98px) {
+    .toast-card {
+        min-width: 0;
+        max-width: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toast-card {
+        transition: none;
+        opacity: 1;
+        transform: none;
+    }
+
+    .toast-progress {
+        animation: none;
+    }
+}
+
+/* =========================================================
+   Lock screen
+   ========================================================= */
+
+.lock {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+
+    background:
+        radial-gradient(80% 60% at 20% 10%, rgba(var(--brand), 0.28) 0%, transparent 60%),
+        radial-gradient(70% 60% at 90% 90%, rgba(0, 211, 199, 0.2) 0%, transparent 60%),
+        linear-gradient(155deg, #1b2170 0%, #262e8f 55%, #343dae 100%);
+
+    animation: lock-in 0.3s ease both;
+}
+
+@keyframes lock-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.lock-card {
+    width: 100%;
+    max-width: 380px;
+    padding: 34px 30px 26px;
+    text-align: center;
+
+    background: rgba(255, 255, 255, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 22px;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 30px 70px -20px rgba(6, 9, 40, 0.6);
+}
+
+.lock-avatar {
+    width: 74px;
+    height: 74px;
+    margin: 0 auto 16px;
+
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #fff;
+    background: linear-gradient(135deg, rgb(var(--brand-2)), rgb(var(--brand)));
+    box-shadow:
+        0 10px 26px rgba(9, 13, 60, 0.4),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.lock-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    padding: 5px 12px;
+    margin-bottom: 14px;
+    border-radius: 100px;
+
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #bff3ef;
+    background: rgba(0, 211, 199, 0.14);
+    border: 1px solid rgba(0, 211, 199, 0.3);
+}
+
+.lock-card h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
+}
+
+.lock-email {
+    margin: 4px 0 22px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Password field */
+
+.lock-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    height: 50px;
+    padding: 0 14px;
+    border-radius: 13px;
+
+    background: rgba(255, 255, 255, 0.1);
+    border: 1.5px solid rgba(255, 255, 255, 0.16);
+    transition:
+        border-color 0.18s ease,
+        background 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.lock-field:focus-within {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(0, 211, 199, 0.65);
+    box-shadow: 0 0 0 4px rgba(0, 211, 199, 0.15);
+}
+
+.lock-field.is-invalid {
+    border-color: rgba(255, 138, 142, 0.75);
+    box-shadow: 0 0 0 4px rgba(229, 72, 77, 0.16);
+    animation: lock-shake 0.32s ease;
+}
+
+@keyframes lock-shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-6px);
+    }
+    75% {
+        transform: translateX(6px);
+    }
+}
+
+.lock-field i {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.lock-field input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 15px;
+    color: #fff;
+}
+
+.lock-field input::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.lock-error {
+    margin: 9px 0 0;
+    font-size: 12.5px;
+    color: #ffb4b7;
+}
+
+/* Buttons */
+
+.lock-submit {
+    width: 100%;
+    height: 48px;
+    margin-top: 16px;
+
+    border: 0;
+    border-radius: 13px;
+    background: linear-gradient(135deg, #00d3c7, #00a79e);
+    color: #04302d;
+
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        filter 0.18s ease,
+        transform 0.18s ease;
+}
+
+.lock-submit:hover:not(:disabled) {
+    filter: brightness(1.07);
+    transform: translateY(-1px);
+}
+
+.lock-submit:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.lock-signout {
+    margin-top: 18px;
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.16s ease;
+}
+
+.lock-signout:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lock,
+    .lock-field.is-invalid {
+        animation: none;
+    }
+}
+
+/* =========================================================
+   Forms
+   ---------------------------------------------------------
+   Applies to the Bootstrap control classes the field
+   components render, so every form picks these up without
+   changing a single page.
+   ========================================================= */
+
+.app-content .form-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--ink-2);
+}
+
+.app-content .form-control,
+.app-content .form-select {
+    height: 44px;
+    padding: 0 14px;
+
+    border: 1.5px solid var(--line-2);
+    border-radius: 11px;
+    background-color: var(--surface);
+
+    font-size: 14px;
+    color: var(--ink);
+
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease;
+}
+
+.app-content textarea.form-control {
+    height: auto;
+    padding: 11px 14px;
+    line-height: 1.6;
+    resize: vertical;
+}
+
+.app-content .form-control::placeholder {
+    color: var(--muted);
+}
+
+.app-content .form-control:hover:not(:focus):not(.is-invalid),
+.app-content .form-select:hover:not(:focus):not(.is-invalid) {
+    border-color: var(--line-2);
+}
+
+.app-content .form-control:focus,
+.app-content .form-select:focus {
+    border-color: rgb(var(--brand));
+    box-shadow: 0 0 0 4px rgba(var(--brand), 0.1);
+    outline: 0;
+}
+
+/* Validation */
+
+.app-content .form-control.is-invalid,
+.app-content .form-select.is-invalid {
+    border-color: #e5484d;
+    background-color: #fffafa;
+    /* Bootstrap's inline warning glyph crowds a small input */
+    background-image: none;
+    padding-right: 14px;
+}
+
+.app-content .form-control.is-invalid:focus,
+.app-content .form-select.is-invalid:focus {
+    box-shadow: 0 0 0 4px rgba(229, 72, 77, 0.12);
+}
+
+.app-content .invalid-feedback {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #e5484d;
+}
+
+/* Hints sit quieter than errors */
+.app-content .form-label + .form-control + small,
+.app-content small.text-muted {
+    font-size: 11.5px;
+}
+
+/* File input */
+
+.app-content .form-control[type='file'] {
+    padding: 8px 14px;
+    height: auto;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.app-content .form-control[type='file']::file-selector-button {
+    margin-right: 12px;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(var(--brand), 0.09);
+    color: rgb(var(--brand));
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.16s ease;
+}
+
+.app-content .form-control[type='file']::file-selector-button:hover {
+    background: rgba(var(--brand), 0.16);
+}
+
+/* Switch */
+
+.app-content .form-switch .form-check-input {
+    width: 38px;
+    height: 21px;
+    margin-top: 1px;
+    border-color: var(--line-2);
+    cursor: pointer;
+    transition:
+        background-color 0.18s ease,
+        border-color 0.18s ease;
+}
+
+.app-content .form-switch .form-check-input:checked {
+    background-color: rgb(var(--brand));
+    border-color: rgb(var(--brand));
+}
+
+.app-content .form-switch .form-check-input:focus {
+    box-shadow: 0 0 0 4px rgba(var(--brand), 0.1);
+    border-color: rgb(var(--brand));
+}
+
+.app-content .form-check-label {
+    font-size: 13.5px;
+    color: var(--ink-2);
+    cursor: pointer;
+}
+
+/* Card-level form rhythm */
+
+.app-content .card-title {
+    font-size: 14.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+
+@media (max-width: 575.98px) {
+    .app-content .form-control,
+    .app-content .form-select {
+        height: 42px;
+        /* 16px keeps iOS from zooming the viewport on focus */
+        font-size: 16px;
+    }
+}
+
+/* Loader shown in a FormModal while the record being edited is fetched */
+.form-modal-loading {
+    min-height: 180px;
+    display: grid;
+    place-items: center;
+}
+
+/* =========================================================
+   Modal — small screens
+   ---------------------------------------------------------
+   The dialog uses the theme's Bootstrap classes; these rules
+   tighten it for a phone without touching the desktop look.
+   ========================================================= */
+
+@media (max-width: 575.98px) {
+    .modal .modal-dialog {
+        max-width: 100%;
+    }
+
+    .modal .modal-header {
+        padding: 14px 16px;
+        gap: 10px;
+    }
+
+    /* A long subtitle otherwise eats three lines above the first field */
+    .modal .modal-subtitle {
+        font-size: 11.5px;
+        line-height: 1.45;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .modal .modal-title {
+        font-size: 15px;
+        line-height: 1.3;
+    }
+
+    .modal .modal-icon-box {
+        width: 32px;
+        height: 32px;
+    }
+
+    .modal .modal-icon-box svg {
+        width: 17px;
+        height: 17px;
+    }
+
+    .modal .modal-footer {
+        padding: 12px 16px;
+        gap: 8px;
+    }
+
+    /* Full-width buttons are easier to hit with a thumb */
+    .modal .modal-footer > .btn {
+        flex: 1 1 0;
+        margin: 0;
+        justify-content: center;
+    }
+
+    /* The close button sits clear of the title text */
+    .modal .custom-close-btn {
+        right: 10px;
+        top: 10px;
+    }
+}
+
+/* =========================================================
+   Appearance settings drawer
+   ========================================================= */
+
+.settings-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1080;
+    background: rgba(15, 19, 45, 0.35);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    animation: settings-fade 0.2s ease both;
+}
+
+.settings-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1081;
+
+    width: 340px;
+    max-width: 90vw;
+    display: flex;
+    flex-direction: column;
+
+    background: var(--surface);
+    border-left: 1px solid var(--line);
+    box-shadow: -20px 0 50px -20px rgba(17, 22, 51, 0.25);
+
+    animation: settings-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes settings-fade {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes settings-in {
+    from {
+        transform: translateX(100%);
+    }
+}
+
+/* Header */
+
+.settings-head {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--line);
+}
+
+.settings-head h5 {
+    margin: 0;
+    font-size: 15.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+
+.settings-head p {
+    margin: 3px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.settings-close {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--muted);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition:
+        background 0.16s ease,
+        color 0.16s ease;
+}
+
+.settings-close:hover {
+    background: rgba(var(--brand), 0.09);
+    color: rgb(var(--brand));
+}
+
+/* Body */
+
+.settings-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 20px 20px;
+}
+
+.settings-group {
+    padding: 18px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.settings-group:last-child {
+    border-bottom: 0;
+}
+
+.settings-group h6 {
+    margin: 0 0 3px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+.settings-hint {
+    margin: 0 0 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+/* Colour swatches */
+
+.settings-swatches {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.settings-swatch {
+    height: 42px;
+    border: 0;
+    border-radius: 10px;
+    cursor: pointer;
+    position: relative;
+
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-size: 17px;
+
+    box-shadow: inset 0 0 0 1px rgba(17, 22, 51, 0.08);
+    transition:
+        transform 0.16s ease,
+        box-shadow 0.16s ease;
+}
+
+.settings-swatch:hover {
+    transform: translateY(-2px);
+}
+
+.settings-swatch.is-active {
+    box-shadow:
+        inset 0 0 0 1px rgba(17, 22, 51, 0.08),
+        0 0 0 3px #fff,
+        0 0 0 5px currentColor;
+}
+
+/* Segmented choices */
+
+.settings-choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.settings-choice {
+    padding: 11px 12px;
+    text-align: left;
+
+    border: 1.5px solid var(--line-2);
+    border-radius: 11px;
+    background: var(--surface);
+    cursor: pointer;
+
+    transition:
+        border-color 0.16s ease,
+        background 0.16s ease;
+}
+
+.settings-choice b {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.settings-choice small {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--muted);
+}
+
+.settings-choice:hover {
+    border-color: var(--line-2);
+}
+
+.settings-choice.is-active {
+    border-color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.05);
+}
+
+.settings-choice.is-active b {
+    color: rgb(var(--brand));
+}
+
+/* Toggle row */
+
+.settings-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    cursor: pointer;
+}
+
+.settings-toggle b {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.settings-toggle small {
+    display: block;
+    margin-top: 2px;
+    font-size: 11.5px;
+    line-height: 1.4;
+    color: var(--muted);
+}
+
+.settings-toggle .form-check-input {
+    width: 38px;
+    height: 21px;
+    flex-shrink: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.settings-toggle .form-check-input:checked {
+    background-color: rgb(var(--brand));
+    border-color: rgb(var(--brand));
+}
+
+/* Footer */
+
+.settings-foot {
+    flex-shrink: 0;
+    padding: 14px 20px;
+    border-top: 1px solid var(--line);
+    background: var(--surface-2);
+}
+
+/* Compact density shortens table rows */
+
+:root[data-density='compact'] .dt-table tbody td {
+    height: 44px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+
+:root[data-density='compact'] .dt-table thead th {
+    padding-top: 9px;
+    padding-bottom: 9px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .settings-panel,
+    .settings-backdrop {
+        animation: none;
+    }
+}
+
+/* =========================================================
+   Brand-driven theme overrides
+   ---------------------------------------------------------
+   The Preclinic theme paints from --primary and Bootstrap from
+   --bs-primary. Pointing both at --brand means every themed
+   button, link and badge follows the accent the user picked,
+   without restyling each component.
+   ========================================================= */
+
+:root {
+    --primary: rgb(var(--brand));
+    --primary-hover: rgb(var(--brand-2));
+    --primary-transparent: rgba(var(--brand), 0.1);
+
+    --bs-primary: rgb(var(--brand));
+    --bs-primary-rgb: var(--brand);
+    --bs-link-color: rgb(var(--brand));
+    --bs-link-hover-color: rgb(var(--brand-2));
+}
+
+/* Solid primary button */
+.btn-primary {
+    --bs-btn-color: #fff;
+    --bs-btn-bg: rgb(var(--brand));
+    --bs-btn-border-color: rgb(var(--brand));
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: rgb(var(--brand-2));
+    --bs-btn-hover-border-color: rgb(var(--brand-2));
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: rgb(var(--brand));
+    --bs-btn-active-border-color: rgb(var(--brand));
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: rgb(var(--brand));
+    --bs-btn-disabled-border-color: rgb(var(--brand));
+    --bs-btn-focus-shadow-rgb: var(--brand);
+
+    background-color: rgb(var(--brand));
+    border-color: rgb(var(--brand));
+    color: #fff;
+}
+
+.btn-primary:hover,
+.btn-primary:focus-visible {
+    background-color: rgb(var(--brand-2));
+    border-color: rgb(var(--brand-2));
+    color: #fff;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: rgb(var(--brand));
+    --bs-btn-border-color: rgba(var(--brand), 0.45);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: rgb(var(--brand));
+    --bs-btn-hover-border-color: rgb(var(--brand));
+    --bs-btn-active-bg: rgb(var(--brand));
+    --bs-btn-active-border-color: rgb(var(--brand));
+    --bs-btn-focus-shadow-rgb: var(--brand);
+}
+
+.btn:focus-visible {
+    box-shadow: 0 0 0 0.25rem rgba(var(--brand), 0.25);
+}
+
+/* Utilities the theme sprinkles around */
+.text-primary {
+    color: rgb(var(--brand)) !important;
+}
+
+.bg-primary {
+    background-color: rgb(var(--brand)) !important;
+}
+
+.bg-primary-transparent {
+    background-color: rgba(var(--brand), 0.1) !important;
+}
+
+/* Row action buttons: edit follows the accent, delete stays red
+   because red is carrying meaning, not branding. */
+.action-badge.edit-badge {
+    background: rgba(var(--brand), 0.1);
+    color: rgb(var(--brand));
+}
+
+.action-badge.edit-badge:hover {
+    background: rgba(var(--brand), 0.18);
+}
+
+/* =========================================================
+   Surface themes — sidebar, topbar, page header
+   ---------------------------------------------------------
+   Each surface reads its colours from tokens. The defaults
+   below reproduce the light look; the [data-*] blocks further
+   down swap the tokens, so no component markup changes.
+   ========================================================= */
+
+.app-shell {
+    /* Sidebar */
+    --sb-bg: var(--surface);
+    --sb-fg: var(--ink-2);
+    --sb-label: var(--muted);
+    --sb-hover-bg: var(--surface-3);
+    --sb-hover-fg: rgb(var(--brand));
+    --sb-active-bg: rgba(var(--brand), 0.09);
+    --sb-active-fg: rgb(var(--brand));
+    --sb-accent: rgb(var(--brand));
+    --sb-border: var(--line);
+
+    /* Topbar */
+    --tb-bg: var(--surface);
+    --tb-fg: var(--ink);
+    --tb-muted: var(--muted);
+    --tb-hover-bg: var(--surface-3);
+    --tb-border: var(--line);
+}
+
+/* --- Sidebar --------------------------------------------------- */
+
+.app-sidebar {
+    background: var(--sb-bg);
+    border-right-color: var(--sb-border);
+}
+
+.app-brand {
+    border-bottom-color: var(--sb-border);
+}
+
+.app-collapse-btn {
+    color: var(--sb-label);
+}
+
+.app-collapse-btn:hover {
+    background: var(--sb-hover-bg);
+    color: var(--sb-hover-fg);
+}
+
+.app-nav-label {
+    color: var(--sb-label);
+}
+
+.app-shell[data-collapsed='true'] .app-nav-label {
+    background: var(--sb-border);
+}
+
+.app-nav-item {
+    color: var(--sb-fg);
+}
+
+.app-nav-item:hover {
+    background: var(--sb-hover-bg);
+    color: var(--sb-hover-fg);
+}
+
+.app-nav-item.is-active {
+    background: var(--sb-active-bg);
+    color: var(--sb-active-fg);
+}
+
+.app-nav-item.is-active::before {
+    background: var(--sb-accent);
+}
+
+.app-nav:hover::-webkit-scrollbar-thumb {
+    background: var(--sb-border);
+}
+
+.app-sidebar-foot {
+    border-top-color: var(--sb-border);
+}
+
+.app-expand-btn {
+    background: var(--sb-bg);
+    border-color: var(--sb-border);
+    color: var(--sb-fg);
+}
+
+.app-expand-btn:hover {
+    background: var(--sb-hover-bg);
+    color: var(--sb-hover-fg);
+}
+
+/* Dark and brand sidebars */
+
+:root[data-sidebar='dark'] .app-shell {
+    --sb-bg: #171b34;
+    --sb-fg: rgba(255, 255, 255, 0.74);
+    --sb-label: rgba(255, 255, 255, 0.38);
+    --sb-hover-bg: rgba(255, 255, 255, 0.07);
+    --sb-hover-fg: #ffffff;
+    --sb-active-bg: rgba(255, 255, 255, 0.11);
+    --sb-active-fg: #ffffff;
+    --sb-accent: #ffffff;
+    --sb-border: rgba(255, 255, 255, 0.09);
+}
+
+:root[data-sidebar='brand'] .app-shell {
+    --sb-bg: rgb(var(--brand));
+    --sb-fg: rgba(255, 255, 255, 0.78);
+    --sb-label: rgba(255, 255, 255, 0.45);
+    --sb-hover-bg: rgba(255, 255, 255, 0.1);
+    --sb-hover-fg: #ffffff;
+    --sb-active-bg: rgba(255, 255, 255, 0.17);
+    --sb-active-fg: #ffffff;
+    --sb-accent: #ffffff;
+    --sb-border: rgba(255, 255, 255, 0.13);
+}
+
+/* --- Topbar ---------------------------------------------------- */
+
+.app-header {
+    background: var(--tb-bg);
+    border-bottom-color: var(--tb-border);
+    color: var(--tb-fg);
+}
+
+.app-header .fw-semibold {
+    color: var(--tb-fg);
+}
+
+.app-header .text-muted {
+    color: var(--tb-muted) !important;
+}
+
+.app-menu-btn {
+    color: var(--tb-fg);
+}
+
+.app-menu-btn:hover {
+    background: var(--tb-hover-bg);
+}
+
+:root[data-topbar='dark'] .app-shell {
+    --tb-bg: #171b34;
+    --tb-fg: #ffffff;
+    --tb-muted: rgba(255, 255, 255, 0.55);
+    --tb-hover-bg: rgba(255, 255, 255, 0.09);
+    --tb-border: rgba(255, 255, 255, 0.09);
+}
+
+:root[data-topbar='brand'] .app-shell {
+    --tb-bg: rgb(var(--brand));
+    --tb-fg: #ffffff;
+    --tb-muted: rgba(255, 255, 255, 0.62);
+    --tb-hover-bg: rgba(255, 255, 255, 0.12);
+    --tb-border: rgba(255, 255, 255, 0.13);
+}
+
+/* The avatar chip needs contrast against a coloured bar */
+:root[data-topbar='dark'] .app-header .avatar,
+:root[data-topbar='brand'] .app-header .avatar {
+    background: rgba(255, 255, 255, 0.18) !important;
+    color: #fff;
+}
+
+:root[data-topbar='dark'] .app-header .ti-chevron-down,
+:root[data-topbar='brand'] .app-header .ti-chevron-down {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* --- Page header (breadcrumb card) ----------------------------- */
+
+:root[data-pagehead='brand'] .page-head {
+    background: linear-gradient(135deg, rgba(var(--brand), 0.1), rgba(var(--brand), 0.03));
+    border-color: rgba(var(--brand), 0.16);
+}
+
+:root[data-pagehead='plain'] .page-head {
+    padding-left: 0;
+    padding-right: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+:root[data-pagehead='plain'] .page-head::after {
+    display: none;
+}
+
+/* Three-across surface choices in the settings drawer */
+
+.settings-choices--3 {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.settings-choice--tight {
+    padding: 10px 8px;
+    text-align: center;
+}
+
+.settings-chip {
+    display: block;
+    width: 100%;
+    height: 26px;
+    margin-bottom: 7px;
+    border: 1px solid var(--line-2);
+    border-radius: 7px;
+}
+
+.settings-choice--tight b {
+    font-size: 12px;
+}
+
+/* =========================================================
+   Readable text on the accent
+   ---------------------------------------------------------
+   The accent is now any colour the user picks, so text placed
+   on it cannot assume white. --brand-fg is computed from the
+   accent's luminance when the setting is applied.
+   ========================================================= */
+
+:root {
+    --brand-fg: 255, 255, 255;
+}
+
+.btn-primary,
+.btn-primary:hover,
+.btn-primary:focus-visible,
+.btn-primary:active {
+    --bs-btn-color: rgb(var(--brand-fg));
+    --bs-btn-hover-color: rgb(var(--brand-fg));
+    --bs-btn-active-color: rgb(var(--brand-fg));
+    color: rgb(var(--brand-fg));
+}
+
+.bg-primary {
+    color: rgb(var(--brand-fg)) !important;
+}
+
+/* Brand-coloured sidebar / topbar */
+
+:root[data-sidebar='brand'] .app-shell {
+    --sb-fg: rgba(var(--brand-fg), 0.78);
+    --sb-label: rgba(var(--brand-fg), 0.45);
+    --sb-hover-bg: rgba(var(--brand-fg), 0.1);
+    --sb-hover-fg: rgb(var(--brand-fg));
+    --sb-active-bg: rgba(var(--brand-fg), 0.17);
+    --sb-active-fg: rgb(var(--brand-fg));
+    --sb-accent: rgb(var(--brand-fg));
+    --sb-border: rgba(var(--brand-fg), 0.13);
+}
+
+:root[data-topbar='brand'] .app-shell {
+    --tb-fg: rgb(var(--brand-fg));
+    --tb-muted: rgba(var(--brand-fg), 0.62);
+    --tb-hover-bg: rgba(var(--brand-fg), 0.12);
+    --tb-border: rgba(var(--brand-fg), 0.13);
+}
+
+:root[data-topbar='brand'] .app-header .avatar {
+    background: rgba(var(--brand-fg), 0.18) !important;
+    color: rgb(var(--brand-fg));
+}
+
+:root[data-topbar='brand'] .app-header .ti-chevron-down {
+    color: rgba(var(--brand-fg), 0.7) !important;
+}
+
+/* Pagination and the settings swatch tick sit on the accent too */
+
+.dt-page.is-active {
+    color: rgb(var(--brand-fg));
+}
+
+.settings-swatch {
+    color: #fff;
+}
+
+/* Custom colour row in the settings drawer */
+
+.settings-custom {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    margin-top: 12px;
+    padding: 9px 12px;
+
+    border: 1.5px solid var(--line-2);
+    border-radius: 11px;
+    cursor: pointer;
+    transition: border-color 0.16s ease;
+}
+
+.settings-custom:hover {
+    border-color: rgba(var(--brand), 0.4);
+}
+
+.settings-custom input[type='color'] {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 9px;
+    background: none;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.settings-custom input[type='color']::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.settings-custom input[type='color']::-webkit-color-swatch {
+    border: 1px solid rgba(17, 22, 51, 0.12);
+    border-radius: 9px;
+}
+
+.settings-custom span {
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-custom b {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.settings-custom small {
+    display: block;
+    margin-top: 1px;
+    font-size: 11.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+}
+
+.settings-custom > i {
+    color: var(--muted);
+    font-size: 17px;
+}
+
+/* ---------------------------------------------------------
+   Image viewer
+   Click any picture to see it full screen. Replaces the
+   theme's GLightbox, which left with the rest of jQuery.
+   --------------------------------------------------------- */
+
+/* Thumbnail that opens the viewer */
+.previewable-trigger {
+    position: relative;
+    display: inline-block;
+    padding: 0;
+    border: 0;
+    background: none;
+    line-height: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: zoom-in;
+}
+
+.previewable-image {
+    display: block;
+    max-width: 100%;
+    border-radius: 10px;
+}
+
+.previewable-trigger:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.45);
+}
+
+/* Magnifier badge, revealed on hover so the affordance is obvious */
+.previewable-hint {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-size: 1.25rem;
+    background: rgba(9, 12, 24, 0.45);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.previewable-trigger:hover .previewable-hint,
+.previewable-trigger:focus-visible .previewable-hint {
+    opacity: 1;
+}
+
+/* The overlay itself.
+   Above Bootstrap's modal (1055) so an image inside a form dialog still
+   opens on top of it rather than behind. */
+.image-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 1090;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4.5rem 1.25rem 2rem;
+    overflow: auto;
+    background: rgba(9, 12, 24, 0.9);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    cursor: zoom-out;
+}
+
+.image-viewer.is-visible {
+    opacity: 1;
+}
+
+.image-viewer-bar {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    z-index: 1;
+}
+
+.image-viewer-btn {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    font-size: 1.15rem;
+    color: #fff;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.12);
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        transform 0.15s ease;
+}
+
+.image-viewer-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.24);
+    transform: translateY(-1px);
+}
+
+.image-viewer-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+.image-viewer-stage {
+    margin: 0;
+    max-width: 100%;
+    text-align: center;
+    cursor: default;
+}
+
+.image-viewer-img {
+    display: block;
+    max-width: min(92vw, 1200px);
+    max-height: 78vh;
+    margin: 0 auto;
+    object-fit: contain;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    cursor: zoom-in;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.image-viewer-img.is-loaded {
+    opacity: 1;
+}
+
+/* Actual size — the overlay scrolls rather than shrinking the picture */
+.image-viewer-stage.is-zoomed .image-viewer-img {
+    max-width: none;
+    max-height: none;
+    cursor: zoom-out;
+}
+
+.image-viewer-caption {
+    margin-top: 0.85rem;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.image-viewer-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 34px;
+    height: 34px;
+    margin: -17px 0 0 -17px;
+    border: 3px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: image-viewer-spin 0.7s linear infinite;
+}
+
+@keyframes image-viewer-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 575.98px) {
+    .image-viewer {
+        padding: 4rem 0.75rem 1.5rem;
+    }
+
+    .image-viewer-img {
+        max-width: 94vw;
+        max-height: 70vh;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .image-viewer,
+    .image-viewer-img,
+    .image-viewer-btn,
+    .previewable-hint,
+    .avatar-trigger {
+        transition: none;
+    }
+
+    .image-viewer-spinner {
+        animation-duration: 1.6s;
+    }
+}
+
+/* ---------------------------------------------------------
+   Organization detail — Build Spec §17
+   --------------------------------------------------------- */
+
+.org-identity {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    padding: 16px 18px;
+    margin-bottom: 16px;
+
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+}
+
+.org-identity-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.org-identity-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.org-identity-title h5 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.org-identity-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin-top: 6px;
+
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.org-identity-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+}
+
+.org-identity-meta i {
+    font-size: 15px;
+    opacity: 0.7;
+}
+
+/* Tabs */
+
+.org-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding-bottom: 2px;
+
+    /* Seven tabs do not fit on a phone; scroll rather than wrap into a
+       two-line block that pushes the content down. */
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.org-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+
+    height: 40px;
+    padding: 0 14px;
+    flex-shrink: 0;
+
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink-3);
+    white-space: nowrap;
+    cursor: pointer;
+
+    transition:
+        background 0.16s ease,
+        color 0.16s ease,
+        border-color 0.16s ease;
+}
+
+.org-tab i {
+    font-size: 17px;
+}
+
+.org-tab:hover {
+    background: var(--surface-3);
+    color: rgb(var(--brand));
+}
+
+.org-tab.is-active {
+    background: rgba(var(--brand), 0.09);
+    border-color: rgba(var(--brand), 0.18);
+    color: rgb(var(--brand));
+}
+
+.org-tab:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.25);
+}
+
+/* Definition lists inside the overview cards */
+
+.org-details {
+    margin: 0;
+    display: grid;
+    gap: 12px;
+}
+
+.org-details > div {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 12px;
+    align-items: baseline;
+}
+
+.org-details dt {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.org-details dd {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 575.98px) {
+    .org-details > div {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+}
+
+/* Placeholder for tabs whose data has not been built yet */
+
+.org-pending {
+    padding: 34px 16px;
+    text-align: center;
+    color: var(--muted);
+}
+
+.org-pending i {
+    font-size: 30px;
+    color: rgba(var(--brand), 0.5);
+}
+
+.org-pending h6 {
+    margin: 10px 0 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.org-pending p {
+    margin: 0 auto;
+    max-width: 460px;
+    font-size: 13.5px;
+}
+
+/* ---------------------------------------------------------
+   File field
+   A drop zone that replaces the browser's own file input,
+   which shows a truncated name and no size at all.
+   --------------------------------------------------------- */
+
+.filefield {
+    position: relative;
+    border: 1.5px dashed var(--line-2);
+    border-radius: 12px;
+    background: var(--surface-2);
+    transition:
+        border-color 0.18s ease,
+        background 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.filefield:hover {
+    border-color: rgba(var(--brand), 0.45);
+    background: rgba(var(--brand), 0.03);
+}
+
+/* Dragging a file over it */
+.filefield.is-dragging {
+    border-color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.07);
+    box-shadow: 0 0 0 4px rgba(var(--brand), 0.1);
+}
+
+.filefield.has-file {
+    border-style: solid;
+    border-color: var(--line-2);
+    background: var(--surface);
+}
+
+.filefield.is-invalid {
+    border-color: #dc3545;
+    background: rgba(220, 53, 69, 0.03);
+}
+
+/* The real input stays in the DOM — react-hook-form owns the value — but
+   covers nothing visually. */
+.filefield-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Empty state */
+
+.filefield-prompt {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.filefield-icon {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    font-size: 22px;
+    color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.1);
+    transition: transform 0.18s ease;
+}
+
+.filefield:hover .filefield-icon,
+.filefield.is-dragging .filefield-icon {
+    transform: translateY(-2px);
+}
+
+.filefield-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.filefield-copy b {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.filefield-copy small {
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+/* Chosen state */
+
+.filefield-chosen {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    animation: filefield-in 0.22s ease;
+}
+
+@keyframes filefield-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.filefield-thumb {
+    width: 46px;
+    height: 46px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    object-fit: cover;
+    background: var(--surface-3);
+}
+
+.filefield-thumb--icon {
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+    color: var(--muted);
+}
+
+.filefield-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+}
+
+.filefield-meta b {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.filefield-meta small {
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+/* Over the cap — said here rather than after a failed round trip */
+.filefield-over {
+    color: #dc3545 !important;
+    font-weight: 600;
+}
+
+.filefield-clear {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 16px;
+    cursor: pointer;
+    transition:
+        background 0.16s ease,
+        color 0.16s ease;
+}
+
+.filefield-clear:hover {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
+
+.filefield-clear:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.25);
+}
+
+/* The image already on file */
+
+.filefield-current {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.filefield-stored {
+    border-radius: 10px;
+    border: 1px solid var(--line-2);
+}
+
+/* ---------------------------------------------------------
+   Sticky form actions
+   Long forms should not make you scroll to the bottom to save.
+   --------------------------------------------------------- */
+
+.form-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+
+    margin-top: 16px;
+    padding: 12px 16px;
+
+    background: rgba(255, 255, 255, 0.92);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 -2px 16px rgba(15, 23, 42, 0.05);
+}
+
+.form-actions-note {
+    margin-right: auto;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+@media (max-width: 575.98px) {
+    .form-actions {
+        flex-wrap: wrap;
+    }
+
+    .form-actions-note {
+        width: 100%;
+        margin: 0 0 4px;
+    }
+
+    .form-actions .btn {
+        flex: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .filefield,
+    .filefield-icon,
+    .filefield-clear {
+        transition: none;
+    }
+
+    .filefield-chosen {
+        animation: none;
+    }
+}
+
+/* ---------------------------------------------------------
+   File field — upload in progress
+   --------------------------------------------------------- */
+
+.filefield.is-uploading {
+    border-color: rgba(var(--brand), 0.4);
+    background: rgba(var(--brand), 0.03);
+}
+
+/* The picture dims while its bytes are still going up */
+.filefield.is-uploading .filefield-thumb {
+    opacity: 0.6;
+}
+
+.filefield-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+}
+
+.filefield-bar {
+    display: block;
+    height: 4px;
+    margin-top: 6px;
+    border-radius: 999px;
+    background: rgba(var(--brand), 0.15);
+    overflow: hidden;
+}
+
+.filefield-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: rgb(var(--brand));
+    transition: width 0.2s ease;
+}
+
+/*
+   Bytes are up, the server is still working. The bar is full, so it moves
+   instead of filling — a static full bar next to "Processing" reads as
+   finished-but-stuck.
+*/
+.filefield-bar.is-settling > span {
+    width: 100% !important;
+    background: linear-gradient(
+        90deg,
+        rgba(var(--brand), 0.35) 25%,
+        rgb(var(--brand)) 50%,
+        rgba(var(--brand), 0.35) 75%
+    );
+    background-size: 200% 100%;
+    animation: filefield-sweep 1.1s linear infinite;
+}
+
+@keyframes filefield-sweep {
+    from {
+        background-position: 200% 0;
+    }
+    to {
+        background-position: 0 0;
+    }
+}
+
+.filefield-spinner {
+    width: 11px;
+    height: 11px;
+    flex-shrink: 0;
+    border: 2px solid rgba(var(--brand), 0.3);
+    border-top-color: rgb(var(--brand));
+    border-radius: 50%;
+    animation: filefield-spin 0.7s linear infinite;
+}
+
+@keyframes filefield-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .filefield-bar > span,
+    .filefield-bar.is-settling > span {
+        transition: none;
+        animation: none;
+    }
+
+    .filefield-spinner {
+        animation-duration: 2.4s;
+    }
+}
+
+/* ---------------------------------------------------------
+   Card header — icon, title, description
+   --------------------------------------------------------- */
+
+.app-content .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.card-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    min-width: 0;
+}
+
+.card-icon {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    font-size: 18px;
+    color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.1);
+}
+
+.card-heading-text {
+    min-width: 0;
+}
+
+.card-description {
+    margin: 2px 0 0;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+/* ---------------------------------------------------------
+   Form layout
+   --------------------------------------------------------- */
+
+/*
+   The side rail follows the page down.
+
+   The main column is roughly twice as tall as the rail, so without this the
+   rail scrolled away and left a long empty gutter beside the last section —
+   with the logo and the save state stranded off screen.
+
+   `top` clears the sticky topbar; `align-self: start` is what lets a grid
+   column be shorter than its row in the first place.
+*/
+.form-rail {
+    position: sticky;
+    top: calc(var(--tb-height, 62px) + 16px);
+    align-self: start;
+}
+
+/* One consistent gap between stacked sections */
+.form-column > .card + .card,
+.form-rail > .card + .card {
+    margin-top: 16px;
+}
+
+/* Says what the asterisks mean, once, rather than per field */
+.form-legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+.form-legend .req {
+    color: #dc3545;
+    font-weight: 700;
+}
+
+@media (max-width: 991.98px) {
+    /* Below the two-column breakpoint there is nothing to stick to. */
+    .form-rail {
+        position: static;
+    }
+}
+
+/* =========================================================
+   Dark theme — Bootstrap and theme surfaces
+   ---------------------------------------------------------
+   Our own rules already read the tokens above. These are the
+   places where Bootstrap or the purchased theme hardcodes a
+   light colour of its own, so each has to be told once.
+   ========================================================= */
+
+[data-theme='dark'] {
+    --bs-body-bg: var(--bg);
+    --bs-body-color: var(--ink-2);
+    --bs-border-color: var(--line-2);
+    --bs-secondary-color: var(--muted);
+    --bs-emphasis-color: var(--ink);
+    --bs-heading-color: var(--ink);
+}
+
+[data-theme='dark'] .card {
+    background-color: var(--surface);
+    border-color: var(--line);
+    color: var(--ink-2);
+}
+
+[data-theme='dark'] .card-header,
+[data-theme='dark'] .modal-header,
+[data-theme='dark'] .modal-footer,
+[data-theme='dark'] .bg-light {
+    background-color: var(--surface-2) !important;
+    border-color: var(--line) !important;
+    color: var(--ink-2);
+}
+
+[data-theme='dark'] .modal-content {
+    background-color: var(--surface);
+    color: var(--ink-2);
+}
+
+[data-theme='dark'] .modal-backdrop {
+    /* The default backdrop is barely visible against a dark page. */
+    --bs-backdrop-opacity: 0.7;
+}
+
+/* Inputs */
+
+[data-theme='dark'] .form-control,
+[data-theme='dark'] .form-select,
+[data-theme='dark'] .form-check-input {
+    background-color: var(--surface-3);
+    border-color: var(--line-2);
+    color: var(--ink);
+}
+
+[data-theme='dark'] .form-control::placeholder {
+    color: var(--muted);
+    opacity: 1;
+}
+
+[data-theme='dark'] .form-control:focus,
+[data-theme='dark'] .form-select:focus {
+    background-color: var(--surface-3);
+    color: var(--ink);
+}
+
+/* The chevron is a baked-in dark SVG; invert it rather than re-encode it. */
+[data-theme='dark'] .form-select {
+    filter: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%237d859f' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+}
+
+[data-theme='dark'] .form-label,
+[data-theme='dark'] .app-content .form-check-label {
+    color: var(--ink-2);
+}
+
+/* Buttons and menus */
+
+[data-theme='dark'] .btn-light {
+    --bs-btn-bg: var(--surface-3);
+    --bs-btn-border-color: var(--line-2);
+    --bs-btn-color: var(--ink-2);
+    --bs-btn-hover-bg: var(--line-2);
+    --bs-btn-hover-border-color: var(--line-2);
+    --bs-btn-hover-color: var(--ink);
+}
+
+[data-theme='dark'] .dropdown-menu {
+    --bs-dropdown-bg: var(--surface);
+    --bs-dropdown-border-color: var(--line-2);
+    --bs-dropdown-link-color: var(--ink-2);
+    --bs-dropdown-link-hover-bg: var(--surface-3);
+    --bs-dropdown-link-hover-color: var(--ink);
+    --bs-dropdown-divider-bg: var(--line);
+}
+
+[data-theme='dark'] .text-muted {
+    color: var(--muted) !important;
+}
+
+[data-theme='dark'] .img-thumbnail {
+    background-color: var(--surface-2);
+    border-color: var(--line-2);
+}
+
+/* Our own components that still assume a light ground */
+
+[data-theme='dark'] .form-actions {
+    background: rgba(22, 26, 43, 0.92);
+    border-color: var(--line);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme='dark'] .filefield {
+    background: var(--surface-2);
+    border-color: var(--line-2);
+}
+
+[data-theme='dark'] .filefield.has-file {
+    background: var(--surface);
+}
+
+[data-theme='dark'] .filefield-thumb {
+    background: var(--surface-3);
+}
+
+[data-theme='dark'] .hospital-loader {
+    background: rgba(14, 17, 32, 0.86);
+}
+
+[data-theme='dark'] .image-viewer {
+    background: rgba(4, 6, 14, 0.92);
+}
+
+[data-theme='dark'] .settings-panel,
+[data-theme='dark'] .app-sidebar,
+[data-theme='dark'] .app-header {
+    background: var(--surface);
+}
+
+/* The dark-text logo disappears on a dark ground */
+[data-theme='dark'] .app-brand img.app-brand-full {
+    filter: brightness(0) invert(1);
+    opacity: 0.92;
+}

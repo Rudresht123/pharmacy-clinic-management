@@ -1,0 +1,591 @@
+/* =========================================================
+   DataTable (React)
+   ========================================================= */
+
+.dt {
+    --dt-line: var(--line);
+    --dt-head: var(--surface-2);
+    --dt-ink: var(--ink);
+    --dt-muted: var(--muted);
+    --dt-primary: rgb(var(--brand));
+}
+
+/* ---------------------------------------------------------
+   Toolbar
+   --------------------------------------------------------- */
+
+.dt-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.dt-length {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--dt-ink);
+}
+
+.dt-length select {
+    height: 36px;
+    padding: 0 30px 0 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 9px;
+    background-color: var(--surface);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--dt-ink);
+    cursor: pointer;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dt-length select:focus {
+    outline: 0;
+    border-color: var(--dt-primary);
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.1);
+}
+
+.dt-search {
+    position: relative;
+    min-width: 240px;
+}
+
+.dt-search i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 16px;
+    pointer-events: none;
+}
+
+.dt-search input {
+    width: 100%;
+    height: 36px;
+    padding: 0 12px 0 34px;
+    border: 1px solid var(--line-2);
+    border-radius: 9px;
+    background: var(--surface);
+    font-size: 13.5px;
+    color: var(--dt-ink);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dt-search input::placeholder {
+    color: var(--muted);
+}
+
+.dt-search input:focus {
+    outline: 0;
+    border-color: var(--dt-primary);
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.1);
+}
+
+/* ---------------------------------------------------------
+   Table
+   --------------------------------------------------------- */
+
+.dt-wrap {
+    position: relative;
+    border: 1px solid var(--dt-line);
+    border-radius: 12px;
+    overflow-x: auto;
+}
+
+.dt-table {
+    width: 100%;
+    margin: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--dt-ink);
+    /* Numbers and dates line up column-to-column */
+    font-variant-numeric: tabular-nums;
+}
+
+/* Head */
+
+.dt-table thead th {
+    padding: 12px 16px;
+    background: var(--dt-head);
+    border-bottom: 1px solid var(--dt-line);
+
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+
+    white-space: nowrap;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+
+.dt-table thead th.is-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.dt-table thead th.is-sortable:hover {
+    background: var(--surface-3);
+}
+
+/* Active sort column */
+.dt-table thead th.is-sorted {
+    background: rgba(var(--brand), 0.07);
+    color: var(--dt-primary);
+}
+
+.dt-sort-icon {
+    margin-left: 6px;
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0.45;
+}
+
+.dt-table thead th.is-sorted .dt-sort-icon {
+    opacity: 1;
+}
+
+/* Body */
+
+.dt-table tbody td {
+    padding: 11px 16px;
+    height: 56px;
+    border-bottom: 1px solid var(--dt-line);
+    vertical-align: middle;
+    /* Long values truncate instead of wrapping a row onto three lines */
+    white-space: nowrap;
+}
+
+.dt-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.dt-table tbody tr {
+    transition: background 0.15s ease;
+}
+
+.dt-table tbody tr:hover {
+    background: var(--surface-2);
+}
+
+/* Sorted column — the tint runs the full height of the table */
+
+.dt-table tbody td.is-sorted {
+    background: rgba(var(--brand), 0.038);
+}
+
+/* Row hover has to stay visible through the column tint */
+.dt-table tbody tr:hover td.is-sorted {
+    background: rgba(var(--brand), 0.07);
+}
+
+.dt-empty {
+    padding: 34px 16px !important;
+    text-align: center;
+    color: var(--dt-muted);
+    font-size: 13.5px;
+}
+
+/* Cell helpers */
+
+/* Truncate rather than wrap; pair with a title attribute for the full value */
+.dt-ellipsis {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Primary cell: a bold name with a quiet second line under it */
+.dt-lede {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.dt-lede b {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.dt-lede small {
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+.dt-media {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+/* Square avatar used in table rows */
+.avatar-box {
+    flex-shrink: 0;
+    border-radius: 9px;
+    display: inline-grid;
+    place-items: center;
+    overflow: hidden;
+}
+
+.avatar-box--initials {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.1);
+    box-shadow: inset 0 0 0 1px rgba(var(--brand), 0.08);
+}
+
+/* Avatar that opens the image viewer. A button, so the keyboard reaches it. */
+.avatar-trigger {
+    padding: 0;
+    border: 0;
+    background: none;
+    line-height: 0;
+    border-radius: 9px;
+    cursor: zoom-in;
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.avatar-trigger:hover {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 2px rgba(var(--brand), 0.35);
+}
+
+.avatar-trigger:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.45);
+}
+
+/* Muted secondary values (codes, ids) */
+.dt-muted {
+    color: var(--muted);
+}
+
+/* ---------------------------------------------------------
+   Footer
+   --------------------------------------------------------- */
+
+.dt-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.dt-info {
+    font-size: 13px;
+    color: var(--dt-muted);
+}
+
+.dt-pages {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dt-page {
+    min-width: 34px;
+    height: 34px;
+    padding: 0 8px;
+    border: 1px solid var(--line-2);
+    border-radius: 9px;
+    background: var(--surface);
+    color: var(--ink-3);
+    font-size: 13.5px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.dt-page:hover:not(:disabled):not(.is-active) {
+    background: var(--surface-3);
+    border-color: var(--line-2);
+    color: var(--dt-primary);
+}
+
+.dt-page.is-active {
+    background: var(--dt-primary);
+    border-color: var(--dt-primary);
+    color: #fff;
+    box-shadow: 0 4px 10px -2px rgba(var(--brand), 0.4);
+}
+
+.dt-page:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+/* ---------------------------------------------------------
+   Mobile — rows become stacked cards
+   ---------------------------------------------------------
+   A horizontally scrolling table hides most columns on a phone.
+   Below 768px each row is re-laid out as a card of label/value
+   pairs, using the data-label the component puts on every cell.
+   --------------------------------------------------------- */
+
+@media (max-width: 767.98px) {
+    .dt-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .dt-length {
+        justify-content: space-between;
+    }
+
+    .dt-search {
+        min-width: 0;
+    }
+
+    .dt-wrap {
+        border: 0;
+        border-radius: 0;
+        overflow: visible;
+        background: transparent;
+    }
+
+    .dt-table,
+    .dt-table tbody,
+    .dt-table tr,
+    .dt-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .dt-table thead {
+        display: none;
+    }
+
+    .dt-table tbody tr {
+        border: 1px solid var(--dt-line);
+        border-radius: 12px;
+        background: var(--surface);
+        margin-bottom: 10px;
+        padding: 4px 0;
+        overflow: hidden;
+    }
+
+    .dt-table tbody tr:hover {
+        background: var(--surface);
+    }
+
+    .dt-table tbody td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+
+        padding: 9px 14px;
+        border-bottom: 0;
+        text-align: right;
+        font-size: 13.5px;
+        min-height: 0;
+    }
+
+    /* Row label, taken from the column header */
+    .dt-table tbody td::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--dt-muted);
+    }
+
+    /* Cells with no header (serial, actions) span the full width */
+    .dt-table tbody td[data-label='']::before {
+        content: none;
+    }
+
+    /* Serial number sits as a quiet header strip */
+    .dt-table tbody td[data-col='serial'] {
+        justify-content: flex-start;
+        padding: 8px 14px 4px;
+        color: var(--dt-muted);
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .dt-table tbody td[data-col='serial']::before {
+        content: '#';
+        color: var(--dt-muted);
+        margin-right: 2px;
+    }
+
+    /* Actions get their own row, right aligned, on a divider */
+    .dt-table tbody td[data-col='actions'] {
+        justify-content: flex-end;
+        border-top: 1px solid var(--dt-line);
+        margin-top: 4px;
+        padding-top: 10px;
+    }
+
+    .dt-empty {
+        border: 1px solid var(--dt-line);
+        border-radius: 12px;
+        background: var(--surface);
+    }
+
+    .dt-foot {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+}
+
+/* ---------------------------------------------------------
+   Refetch overlay
+   ---------------------------------------------------------
+   Shown while a new page or search result loads. The previous
+   rows stay in place underneath, so the table keeps its height
+   and nothing jumps.
+   --------------------------------------------------------- */
+
+.dt-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(1.5px);
+    -webkit-backdrop-filter: blur(1.5px);
+    border-radius: inherit;
+
+    animation: dt-fade-in 0.14s ease both;
+}
+
+.dt-overlay-spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(var(--brand), 0.18);
+    border-top-color: var(--dt-primary);
+    border-radius: 50%;
+    animation: dt-spin 0.7s linear infinite;
+}
+
+@keyframes dt-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes dt-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Dim the rows behind the overlay so it is clearly a pending state */
+.dt-wrap[data-fetching='true'] .dt-table tbody {
+    opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dt-overlay-spinner {
+        animation-duration: 1.4s;
+    }
+
+    .dt-overlay {
+        animation: none;
+    }
+}
+
+/* Rows become cards on mobile, where a "column" tint has no meaning */
+@media (max-width: 767.98px) {
+    .dt-table tbody td.is-sorted,
+    .dt-table tbody tr:hover td.is-sorted {
+        background: transparent;
+    }
+}
+
+/* ---------------------------------------------------------
+   Organization lifecycle badge — Build Spec §5, §9
+   Distinct from .status-badge, which is the two-state
+   active/inactive flag. Six states need six colours.
+   --------------------------------------------------------- */
+
+.org-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    padding: 3px 10px 3px 8px;
+    border-radius: 999px;
+
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+
+    color: rgb(var(--os-tone));
+    background: rgba(var(--os-tone), 0.1);
+    box-shadow: inset 0 0 0 1px rgba(var(--os-tone), 0.16);
+}
+
+.org-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+
+.org-status--emerald {
+    --os-tone: 5, 130, 90;
+}
+
+.org-status--sky {
+    --os-tone: 2, 106, 187;
+}
+
+.org-status--amber {
+    --os-tone: 191, 105, 6;
+}
+
+.org-status--rose {
+    --os-tone: 200, 26, 64;
+}
+
+.org-status--muted {
+    --os-tone: 117, 124, 153;
+}
+
+/* Name cell that navigates to the detail screen */
+.dt-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.dt-link:hover b {
+    color: rgb(var(--brand));
+    text-decoration: underline;
+}

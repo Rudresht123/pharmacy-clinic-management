@@ -1,0 +1,217 @@
+/* =========================================================
+   App UI components (React layer)
+   ========================================================= */
+
+:root {
+    --ui-ink: #111633;
+    --ui-muted: #6b7191;
+    --ui-line: #e8eaf2;
+    --ui-primary: #2e37a4;
+    --ui-danger: #e5484d;
+    --ui-surface: #ffffff;
+}
+
+/* ---------------------------------------------------------
+   Modal
+   --------------------------------------------------------- */
+
+.ui-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1070;
+    background: rgba(15, 19, 45, 0.42);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity 0.22s ease;
+}
+
+.ui-modal-backdrop[data-state='open'] {
+    opacity: 1;
+}
+
+/* Scroll container — also does the centering, so no theme rule can move it */
+.ui-modal-scroll {
+    position: fixed;
+    inset: 0;
+    z-index: 1071;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    overflow-y: auto;
+}
+
+.ui-modal {
+    position: relative;
+    width: 100%;
+    max-height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
+
+    background: var(--ui-surface);
+    border-radius: 18px;
+    box-shadow:
+        0 1px 2px rgba(17, 22, 51, 0.04),
+        0 12px 28px rgba(17, 22, 51, 0.1),
+        0 40px 72px -28px rgba(17, 22, 51, 0.28);
+
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+    transition:
+        opacity 0.22s ease,
+        transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ui-modal-scroll[data-state='open'] .ui-modal {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+/* Sizes */
+.ui-modal--sm {
+    max-width: 420px;
+}
+.ui-modal--md {
+    max-width: 560px;
+}
+.ui-modal--lg {
+    max-width: 720px;
+}
+.ui-modal--xl {
+    max-width: 960px;
+}
+
+/* Header */
+
+.ui-modal-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--ui-line);
+}
+
+.ui-modal-icon {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    color: var(--ui-primary);
+    background: rgba(46, 55, 164, 0.09);
+}
+
+.ui-modal-icon[data-tone='danger'] {
+    color: var(--ui-danger);
+    background: rgba(229, 72, 77, 0.1);
+}
+
+.ui-modal-heading {
+    flex: 1;
+    min-width: 0;
+    padding-top: 2px;
+}
+
+.ui-modal-heading h6 {
+    margin: 0;
+    font-size: 15.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ui-ink);
+}
+
+.ui-modal-heading p {
+    margin: 3px 0 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--ui-muted);
+}
+
+.ui-modal-close {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #9ba1ba;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition:
+        background 0.18s ease,
+        color 0.18s ease;
+}
+
+.ui-modal-close:hover:not(:disabled) {
+    background: rgba(229, 72, 77, 0.1);
+    color: var(--ui-danger);
+}
+
+.ui-modal-close:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* Body */
+
+.ui-modal-body {
+    padding: 22px;
+    overflow-y: auto;
+}
+
+/* Trailing field in a modal should not add stray space above the footer */
+.ui-modal-body > form > *:last-child,
+.ui-modal-body > *:last-child {
+    margin-bottom: 0;
+}
+
+/* Footer */
+
+.ui-modal-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 22px;
+    border-top: 1px solid var(--ui-line);
+    background: #fafbfd;
+    border-radius: 0 0 18px 18px;
+}
+
+.ui-modal-foot .btn {
+    border-radius: 10px;
+    font-weight: 600;
+    padding-inline: 18px;
+}
+
+/* Small screens */
+
+@media (max-width: 575.98px) {
+    .ui-modal-scroll {
+        padding: 12px;
+        align-items: flex-end;
+    }
+
+    .ui-modal {
+        border-radius: 16px;
+        max-height: calc(100vh - 24px);
+    }
+
+    .ui-modal-foot {
+        border-radius: 0 0 16px 16px;
+    }
+
+    .ui-modal-foot .btn {
+        flex: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ui-modal-backdrop,
+    .ui-modal {
+        transition: none;
+    }
+}
