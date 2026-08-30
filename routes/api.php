@@ -68,6 +68,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::apiResource('organizations', OrganizationController::class);
 
+        Route::post(
+            'organizations/{organization}/retry-provisioning',
+            [OrganizationController::class, 'retryProvisioning']
+        );
+
         // Explicit parameter name: the default would be {organization_type},
         // which does not match the $organizationType controller argument.
         Route::apiResource('organization-types', OrganizationTypeController::class)

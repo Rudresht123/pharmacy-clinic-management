@@ -97,6 +97,21 @@
     border: 1px solid var(--dt-line);
     border-radius: 12px;
     overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--dt-line) transparent;
+}
+
+.dt-wrap::-webkit-scrollbar {
+    height: 6px;
+}
+
+.dt-wrap::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.dt-wrap::-webkit-scrollbar-thumb {
+    background: var(--dt-line);
+    border-radius: 999px;
 }
 
 .dt-table {

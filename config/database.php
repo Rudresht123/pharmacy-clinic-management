@@ -128,6 +128,28 @@ return [
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
+
+        /*
+         * A separate handle onto the same server as `pgsql`, used only for
+         * CREATE DATABASE / DROP DATABASE (see DatabaseService). Postgres
+         * refuses to run those inside a transaction, and a test suite using
+         * RefreshDatabase wraps the `pgsql` connection in one per test — a
+         * distinctly-named connection is what keeps DDL out of that wrapper
+         * without disabling transactional test isolation for everything
+         * else.
+         */
+        'pgsql_ddl' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+        ],
     ],
 
     /*

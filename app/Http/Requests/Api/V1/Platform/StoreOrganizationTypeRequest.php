@@ -18,11 +18,11 @@ class StoreOrganizationTypeRequest extends FormRequest
         return [
             'name' => [
                 'required', 'string', 'max:191',
-                Rule::unique('organization_type', 'name')->whereNull('deleted_at'),
+                Rule::unique('organization_types', 'name')->whereNull('deleted_at'),
             ],
             'slug' => [
                 'required', 'string', 'max:191',
-                Rule::unique('organization_type', 'slug')->whereNull('deleted_at'),
+                Rule::unique('organization_types', 'slug')->whereNull('deleted_at'),
             ],
             'is_active' => ['nullable', 'boolean'],
         ];

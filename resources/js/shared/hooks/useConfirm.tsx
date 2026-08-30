@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
+import { cn } from '@/shared/utils/cn';
 
 interface ConfirmOptions {
     title?: string;
@@ -57,7 +58,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             <Modal
                 open={options !== null}
                 title={options?.title ?? 'Are you sure?'}
-                size="sm"
+                size="md"
                 tone={options?.danger ? 'danger' : 'primary'}
                 icon={
                     <svg
@@ -71,8 +72,20 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                     >
-                        <path d="M12 9v4M12 17h.01" />
-                        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+                        {options?.danger ? (
+                            <>
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-1 14H6L5 6" />
+                                <path d="M10 11v6" />
+                                <path d="M14 11v6" />
+                                <path d="M9 6V4h6v2" />
+                            </>
+                        ) : (
+                            <>
+                                <path d="M12 9v4M12 17h.01" />
+                                <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+                            </>
+                        )}
                     </svg>
                 }
                 onClose={() => settle(false)}
@@ -90,7 +103,38 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                     </>
                 }
             >
-                <p className="mb-0">{options?.message}</p>
+                <div className="text-center py-2">
+                    <div className={cn('confirm-icon-circle', options?.danger ? 'tone-danger' : 'tone-primary')}>
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="30"
+                            height="30"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
+                            {options?.danger ? (
+                                <>
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6l-1 14H6L5 6" />
+                                    <path d="M10 11v6" />
+                                    <path d="M14 11v6" />
+                                    <path d="M9 6V4h6v2" />
+                                </>
+                            ) : (
+                                <>
+                                    <path d="M12 9v4M12 17h.01" />
+                                    <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+                                </>
+                            )}
+                        </svg>
+                    </div>
+
+                    <p className="mb-0 fs-15">{options?.message}</p>
+                </div>
             </Modal>
         </ConfirmContext.Provider>
     );

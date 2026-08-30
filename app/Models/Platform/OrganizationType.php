@@ -10,7 +10,7 @@ class OrganizationType extends Record
 {
     use SoftDeletes;
 
-    protected $table = 'organization_type';
+    protected $table = 'organization_types';
 
     protected $fillable = [
         'name',

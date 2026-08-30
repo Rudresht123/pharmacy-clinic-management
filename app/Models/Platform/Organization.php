@@ -7,6 +7,7 @@ use Database\Factories\Platform\OrganizationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -49,6 +50,7 @@ class Organization extends Record
     protected $fillable = [
         'organization_name',
         'slug',
+        'tenant_key',
         'organization_code',
         'organization_type_id',
         'subdomain',
@@ -132,6 +134,51 @@ class Organization extends Record
         return $this->hasMany(OrganizationContact::class);
     }
 
+    public function profile(): HasOne
+    {
+        return $this->hasOne(OrganizationProfile::class);
+    }
+
+    public function domains(): HasMany
+    {
+        return $this->hasMany(OrganizationDomain::class);
+    }
+
+    public function featureFlagOverrides(): HasMany
+    {
+        return $this->hasMany(FeatureFlagOverride::class);
+    }
+
+    public function tenantDatabase(): HasOne
+    {
+        return $this->hasOne(TenantDatabase::class);
+    }
+
+    public function provisionEvents(): HasMany
+    {
+        return $this->hasMany(TenantProvisionEvent::class);
+    }
+
+    public function migrationState(): HasOne
+    {
+        return $this->hasOne(TenantMigrationState::class);
+    }
+
+    public function migrationRuns(): HasMany
+    {
+        return $this->hasMany(TenantMigrationRun::class);
+    }
+
+    public function backups(): HasMany
+    {
+        return $this->hasMany(TenantBackup::class);
+    }
+
+    public function stats(): HasMany
+    {
+        return $this->hasMany(OrganizationStat::class);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | State
@@ -188,18 +235,45 @@ class Organization extends Record
     }
 
     /**
-     * Generate unique database name.
+     * A stable, Postgres-identifier-safe key that the tenant database name is
+     * derived from — unlike `organization_name`, this never changes after
+     * creation, so the database it points at never has to move.
      *
-     * Example:
-     * Gyan International Academy
-     * => hms_gyan_international_academy
-     *
-     * Next Duplicate:
-     * => hms_gyan_international_academy_1
+     * Example: "Gyan International Academy" => gyan_international_academy,
+     * then _1, _2 and so on if that is taken.
      */
-    public static function generateDatabaseName(string $databaseName): string
+    public static function generateTenantKey(string $name): string
     {
-        $baseName = 'hms_' . Str::snake(Str::lower(trim($databaseName)));
+        $base = Str::limit(Str::slug($name, '_'), 36, '');
+
+        // The DB-name CHECK constraint requires a leading letter.
+        if (! preg_match('/^[a-z]/', $base)) {
+            $base = 'org_' . $base;
+        }
+
+        $key = $base;
+        $counter = 1;
+
+        while (self::withTrashed()->where('tenant_key', $key)->exists()) {
+            $key = "{$base}_{$counter}";
+            $counter++;
+        }
+
+        return $key;
+    }
+
+    /**
+     * Generate the tenant database name from its (immutable) tenant key.
+     *
+     * Example: tenant_key "gyan_international_academy"
+     * => hms_tenant_gyan_international_academy
+     *
+     * Next duplicate:
+     * => hms_tenant_gyan_international_academy_1
+     */
+    public static function generateDatabaseName(string $tenantKey): string
+    {
+        $baseName = 'hms_tenant_' . $tenantKey;
 
         $databaseName = $baseName;
         $counter = 1;

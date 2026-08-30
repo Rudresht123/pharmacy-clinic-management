@@ -1,11 +1,14 @@
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 /**
- * The edit / delete pair used in every table's Action column.
+ * The edit / delete pair used in every table's Action column, tucked behind
+ * a single "…" button instead of two icons sitting in the row.
  *
- * Uses the theme's .action-badge / .edit-badge / .delete-badge classes, so
- * the soft-tinted blue and red buttons match the Blade tables exactly.
- * Edit renders as a link when given a `to`, otherwise as a button.
+ * The menu is positioned with `position: fixed` from the button's own
+ * bounding rect (not CSS-anchored to the row) because the Action column
+ * lives inside `.dt-wrap`, which is horizontally scrollable — an absolutely
+ * positioned menu would get clipped at that container's edge.
  */
 interface RowActionsProps {
     editTo?: string;
@@ -15,43 +18,6 @@ interface RowActionsProps {
     deleteTitle?: string;
 }
 
-const EDIT_ICON = (
-    <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-    >
-        <path d="M12 20h9" />
-        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-    </svg>
-);
-
-const DELETE_ICON = (
-    <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-    >
-        <polyline points="3 6 5 6 21 6" />
-        <path d="M19 6l-1 14H6L5 6" />
-        <path d="M10 11v6" />
-        <path d="M14 11v6" />
-        <path d="M9 6V4h6v2" />
-    </svg>
-);
-
 export function RowActions({
     editTo,
     onEdit,
@@ -59,34 +25,129 @@ export function RowActions({
     editTitle = 'Edit',
     deleteTitle = 'Delete',
 }: RowActionsProps) {
-    return (
-        <div className="d-flex align-items-center gap-2">
-            {editTo ? (
-                <Link to={editTo} className="action-badge edit-badge" title={editTitle}>
-                    {EDIT_ICON}
-                </Link>
-            ) : (
-                onEdit && (
-                    <button
-                        type="button"
-                        className="action-badge edit-badge"
-                        title={editTitle}
-                        onClick={onEdit}
-                    >
-                        {EDIT_ICON}
-                    </button>
-                )
-            )}
+    const [open, setOpen] = useState(false);
+    const [coords, setCoords] = useState({ top: 0, right: 0 });
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
-            {onDelete && (
-                <button
-                    type="button"
-                    className="action-badge delete-badge"
-                    title={deleteTitle}
-                    onClick={onDelete}
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        function onOutside(event: MouseEvent) {
+            const target = event.target as Node;
+
+            if (
+                !buttonRef.current?.contains(target) &&
+                !menuRef.current?.contains(target)
+            ) {
+                setOpen(false);
+            }
+        }
+
+        function onEscape(event: KeyboardEvent) {
+            if (event.key === 'Escape') {
+                setOpen(false);
+            }
+        }
+
+        // The table can scroll under the menu (horizontally in .dt-wrap,
+        // vertically on the page) — closing on either keeps it from
+        // drifting away from the button it belongs to.
+        function onScroll() {
+            setOpen(false);
+        }
+
+        document.addEventListener('mousedown', onOutside);
+        document.addEventListener('keydown', onEscape);
+        window.addEventListener('scroll', onScroll, true);
+
+        return () => {
+            document.removeEventListener('mousedown', onOutside);
+            document.removeEventListener('keydown', onEscape);
+            window.removeEventListener('scroll', onScroll, true);
+        };
+    }, [open]);
+
+    function toggle() {
+        if (!open && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+
+            setCoords({
+                top: rect.bottom + 4,
+                right: window.innerWidth - rect.right,
+            });
+        }
+
+        setOpen((value) => !value);
+    }
+
+    return (
+        <div className="d-inline-block">
+            <button
+                ref={buttonRef}
+                type="button"
+                className="action-badge menu-badge"
+                title="Actions"
+                aria-haspopup="menu"
+                aria-expanded={open}
+                onClick={toggle}
+            >
+                <i className="ti ti-dots-vertical" />
+            </button>
+
+            {open && (
+                <div
+                    ref={menuRef}
+                    className="dropdown-menu show mt-0"
+                    role="menu"
+                    style={{ position: 'fixed', top: coords.top, right: coords.right, left: 'auto' }}
                 >
-                    {DELETE_ICON}
-                </button>
+                    {(editTo || onEdit) &&
+                        (editTo ? (
+                            <Link
+                                to={editTo}
+                                className="dropdown-item dropdown-item-edit"
+                                role="menuitem"
+                                title={editTitle}
+                                onClick={() => setOpen(false)}
+                            >
+                                <i className="ti ti-edit me-1 align-middle" />
+                                <span className="align-middle">Edit</span>
+                            </Link>
+                        ) : (
+                            <button
+                                type="button"
+                                className="dropdown-item dropdown-item-edit"
+                                role="menuitem"
+                                title={editTitle}
+                                onClick={() => {
+                                    setOpen(false);
+                                    onEdit?.();
+                                }}
+                            >
+                                <i className="ti ti-edit me-1 align-middle" />
+                                <span className="align-middle">Edit</span>
+                            </button>
+                        ))}
+
+                    {onDelete && (
+                        <button
+                            type="button"
+                            className="dropdown-item dropdown-item-delete"
+                            role="menuitem"
+                            title={deleteTitle}
+                            onClick={() => {
+                                setOpen(false);
+                                onDelete();
+                            }}
+                        >
+                            <i className="ti ti-trash me-1 align-middle" />
+                            <span className="align-middle">Delete</span>
+                        </button>
+                    )}
+                </div>
             )}
         </div>
     );

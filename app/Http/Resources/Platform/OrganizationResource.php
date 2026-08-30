@@ -26,6 +26,31 @@ class OrganizationResource extends JsonResource
                 $this->whenLoaded('organizationType')
             ),
 
+            'tenant_key' => $this->tenant_key,
+
+            'tenant_database' => $this->whenLoaded('tenantDatabase', fn () => $this->tenantDatabase
+                ? [
+                    'db_name' => $this->tenantDatabase->db_name,
+                    'db_cluster' => $this->tenantDatabase->dbCluster?->name,
+                    'provision_status' => $this->tenantDatabase->provision_status,
+                    'status' => $this->tenantDatabase->status,
+                    'size_bytes' => $this->tenantDatabase->size_bytes,
+                    'last_backup_at' => $this->tenantDatabase->last_backup_at?->toIso8601String(),
+                    'last_backup_status' => $this->tenantDatabase->last_backup_status,
+                ]
+                : null),
+
+            'migration_state' => $this->whenLoaded('migrationState', fn () => $this->migrationState
+                ? [
+                    'current_version' => $this->migrationState->current_version,
+                    'target_version' => $this->migrationState->target_version,
+                    'status' => $this->migrationState->status,
+                    'attempts' => $this->migrationState->attempts,
+                    'last_error' => $this->migrationState->last_error,
+                    'last_run_at' => $this->migrationState->last_run_at?->toIso8601String(),
+                ]
+                : null),
+
             'subdomain' => $this->subdomain,
             'database_name' => $this->database_name,
 

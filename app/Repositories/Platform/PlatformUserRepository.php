@@ -8,6 +8,7 @@ use App\Repositories\BaseRepository;
 use App\Repositories\Platform\Contracts\PlatformUserRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PlatformUserRepository extends BaseRepository implements PlatformUserRepositoryInterface
 {
@@ -40,8 +41,16 @@ class PlatformUserRepository extends BaseRepository implements PlatformUserRepos
         // One transaction, so a failure while attaching roles cannot leave an
         // administrator behind who can sign in but is authorised for nothing.
         return DB::transaction(function () use ($attributes, $roleCodes) {
-            /** @var PlatformUser $user */
-            $user = $this->create($attributes);
+            // The model's own `creating` hook normally fills this in, but
+            // this method's one caller today is PlatformUserSeeder, and
+            // DatabaseSeeder wraps every seeder in Model::withoutEvents() —
+            // which silently skips that hook and would otherwise insert a
+            // null uuid into a NOT NULL column. Setting it explicitly here
+            // makes creation correct regardless of whether events are live.
+            $user = $this->model->newInstance();
+            $user->forceFill($attributes);
+            $user->uuid ??= (string) Str::ulid();
+            $user->save();
 
             return $this->syncRoles($user, $roleCodes);
         });

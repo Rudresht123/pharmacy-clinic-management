@@ -20,6 +20,27 @@ export interface OrganizationType extends Timestamps {
 export type OrganizationStatus =
     'pending' | 'provisioning' | 'active' | 'suspended' | 'cancelled' | 'failed';
 
+/** The technical (not commercial) state of a tenant's physical database. */
+export interface TenantDatabase {
+    db_name: string;
+    db_cluster: string | null;
+    provision_status: 'pending' | 'provisioning' | 'provisioned' | 'failed';
+    status: 'healthy' | 'degraded' | 'unreachable' | null;
+    size_bytes: number | null;
+    last_backup_at: string | null;
+    last_backup_status: 'success' | 'failed' | null;
+}
+
+/** Current vs. target schema version for one tenant's database. */
+export interface TenantMigrationState {
+    current_version: string | null;
+    target_version: string | null;
+    status: 'in_sync' | 'behind' | 'failed';
+    attempts: number;
+    last_error: string | null;
+    last_run_at: string | null;
+}
+
 export interface Organization extends Timestamps {
     /**
      * The only identifier the API exposes. The row id stays on the server, so
@@ -27,11 +48,16 @@ export interface Organization extends Timestamps {
      */
     uuid: string;
     slug: string;
+    tenant_key: string;
 
     organization_name: string;
     organization_code: string;
     organization_type_id: number | null;
     organization_type?: OrganizationType | null;
+
+    /** Only present on the detail endpoint, not the list. */
+    tenant_database?: TenantDatabase | null;
+    migration_state?: TenantMigrationState | null;
 
     subdomain: string;
     database_name: string;

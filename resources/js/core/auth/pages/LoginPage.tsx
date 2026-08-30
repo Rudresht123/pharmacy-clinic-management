@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useApiForm } from '@/shared/components/form/useApiForm';
 import { FormError } from '@/shared/components/form/Fields';
 import { useAuth } from '@/core/auth/AuthProvider';
+import { useLock } from '@/core/auth/LockProvider';
 import { AuthLayout } from '../components/AuthLayout';
 
 interface LoginValues {
@@ -13,6 +14,7 @@ interface LoginValues {
 
 export default function LoginPage() {
     const { login } = useAuth();
+    const { unlock } = useLock();
     const navigate = useNavigate();
     const location = useLocation();
     const [showPassword, setShowPassword] = useState(false);
@@ -30,6 +32,11 @@ export default function LoginPage() {
         const user = await submit(values, login);
 
         if (user) {
+            // A stale lock from a previous session — the browser was closed
+            // while locked, or a different user signed in after that —
+            // must not survive a fresh, successful login.
+            unlock();
+
             const from = (location.state as { from?: string } | null)?.from;
             navigate(from ?? '/dashboard', { replace: true });
         }

@@ -112,7 +112,8 @@ class OrganizationTest extends TestCase
     {
         $organization = Organization::factory()->create([
             'slug' => 'keep-this',
-            'database_name' => 'hms_keep_this',
+            'tenant_key' => 'keep_this',
+            'database_name' => 'hms_tenant_keep_this',
         ]);
 
         $this->actingAsAdmin()
@@ -123,8 +124,9 @@ class OrganizationTest extends TestCase
                 'subdomain' => $organization->subdomain,
                 'email' => $organization->email,
 
-                // Both sent deliberately; both must be ignored.
+                // All sent deliberately; all must be ignored.
                 'slug' => 'hijacked',
+                'tenant_key' => 'hijacked',
                 'database_name' => 'hms_hijacked',
             ])
             ->assertOk();
@@ -132,7 +134,8 @@ class OrganizationTest extends TestCase
         $organization->refresh();
 
         $this->assertSame('keep-this', $organization->slug);
-        $this->assertSame('hms_keep_this', $organization->database_name);
+        $this->assertSame('keep_this', $organization->tenant_key);
+        $this->assertSame('hms_tenant_keep_this', $organization->database_name);
     }
 
     public function test_deleting_is_a_soft_delete_so_the_tenant_database_survives(): void

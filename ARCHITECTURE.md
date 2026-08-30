@@ -236,7 +236,7 @@ Owned by `Services/Tenancy`:
   afterwards so the next caller cannot inherit it.
 
 Migrations for tenants live in `database/migrations/organization/` and are
-applied by `php artisan system:migrate` (and automatically at provisioning
+applied by `php artisan tenants:migrate` (and automatically at provisioning
 time by `OrganizationProvisioningService`).
 
 This differs from the brief (§33–35), which assumes one shared database with
@@ -251,4 +251,4 @@ Two places where it will need thought later, not now:
   is a normal query — it only becomes hard if a view ever has to span
   *organizations*.
 - Every new tenant table needs its migration run across all tenant
-  databases; `system:migrate` already loops them.
+  databases; `tenants:migrate` already loops them.

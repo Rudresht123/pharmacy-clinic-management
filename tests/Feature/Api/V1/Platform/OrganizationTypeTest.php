@@ -46,7 +46,7 @@ class OrganizationTypeTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.slug', 'retail-chain');
 
-        $this->assertDatabaseHas('organization_type', ['slug' => 'retail-chain']);
+        $this->assertDatabaseHas('organization_types', ['slug' => 'retail-chain']);
     }
 
     public function test_an_admin_can_update_an_organization_type(): void
@@ -121,7 +121,7 @@ class OrganizationTypeTest extends TestCase
             ->deleteJson("/api/v1/admin/organization-types/{$type->id}")
             ->assertOk();
 
-        $this->assertSoftDeleted('organization_type', ['id' => $type->id]);
+        $this->assertSoftDeleted('organization_types', ['id' => $type->id]);
     }
 
     public function test_a_guest_cannot_reach_organization_types(): void

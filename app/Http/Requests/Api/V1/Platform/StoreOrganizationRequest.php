@@ -20,14 +20,14 @@ class StoreOrganizationRequest extends FormRequest
 
             'organization_code' => [
                 'required', 'string', 'max:191',
-                Rule::unique('organizations', 'organization_code'),
+                Rule::unique('organizations', 'organization_code')->whereNull('deleted_at'),
             ],
 
-            'organization_type_id' => ['required', 'integer', 'exists:organization_type,id'],
+            'organization_type_id' => ['required', 'integer', 'exists:organization_types,id'],
 
             'subdomain' => [
                 'required', 'string', 'max:63', 'alpha_dash',
-                Rule::unique('organizations', 'subdomain'),
+                Rule::unique('organizations', 'subdomain')->whereNull('deleted_at'),
             ],
 
             'contact_person_name' => ['nullable', 'string', 'max:191'],
@@ -91,7 +91,8 @@ class StoreOrganizationRequest extends FormRequest
         $name = trim((string) $this->organization_name);
 
         $data['slug'] = Organization::generateSlug($name);
-        $data['database_name'] = Organization::generateDatabaseName($name);
+        $data['tenant_key'] = Organization::generateTenantKey($name);
+        $data['database_name'] = Organization::generateDatabaseName($data['tenant_key']);
 
         return $data;
     }

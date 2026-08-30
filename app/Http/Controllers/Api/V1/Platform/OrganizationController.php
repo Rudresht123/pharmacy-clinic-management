@@ -71,7 +71,9 @@ class OrganizationController extends BaseApiController
     public function show(Organization $organization): JsonResponse
     {
         return $this->ok(
-            OrganizationResource::make($organization->load('organizationType'))
+            OrganizationResource::make(
+                $organization->load(['organizationType', 'tenantDatabase.dbCluster', 'migrationState'])
+            )
         );
     }
 
@@ -127,5 +129,23 @@ class OrganizationController extends BaseApiController
         $this->organizations->delete($organization);
 
         return $this->noContent('Organization deleted successfully.');
+    }
+
+    /**
+     * Resume a provisioning attempt that stopped short — steps already
+     * completed are skipped, only what's left runs.
+     */
+    public function retryProvisioning(Organization $organization): JsonResponse
+    {
+        try {
+            $organization = $this->provisioning->retryProvisioning($organization);
+        } catch (\Throwable $e) {
+            return $this->failFromThrowable($e, 'Failed to retry provisioning.');
+        }
+
+        return $this->ok(
+            OrganizationResource::make($organization),
+            'Provisioning retried successfully.'
+        );
     }
 }

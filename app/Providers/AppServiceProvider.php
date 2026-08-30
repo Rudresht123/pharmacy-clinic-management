@@ -19,7 +19,7 @@ class AppServiceProvider extends ServiceProvider
          * top level of database/migrations.
          *
          * Until this was registered, the only thing that created the central
-         * tables was `system:migrate` passing --path by hand. Anything else
+         * tables was `tenants:migrate` passing --path by hand. Anything else
          * that migrates — RefreshDatabase in the test suite, a fresh clone, a
          * deploy step — silently produced a database with no organizations
          * table. Registering the paths makes `migrate` mean the same thing

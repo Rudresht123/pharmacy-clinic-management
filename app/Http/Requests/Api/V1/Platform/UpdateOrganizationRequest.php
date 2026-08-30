@@ -21,14 +21,18 @@ class UpdateOrganizationRequest extends FormRequest
 
             'organization_code' => [
                 'required', 'string', 'max:191',
-                Rule::unique('organizations', 'organization_code')->ignore($organizationId),
+                Rule::unique('organizations', 'organization_code')
+                    ->ignore($organizationId)
+                    ->whereNull('deleted_at'),
             ],
 
-            'organization_type_id' => ['required', 'integer', 'exists:organization_type,id'],
+            'organization_type_id' => ['required', 'integer', 'exists:organization_types,id'],
 
             'subdomain' => [
                 'required', 'string', 'max:63', 'alpha_dash',
-                Rule::unique('organizations', 'subdomain')->ignore($organizationId),
+                Rule::unique('organizations', 'subdomain')
+                    ->ignore($organizationId)
+                    ->whereNull('deleted_at'),
             ],
 
             'contact_person_name' => ['nullable', 'string', 'max:191'],
@@ -87,11 +91,11 @@ class UpdateOrganizationRequest extends FormRequest
     }
 
     /**
-     * `slug`, `uuid` and `database_name` are deliberately absent from the
-     * rules above, so they cannot be changed here even if a client sends
-     * them. The database already exists under that name and both identifiers
-     * appear in URLs that may have been shared — regenerating either would
-     * orphan the tenant or break links to it.
+     * `slug`, `uuid`, `tenant_key` and `database_name` are deliberately
+     * absent from the rules above, so they cannot be changed here even if a
+     * client sends them. The database already exists under that name and
+     * these identifiers appear in URLs that may have been shared —
+     * regenerating any of them would orphan the tenant or break links to it.
      */
     public function validatedForUpdate(): array
     {

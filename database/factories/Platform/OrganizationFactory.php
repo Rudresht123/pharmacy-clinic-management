@@ -22,11 +22,12 @@ class OrganizationFactory extends Factory
             'uuid' => (string) Str::ulid(),
             'organization_name' => $name,
             'slug' => $slug,
+            'tenant_key' => Str::slug($slug, '_'),
             'organization_code' => strtoupper(Str::random(3)).fake()->unique()->numberBetween(1000, 9999),
             'subdomain' => $slug,
 
             // Never actually created by the factory — provisioning owns that.
-            'database_name' => 'hms_'.Str::snake($slug),
+            'database_name' => 'hms_tenant_'.Str::slug($slug, '_'),
 
             'email' => fake()->unique()->safeEmail(),
             'contact_person_name' => fake()->name(),
