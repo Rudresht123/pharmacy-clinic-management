@@ -30,14 +30,18 @@
     </script>
 
     {{-- Theme stylesheets. The matching jQuery plugins are deliberately gone;
-         their behaviour lives in React components now. --}}
-    <link rel="stylesheet" href="{{ asset('vendor/css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/css/tabler-icons.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/css/style.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/css/custom.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/css/auth.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/css/table.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/css/layout.css') }}">
+         their behaviour lives in React components now.
+
+         versionedAsset() rather than asset(): Vite fingerprints the bundle it
+         builds, but nothing fingerprints these, so an edited file kept being
+         served from cache and styled fresh markup with stale rules. --}}
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/tabler-icons.min.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/style.min.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/custom.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/auth.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/table.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/layout.css') }}">
 
     @viteReactRefresh
     @vite('resources/js/app/main.tsx')

@@ -1,30 +1,56 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useApiForm } from '@/shared/components/form/useApiForm';
 import { FormError } from '@/shared/components/form/Fields';
-import { useAuth } from '@/core/auth/AuthProvider';
-import { useLock } from '@/core/auth/LockProvider';
-import { AuthLayout } from '../components/AuthLayout';
+import { AuthLayout } from '@/core/auth/components/AuthLayout';
+import { initials } from '@/shared/utils/format';
+import { useTenantAuth } from '../TenantAuthProvider';
+import { tenantBrandingApi, type TenantOrganization } from '../api';
 
-interface LoginValues {
+interface TenantLoginValues {
     email: string;
     password: string;
     remember: boolean;
 }
 
-export default function LoginPage() {
-    const { login } = useAuth();
-    const { unlock } = useLock();
+/**
+ * An organization's own staff sign in here — no subdomain field, unlike the
+ * MVP this replaces: the request's Host header (clinic.hms.local) already
+ * carries which tenant this is (see LoginRequest::resolveSubdomain()).
+ */
+export default function TenantLoginPage() {
+    const { login } = useTenantAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [showPassword, setShowPassword] = useState(false);
+
+    // Purely cosmetic — a failed/slow lookup just leaves the platform's own
+    // mark and generic copy in place, never blocks the form.
+    const [branding, setBranding] = useState<TenantOrganization | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        tenantBrandingApi
+            .get()
+            .then((org) => {
+                if (!cancelled) {
+                    setBranding(org);
+                }
+            })
+            .catch(() => undefined);
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const {
         register,
         handleSubmit,
         submit,
         formState: { errors, isSubmitting },
-    } = useApiForm<LoginValues>({
+    } = useApiForm<TenantLoginValues>({
         defaultValues: { email: '', password: '', remember: false },
     });
 
@@ -32,22 +58,75 @@ export default function LoginPage() {
         const user = await submit(values, login);
 
         if (user) {
-            // A stale lock from a previous session — the browser was closed
-            // while locked, or a different user signed in after that —
-            // must not survive a fresh, successful login.
-            unlock();
-
             const from = (location.state as { from?: string } | null)?.from;
             navigate(from ?? '/dashboard', { replace: true });
         }
     });
 
     return (
-        <AuthLayout>
+        <AuthLayout
+            // Left undefined (not null) while branding hasn't loaded yet, so
+            // AuthLayout's own default logo shows instead of nothing.
+            brand={
+                branding
+                    ? (
+                        <div className="hx-brand-org">
+                            {branding.has_logo ? (
+                                <img
+                                    src={branding.logo_url}
+                                    alt=""
+                                    className="hx-brand-org-logo"
+                                />
+                            ) : (
+                                <span
+                                    className="hx-brand-org-logo hx-brand-org-logo--initials"
+                                    aria-hidden="true"
+                                >
+                                    {initials(branding.name)}
+                                </span>
+                            )}
+
+                            <span className="hx-brand-org-name">{branding.name}</span>
+                        </div>
+                    )
+                    : undefined
+            }
+            eyebrow="Organization Workspace"
+            heading={
+                <>
+                    Your clinic, <em>running smoothly</em>.
+                </>
+            }
+            description="Patients, staff, billing and stock — everything your organization runs on, in one secure workspace."
+            appUrl={branding ? `${branding.subdomain}.hms.local` : 'yourclinic.hms.local'}
+            kpi={{ value: '248', delta: '8.6%', caption: 'Patients seen this week' }}
+            features={[
+                {
+                    icon: 'ti ti-users-group',
+                    title: 'Role-based access',
+                    text: 'Owners and staff each see their own scope.',
+                },
+                {
+                    icon: 'ti ti-database',
+                    title: 'Isolated by design',
+                    text: "Your organization's data lives in its own database.",
+                },
+                {
+                    icon: 'ti ti-shield-lock',
+                    title: 'Audit-ready records',
+                    text: 'Changes land in an append-only log.',
+                },
+            ]}
+            footerBrand="Workspace"
+        >
             <div className="hx-card">
                 <div className="hx-head">
                     <h2>Welcome back</h2>
-                    <p>Sign in to continue to your dashboard.</p>
+                    <p>
+                        {branding
+                            ? `Sign in to ${branding.name}'s workspace.`
+                            : "Sign in to your organization's workspace."}
+                    </p>
                 </div>
 
                 <FormError message={errors.root?.message} />
@@ -102,10 +181,6 @@ export default function LoginPage() {
                             <input type="checkbox" {...register('remember')} />
                             Remember me
                         </label>
-
-                        <Link to="/forgot-password" className="hx-link">
-                            Forgot password?
-                        </Link>
                     </div>
 
                     <button type="submit" className="hx-submit" disabled={isSubmitting}>
@@ -121,7 +196,7 @@ export default function LoginPage() {
                 </form>
             </div>
 
-            <p className="hx-foot">Trouble signing in? Contact your administrator.</p>
+            <p className="hx-foot">Trouble signing in? Contact your organization's admin.</p>
         </AuthLayout>
     );
 }

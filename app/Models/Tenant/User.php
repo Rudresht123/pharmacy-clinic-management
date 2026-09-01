@@ -12,6 +12,18 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable, SoftDeletes;
 
+    public const OWNER = 'owner';
+    public const STAFF = 'staff';
+
+    public const ROLES = [self::OWNER, self::STAFF];
+
+    /**
+     * Every tenant table lives in a different physical database, filled in
+     * at runtime by TenantConnectionService — this model must never be
+     * queried against whatever the default connection happens to be.
+     */
+    protected $connection = 'organization';
+
     /**
      * Mass Assignable
      */
@@ -22,6 +34,7 @@ class User extends Authenticatable
         'userable_type',
         'userable_id',
         'is_active',
+        'role',
     ];
 
     /**
@@ -68,5 +81,8 @@ class User extends Authenticatable
     /**
      * Helper Methods
      */
-
+    public function isOwner(): bool
+    {
+        return $this->role === self::OWNER;
+    }
 }

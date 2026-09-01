@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Api\V1\Onboarding;
 
 use App\Http\Controllers\Api\V1\BaseApiController;
-use App\Http\Requests\SetupOrganizationRequest;
+use App\Http\Requests\Api\V1\Onboarding\SetupOrganizationRequest;
 use App\Models\Tenant\User as TenantUser;
 use App\Models\Platform\Organization;
 use App\Services\Notifications\EmailService;
 use App\Services\Tenancy\TenantConnectionService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -56,6 +57,7 @@ class OrganizationSetupController extends BaseApiController
                     'email' => $organization->email,
                     'password' => Hash::make($request->validated('password')),
                     'is_active' => true,
+                    'role' => TenantUser::OWNER,
                 ])
             );
 
@@ -74,7 +76,7 @@ class OrganizationSetupController extends BaseApiController
                 'setup_token_expires_at' => null,
             ]);
 
-            $loginUrl = $this->tenantLoginUrl($organization);
+            $loginUrl = $this->tenantLoginUrl($organization, $request);
 
             EmailService::send(
                 'organization_setup_completed',
@@ -125,12 +127,22 @@ class OrganizationSetupController extends BaseApiController
         return $organization;
     }
 
-    private function tenantLoginUrl(Organization $organization): string
+    private function tenantLoginUrl(Organization $organization, Request $request): string
     {
         $domain = config('organization.main_domain');
 
-        return $domain
-            ? 'https://' . $organization->subdomain . '.' . $domain
-            : url('/login');
+        if (! $domain) {
+            return url('/login');
+        }
+
+        /*
+         * The scheme follows whatever this request arrived on rather than a
+         * hardcoded https://: local development serves these hosts over plain
+         * http, where an https link simply fails to connect. The path is
+         * explicit too — landing on / would bounce through /dashboard first.
+         */
+        return $request->getScheme() . '://'
+            . $organization->subdomain . '.' . $domain
+            . '/login';
     }
 }

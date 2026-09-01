@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\Platform\PlatformUser;
-use App\Models\User;
+use App\Models\Tenant\User;
 
 return [
 
@@ -16,8 +16,24 @@ return [
     |
     */
 
+    /*
+     * The default guard is 'platform', not Laravel's stock 'web'.
+     *
+     * Nothing in this application authenticates through the default — every
+     * call names its guard explicitly — but the framework itself reaches for
+     * it, and the database session driver is the case that matters:
+     * DatabaseSessionHandler stamps sessions.user_id on every session write
+     * using the default guard. Pointed at 'web' that resolves a tenant User
+     * over the `organization` connection, so any request that had not already
+     * selected a tenant database (the whole admin panel, the public branding
+     * endpoint) died on "relation users does not exist".
+     *
+     * 'platform' is also the honest answer for that column: the sessions
+     * table lives in the master database, and a tenant user id is ambiguous
+     * there — id 1 exists in every tenant database at once.
+     */
     'defaults' => [
-        'guard' => env('AUTH_GUARD', 'web'),
+        'guard' => env('AUTH_GUARD', 'platform'),
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
 

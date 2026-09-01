@@ -12,7 +12,9 @@
 
     min-height:100vh;
     display:grid;
-    grid-template-columns:1.02fr .98fr;
+    /* The stage carries the artwork, so it earns the wider half — an even
+       split left the form side reading as empty space. */
+    grid-template-columns:1.12fr .88fr;
     background:var(--surface);
 }
 
@@ -24,10 +26,16 @@
     position:relative;
     display:flex;
     flex-direction:column;
-    justify-content:space-between;
-    padding:46px 56px;
+    /* Copy sits at the top and the footer is pushed down by its own auto
+       margin, leaving the bottom band clear for the portrait — the two can
+       never end up competing for the same horizontal space. */
+    justify-content:flex-start;
+    padding:40px 56px;
     overflow:hidden;
-    background:linear-gradient(158deg,#1F2782 0%,rgb(var(--brand)) 52%,#3F49C4 100%);
+    background:
+        radial-gradient(120% 90% at 12% -6%,rgba(0,211,199,.20) 0%,transparent 55%),
+        radial-gradient(90% 80% at 104% 106%,rgba(143,110,255,.28) 0%,transparent 60%),
+        linear-gradient(158deg,#1F2782 0%,rgb(var(--brand)) 52%,#3F49C4 100%);
 }
 
 /* soft light + faint grid for depth */
@@ -56,14 +64,69 @@
     pointer-events:none;
 }
 
+/* second ambient glow, balancing the corner light from ::before */
+.hx-orb-b{
+    position:absolute;
+    bottom:-18%;
+    left:-16%;
+    width:560px;
+    height:560px;
+    border-radius:50%;
+    background:radial-gradient(circle,rgba(63,73,196,.4) 0%,transparent 68%);
+    pointer-events:none;
+    animation:hx-orb-breathe 9s ease-in-out infinite;
+}
+
+@keyframes hx-orb-breathe{
+    0%,100%{opacity:.7;transform:scale(1);}
+    50%{opacity:1;transform:scale(1.08);}
+}
+
 .hx-brand{position:relative;z-index:1;}
 .hx-brand img{height:30px;width:auto;}
+
+/* An organization's own logo/name, replacing the platform mark on tenant login */
+.hx-brand-org{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.hx-brand-org-logo{
+    width:34px;
+    height:34px;
+    border-radius:9px;
+    object-fit:cover;
+    flex-shrink:0;
+}
+
+.hx-brand-org-logo--initials{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:.02em;
+    color:#fff;
+    background:rgba(255,255,255,.14);
+    border:1px solid rgba(255,255,255,.24);
+}
+
+.hx-brand-org-name{
+    color:#fff;
+    font-size:17px;
+    font-weight:700;
+    letter-spacing:-.01em;
+}
 
 .hx-stage-body{
     position:relative;
     z-index:1;
-    max-width:490px;
-    padding:44px 0;
+    /* Narrower than the stage on purpose: the portrait owns the right side.
+       Percentage-capped so the two shrink together — a fixed width here ran
+       the copy under the figure on ~1280px screens. */
+    max-width:min(440px,46%);
+    padding:30px 0 0;
 }
 
 .hx-eyebrow{
@@ -79,10 +142,11 @@
     color:#B6F5F0;
     background:rgba(0,211,199,.13);
     border:1px solid rgba(0,211,199,.28);
-    margin-bottom:24px;
+    margin-bottom:20px;
 }
 
 .hx-eyebrow i{
+    position:relative;
     width:6px;
     height:6px;
     border-radius:50%;
@@ -90,141 +154,270 @@
     display:block;
 }
 
+.hx-eyebrow i::after{
+    content:"";
+    position:absolute;
+    inset:-4px;
+    border-radius:50%;
+    border:1.5px solid var(--hx-teal);
+    opacity:.6;
+    animation:hx-pulse-ring 1.8s ease-out infinite;
+}
+
+@keyframes hx-pulse-ring{
+    0%{transform:scale(.6);opacity:.7;}
+    100%{transform:scale(2.4);opacity:0;}
+}
+
 .hx-stage h1{
     color:#fff;
-    font-size:clamp(30px,3vw,42px);
+    font-size:clamp(29px,2.8vw,40px);
     font-weight:700;
-    line-height:1.18;
+    line-height:1.16;
     letter-spacing:-.025em;
-    margin:0 0 18px;
+    margin:0 0 16px;
 }
 
 .hx-stage h1 em{
     font-style:normal;
-    color:var(--hx-teal);
+    background:linear-gradient(90deg,var(--hx-teal),#8FF6EC);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
 }
 
 .hx-stage > .hx-stage-body > p{
     color:rgba(255,255,255,.72);
-    font-size:16px;
-    line-height:1.7;
-    margin:0 0 38px;
+    font-size:15.5px;
+    line-height:1.65;
+    margin:0 0 28px;
     max-width:430px;
 }
 
-/* chart card */
-.hx-viz{
-    border-radius:18px;
-    padding:22px 24px 18px;
-    background:rgba(255,255,255,.07);
-    border:1px solid rgba(255,255,255,.13);
+/* ---------------------------------------------------------
+   Hero portrait
+
+   Absolutely positioned so it can never add height to the column:
+   the copy stays in flow, the picture bleeds off the bottom edge,
+   and the panel cannot outgrow the viewport however tall it is.
+   --------------------------------------------------------- */
+
+@keyframes hx-fade{to{opacity:1;}}
+
+.hx-hero{
+    position:absolute;
+    right:8px;
+    bottom:0;
+    width:min(42%,400px);
+    /* vh-capped so a short viewport shrinks it rather than letting it ride
+       up into the copy above */
+    height:min(54vh,520px);
+    pointer-events:none;
+}
+
+/* concentric halo the figure stands in front of */
+.hx-hero-ring{
+    position:absolute;
+    left:50%;
+    bottom:8%;
+    width:min(26vw,340px);
+    aspect-ratio:1;
+    transform:translateX(-46%);
+    border-radius:50%;
+    background:radial-gradient(circle at 50% 50%,
+        rgba(0,211,199,.26) 0%,
+        rgba(0,211,199,.07) 46%,
+        transparent 70%);
+    box-shadow:
+        0 0 0 1px rgba(255,255,255,.10),
+        0 0 0 34px rgba(255,255,255,.045),
+        0 0 0 35px rgba(255,255,255,.08);
+}
+
+.hx-hero-img{
+    position:absolute;
+    right:0;
+    bottom:0;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    object-position:bottom center;
+    filter:drop-shadow(0 26px 40px rgba(3,6,28,.45));
+    opacity:0;
+    animation:hx-rise .8s cubic-bezier(.22,1,.36,1) .15s forwards;
+}
+
+@keyframes hx-rise{
+    from{opacity:0;transform:translateY(18px);}
+    to{opacity:1;transform:translateY(0);}
+}
+
+/* the two things floating over the picture */
+.hx-hero-pill,
+.hx-hero-card{
+    position:absolute;
+    z-index:2;
+    opacity:0;
+    animation:hx-fade .55s ease forwards;
     backdrop-filter:blur(14px);
     -webkit-backdrop-filter:blur(14px);
-    max-width:430px;
 }
 
-.hx-viz-top{
+.hx-hero-pill{
+    top:11%;
+    left:-6px;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    max-width:92%;
+    padding:7px 14px;
+    border-radius:100px;
+    background:rgba(10,15,52,.5);
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:0 14px 28px -14px rgba(2,4,20,.7);
+    color:rgba(255,255,255,.86);
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:.01em;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    animation-delay:.8s;
+}
+
+.hx-live-dot{
+    position:relative;
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:#34D399;
+    display:inline-block;
+    flex-shrink:0;
+}
+
+.hx-live-dot::after{
+    content:"";
+    position:absolute;
+    inset:-3px;
+    border-radius:50%;
+    background:#34D399;
+    opacity:.5;
+    animation:hx-pulse-ring 1.8s ease-out infinite;
+}
+
+.hx-hero-card{
+    left:-18px;
+    bottom:17%;
     display:flex;
-    align-items:baseline;
-    justify-content:space-between;
-    margin-bottom:18px;
+    flex-direction:column;
+    gap:5px;
+    padding:14px 18px;
+    border-radius:16px;
+    /* darker than the gradient behind it — white-on-blue glass washes out,
+       and the figure has to read as the brightest thing here */
+    background:linear-gradient(180deg,rgba(10,15,52,.62) 0%,rgba(10,15,52,.44) 100%);
+    border:1px solid rgba(255,255,255,.17);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.14),
+        0 26px 48px -24px rgba(2,4,20,.8);
+    animation-delay:1s;
 }
 
-.hx-viz-top b{
+.hx-hero-card-top{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.hx-hero-card-top b{
+    color:#fff;
+    font-size:26px;
+    font-weight:700;
+    line-height:1;
+    letter-spacing:-.03em;
+    font-variant-numeric:tabular-nums;
+}
+
+.hx-hero-delta{
+    display:inline-flex;
+    align-items:center;
+    gap:3px;
+    padding:3px 8px;
+    border-radius:100px;
+    background:rgba(52,211,153,.16);
+    border:1px solid rgba(52,211,153,.3);
+    color:#6EE7B7;
+    font-size:11.5px;
+    font-weight:700;
+}
+
+.hx-hero-card-caption{
+    color:rgba(255,255,255,.5);
+    font-size:12px;
+}
+
+/* ---------------------------------------------------------
+   Feature list — carries the middle of the stage
+   --------------------------------------------------------- */
+
+.hx-feats{
+    margin:30px 0 0;
+    padding:0;
+    list-style:none;
+    border-top:1px solid rgba(255,255,255,.11);
+}
+
+.hx-feats li{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:15px 0;
+    border-bottom:1px solid rgba(255,255,255,.11);
+    opacity:0;
+    animation:hx-fade .5s ease forwards;
+}
+
+.hx-feats li:nth-child(1){animation-delay:.35s;}
+.hx-feats li:nth-child(2){animation-delay:.45s;}
+.hx-feats li:nth-child(3){animation-delay:.55s;}
+.hx-feats li:nth-child(4){animation-delay:.65s;}
+
+.hx-feat-icon{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:38px;
+    height:38px;
+    flex-shrink:0;
+    border-radius:11px;
+    background:rgba(0,211,199,.14);
+    border:1px solid rgba(0,211,199,.24);
+    color:var(--hx-teal);
+    font-size:18px;
+}
+
+.hx-feat-text{min-width:0;}
+
+.hx-feat-text b{
+    display:block;
     color:#fff;
     font-size:14.5px;
     font-weight:600;
+    letter-spacing:-.005em;
 }
 
-.hx-viz-top span{
-    color:rgba(255,255,255,.5);
-    font-size:12.5px;
-}
-
-.hx-chart{
+.hx-feat-text span{
     display:block;
-    width:100%;
-    height:110px;
-    overflow:visible;
-}
-
-.hx-chart .grid{
-    stroke:rgba(255,255,255,.08);
-    stroke-width:1;
-}
-
-.hx-chart .area{
-    fill:url(#hxFill);
-    opacity:0;
-    animation:hx-fade .7s ease .45s forwards;
-}
-
-.hx-chart .line{
-    fill:none;
-    stroke:var(--hx-teal);
-    stroke-width:2.2;
-    stroke-linecap:round;
-    stroke-linejoin:round;
-    stroke-dasharray:400;
-    stroke-dashoffset:400;
-    animation:hx-draw 1.1s cubic-bezier(.4,0,.2,1) .15s forwards;
-}
-
-.hx-chart .peak{
-    fill:var(--hx-teal);
-    opacity:0;
-    animation:hx-fade .4s ease 1.1s forwards;
-}
-
-.hx-chart .peak-ring{
-    fill:none;
-    stroke:rgba(0,211,199,.35);
-    stroke-width:5;
-    opacity:0;
-    animation:hx-fade .4s ease 1.1s forwards;
-}
-
-@keyframes hx-draw{to{stroke-dashoffset:0;}}
-@keyframes hx-fade{to{opacity:1;}}
-
-.hx-days{
-    display:flex;
-    justify-content:space-between;
-    margin-top:10px;
-    padding:0 2px;
-}
-
-.hx-days span{
-    color:rgba(255,255,255,.42);
-    font-size:11.5px;
-    font-weight:500;
-}
-
-/* value line under the chart */
-.hx-tags{
-    display:flex;
-    flex-wrap:wrap;
-    align-items:center;
-    gap:10px 18px;
-    margin-top:26px;
-}
-
-.hx-tags span{
-    display:inline-flex;
-    align-items:center;
-    gap:7px;
-    color:rgba(255,255,255,.66);
-    font-size:13.5px;
-}
-
-.hx-tags svg{
-    color:var(--hx-teal);
-    flex-shrink:0;
+    margin-top:2px;
+    color:rgba(255,255,255,.55);
+    font-size:12.5px;
+    line-height:1.45;
 }
 
 .hx-stage-foot{
     position:relative;
     z-index:1;
+    margin-top:auto;
     display:flex;
     align-items:center;
     gap:22px;
@@ -243,19 +436,36 @@
    --------------------------------------------------------- */
 
 .hx-panel{
+    position:relative;
     display:flex;
     align-items:center;
     justify-content:center;
     padding:44px 32px;
+    overflow:hidden;
     background:
-        radial-gradient(60% 45% at 92% 4%, rgba(0,211,199,.07) 0%, transparent 60%),
-        radial-gradient(55% 45% at 6% 98%, rgba(var(--brand), .07) 0%, transparent 60%),
-        var(--surface-2);
+        radial-gradient(58% 42% at 96% 0%, rgba(0,211,199,.16) 0%, transparent 62%),
+        radial-gradient(52% 44% at 2% 100%, rgba(var(--brand), .14) 0%, transparent 62%),
+        linear-gradient(180deg,#FBFCFF 0%,var(--surface-2) 100%);
+}
+
+/* faint dot field, masked to a soft vignette — gives the empty half some
+   texture without competing with the card sitting on top of it */
+.hx-panel::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background-image:radial-gradient(rgba(31,39,130,.07) 1px,transparent 1px);
+    background-size:22px 22px;
+    -webkit-mask-image:radial-gradient(74% 58% at 50% 46%,#000 0%,transparent 78%);
+    mask-image:radial-gradient(74% 58% at 50% 46%,#000 0%,transparent 78%);
+    pointer-events:none;
 }
 
 .hx-form{
+    position:relative;
+    z-index:1;
     width:100%;
-    max-width:420px;
+    max-width:412px;
 }
 
 .hx-form-brand{
@@ -266,12 +476,29 @@
 .hx-form-brand img{height:30px;}
 
 .hx-card{
+    position:relative;
+    overflow:hidden;
     background:var(--surface);
     border:1px solid var(--line);
-    border-radius:20px;
-    padding:40px 36px 34px;
-    box-shadow:0 18px 44px -20px rgba(17,22,51,.16);
+    border-radius:22px;
+    padding:38px 34px 32px;
+    /* brand-tinted rather than grey — a neutral drop shadow is what made
+       this card read as a plain box next to the stage */
+    box-shadow:
+        0 1px 2px rgba(17,22,51,.05),
+        0 28px 56px -26px rgba(31,39,130,.30);
     animation:hx-in .45s cubic-bezier(.22,1,.36,1) both;
+}
+
+/* the one line of brand colour on this side */
+.hx-card::before{
+    content:"";
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    height:3px;
+    background:linear-gradient(90deg,rgb(var(--brand)) 0%,rgb(var(--brand-2)) 45%,var(--hx-teal) 100%);
 }
 
 @keyframes hx-in{
@@ -279,14 +506,14 @@
     to{opacity:1;transform:translateY(0);}
 }
 
-.hx-head{margin-bottom:28px;}
+.hx-head{margin-bottom:26px;}
 
 .hx-head h2{
-    font-size:28px;
+    font-size:30px;
     font-weight:700;
-    letter-spacing:-.025em;
+    letter-spacing:-.03em;
     color:var(--hx-ink);
-    margin:0 0 8px;
+    margin:0 0 7px;
 }
 
 .hx-head p{
@@ -360,6 +587,23 @@
     border-color:#E5484D;
     background:#FEF5F5;
 }
+
+.hx-fl-icon{
+    position:absolute;
+    left:16px;
+    top:50%;
+    transform:translateY(-50%);
+    font-size:18px;
+    color:var(--muted);
+    pointer-events:none;
+    transition:color .2s ease;
+}
+
+.hx-fl:focus-within .hx-fl-icon{color:var(--hx-indigo);}
+.hx-fl.is-invalid .hx-fl-icon{color:#E5484D;}
+
+.hx-fl.has-icon input{padding-left:46px;}
+.hx-fl.has-icon label{left:46px;}
 
 .hx-eye{
     position:absolute;
@@ -450,6 +694,9 @@
     height:54px;
     border:0;
     border-radius:13px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
     color:#fff;
     font-size:15.5px;
     font-weight:600;
@@ -467,6 +714,12 @@
 
 .hx-submit:active{transform:translateY(0);}
 
+.hx-submit:disabled{
+    cursor:not-allowed;
+    opacity:.85;
+    transform:none;
+}
+
 .hx-foot{
     margin-top:22px;
     text-align:center;
@@ -478,8 +731,22 @@
    Responsive
    --------------------------------------------------------- */
 
+@media (max-width:1399.98px){
+    /* The stage is too narrow here to float anything beside the figure
+       without it landing on top of the copy. */
+    .hx-hero-pill,
+    .hx-hero-card{display:none;}
+}
+
 @media (max-width:1199.98px){
     .hx-stage{padding:40px 42px;}
+    .hx-stage-body{max-width:min(380px,46%);}
+    .hx-hero{width:min(42%,340px);}
+}
+
+/* Nothing to stand on when the panel is shorter than the figure. */
+@media (max-height:719.98px){
+    .hx-hero{height:min(46vh,420px);}
 }
 
 @media (max-width:991.98px){
@@ -500,14 +767,18 @@
 
 @media (prefers-reduced-motion:reduce){
     .hx-card,
-    .hx-chart .area,
-    .hx-chart .peak,
-    .hx-chart .peak-ring{animation:none;}
-    .hx-chart .area,
-    .hx-chart .peak,
-    .hx-chart .peak-ring{opacity:1;}
-    .hx-chart .line{
-        animation:none;
-        stroke-dashoffset:0;
+    .hx-orb-b,
+    .hx-eyebrow i::after,
+    .hx-hero-img,
+    .hx-hero-pill,
+    .hx-hero-card,
+    .hx-live-dot::after{animation:none;}
+
+    /* everything that fades/rises in has to end up visible anyway */
+    .hx-hero-img,
+    .hx-hero-pill,
+    .hx-hero-card{
+        opacity:1;
+        transform:none;
     }
 }

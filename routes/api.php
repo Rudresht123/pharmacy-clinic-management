@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\V1\Platform\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Platform\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Platform\OrganizationController;
 use App\Http\Controllers\Api\V1\Platform\OrganizationTypeController;
+use App\Http\Controllers\Api\V1\Tenant\Auth\AuthController as TenantAuthController;
+use App\Http\Controllers\Api\V1\Tenant\BrandingController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -15,13 +17,11 @@ use Illuminate\Support\Facades\Route;
 | Prefixed with /api/v1 (see bootstrap/app.php). Authentication is the
 | stateful Sanctum session shared with the SPA, not bearer tokens.
 |
-| Two areas live here:
+| Three areas live here:
 |
 |   /api/v1/organization-setup/*   public, token from the invitation email
 |   /api/v1/admin/*                the landlord panel, `platform` guard
-|
-| When the tenant application arrives it gets its own area and its own
-| guard. Nothing tenant-facing belongs under /admin.
+|   /api/v1/tenant/*               an organization's own staff, `web` guard
 |
 */
 
@@ -82,5 +82,29 @@ Route::prefix('admin')->name('admin.')->group(function () {
             'organization-types/{organizationType}/toggle-status',
             [OrganizationTypeController::class, 'toggleStatus']
         );
+    });
+});
+
+/*
+| An organization's own staff — `web` guard --------------------------------
+*/
+Route::prefix('tenant')->name('tenant.')->group(function () {
+    // Public: the login screen needs this before anyone has signed in.
+    Route::get('branding', [BrandingController::class, 'show'])->name('branding');
+
+    /*
+     * resolve.tenant runs ahead of guest:web on purpose. `guest` asks the web
+     * guard whether anyone is signed in, and that lookup hits the tenant
+     * database — with no tenant connected it queries an empty database and
+     * blows up on "relation users does not exist". With no session at all
+     * resolve.tenant is a no-op, so the pre-login path is unaffected.
+     */
+    Route::middleware(['resolve.tenant', 'guest:web'])->group(function () {
+        Route::post('auth/login', [TenantAuthController::class, 'login'])->name('auth.login');
+    });
+
+    Route::middleware(['resolve.tenant', 'auth:web'])->group(function () {
+        Route::get('auth/me', [TenantAuthController::class, 'me'])->name('auth.me');
+        Route::post('auth/logout', [TenantAuthController::class, 'logout']);
     });
 });

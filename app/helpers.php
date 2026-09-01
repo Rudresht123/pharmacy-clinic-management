@@ -6,6 +6,27 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+if (!function_exists('versionedAsset')) {
+    /**
+     * A public asset URL stamped with the file's last-modified time.
+     *
+     * The vendor stylesheets are plain <link>s rather than Vite entries, so
+     * nothing fingerprints them — an edited file kept serving from the
+     * browser cache, leaving new markup styled by old rules. The stamp only
+     * changes when the file does, so unchanged assets still cache normally.
+     */
+    function versionedAsset(string $path): string
+    {
+        $absolute = public_path($path);
+
+        if (!is_file($absolute)) {
+            return asset($path);
+        }
+
+        return asset($path) . '?v=' . filemtime($absolute);
+    }
+}
+
 if (!function_exists('formatDate')) {
     /**
      * Format a date value for display, or null when it cannot be parsed.
