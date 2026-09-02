@@ -18,8 +18,16 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'role' => $this->role,
+            'location_id' => $this->location_id,
+            'location' => $this->whenLoaded(
+                'location',
+                fn () => $this->location
+                    ? ['id' => $this->location->id, 'name' => $this->location->name]
+                    : null
+            ),
             'is_active' => $this->is_active,
             'last_login_at' => $this->last_login_at?->toIso8601String(),
+            'custom_fields' => $this->custom_fields ?? [],
         ];
     }
 }

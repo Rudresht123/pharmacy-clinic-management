@@ -82,7 +82,10 @@ function normaliseAccent(value: unknown): string {
         return LEGACY_NAMES[value];
     }
 
-    return /^#[da-f]{6}$/i.test(value) ? value : DEFAULTS.accent;
+    // [0-9a-f], not [da-f]: the digits were lost with the backslash of an
+    // intended \d, so every preset containing one — which is all of them but
+    // Indigo — failed validation on read and snapped back to the default.
+    return /^#[0-9a-f]{6}$/i.test(value) ? value : DEFAULTS.accent;
 }
 
 const SURFACES: Surface[] = ['light', 'dark', 'brand'];

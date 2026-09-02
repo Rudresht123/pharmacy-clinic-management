@@ -1,19 +1,39 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/core/auth/AuthProvider';
-import { useLock } from '@/core/auth/LockProvider';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { useAppSettings } from '@/shared/hooks/useAppSettings';
 import { initials } from '@/shared/utils/format';
 
+/** Only what the header displays — either guard's user satisfies this. */
+export interface HeaderUser {
+    name: string;
+    email: string;
+}
+
 interface HeaderProps {
     onOpenSidebar: () => void;
     onOpenSettings: () => void;
+    /**
+     * Who is signed in, and how to sign them out. Passed in rather than read
+     * from a provider: this header serves the platform guard and a tenant's
+     * own guard, which are deliberately separate all the way down.
+     */
+    user: HeaderUser | null;
+    onLogout: () => Promise<void> | void;
+    /** Omitted where there is no lock screen, and the item is then hidden. */
+    onLock?: () => void;
+    /** Omitted where there is no profile screen yet. */
+    profileTo?: string;
 }
 
-export function Header({ onOpenSidebar, onOpenSettings }: HeaderProps) {
-    const { user, logout } = useAuth();
-    const { lock } = useLock();
+export function Header({
+    onOpenSidebar,
+    onOpenSettings,
+    user,
+    onLogout,
+    onLock,
+    profileTo,
+}: HeaderProps) {
     const confirm = useConfirm();
     const navigate = useNavigate();
     const { resolvedTheme, toggleTheme } = useAppSettings();
@@ -52,7 +72,7 @@ export function Header({ onOpenSidebar, onOpenSettings }: HeaderProps) {
             return;
         }
 
-        await logout();
+        await onLogout();
         navigate('/login', { replace: true });
     }
 
@@ -123,28 +143,36 @@ export function Header({ onOpenSidebar, onOpenSettings }: HeaderProps) {
                             className="dropdown-menu dropdown-menu-end show mt-1"
                             style={{ right: 0 }}
                         >
-                            <Link
-                                to="/profile"
-                                className="dropdown-item"
-                                onClick={() => setMenuOpen(false)}
-                            >
-                                <i className="ti ti-user-circle me-1 align-middle" />
-                                <span className="align-middle">My Profile</span>
-                            </Link>
+                            {profileTo && (
+                                <Link
+                                    to={profileTo}
+                                    className="dropdown-item"
+                                    onClick={() => setMenuOpen(false)}
+                                >
+                                    <i className="ti ti-user-circle me-1 align-middle" />
+                                    <span className="align-middle">My Profile</span>
+                                </Link>
+                            )}
 
-                            <button
-                                type="button"
-                                className="dropdown-item"
-                                onClick={() => {
-                                    setMenuOpen(false);
-                                    lock();
-                                }}
-                            >
-                                <i className="ti ti-lock me-1 align-middle" />
-                                <span className="align-middle">Lock Screen</span>
-                            </button>
+                            {onLock && (
+                                <button
+                                    type="button"
+                                    className="dropdown-item"
+                                    onClick={() => {
+                                        setMenuOpen(false);
+                                        onLock();
+                                    }}
+                                >
+                                    <i className="ti ti-lock me-1 align-middle" />
+                                    <span className="align-middle">Lock Screen</span>
+                                </button>
+                            )}
 
-                            <div className="pt-2 mt-2 border-top">
+                            <div
+                                className={
+                                    profileTo || onLock ? 'pt-2 mt-2 border-top' : undefined
+                                }
+                            >
                                 <button
                                     type="button"
                                     className="dropdown-item text-danger"

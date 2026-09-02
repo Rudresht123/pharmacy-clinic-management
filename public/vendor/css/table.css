@@ -92,26 +92,17 @@
    Table
    --------------------------------------------------------- */
 
+/*
+   The horizontal scrollbar is deliberately not styled here any more — the
+   global rules in custom.css already give it the thin, inset thumb this
+   used to define for itself, and a table that scrolls differently from
+   everything else on the page is just inconsistency.
+*/
 .dt-wrap {
     position: relative;
     border: 1px solid var(--dt-line);
     border-radius: 12px;
     overflow-x: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--dt-line) transparent;
-}
-
-.dt-wrap::-webkit-scrollbar {
-    height: 6px;
-}
-
-.dt-wrap::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.dt-wrap::-webkit-scrollbar-thumb {
-    background: var(--dt-line);
-    border-radius: 999px;
 }
 
 .dt-table {

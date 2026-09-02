@@ -2,6 +2,7 @@
 
 namespace App\Models\Tenant;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -35,6 +36,8 @@ class User extends Authenticatable
         'userable_id',
         'is_active',
         'role',
+        'location_id',
+        'custom_fields',
     ];
 
     /**
@@ -52,14 +55,31 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            // Without this it comes back from Postgres as a plain string, and
+            // UserResource's ->toIso8601String() fatals on the next request —
+            // login itself survived only because the value was still the
+            // Carbon instance it had just been assigned.
+            'last_login_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'custom_fields' => 'array',
         ];
     }
 
     /**
      * Doctor / Patient / Staff
      */
+    /**
+     * The branch this person works at.
+     *
+     * Null for the owner, who works across the whole network. What a
+     * customer's `registered_location_id` is filled from.
+     */
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'location_id');
+    }
+
     public function userable(): MorphTo
     {
         return $this->morphTo();

@@ -9,10 +9,14 @@ use App\Models\Platform\PlatformUser;
 use App\Models\Tenant\User as TenantUser;
 use App\Repositories\Platform\Contracts\OrganizationRepositoryInterface;
 use App\Services\Platform\OrganizationProvisioningService;
+use App\Http\Middleware\ResolveTenantFromSession;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
+use Illuminate\Auth\Middleware\Authenticate;
+use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -132,6 +136,66 @@ class AuthenticationTest extends TestCase
      * middleware at all, because the failure is in saving the session rather
      * than anywhere in the route.
      */
+    /**
+     * Declaration order on the route is not what runs. Laravel sorts gathered
+     * middleware by its priority list, and Authenticate is on that list while
+     * a custom middleware is not — so auth:web was hoisted above
+     * ResolveTenantFromSession and looked the tenant user up before any
+     * tenant database had been selected, killing every authenticated request
+     * with "relation users does not exist".
+     *
+     * Asserted against the sorted list the router actually builds, because
+     * route:list and the route definition both showed the correct order while
+     * the sorted one was wrong.
+     */
+    #[DataProvider('tenantGuardRoutes')]
+    public function test_the_tenant_is_resolved_before_the_guard_runs(string $routeName): void
+    {
+        $router = app('router');
+        $route = $router->getRoutes()->getByName($routeName);
+
+        $this->assertNotNull($route, "Route {$routeName} is missing.");
+
+        $middleware = array_values(array_filter(
+            $router->gatherRouteMiddleware($route),
+            'is_string'
+        ));
+
+        $resolvesTenant = null;
+        $touchesGuard = null;
+
+        foreach ($middleware as $position => $name) {
+            if (str_starts_with($name, ResolveTenantFromSession::class)) {
+                $resolvesTenant ??= $position;
+            }
+
+            // Both Authenticate and RedirectIfAuthenticated load the user.
+            if (str_starts_with($name, Authenticate::class)
+                || str_starts_with($name, RedirectIfAuthenticated::class)) {
+                $touchesGuard ??= $position;
+            }
+        }
+
+        $this->assertNotNull($resolvesTenant, "{$routeName} never resolves a tenant.");
+        $this->assertNotNull($touchesGuard, "{$routeName} does not touch the guard.");
+
+        $this->assertLessThan(
+            $touchesGuard,
+            $resolvesTenant,
+            "On {$routeName} the guard runs before the tenant database is selected: "
+                .implode(' -> ', $middleware)
+        );
+    }
+
+    /** @return array<string, array{string}> */
+    public static function tenantGuardRoutes(): array
+    {
+        return [
+            'me' => ['tenant.auth.me'],
+            'login' => ['tenant.auth.login'],
+        ];
+    }
+
     public function test_the_default_guard_never_resolves_tenant_users(): void
     {
         /*
@@ -217,6 +281,33 @@ class AuthenticationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.user.email', $organization->email)
             ->assertJsonPath('data.organization.name', $organization->organization_name);
+    }
+
+    /**
+     * last_login_at is written during login, so in that request it is still
+     * the Carbon instance just assigned. Only a later request reads it back
+     * from Postgres — as a plain string unless the model casts it, which made
+     * UserResource's ->toIso8601String() fatal on refresh but never on login.
+     */
+    public function test_last_login_at_survives_a_round_trip_through_the_database(): void
+    {
+        $organization = $this->provisionOrganizationWithOwner();
+
+        $this->postJson('/api/v1/tenant/auth/login', [
+            'subdomain' => $organization->subdomain,
+            'email' => $organization->email,
+            'password' => 'password',
+        ])->assertOk();
+
+        // Drop the in-memory model so /me has to hydrate it from the database.
+        $this->app['auth']->forgetGuards();
+
+        $response = $this->getJson('/api/v1/tenant/auth/me')->assertOk();
+
+        $this->assertNotNull(
+            $response->json('data.user.last_login_at'),
+            'last_login_at was written at login, so it must come back here.'
+        );
     }
 
     public function test_logout_clears_the_session(): void

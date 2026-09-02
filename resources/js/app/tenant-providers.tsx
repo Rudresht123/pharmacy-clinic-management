@@ -4,6 +4,8 @@ import { Toaster } from 'react-hot-toast';
 import { BrowserRouter } from 'react-router-dom';
 import { queryClient } from '@/shared/api/queryClient';
 import { TenantAuthProvider, useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
+import { ConfirmProvider } from '@/shared/hooks/useConfirm';
+import { SettingsProvider } from '@/shared/hooks/useAppSettings';
 import { FullPageLoaderHost } from '@/shared/components/ui/Loader';
 
 const LOADER_ID = 'app-loader';
@@ -44,28 +46,35 @@ function TenantBootGate({ children }: { children: ReactNode }) {
 }
 
 /**
- * Every cross-cutting provider a tenant login/dashboard actually needs —
- * deliberately smaller than app/providers.tsx: no lock screen, confirm
- * dialogs, image previews or theme toggle, since nothing in this slice uses
- * any of them yet.
+ * Every cross-cutting provider an organization's workspace actually needs.
+ *
+ * Still smaller than app/providers.tsx: no LockProvider (it is built on the
+ * platform AuthProvider) and no ImagePreviewProvider (nothing here opens the
+ * viewer yet). SettingsProvider and ConfirmProvider are both generic, and
+ * the shared AppShell needs them — appearance settings and the log-out
+ * confirmation respectively.
  */
 export function TenantProviders({ children }: { children: ReactNode }) {
     return (
         <BrowserRouter>
-            <QueryClientProvider client={queryClient}>
-                <TenantAuthProvider>
-                    <TenantBootGate>{children}</TenantBootGate>
-                </TenantAuthProvider>
+            <SettingsProvider>
+                <QueryClientProvider client={queryClient}>
+                    <TenantAuthProvider>
+                        <ConfirmProvider>
+                            <TenantBootGate>{children}</TenantBootGate>
+                        </ConfirmProvider>
+                    </TenantAuthProvider>
 
-                <FullPageLoaderHost />
+                    <FullPageLoaderHost />
 
-                <Toaster
-                    position="top-right"
-                    gutter={10}
-                    containerStyle={{ top: 74, right: 20 }}
-                    toastOptions={{ style: {}, className: '' }}
-                />
-            </QueryClientProvider>
+                    <Toaster
+                        position="top-right"
+                        gutter={10}
+                        containerStyle={{ top: 74, right: 20 }}
+                        toastOptions={{ style: {}, className: '' }}
+                    />
+                </QueryClientProvider>
+            </SettingsProvider>
         </BrowserRouter>
     );
 }

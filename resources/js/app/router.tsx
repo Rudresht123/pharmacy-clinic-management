@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { AppShell } from '@/shared/components/layout/AppShell';
+import { AdminShell } from './AdminShell';
 import { FullPageLoader } from '@/shared/components/ui/Loader';
 import { NavigationLoader } from './NavigationLoader';
 import { GuestRoute, ProtectedRoute } from './guards';
@@ -52,7 +52,7 @@ export function AppRoutes() {
 
                     {/* Authenticated */}
                     <Route element={<ProtectedRoute />}>
-                        <Route element={<AppShell />}>
+                        <Route element={<AdminShell />}>
                             <Route path="/dashboard" element={<DashboardPage />} />
 
                             <Route path="/organizations" element={<OrganizationListPage />} />

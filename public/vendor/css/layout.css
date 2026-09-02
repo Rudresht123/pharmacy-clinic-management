@@ -2408,9 +2408,13 @@ body {
     opacity: 0.7;
 }
 
-/* Tabs */
+/* Tabs
 
-.org-tabs {
+   .app-tabs is the general name; .org-tabs is what the organization
+   detail screen already used and is kept so nothing there changes. */
+
+.org-tabs,
+.app-tabs {
     display: flex;
     gap: 4px;
     margin-bottom: 16px;
@@ -2422,7 +2426,8 @@ body {
     scrollbar-width: thin;
 }
 
-.org-tab {
+.org-tab,
+.app-tab {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -2447,22 +2452,26 @@ body {
         border-color 0.16s ease;
 }
 
-.org-tab i {
+.org-tab i,
+.app-tab i {
     font-size: 17px;
 }
 
-.org-tab:hover {
+.org-tab:hover,
+.app-tab:hover {
     background: var(--surface-3);
     color: rgb(var(--brand));
 }
 
-.org-tab.is-active {
+.org-tab.is-active,
+.app-tab.is-active {
     background: rgba(var(--brand), 0.09);
     border-color: rgba(var(--brand), 0.18);
     color: rgb(var(--brand));
 }
 
-.org-tab:focus-visible {
+.org-tab:focus-visible,
+.app-tab:focus-visible {
     outline: none;
     box-shadow: 0 0 0 3px rgba(var(--brand), 0.25);
 }

@@ -1,9 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { Header } from './Header';
+import { Header, type HeaderUser } from './Header';
 import { Sidebar } from './Sidebar';
 import { SettingsPanel } from './SettingsPanel';
+import type { NavSection } from '@/app/navigation';
 import { useAppSettings } from '@/shared/hooks/useAppSettings';
+
+interface AppShellProps {
+    navigation: NavSection[];
+    user: HeaderUser | null;
+    onLogout: () => Promise<void> | void;
+    /** Omitted where there is no lock screen. */
+    onLock?: () => void;
+    /** Omitted where there is no profile screen yet. */
+    profileTo?: string;
+}
 
 /**
  * The authenticated chrome: sidebar + topbar + routed content.
@@ -11,8 +22,12 @@ import { useAppSettings } from '@/shared/hooks/useAppSettings';
  * Replaces layouts/common.blade.php. Sidebar collapse (desktop) and the
  * drawer (mobile) are React state — the jQuery in public/vendor/js/script.js
  * is not involved.
+ *
+ * The menu and the signed-in user arrive as props so the admin panel and an
+ * organization's own workspace render the same chrome without either one
+ * reaching into the other's auth.
  */
-export function AppShell() {
+export function AppShell({ navigation, user, onLogout, onLock, profileTo }: AppShellProps) {
     const { settings, update } = useAppSettings();
 
     /**
@@ -50,6 +65,7 @@ export function AppShell() {
     return (
         <div className="app-shell" data-collapsed={collapsed} data-mobile-open={mobileOpen}>
             <Sidebar
+                navigation={navigation}
                 collapsed={collapsed}
                 onToggleCollapse={() => update('compactSidebar', !collapsed)}
                 onNavigate={() => setMobileOpen(false)}
@@ -66,6 +82,10 @@ export function AppShell() {
             <Header
                 onOpenSidebar={() => setMobileOpen(true)}
                 onOpenSettings={() => setSettingsOpen(true)}
+                user={user}
+                onLogout={onLogout}
+                onLock={onLock}
+                profileTo={profileTo}
             />
 
             <main className="app-content">

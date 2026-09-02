@@ -7,6 +7,10 @@ use App\Http\Controllers\Api\V1\Platform\OrganizationController;
 use App\Http\Controllers\Api\V1\Platform\OrganizationTypeController;
 use App\Http\Controllers\Api\V1\Tenant\Auth\AuthController as TenantAuthController;
 use App\Http\Controllers\Api\V1\Tenant\BrandingController;
+use App\Http\Controllers\Api\V1\Tenant\CustomerController;
+use App\Http\Controllers\Api\V1\Tenant\FieldSettingController;
+use App\Http\Controllers\Api\V1\Tenant\LocationController;
+use App\Http\Controllers\Api\V1\Tenant\UserController as TenantUserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -106,5 +110,66 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
     Route::middleware(['resolve.tenant', 'auth:web'])->group(function () {
         Route::get('auth/me', [TenantAuthController::class, 'me'])->name('auth.me');
         Route::post('auth/logout', [TenantAuthController::class, 'logout']);
+
+        /*
+        | Locations — anyone signed in may look; only the owner may change.
+        */
+        Route::get('locations/fields', [LocationController::class, 'fields'])
+            ->name('locations.fields');
+        Route::get('locations', [LocationController::class, 'index'])->name('locations.index');
+        Route::get('locations/{location}', [LocationController::class, 'show'])
+            ->name('locations.show');
+
+        /*
+        | Field settings — the forms need to read them, the owner writes them.
+        | {entity} is validated against FieldRegistry, so adding a
+        | configurable screen needs no route change.
+        */
+        Route::get('settings/fields', [FieldSettingController::class, 'index'])
+            ->name('settings.fields.index');
+        Route::get('settings/fields/{entity}', [FieldSettingController::class, 'show'])
+            ->name('settings.fields.show');
+
+        /*
+        | Customers — anyone signed in may serve them, so this is not
+        | owner-only. Only removing one is (see below).
+        */
+        Route::get('customers/fields', [CustomerController::class, 'fields'])
+            ->name('customers.fields');
+        Route::get('customers/stats', [CustomerController::class, 'stats'])
+            ->name('customers.stats');
+        Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
+        Route::get('customers/{customer}', [CustomerController::class, 'show'])
+            ->name('customers.show');
+        Route::post('customers', [CustomerController::class, 'store'])->name('customers.store');
+        Route::put('customers/{customer}', [CustomerController::class, 'update'])
+            ->name('customers.update');
+
+        Route::middleware('tenant.owner')->group(function () {
+            Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])
+                ->name('customers.destroy');
+
+            Route::put('settings/fields/{entity}', [FieldSettingController::class, 'update'])
+                ->name('settings.fields.update');
+
+            /*
+            | The organization's own people. Owner-only end to end — who may
+            | sign in is not a staff decision.
+            */
+            // Before the apiResource, or {user} would swallow the literal.
+            Route::get('users/fields', [TenantUserController::class, 'fields'])
+                ->name('users.fields');
+
+            Route::apiResource('users', TenantUserController::class)
+                ->parameters(['users' => 'user'])
+                ->names('users');
+
+            Route::post('locations', [LocationController::class, 'store'])
+                ->name('locations.store');
+            Route::put('locations/{location}', [LocationController::class, 'update'])
+                ->name('locations.update');
+            Route::delete('locations/{location}', [LocationController::class, 'destroy'])
+                ->name('locations.destroy');
+        });
     });
 });

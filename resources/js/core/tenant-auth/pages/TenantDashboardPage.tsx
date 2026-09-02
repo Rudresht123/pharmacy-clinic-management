@@ -1,65 +1,38 @@
-import { initials } from '@/shared/utils/format';
+import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { Card } from '@/shared/components/ui/Card';
 import { useTenantAuth } from '../TenantAuthProvider';
 
 /**
- * Just enough for a login to land somewhere real. An actual tenant app
- * shell (navigation, clinical modules) is real product work with nothing
- * to gate yet — this is deliberately a placeholder, not a first draft of it.
+ * The landing page inside an organization's workspace.
+ *
+ * Deliberately thin: the shell around it (sidebar, header, appearance
+ * settings) is the same one the platform panel uses, and the clinical
+ * modules that will fill this page do not exist yet.
  */
 export default function TenantDashboardPage() {
-    const { user, organization, logout } = useTenantAuth();
+    const { user, organization } = useTenantAuth();
 
     return (
-        <div>
-            <header className="tenant-topbar">
-                <div className="tenant-topbar-brand">
-                    {organization?.has_logo ? (
-                        <img
-                            src={organization.logo_url}
-                            alt=""
-                            className="tenant-topbar-logo"
-                        />
-                    ) : (
-                        <span
-                            className="avatar-box avatar-box--initials tenant-topbar-logo"
-                            aria-hidden="true"
-                        >
-                            {initials(organization?.name ?? '')}
-                        </span>
-                    )}
+        <>
+            <PageHeader
+                title={`Welcome back, ${user?.name ?? ''}`}
+                subtitle={organization?.name}
+                icon="ti ti-layout-dashboard"
+                tone="sky"
+                crumbs={[{ label: 'Dashboard' }]}
+                home={false}
+            />
 
-                    <span className="tenant-topbar-name">{organization?.name}</span>
+            <div className="row g-3">
+                <div className="col-12">
+                    <Card>
+                        <p className="text-muted mb-0">
+                            Your clinical modules — patients, appointments, billing, inventory —
+                            will appear here as they are built.
+                        </p>
+                    </Card>
                 </div>
-
-                <div className="tenant-topbar-user">
-                    <div className="tenant-topbar-user-info">
-                        <div className="tenant-topbar-user-name">{user?.name}</div>
-                        <div className="tenant-topbar-user-role">{user?.role}</div>
-                    </div>
-
-                    <span className="avatar-box avatar-box--initials" style={{ width: 38, height: 38 }}>
-                        {initials(user?.name ?? '')}
-                    </span>
-
-                    <button
-                        type="button"
-                        className="tenant-topbar-logout"
-                        onClick={() => logout()}
-                        title="Log out"
-                        aria-label="Log out"
-                    >
-                        <i className="ti ti-logout" />
-                    </button>
-                </div>
-            </header>
-
-            <div className="tenant-welcome">
-                <h2>Welcome, {user?.name}</h2>
-                <p>
-                    {organization?.name}'s clinical modules — patients, billing, inventory — will
-                    appear here as they are built.
-                </p>
             </div>
-        </div>
+        </>
     );
 }

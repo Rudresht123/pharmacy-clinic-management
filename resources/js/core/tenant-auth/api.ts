@@ -19,6 +19,8 @@ export interface TenantUser {
     role: TenantUserRole;
     is_active: boolean;
     last_login_at: string | null;
+    /** Values for the fields the organization added itself. */
+    custom_fields?: Record<string, unknown>;
 }
 
 /** The signed-in user's own organization — just enough to greet them by name/logo. */

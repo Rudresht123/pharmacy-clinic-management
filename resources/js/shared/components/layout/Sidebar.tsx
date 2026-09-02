@@ -1,16 +1,21 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { navigation } from '@/app/navigation';
+import type { NavSection } from '@/app/navigation';
 import { useAppSettings } from '@/shared/hooks/useAppSettings';
 import { cn } from '@/shared/utils/cn';
 
 interface SidebarProps {
+    /**
+     * Passed in rather than imported: the admin panel and an organization's
+     * own workspace are different menus over the same chrome.
+     */
+    navigation: NavSection[];
     collapsed: boolean;
     onToggleCollapse: () => void;
     /** Closes the mobile drawer after a link is followed. */
     onNavigate: () => void;
 }
 
-export function Sidebar({ collapsed, onToggleCollapse, onNavigate }: SidebarProps) {
+export function Sidebar({ navigation, collapsed, onToggleCollapse, onNavigate }: SidebarProps) {
     const { pathname } = useLocation();
     const { settings } = useAppSettings();
 

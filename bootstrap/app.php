@@ -9,6 +9,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Validation\ValidationException;
+use App\Http\Middleware\EnsureTenantUserIsOwner;
 use App\Http\Middleware\ResolveTenantFromSession;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -29,7 +30,36 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'resolve.tenant' => ResolveTenantFromSession::class,
+            'tenant.owner' => EnsureTenantUserIsOwner::class,
         ]);
+
+        /*
+        |----------------------------------------------------------------------
+        | Tenant resolution has to beat the auth middleware
+        |----------------------------------------------------------------------
+        |
+        | Listing 'resolve.tenant' before 'auth:web' on the route is not
+        | enough. Laravel sorts the gathered middleware by its priority list,
+        | and Authenticate — which implements AuthenticatesRequests — is on
+        | that list while a custom middleware is not, so Authenticate was
+        | hoisted above it and resolve.tenant ended up running dead last:
+        |
+        |   1. EnsureFrontendRequestsAreStateful
+        |   2. Authenticate:web          <- looked the tenant user up here
+        |   3. SubstituteBindings
+        |   4. ResolveTenantFromSession  <- connected the database here
+        |
+        | The guard therefore queried the `organization` connection while it
+        | still pointed at no database, and every authenticated tenant request
+        | died on "relation users does not exist". route:list shows the
+        | declaration order rather than this sorted one, which is what made it
+        | look correct.
+        |
+        */
+        $middleware->prependToPriorityList(
+            before: \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
+            prepend: ResolveTenantFromSession::class,
+        );
 
         /*
         |----------------------------------------------------------------------

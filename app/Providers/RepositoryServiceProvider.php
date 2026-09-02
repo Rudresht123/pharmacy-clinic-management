@@ -34,6 +34,12 @@ use App\Repositories\Platform\TenantDatabaseRepository;
 use App\Repositories\Platform\TenantMigrationRunRepository;
 use App\Repositories\Platform\TenantMigrationStateRepository;
 use App\Repositories\Platform\TenantProvisionEventRepository;
+use App\Repositories\Tenant\Contracts\CustomerRepositoryInterface;
+use App\Repositories\Tenant\Contracts\LocationRepositoryInterface;
+use App\Repositories\Tenant\Contracts\TenantUserRepositoryInterface;
+use App\Repositories\Tenant\CustomerRepository;
+use App\Repositories\Tenant\LocationRepository;
+use App\Repositories\Tenant\TenantUserRepository;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -69,6 +75,12 @@ class RepositoryServiceProvider extends ServiceProvider
         TenantMigrationRunRepositoryInterface::class => TenantMigrationRunRepository::class,
         TenantBackupRepositoryInterface::class => TenantBackupRepository::class,
         OrganizationStatRepositoryInterface::class => OrganizationStatRepository::class,
+
+        // Tenant-database repositories. These resolve against whichever
+        // tenant ResolveTenantFromSession selected for the current request.
+        LocationRepositoryInterface::class => LocationRepository::class,
+        CustomerRepositoryInterface::class => CustomerRepository::class,
+        TenantUserRepositoryInterface::class => TenantUserRepository::class,
     ];
 
     public function register(): void

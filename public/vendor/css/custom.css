@@ -1372,105 +1372,6 @@ rect.legend-mouseover-inactive,
     color:var(--bs-primary);
 }
 
-/* Tenant dashboard topbar */
-.tenant-topbar{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:16px;
-    padding:14px 28px;
-    background:var(--surface);
-    border-bottom:1px solid var(--line);
-}
-
-.tenant-topbar-brand{
-    display:flex;
-    align-items:center;
-    gap:12px;
-    min-width:0;
-}
-
-.tenant-topbar-logo{
-    width:40px;
-    height:40px;
-    border-radius:10px;
-    object-fit:cover;
-    flex-shrink:0;
-}
-
-.tenant-topbar-name{
-    font-size:15.5px;
-    font-weight:700;
-    color:var(--ink);
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-}
-
-.tenant-topbar-user{
-    display:flex;
-    align-items:center;
-    gap:12px;
-}
-
-.tenant-topbar-user-info{
-    text-align:right;
-    line-height:1.25;
-}
-
-.tenant-topbar-user-name{
-    font-size:14px;
-    font-weight:600;
-    color:var(--ink);
-}
-
-.tenant-topbar-user-role{
-    font-size:12px;
-    color:var(--muted);
-    text-transform:capitalize;
-}
-
-.tenant-topbar-logout{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    width:38px;
-    height:38px;
-    border-radius:10px;
-    border:1px solid var(--line);
-    background:var(--surface-2);
-    color:var(--muted);
-    font-size:17px;
-    cursor:pointer;
-    transition:background .18s ease,color .18s ease,border-color .18s ease;
-}
-
-.tenant-topbar-logout:hover{
-    background:#fdeaea;
-    color:#dc3545;
-    border-color:#f5c6cb;
-}
-
-.tenant-welcome{
-    max-width:640px;
-    margin:64px auto 0;
-    padding:0 24px;
-    text-align:center;
-}
-
-.tenant-welcome h2{
-    font-size:24px;
-    font-weight:700;
-    color:var(--ink);
-    margin:0 0 8px;
-}
-
-.tenant-welcome p{
-    color:var(--muted);
-    font-size:14.5px;
-}
-
-
 /* custom sweet alerts css */
 .custom-alert-backdrop{
     position:fixed;
@@ -1672,4 +1573,883 @@ rect.legend-mouseover-inactive,
 .ajs-message.ajs-custom{
 
     border-left:4px solid #3b82f6 !important;
+}
+
+/* ---------------------------------------------------------
+   Date picker (shared/components/form/DateField.tsx)
+
+   Replaces <input type="date">, which cannot be styled and
+   renders differently in every browser.
+   --------------------------------------------------------- */
+
+.dp{
+    position:relative;
+}
+
+.dp-input{
+    width:100%;
+    min-height:38px;
+    display:flex;
+    align-items:center;
+    gap:9px;
+    padding:6px 12px;
+    text-align:left;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--ink);
+    font-size:14px;
+    cursor:pointer;
+    transition:border-color .18s ease,box-shadow .18s ease;
+}
+
+.dp-input:hover{
+    border-color:var(--line-2);
+}
+
+.dp-input.is-open,
+.dp-input:focus-visible{
+    outline:0;
+    border-color:rgb(var(--brand));
+    box-shadow:0 0 0 3px rgba(var(--brand),.14);
+}
+
+.dp-input.is-invalid{
+    border-color:#dc3545;
+}
+
+.dp-input-icon{
+    font-size:17px;
+    color:var(--muted);
+    flex-shrink:0;
+}
+
+.dp-value{
+    flex:1;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.dp-value.is-placeholder{
+    color:var(--muted);
+}
+
+.dp-clear{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:20px;
+    height:20px;
+    flex-shrink:0;
+    border-radius:50%;
+    color:var(--muted);
+    font-size:13px;
+    transition:background .15s ease,color .15s ease;
+}
+
+.dp-clear:hover{
+    background:rgba(220,53,69,.1);
+    color:#dc3545;
+}
+
+/*
+   The calendar itself.
+
+   position:fixed, with top/left set inline from the trigger's rect — the
+   form's .form-rail and .form-actions are both sticky, and .form-actions
+   carries a z-index and a backdrop-filter, so an absolutely-positioned
+   popover inside the column gets painted underneath them. Same escape
+   RowActions uses to get out of the table's overflow.
+*/
+.dp-pop{
+    position:fixed;
+    z-index:1060;
+    width:274px;
+    padding:12px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    box-shadow:0 18px 40px -18px rgba(17,22,51,.28);
+    animation:dp-in .14s ease both;
+}
+
+@keyframes dp-in{
+    from{opacity:0;transform:translateY(-4px);}
+    to{opacity:1;transform:translateY(0);}
+}
+
+.dp-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+}
+
+.dp-title{
+    font-size:14px;
+    font-weight:600;
+    color:var(--ink);
+}
+
+.dp-nav{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:28px;
+    height:28px;
+    border:0;
+    border-radius:8px;
+    background:transparent;
+    color:var(--ink-2);
+    font-size:16px;
+    cursor:pointer;
+    transition:background .15s ease,color .15s ease;
+}
+
+.dp-nav:hover{
+    background:rgba(var(--brand),.08);
+    color:rgb(var(--brand));
+}
+
+.dp-week,
+.dp-grid{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:2px;
+}
+
+.dp-week{
+    margin-bottom:4px;
+}
+
+.dp-week span{
+    text-align:center;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.03em;
+    color:var(--muted);
+    padding:4px 0;
+}
+
+.dp-day{
+    height:32px;
+    border:0;
+    border-radius:8px;
+    background:transparent;
+    color:var(--ink);
+    font-size:13px;
+    cursor:pointer;
+    transition:background .12s ease,color .12s ease;
+}
+
+.dp-day:hover{
+    background:rgba(var(--brand),.1);
+}
+
+.dp-day.is-outside{
+    color:var(--muted);
+    opacity:.5;
+}
+
+/* today is outlined; the selection is filled — both can be true at once */
+.dp-day.is-today{
+    box-shadow:inset 0 0 0 1px rgb(var(--brand));
+    color:rgb(var(--brand));
+    font-weight:600;
+}
+
+.dp-day.is-selected{
+    background:rgb(var(--brand));
+    color:#fff;
+    font-weight:600;
+    box-shadow:none;
+}
+
+.dp-day.is-selected:hover{
+    background:rgb(var(--brand));
+}
+
+.dp-foot{
+    display:flex;
+    justify-content:space-between;
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid var(--line);
+}
+
+.dp-link{
+    border:0;
+    background:transparent;
+    padding:2px 4px;
+    font-size:13px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    cursor:pointer;
+    border-radius:6px;
+}
+
+.dp-link:hover{
+    background:rgba(var(--brand),.08);
+}
+
+/* A calendar this wide would overflow the rail on a narrow screen. */
+@media (max-width:575.98px){
+    .dp-pop{
+        width:100%;
+        min-width:250px;
+    }
+}
+
+/* ---------------------------------------------------------
+   Location field settings
+   (core/locations/pages/LocationFieldSettingsPage.tsx)
+   --------------------------------------------------------- */
+
+.lf-group{ margin-bottom:22px; }
+
+.lf-group-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:10px;
+    padding:0 2px;
+}
+
+.lf-group-head h6{
+    margin:0;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-2);
+}
+
+.lf-group-head span{ font-size:12px; color:var(--muted); }
+
+.lf-list{ display:flex; flex-direction:column; gap:8px; }
+
+.lf-row{
+    position:relative;
+    display:grid;
+    grid-template-columns:26px 38px 1fr auto auto;
+    align-items:center;
+    gap:12px;
+    padding:12px 14px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:12px;
+    transition:border-color .16s ease,box-shadow .16s ease,opacity .16s ease;
+}
+
+.lf-row:hover{
+    border-color:var(--line-2);
+    box-shadow:0 4px 14px -8px rgba(17,22,51,.2);
+}
+
+/* a field switched off the form reads as inactive, not deleted */
+.lf-row.is-off{ opacity:.62; background:var(--surface-2); }
+
+.lf-row.is-open{
+    border-color:rgb(var(--brand));
+    box-shadow:0 0 0 3px rgba(var(--brand),.1);
+}
+
+.lf-order{ display:flex; flex-direction:column; gap:2px; }
+
+.lf-order button{
+    width:24px;
+    height:17px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+    border:1px solid var(--line);
+    border-radius:5px;
+    background:var(--surface-2);
+    color:var(--ink-2);
+    font-size:11px;
+    cursor:pointer;
+    transition:background .15s ease,color .15s ease;
+}
+
+.lf-order button:hover:not(:disabled){
+    background:rgba(var(--brand),.1);
+    color:rgb(var(--brand));
+}
+
+.lf-order button:disabled{ opacity:.35; cursor:not-allowed; }
+
+.lf-type{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:38px;
+    height:38px;
+    border-radius:10px;
+    background:rgba(var(--brand),.09);
+    color:rgb(var(--brand));
+    font-size:17px;
+}
+
+.lf-main{ min-width:0; }
+
+/* looks like plain text until you click into it */
+.lf-label{
+    width:100%;
+    padding:2px 6px;
+    margin-left:-6px;
+    border:1px solid transparent;
+    border-radius:6px;
+    background:transparent;
+    font-size:14.5px;
+    font-weight:600;
+    color:var(--ink);
+}
+
+.lf-label:hover{ border-color:var(--line); }
+
+.lf-label:focus{
+    outline:0;
+    background:var(--surface);
+    border-color:rgb(var(--brand));
+    box-shadow:0 0 0 3px rgba(var(--brand),.12);
+}
+
+.lf-meta{ display:flex; align-items:center; gap:8px; margin-top:2px; }
+.lf-meta code{ font-size:11.5px; color:var(--muted); }
+
+.lf-lock{
+    display:inline-flex;
+    align-items:center;
+    gap:3px;
+    padding:1px 7px;
+    border-radius:100px;
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:10.5px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+}
+
+.lf-edit{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    padding:1px 8px;
+    border:0;
+    border-radius:100px;
+    background:rgba(var(--brand),.1);
+    color:rgb(var(--brand));
+    font-size:11.5px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.lf-edit:hover{ background:rgba(var(--brand),.18); }
+
+.lf-error{ margin-top:4px; font-size:12px; color:#dc3545; }
+
+.lf-toggles{ display:flex; gap:6px; flex-wrap:wrap; }
+
+.lf-toggle{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:5px 11px;
+    border:1px solid var(--line);
+    border-radius:100px;
+    background:var(--surface-2);
+    color:var(--muted);
+    font-size:12px;
+    font-weight:600;
+    white-space:nowrap;
+    cursor:pointer;
+    transition:background .15s ease,color .15s ease,border-color .15s ease;
+}
+
+.lf-toggle i{ font-size:13px; }
+
+.lf-toggle:hover:not(:disabled){ border-color:var(--line-2); color:var(--ink-2); }
+
+.lf-toggle.is-on{
+    background:rgba(var(--brand),.12);
+    border-color:rgba(var(--brand),.35);
+    color:rgb(var(--brand));
+}
+
+.lf-toggle:disabled{ opacity:.55; cursor:not-allowed; }
+
+.lf-remove{
+    width:30px;
+    height:30px;
+    border:0;
+    border-radius:8px;
+    background:transparent;
+    color:var(--muted);
+    cursor:pointer;
+    transition:background .15s ease,color .15s ease;
+}
+
+.lf-remove:hover{ background:rgba(220,53,69,.1); color:#dc3545; }
+
+/* custom-field editor, revealed under its row */
+.lf-editor{
+    grid-column:1 / -1;
+    margin-top:6px;
+    padding-top:12px;
+    border-top:1px dashed var(--line);
+}
+
+.lf-editor-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+    gap:12px;
+}
+
+.lf-editor-grid label{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-2);
+}
+
+.lf-editor-grid small{
+    font-weight:400;
+    font-size:11px;
+    color:var(--muted);
+    line-height:1.4;
+}
+
+.lf-options{ margin-top:12px; }
+
+.lf-options-title{
+    display:block;
+    margin-bottom:6px;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-2);
+}
+
+.lf-option{
+    display:grid;
+    grid-template-columns:1fr 1fr 30px;
+    gap:6px;
+    margin-bottom:6px;
+}
+
+.lf-add-option{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    padding:4px 10px;
+    border:1px dashed var(--line-2);
+    border-radius:8px;
+    background:transparent;
+    color:var(--ink-2);
+    font-size:12px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.lf-add-option:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+.lf-add{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    padding:13px;
+    border:1.5px dashed var(--line-2);
+    border-radius:12px;
+    background:transparent;
+    color:var(--ink-2);
+    font-size:13.5px;
+    font-weight:600;
+    cursor:pointer;
+    transition:border-color .16s ease,color .16s ease,background .16s ease;
+}
+
+.lf-add:hover{
+    border-color:rgb(var(--brand));
+    color:rgb(var(--brand));
+    background:rgba(var(--brand),.04);
+}
+
+/* live preview */
+.lf-preview{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    overflow:hidden;
+}
+
+.lf-preview header{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:14px 16px;
+    background:var(--surface-2);
+    border-bottom:1px solid var(--line);
+}
+
+.lf-preview header > i{ font-size:18px; color:rgb(var(--brand)); }
+.lf-preview header b{ display:block; font-size:13.5px; color:var(--ink); }
+.lf-preview header span{ display:block; font-size:11.5px; color:var(--muted); }
+
+.lf-preview-body{ padding:16px; max-height:560px; overflow-y:auto; }
+.lf-preview-empty{ margin:0; font-size:12.5px; color:var(--muted); }
+
+.lf-mock{ margin-bottom:12px; }
+
+.lf-mock-label{
+    display:block;
+    margin-bottom:4px;
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--ink-2);
+}
+
+.lf-mock-label i{ margin-left:2px; font-style:normal; color:#dc3545; }
+
+.lf-mock-input{
+    display:block;
+    padding:7px 10px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--surface-2);
+    color:var(--muted);
+    font-size:12.5px;
+    min-height:32px;
+}
+
+.lf-mock-input.is-tall{ min-height:56px; }
+
+.lf-mock-switch{
+    display:block;
+    width:36px;
+    height:20px;
+    border-radius:100px;
+    background:var(--line-2);
+    position:relative;
+}
+
+.lf-mock-switch::after{
+    content:"";
+    position:absolute;
+    top:3px;
+    left:3px;
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    background:var(--surface);
+}
+
+@media (max-width:767.98px){
+    /* the toggles need a full row of their own once the card cannot hold them */
+    .lf-row{ grid-template-columns:26px 38px 1fr auto; }
+    .lf-toggles{ grid-column:1 / -1; }
+}
+
+/* =========================================================
+   Scrollbars
+
+   One design wherever a scrollbar appears, instead of each
+   browser's default. Deliberately lives in custom.css, which
+   loads before table.css and layout.css, so a component that
+   wants something else — the sidebar's hover-only thumb, the
+   breadcrumb trail's hidden one — still overrides this.
+
+   Colours come from the theme tokens, so dark mode follows
+   without a second set of rules.
+   ========================================================= */
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-2) transparent;
+}
+
+/* WebKit — Chrome, Edge, Safari */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/*
+   The transparent border plus background-clip is what gives the
+   thumb its inset: it reads as a floating pill with breathing
+   room rather than a bar wedged against the edge.
+*/
+::-webkit-scrollbar-thumb {
+    background-color: var(--line-2);
+    background-clip: content-box;
+    border: 3px solid transparent;
+    border-radius: 100px;
+    transition: background-color .2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted);
+}
+
+::-webkit-scrollbar-thumb:active {
+    background-color: var(--ink-3);
+}
+
+/* Where a vertical and a horizontal bar meet */
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/*
+   The page's own scrollbar sits against the window edge with
+   nothing behind it, so it gets a faint track to sit in and a
+   little more width to grab.
+*/
+html::-webkit-scrollbar {
+    width: 12px;
+}
+
+html::-webkit-scrollbar-track {
+    background: var(--surface-2);
+}
+
+/*
+   Inside a small popover a 10px bar is most of the padding, so
+   dropdowns and menus take the slimmer treatment.
+*/
+.dropdown-menu::-webkit-scrollbar,
+.dp-pop::-webkit-scrollbar,
+.lf-preview-body::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb,
+.dp-pop::-webkit-scrollbar-thumb,
+.lf-preview-body::-webkit-scrollbar-thumb,
+.modal-body::-webkit-scrollbar-thumb {
+    border-width: 2px;
+}
+
+/*
+   No touch-device rule hiding these. A wide table's horizontal scrollbar is
+   often the only hint that there is more to the right, and taking it away
+   costs more than the tidiness is worth.
+*/
+
+/* ---------------------------------------------------------
+   Stat tiles and filter bar
+   (shared/components/ui/StatTiles.tsx, FilterBar.tsx)
+   --------------------------------------------------------- */
+
+.stat-tiles{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:12px;
+    margin-bottom:16px;
+}
+
+.stat-tile{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:14px 16px;
+    text-align:left;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    transition:border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+
+.stat-tile.is-interactive{
+    cursor:pointer;
+}
+
+.stat-tile.is-interactive:hover{
+    border-color:var(--line-2);
+    box-shadow:0 6px 18px -12px rgba(17,22,51,.3);
+}
+
+/* A tile doubling as a filter has to look switched on */
+.stat-tile.is-active{
+    border-color:rgb(var(--brand));
+    background:rgba(var(--brand),.05);
+    box-shadow:0 0 0 3px rgba(var(--brand),.1);
+}
+
+.stat-tile-icon{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:40px;
+    height:40px;
+    flex-shrink:0;
+    border-radius:11px;
+    background:rgba(var(--brand),.1);
+    color:rgb(var(--brand));
+    font-size:19px;
+}
+
+.stat-tile.tone-emerald .stat-tile-icon{ background:rgba(16,185,129,.12); color:#059669; }
+.stat-tile.tone-amber   .stat-tile-icon{ background:rgba(245,158,11,.12); color:#b45309; }
+.stat-tile.tone-rose    .stat-tile-icon{ background:rgba(244,63,94,.12);  color:#be123c; }
+.stat-tile.tone-sky     .stat-tile-icon{ background:rgba(14,165,233,.12); color:#0369a1; }
+.stat-tile.tone-violet  .stat-tile-icon{ background:rgba(139,92,246,.12); color:#6d28d9; }
+.stat-tile.tone-teal    .stat-tile-icon{ background:rgba(20,184,166,.12); color:#0f766e; }
+
+.stat-tile-body{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+}
+
+.stat-tile-value{
+    font-size:21px;
+    font-weight:700;
+    line-height:1.15;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.stat-tile-label{
+    font-size:12.5px;
+    color:var(--ink-3);
+}
+
+.stat-tile-hint{
+    margin-top:1px;
+    font-size:11.5px;
+    color:var(--muted);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+/* a bar where the number will be, while it loads */
+.stat-tile-skeleton{
+    display:block;
+    width:44px;
+    height:21px;
+    border-radius:6px;
+    background:var(--surface-2);
+    animation:stat-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes stat-pulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:.5; }
+}
+
+/* filters */
+.filter-bar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    gap:12px;
+    margin-bottom:14px;
+}
+
+.filter-field{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    min-width:170px;
+}
+
+.filter-field > span{
+    font-size:11.5px;
+    font-weight:600;
+    letter-spacing:.02em;
+    color:var(--muted);
+}
+
+.filter-clear{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    height:31px;
+    padding:0 11px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--surface-2);
+    color:var(--ink-2);
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background .15s ease,color .15s ease,border-color .15s ease;
+}
+
+.filter-clear:hover{
+    background:rgba(220,53,69,.08);
+    border-color:rgba(220,53,69,.3);
+    color:#dc3545;
+}
+
+@media (max-width:575.98px){
+    .filter-field{ min-width:100%; }
+}
+
+/* What an organization calls a record (FieldSettingsPage naming card) */
+
+.lf-naming{
+    margin-bottom:18px;
+    padding:14px 16px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:12px;
+}
+
+.lf-naming-head{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    margin-bottom:12px;
+}
+
+.lf-naming-head > i{
+    font-size:18px;
+    color:rgb(var(--brand));
+    margin-top:1px;
+}
+
+.lf-naming-head b{
+    display:block;
+    font-size:13.5px;
+    color:var(--ink);
+}
+
+.lf-naming-head span{
+    display:block;
+    font-size:12px;
+    line-height:1.5;
+    color:var(--muted);
+}
+
+.lf-naming-fields{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:12px;
+}
+
+.lf-naming-fields label{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    font-size:11.5px;
+    font-weight:600;
+    letter-spacing:.02em;
+    color:var(--muted);
 }
