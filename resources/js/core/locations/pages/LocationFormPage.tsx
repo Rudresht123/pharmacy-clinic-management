@@ -1,7 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Button } from '@/shared/components/ui/Button';
+import { Tabs, type TabItem } from '@/shared/components/ui/Tabs';
+import { BranchModulePanel } from '@/core/roles/components/BranchModulePanel';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
+import { RecordHistory } from '@/core/tenant-history/RecordHistory';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { FormError } from '@/shared/components/form/Fields';
 import { useApiForm } from '@/shared/components/form/useApiForm';
@@ -42,10 +46,28 @@ const GROUPS: FieldGroup[] = [
     },
 ];
 
+/**
+ * Two views of one branch, not two pages.
+ *
+ * Its modules are a property of the branch, so they live with it rather than
+ * on a separate screen somebody has to know exists. The tab only appears once
+ * the branch does — there is nothing to switch on for a record that has not
+ * been created.
+ */
+type Tab = 'details' | 'modules';
+
+const TABS: TabItem<Tab>[] = [
+    { value: 'details', label: 'Details', icon: 'ti ti-building-store' },
+    { value: 'modules', label: 'Modules', icon: 'ti ti-puzzle' },
+];
+
 export default function LocationFormPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const isEdit = Boolean(id);
+
+    const [tab, setTab] = useState<Tab>('details');
+    const { user } = useTenantAuth();
 
     const { data: fields, isLoading: fieldsLoading } = useLocationFields();
     const { data: location, isLoading: recordLoading } = locationsHooks.useDetail(id);
@@ -89,9 +111,7 @@ export default function LocationFormPage() {
 
     const onSubmit = handleSubmit(async (values) => {
         const result = await submit(values, async () =>
-            isEdit && id
-                ? update.mutateAsync({ id, payload: values })
-                : create.mutateAsync(values),
+            isEdit && id ? update.mutateAsync({ id, payload: values }) : create.mutateAsync(values),
         );
 
         if (result) {
@@ -115,6 +135,15 @@ export default function LocationFormPage() {
                 ]}
             />
 
+            {/* Only the owner reaches level two, and only an existing branch
+                has modules to decide about. */}
+            {isEdit && location && user?.role === 'owner' && (
+                <Tabs tabs={TABS} value={tab} onChange={setTab} label="Branch views" />
+            )}
+
+            {isEdit && location && tab === 'modules' ? (
+                <BranchModulePanel locationId={location.id} />
+            ) : (
             <form onSubmit={onSubmit} noValidate>
                 <FormError message={errors.root?.message} />
 
@@ -131,6 +160,12 @@ export default function LocationFormPage() {
                 />
 
                 <div className="form-actions">
+                    {/* Only on edit: a record being created has no
+                        history to show yet. */}
+                    {isEdit && location && (
+                        <RecordHistory entity="Location" id={location.id} label={location?.name} />
+                    )}
+
                     <span className="form-actions-note">
                         {isEdit
                             ? 'Changes apply to this location only.'
@@ -146,6 +181,7 @@ export default function LocationFormPage() {
                     </Button>
                 </div>
             </form>
+            )}
         </>
     );
 }

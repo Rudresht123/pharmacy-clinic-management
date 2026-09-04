@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { createResourceApi } from '@/shared/api/resource';
-import { createResourceHooks } from '@/shared/hooks/useResource';
+import { createResourceHooks, resourceKey } from '@/shared/hooks/useResource';
 import { http } from '@/shared/api/http';
 import type { ApiResponse } from '@/shared/types/api';
 import type { ConfigurableField } from '@/core/field-settings/types';
@@ -19,7 +19,7 @@ export const customersHooks = createResourceHooks(customersApi, {
  */
 export function useCustomerFields() {
     return useQuery({
-        queryKey: ['tenant', 'customers', 'fields'],
+        queryKey: resourceKey(customersApi.endpoint, 'fields'),
         queryFn: async (): Promise<ConfigurableField[]> => {
             const { data } = await http.get<ApiResponse<ConfigurableField[]>>(
                 '/tenant/customers/fields',
@@ -34,7 +34,7 @@ export function useCustomerFields() {
 /** Totals for the list screen's header, across every page of results. */
 export function useCustomerStats() {
     return useQuery({
-        queryKey: ['tenant', 'customers', 'stats'],
+        queryKey: resourceKey(customersApi.endpoint, 'stats'),
         queryFn: async (): Promise<CustomerStats> => {
             const { data } = await http.get<ApiResponse<CustomerStats>>('/tenant/customers/stats');
 

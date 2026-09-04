@@ -3,8 +3,8 @@
 namespace App\Services\Notifications;
 
 use App\Models\EmailTemplate;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class EmailService
 {
@@ -19,10 +19,10 @@ class EmailService
             'template_key',
             $templateKey
         )
-        ->where('is_active', true)
-        ->first();
+            ->where('is_active', true)
+            ->first();
 
-        if (!$template) {
+        if (! $template) {
 
             Log::error(
                 "Email template not found: {$templateKey}"
@@ -37,13 +37,13 @@ class EmailService
         foreach ($placeholders as $key => $value) {
 
             $body = str_replace(
-                '{' . $key . '}',
+                '{'.$key.'}',
                 $value,
                 $body
             );
 
             $subject = str_replace(
-                '{' . $key . '}',
+                '{'.$key.'}',
                 $value,
                 $subject
             );
@@ -55,7 +55,7 @@ class EmailService
                 'emails.layouts.master',
                 [
                     'content' => $body,
-                    'subject' => $subject
+                    'subject' => $subject,
                 ],
                 function ($message) use (
                     $to,
@@ -67,25 +67,24 @@ class EmailService
                         ->to($to)
                         ->subject($subject);
 
-                    if (!empty($options['cc'])) {
+                    if (! empty($options['cc'])) {
                         $message->cc($options['cc']);
                     }
 
-                    if (!empty($options['bcc'])) {
+                    if (! empty($options['bcc'])) {
                         $message->bcc($options['bcc']);
                     }
 
-                    if (!empty($options['reply_to'])) {
+                    if (! empty($options['reply_to'])) {
                         $message->replyTo(
                             $options['reply_to']
                         );
                     }
 
-                    if (!empty($options['attachments'])) {
+                    if (! empty($options['attachments'])) {
 
                         foreach (
-                            $options['attachments']
-                            as $attachment
+                            $options['attachments'] as $attachment
                         ) {
 
                             if (
@@ -110,7 +109,7 @@ class EmailService
                 [
                     'template' => $templateKey,
                     'recipient' => $to,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]
             );
 

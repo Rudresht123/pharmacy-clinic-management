@@ -16,7 +16,13 @@ export interface TenantUser {
     id: number;
     name: string;
     email: string;
+    /** The account's kind. Not the same question as `role_id` below. */
     role: TenantUserRole;
+
+    /** The set of capabilities they hold. Null for an owner, who bypasses roles. */
+    role_id: number | null;
+    role_name?: string | null;
+
     is_active: boolean;
     last_login_at: string | null;
     /** Values for the fields the organization added itself. */
@@ -35,6 +41,25 @@ export interface TenantOrganization {
 export interface TenantSession {
     user: TenantUser;
     organization: TenantOrganization;
+
+    /**
+     * The modules running where this person works — sold to the organization
+     * AND switched on at their branch.
+     *
+     * The sidebar hides what is not here and the API refuses it, both from
+     * App\Services\Permissions\Permission — so a menu entry can never exist
+     * for something the server would answer 403 to.
+     */
+    modules: string[];
+
+    /**
+     * What THIS PERSON may do, not the organization's pool.
+     *
+     * All three levels already resolved: sold to the organization, running at
+     * their branch, and held by their role. An owner gets the whole pool
+     * because they bypass roles; a member of staff gets the intersection.
+     */
+    capabilities: string[];
 }
 
 export interface TenantLoginPayload {

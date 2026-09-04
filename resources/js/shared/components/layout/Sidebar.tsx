@@ -13,9 +13,20 @@ interface SidebarProps {
     onToggleCollapse: () => void;
     /** Closes the mobile drawer after a link is followed. */
     onNavigate: () => void;
+    /** Whose workspace this is — shown above the collapse control. */
+    footer?: React.ReactNode;
+    /** The very last row, below the workspace card. */
+    help?: React.ReactNode;
 }
 
-export function Sidebar({ navigation, collapsed, onToggleCollapse, onNavigate }: SidebarProps) {
+export function Sidebar({
+    navigation,
+    collapsed,
+    onToggleCollapse,
+    onNavigate,
+    footer,
+    help,
+}: SidebarProps) {
     const { pathname } = useLocation();
     const { settings } = useAppSettings();
 
@@ -58,6 +69,22 @@ export function Sidebar({ navigation, collapsed, onToggleCollapse, onNavigate }:
                                     ? pathname.startsWith(item.match)
                                     : pathname === item.to;
 
+                                if (item.soon) {
+                                    return (
+                                        <li key={item.to}>
+                                            <span
+                                                className="app-nav-item is-soon"
+                                                title={`${item.label} — not built yet`}
+                                                aria-disabled="true"
+                                            >
+                                                <i className={item.icon} />
+                                                <span>{item.label}</span>
+                                                <em className="app-nav-soon">Soon</em>
+                                            </span>
+                                        </li>
+                                    );
+                                }
+
                                 return (
                                     <li key={item.to}>
                                         <NavLink
@@ -77,6 +104,10 @@ export function Sidebar({ navigation, collapsed, onToggleCollapse, onNavigate }:
                     </div>
                 ))}
             </nav>
+
+            {footer && !collapsed && <div className="app-sidebar-card">{footer}</div>}
+
+            {help && !collapsed && <div className="app-sidebar-help">{help}</div>}
 
             {collapsed && (
                 <div className="app-sidebar-foot d-none d-lg-block">

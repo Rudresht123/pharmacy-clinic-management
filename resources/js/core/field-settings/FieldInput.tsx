@@ -51,10 +51,14 @@ export function FieldInput<T extends FieldValues>({
             return <SwitchField {...shared} description={field.label} />;
 
         case 'number':
-            return <TextField {...shared} type="number" placeholder={field.placeholder ?? undefined} />;
+            return (
+                <TextField {...shared} type="number" placeholder={field.placeholder ?? undefined} />
+            );
 
         case 'textarea':
-            return <TextareaField {...shared} rows={3} placeholder={field.placeholder ?? undefined} />;
+            return (
+                <TextareaField {...shared} rows={3} placeholder={field.placeholder ?? undefined} />
+            );
 
         case 'select':
             return (
@@ -83,7 +87,9 @@ export function FieldInput<T extends FieldValues>({
             );
 
         case 'email':
-            return <TextField {...shared} type="email" placeholder={field.placeholder ?? undefined} />;
+            return (
+                <TextField {...shared} type="email" placeholder={field.placeholder ?? undefined} />
+            );
 
         default:
             return <TextField {...shared} placeholder={field.placeholder ?? undefined} />;

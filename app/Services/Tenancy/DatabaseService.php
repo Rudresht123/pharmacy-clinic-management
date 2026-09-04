@@ -44,7 +44,7 @@ class DatabaseService
      */
     private static function assertSafeName(string $databaseName): void
     {
-        if (!preg_match('/^[a-z0-9_]+$/', $databaseName)) {
+        if (! preg_match('/^[a-z0-9_]+$/', $databaseName)) {
             throw new \InvalidArgumentException("Invalid database name: {$databaseName}");
         }
     }

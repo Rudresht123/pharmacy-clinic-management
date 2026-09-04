@@ -9,6 +9,17 @@ interface NavigationLoaderProps {
      * would flash it for a few milliseconds, which reads as a glitch.
      */
     minVisibleMs?: number;
+
+    /**
+     * URL changes that are not screen changes.
+     *
+     * A tab that keeps its position in the URL — the field settings tabs —
+     * calls navigate(), but the user is still looking at the same screen.
+     * Covering it with the overlay reads as a page load that did not
+     * happen. When both the old and new path match one of these, the
+     * loader stays down.
+     */
+    sameScreen?: readonly RegExp[];
 }
 
 /**
@@ -18,26 +29,37 @@ interface NavigationLoaderProps {
  * It stays up until the new page's queries have settled, so it reflects
  * real readiness rather than a fixed timer.
  */
-export function NavigationLoader({ minVisibleMs = 400 }: NavigationLoaderProps) {
+export function NavigationLoader({ minVisibleMs = 400, sameScreen }: NavigationLoaderProps) {
     const { pathname } = useLocation();
     const isFetching = useIsFetching();
 
     const [visible, setVisible] = useState(false);
     const shownAt = useRef(0);
-    const isFirstRender = useRef(true);
+    const previous = useRef<string | null>(null);
 
     // Start on navigation. The very first render is skipped — the boot
     // loader in app.blade.php is already covering that.
     useEffect(() => {
-        if (isFirstRender.current) {
-            isFirstRender.current = false;
+        const from = previous.current;
+        previous.current = pathname;
 
+        // Nothing moved. Guards against a re-render alone raising the
+        // overlay if a caller passes a fresh `sameScreen` array each time.
+        if (from === null || from === pathname) {
+            return;
+        }
+
+        const withinOneScreen = sameScreen?.some(
+            (pattern) => pattern.test(from) && pattern.test(pathname),
+        );
+
+        if (withinOneScreen) {
             return;
         }
 
         shownAt.current = Date.now();
         setVisible(true);
-    }, [pathname]);
+    }, [pathname, sameScreen]);
 
     // Hide once nothing is in flight and the minimum has elapsed.
     useEffect(() => {

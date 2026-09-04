@@ -11,6 +11,7 @@ use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\User;
 use App\Repositories\Tenant\Contracts\TenantUserRepositoryInterface;
 use App\Services\Fields\FieldSchema;
+use App\Services\Permissions\StaffScope;
 use App\Support\Fields\UserFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,8 +28,8 @@ class UserController extends BaseApiController
 
     public function __construct(
         private readonly TenantUserRepositoryInterface $users,
-    ) {
-    }
+        private readonly StaffScope $scope,
+    ) {}
 
     /**
      * The field definitions the form and table render from — the code
@@ -63,7 +64,9 @@ class UserController extends BaseApiController
 
     public function show(User $user): JsonResponse
     {
-        return $this->ok(UserResource::make($user));
+        $this->mustReach($user);
+
+        return $this->ok(UserResource::make($user->load('permissionRole')));
     }
 
     public function store(StoreTenantUserRequest $request): JsonResponse
@@ -79,6 +82,8 @@ class UserController extends BaseApiController
 
     public function update(UpdateTenantUserRequest $request, User $user): JsonResponse
     {
+        $this->mustReach($user);
+
         $data = $request->validated();
 
         // Blank means "leave the password alone" rather than "clear it".
@@ -97,6 +102,8 @@ class UserController extends BaseApiController
 
     public function destroy(User $user): JsonResponse
     {
+        $this->mustReach($user);
+
         $signedIn = Auth::guard('web')->user();
 
         if ($signedIn && $signedIn->getKey() === $user->getKey()) {
@@ -118,5 +125,21 @@ class UserController extends BaseApiController
         $this->users->delete($user);
 
         return $this->noContent('User removed successfully.');
+    }
+
+    /**
+     * Refuse a record outside the caller's reach.
+     *
+     * 404 rather than 403, deliberately. `permission:people.view` has already
+     * confirmed the caller may administer staff, so the only thing left to say
+     * is whether THIS person is theirs to administer — and answering 403 would
+     * confirm the id exists to somebody who may not see it. A record they
+     * cannot reach should be indistinguishable from one that is not there.
+     */
+    private function mustReach(User $user): void
+    {
+        if (! $this->scope->canManage(Auth::guard('web')->user(), $user)) {
+            abort(404, 'Resource not found.');
+        }
     }
 }

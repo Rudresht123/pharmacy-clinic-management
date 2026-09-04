@@ -17,8 +17,7 @@ class PlatformUserSeeder extends Seeder
 {
     public function __construct(
         private readonly PlatformUserRepositoryInterface $admins,
-    ) {
-    }
+    ) {}
 
     public function run(): void
     {

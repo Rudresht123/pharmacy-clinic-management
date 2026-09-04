@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { createColumnHelper } from '@tanstack/react-table';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { notify } from '@/shared/utils/notify';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Card } from '@/shared/components/ui/Card';
@@ -31,7 +31,6 @@ type TypeFormValues = {
 
 export default function OrganizationTypeListPage() {
     const confirm = useConfirm();
-    const queryClient = useQueryClient();
 
     const modal = useModal<OrganizationType>();
 
@@ -53,10 +52,8 @@ export default function OrganizationTypeListPage() {
 
     const toggle = useMutation({
         mutationFn: toggleOrganizationTypeStatus,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: organizationTypesHooks.keys.all });
-            notify.success('Status updated');
-        },
+        // Invalidation is the query client's job, for every mutation.
+        onSuccess: () => notify.success('Status updated'),
     });
 
     const {

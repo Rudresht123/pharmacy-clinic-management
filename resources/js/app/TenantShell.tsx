@@ -14,22 +14,60 @@ import { useConfigurableEntities } from '@/core/field-settings/api';
  * control that goes nowhere.
  */
 export function TenantShell() {
-    const { user, logout } = useTenantAuth();
+    const { user, logout, modules, capabilities, organization } = useTenantAuth();
 
     // The sidebar says whatever this organization calls its records.
     const { data: entities } = useConfigurableEntities();
 
-    // The menu depends on the role: owner-only screens are not listed for
-    // staff, who would only reach a 403.
+    // The menu is built from what this person may actually do — every
+    // entry names the capability its screen needs, and the server refuses
+    // the same one, so a listed screen can never answer 403.
     const labels = useMemo(
         () => Object.fromEntries((entities ?? []).map((e) => [e.entity, e.label])),
         [entities],
     );
 
     const navigation = useMemo(
-        () => tenantNavigation(user?.role, labels),
-        [user?.role, labels],
+        () => tenantNavigation(user?.role, labels, modules, capabilities),
+        [user?.role, labels, modules, capabilities],
     );
 
-    return <AppShell navigation={navigation} user={user} onLogout={logout} />;
+    return (
+        <AppShell
+            navigation={navigation}
+            user={user}
+            onLogout={logout}
+            sidebarFooter={
+                organization && (
+                    <div className="app-org">
+                        <span className="app-org-mark">
+                            {organization.has_logo ? (
+                                <img src={organization.logo_url} alt="" />
+                            ) : (
+                                <i className="ti ti-building" />
+                            )}
+                        </span>
+
+                        <span className="app-org-text">
+                            <b>{organization.name}</b>
+                            <small>
+                                Organization · {modules.length} module
+                                {modules.length === 1 ? '' : 's'}
+                            </small>
+                        </span>
+                    </div>
+                )
+            }
+            sidebarHelp={
+                <a
+                    className="app-help"
+                    href="mailto:support@hms.local"
+                    title="Email support"
+                >
+                    <i className="ti ti-help-circle" />
+                    <span>Help &amp; Support</span>
+                </a>
+            }
+        />
+    );
 }

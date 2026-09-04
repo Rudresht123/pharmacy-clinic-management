@@ -2353,23 +2353,73 @@ html::-webkit-scrollbar-track {
     50%{ opacity:.5; }
 }
 
-/* filters */
-.filter-bar{
+/* ---------------------------------------------------------
+   Filter panel (shared/components/ui/FilterPanel.tsx)
+
+   Its own card above the table, because choosing what to
+   look at and then looking at it are two acts. Inside the
+   table's card the controls read as part of its header, and
+   with six of them that stopped working.
+   --------------------------------------------------------- */
+
+.filter-card{
+    margin-bottom:16px;
+    padding:14px 16px 16px;
+}
+
+.filter-card-head{
     display:flex;
-    flex-wrap:wrap;
-    align-items:flex-end;
+    align-items:center;
+    justify-content:space-between;
     gap:12px;
-    margin-bottom:14px;
+    margin-bottom:12px;
+}
+
+.filter-card-title{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    font-size:13.5px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.filter-card-title i{
+    font-size:17px;
+    color:rgb(var(--brand));
+}
+
+.filter-count{
+    min-width:20px;
+    padding:0 6px;
+    border-radius:100px;
+    background:rgba(var(--brand),.12);
+    color:rgb(var(--brand));
+    font-size:11px;
+    line-height:18px;
+    text-align:center;
+    font-variant-numeric:tabular-nums;
+}
+
+/*
+   Auto-fitting rather than a fixed column count: a screen
+   with three filters and one with six both want full rows,
+   and neither should have to say so.
+*/
+.filter-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(178px,1fr));
+    gap:12px 14px;
 }
 
 .filter-field{
     display:flex;
     flex-direction:column;
-    gap:4px;
-    min-width:170px;
+    gap:5px;
+    min-width:0;
 }
 
-.filter-field > span{
+.filter-field label{
     font-size:11.5px;
     font-weight:600;
     letter-spacing:.02em;
@@ -2380,7 +2430,7 @@ html::-webkit-scrollbar-track {
     display:inline-flex;
     align-items:center;
     gap:5px;
-    height:31px;
+    height:30px;
     padding:0 11px;
     border:1px solid var(--line);
     border-radius:8px;
@@ -2398,9 +2448,59 @@ html::-webkit-scrollbar-track {
     color:#dc3545;
 }
 
-@media (max-width:575.98px){
-    .filter-field{ min-width:100%; }
+/*
+   What is applied, repeated. A reader who arrived on a
+   filtered link, or who scrolled past the controls, can see
+   why the table is short — and drop one thing without
+   resetting the lot.
+*/
+.filter-chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+    margin-top:13px;
+    padding-top:13px;
+    border-top:1px solid var(--line);
 }
+
+.filter-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    height:27px;
+    padding:0 9px;
+    border:1px solid rgba(var(--brand),.22);
+    border-radius:100px;
+    background:rgba(var(--brand),.08);
+    font-size:12px;
+    cursor:pointer;
+    transition:background .15s ease,border-color .15s ease;
+}
+
+.filter-chip:hover{
+    background:rgba(var(--brand),.15);
+    border-color:rgba(var(--brand),.36);
+}
+
+.filter-chip-label{
+    color:var(--muted);
+}
+
+.filter-chip-value{
+    font-weight:600;
+    color:rgb(var(--brand));
+    max-width:150px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.filter-chip i{
+    font-size:14px;
+    color:var(--muted);
+}
+
+.filter-chip:hover i{ color:#dc3545; }
 
 /* What an organization calls a record (FieldSettingsPage naming card) */
 
@@ -2452,4 +2552,4789 @@ html::-webkit-scrollbar-track {
     font-weight:600;
     letter-spacing:.02em;
     color:var(--muted);
+}
+
+/* ---------------------------------------------------------
+   Charts (shared/components/ui/BarList.tsx, TrendBars.tsx,
+   SplitBar.tsx)
+
+   Two colour jobs, kept apart on purpose.
+
+   --chart-mark is MAGNITUDE: BarList and TrendBars each
+   plot one series, so one hue, and it follows the
+   organization's accent.
+
+   --cat-1..6 is IDENTITY: a donut's slices are different
+   things, not more or less of one thing. These are fixed
+   hues, deliberately NOT derived from the accent — a
+   category must keep its colour when the accent changes or
+   when a neighbouring slice empties out. Validated as a set
+   against both surfaces (worst adjacent CVD ΔE 9.1 light /
+   8.4 dark, normal-vision 19.6 / 19.3; the targets are 8
+   and 15). Three of the light steps sit under the 3:1
+   contrast floor — aqua 2.82, yellow 2.17, magenta 2.69 —
+   so every chart using them ships a legend carrying each
+   slice's name, count and share. The chart is never read by
+   colour alone. Six is also the ceiling: a seventh hue is
+   indistinguishable from an existing one under colour
+   blindness, so the tail folds into "Other" instead.
+
+   The dark-mode override is not cosmetic. Measured against
+   the dark surface (#161a2b), three of the selectable
+   accents fall under the 3:1 contrast floor — indigo 1.81,
+   violet 2.43, slate 1.69 — and indigo is the default, so
+   bars would sink into the background. --brand-2 is the
+   lightened accent the theme already computes, and all
+   eight accents clear 3:1 in that form.
+   --------------------------------------------------------- */
+
+:root{
+    --chart-mark:rgb(var(--brand));
+    --chart-track:var(--surface-3);
+
+    --cat-1:#2a78d6;
+    --cat-2:#eb6834;
+    --cat-3:#1baf7a;
+    --cat-4:#eda100;
+    --cat-5:#e87ba4;
+    --cat-6:#4a3aa7;
+}
+
+[data-theme='dark']{
+    --chart-mark:rgb(var(--brand-2));
+    --chart-track:var(--surface-3);
+
+    /* The same six hues, re-stepped for the dark surface
+       rather than flipped — all six clear 3:1 there. */
+    --cat-1:#3987e5;
+    --cat-2:#d95926;
+    --cat-3:#199e70;
+    --cat-4:#c98500;
+    --cat-5:#d55181;
+    --cat-6:#9085e9;
+}
+
+/* ranked horizontal bars */
+.bar-list{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.bar-list-row{
+    display:grid;
+    grid-template-columns:minmax(70px,1fr) 2.4fr auto;
+    align-items:center;
+    gap:10px;
+}
+
+.bar-list-label{
+    font-size:12.5px;
+    color:var(--ink-2);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.bar-list-track{
+    height:10px;
+    border-radius:100px;
+    background:var(--chart-track);
+    overflow:hidden;
+}
+
+.bar-list-fill{
+    display:block;
+    height:100%;
+    background:var(--chart-mark);
+    /* Rounded at the data end, square at the baseline. */
+    border-radius:0 4px 4px 0;
+    transition:width .3s cubic-bezier(.22,1,.36,1);
+}
+
+/* "not recorded" is an absence, not a branch — it should not compete */
+.bar-list-fill.is-muted{
+    background:var(--line-2);
+}
+
+.bar-list-value{
+    min-width:32px;
+    text-align:right;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.bar-list-more,
+.bar-list-empty{
+    margin:0;
+    font-size:12px;
+    color:var(--muted);
+}
+
+.bar-list-more{
+    margin-top:2px;
+}
+
+/* columns over time */
+.trend-caption{
+    margin:0 0 10px;
+    font-size:12px;
+    color:var(--muted);
+}
+
+.trend-plot{
+    display:flex;
+    align-items:flex-end;
+    gap:6px;
+    height:130px;
+}
+
+.trend-slot{
+    position:relative;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    height:100%;
+}
+
+.trend-bar-wrap{
+    flex:1;
+    width:100%;
+    max-width:24px;           /* bars stay thin; the slot's rest is air */
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+}
+
+.trend-bar{
+    display:block;
+    width:100%;
+    background:var(--chart-mark);
+    /* Rounded cap, square foot on the baseline. */
+    border-radius:4px 4px 0 0;
+    transition:height .3s cubic-bezier(.22,1,.36,1);
+}
+
+/* a quiet month still needs a foot, or it reads as missing data */
+.trend-bar.is-zero{
+    background:var(--line-2);
+}
+
+.trend-tick{
+    margin-top:6px;
+    font-size:11px;
+    color:var(--muted);
+}
+
+.trend-endlabel{
+    position:absolute;
+    top:-2px;
+    font-size:11.5px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.trend-tip{
+    position:absolute;
+    bottom:calc(100% - 6px);
+    left:50%;
+    transform:translateX(-50%);
+    z-index:3;
+    padding:5px 9px;
+    border-radius:8px;
+    background:var(--ink);
+    color:var(--surface);
+    font-size:11.5px;
+    white-space:nowrap;
+    pointer-events:none;
+    box-shadow:0 8px 18px -8px rgba(2,4,20,.5);
+}
+
+.trend-tip b{
+    font-variant-numeric:tabular-nums;
+}
+
+
+
+/* ---------------------------------------------------------
+   Tabs
+
+   Separate chips, not one tray. Unselected tabs are quiet —
+   a plain outline on the page surface — and the selected one
+   takes the SIDEBAR's own background.
+
+   Borrowing that colour is the point: the sidebar is where
+   this app already says "you are here", so a tab wearing the
+   same surface reads as the same idea one level down. It
+   also follows the light / dark / brand sidebar choice for
+   free, instead of needing a fourth colour scheme.
+
+   The active border is --sb-accent, which resolves to the
+   brand on a light sidebar (a visible ring around a white
+   chip) and to white on a dark or brand one, where it
+   disappears against the page and leaves a solid chip. One
+   rule, right in all three.
+   --------------------------------------------------------- */
+
+.app-tabs{
+    display:flex;
+    gap:8px;
+    max-width:100%;
+    margin-bottom:18px;
+    padding-bottom:2px;
+    overflow-x:auto;               /* seven tabs do not fit a phone */
+    scrollbar-width:none;
+}
+
+.app-tabs::-webkit-scrollbar{ display:none; }
+
+.app-tab{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+
+    height:38px;
+    padding:0 15px;
+
+    border:1px solid var(--line-2);
+    border-radius:8px;
+    background:var(--surface);
+
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+    cursor:pointer;
+
+    transition:background .16s ease, color .16s ease,
+        border-color .16s ease, box-shadow .16s ease;
+}
+
+.app-tab i{ font-size:17px; opacity:.75; }
+
+.app-tab:hover{
+    border-color:rgba(var(--brand),.4);
+    color:rgb(var(--brand));
+}
+
+.app-tab:hover i{ opacity:1; }
+
+.app-tab.is-active{
+    background:var(--sb-bg);
+    border-color:var(--sb-accent);
+    color:var(--sb-hover-fg);
+    /* box-shadow:0 6px 16px -10px rgba(16,24,40,.55); */
+}
+
+.app-tab.is-active i{ opacity:1; }
+
+.app-tab:focus-visible{
+    outline:none;
+    box-shadow:0 0 0 3px rgba(var(--brand),.25);
+}
+
+/* a count riding a tab, e.g. how many rows the listing holds */
+.app-tab-badge{
+    min-width:20px;
+    padding:0 6px;
+    border-radius:100px;
+    background:var(--surface-3);
+    font-size:11px;
+    font-weight:700;
+    line-height:18px;
+    text-align:center;
+    color:var(--ink-3);
+    font-variant-numeric:tabular-nums;
+}
+
+.app-tab.is-active .app-tab-badge{
+    background:var(--sb-hover-bg);
+    color:var(--sb-hover-fg);
+}
+
+/* the same chips, sized to ride a card header */
+.app-tabs.is-sm{
+    margin-bottom:0;
+    gap:6px;
+}
+
+.app-tabs.is-sm .app-tab{
+    height:28px;
+    padding:0 12px;
+    border-radius:7px;
+    font-size:12px;
+}
+
+/* ---------------------------------------------------------
+   Chart cards
+
+   The generic card is spaced for forms. A chart wants its
+   ink close to its title, so this variant pulls the body up
+   and lets a headline figure ride the header.
+   --------------------------------------------------------- */
+
+.card.chart-card .card-header{
+    padding-bottom:8px;
+    border-bottom:0;
+}
+
+.card.chart-card .card-body{
+    padding-top:8px;
+}
+
+/*
+   Cards in a row end level, whatever their chart needs — a
+   ragged bottom edge reads as unfinished. The body centres
+   what it holds so a short chart's spare room splits above
+   and below it, instead of pooling underneath and leaving
+   the card looking half empty.
+*/
+.card.chart-card{
+    height:100%;
+}
+
+.card.chart-card .card-body{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+}
+
+/* the one number the card is really about */
+.chart-figure{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    line-height:1.1;
+}
+
+.chart-figure b{
+    font-size:22px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.chart-figure span{
+    margin-top:3px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+/* ---------------------------------------------------------
+   Area chart (shared/components/ui/AreaChart.tsx)
+   --------------------------------------------------------- */
+
+.area-caption{
+    margin:0 0 6px;
+    font-size:12px;
+    color:var(--muted);
+}
+
+.area-plot{
+    position:relative;
+}
+
+.area-plot svg{
+    display:block;
+}
+
+.area-stop-top{
+    stop-color:var(--chart-mark);
+    stop-opacity:.22;              /* a wash, never a saturated block */
+}
+
+.area-stop-bottom{
+    stop-color:var(--chart-mark);
+    stop-opacity:0;
+}
+
+.area-line{
+    fill:none;
+    stroke:var(--chart-mark);
+    stroke-width:2;
+    stroke-linejoin:round;
+    stroke-linecap:round;
+}
+
+.area-grid{
+    stroke:var(--line);
+    stroke-width:1;                /* hairline, solid, recessive */
+}
+
+.area-axis{
+    fill:var(--muted);
+    font-size:10.5px;
+}
+
+.area-crosshair{
+    stroke:var(--line-2);
+    stroke-width:1;
+}
+
+.area-dot{
+    fill:var(--chart-mark);
+    /* A ring in the surface colour, so the dot stays legible
+       where it sits on its own line. */
+    stroke:var(--surface);
+    stroke-width:2;
+}
+
+.area-bands{
+    position:absolute;
+    inset:0;
+}
+
+.area-band{
+    position:absolute;
+    top:0;
+    bottom:0;
+    padding:0;
+    border:0;
+    background:transparent;
+    cursor:default;
+}
+
+.area-band:focus-visible{
+    outline:none;
+    background:rgba(var(--brand),.06);
+}
+
+.area-tip{
+    position:absolute;
+    transform:translateX(-50%);
+    z-index:3;
+    padding:5px 9px;
+    border-radius:8px;
+    background:var(--ink);
+    color:var(--surface);
+    font-size:11.5px;
+    white-space:nowrap;
+    pointer-events:none;
+    box-shadow:0 8px 18px -8px rgba(2,4,20,.5);
+}
+
+.area-tip b{ font-variant-numeric:tabular-nums; }
+
+.area-ticks{
+    display:flex;
+    justify-content:space-between;
+    margin-top:-18px;              /* sits in the plot's bottom padding */
+}
+
+.area-tick{
+    font-size:11px;
+    color:var(--muted);
+}
+
+.area-tick.is-active{
+    color:var(--ink-2);
+    font-weight:600;
+}
+
+/* ---------------------------------------------------------
+   Small multiples (TrendRows.tsx + Sparkline.tsx)
+   --------------------------------------------------------- */
+
+.trend-rows{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+}
+
+.trend-row{
+    display:grid;
+    grid-template-columns:minmax(64px,1fr) 2.6fr auto;
+    align-items:center;
+    gap:12px;
+    padding:6px 0;
+}
+
+.trend-row + .trend-row{
+    border-top:1px solid var(--line);
+}
+
+.trend-row-label{
+    font-size:12.5px;
+    color:var(--ink-2);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.trend-row-plot{
+    display:block;
+    min-width:0;
+}
+
+.trend-row-value{
+    min-width:28px;
+    text-align:right;
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.trend-row.is-muted .trend-row-label,
+.trend-row.is-muted .trend-row-value{
+    color:var(--muted);
+}
+
+.spark{
+    display:block;
+    width:100%;
+}
+
+.spark.is-flat{
+    border-bottom:2px solid var(--line-2);
+}
+
+.spark-line{
+    fill:none;
+    stroke:var(--chart-mark);
+    stroke-width:1.75;
+    stroke-linejoin:round;
+    stroke-linecap:round;
+}
+
+.spark-area{
+    fill:var(--chart-mark);
+    opacity:.12;
+}
+
+.trend-row.is-muted .spark-line{ stroke:var(--line-2); }
+.trend-row.is-muted .spark-area{ fill:var(--line-2); }
+
+
+/* caption on the left, the card's headline figure on the right */
+.chart-head{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:4px;
+}
+
+/* ---------------------------------------------------------
+   Expiry badge (shared/components/ui/Feedback.tsx)
+
+   Replaces a `bg-danger-transparent` class that never
+   existed in any stylesheet — the badge fell back to
+   Bootstrap's white badge text on a white card, so an
+   expired drug licence rendered as an empty cell. A
+   compliance field that silently shows nothing is worse
+   than one that is missing.
+
+   Amber is not decoration: a licence with three weeks left
+   is the one somebody can still renew, and a red/not-red
+   badge never says so until it is too late.
+   --------------------------------------------------------- */
+
+.expiry-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:5px 10px;
+    border-radius:30px;
+    font-size:11.5px;
+    font-weight:600;
+    line-height:1;
+    white-space:nowrap;
+}
+
+.expiry-badge i{ font-size:14px; }
+
+/* The word is the point — colour alone is never the signal. */
+.expiry-note{
+    padding-left:7px;
+    border-left:1px solid currentColor;
+    opacity:.75;
+    font-weight:600;
+}
+
+.expiry-badge.is-expired{
+    background:rgba(220,53,69,.12);
+    color:#c92a3a;
+}
+
+.expiry-badge.is-soon{
+    background:rgba(217,119,6,.14);
+    color:#b45309;
+}
+
+[data-theme='dark'] .expiry-badge.is-expired{
+    background:rgba(248,113,113,.16);
+    color:#fca5a5;
+}
+
+[data-theme='dark'] .expiry-badge.is-soon{
+    background:rgba(251,191,36,.16);
+    color:#fcd34d;
+}
+
+/* ---------------------------------------------------------
+   Donut (shared/components/ui/DonutChart.tsx)
+
+   Slices are separated by a gap in the surface colour, cut
+   out of each arc's dash pattern — never a stroke around
+   the arc, which would add ink that is not data.
+   --------------------------------------------------------- */
+
+.donut{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:16px;
+}
+
+.donut-plot{
+    position:relative;
+    width:100%;
+    max-width:176px;
+    aspect-ratio:1;
+}
+
+.donut-plot svg{
+    display:block;
+    width:100%;
+    height:100%;
+}
+
+.donut-arc{
+    stroke:var(--cat-1);
+    stroke-linecap:butt;
+    transition:opacity .16s ease;
+    cursor:default;
+}
+
+/* an absence is not a category, so it gets no hue */
+.donut-arc.is-muted{ stroke:var(--line-2); }
+
+/* Emphasis by recession: the hovered slice keeps its colour
+   and the rest step back, so nothing is repainted. */
+.donut-arc.is-dimmed{ opacity:.28; }
+
+.donut-centre{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    text-align:center;
+    padding:0 22%;
+    pointer-events:none;
+}
+
+.donut-centre b{
+    font-size:26px;
+    font-weight:700;
+    line-height:1;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.donut-centre span{
+    font-size:11px;
+    line-height:1.3;
+    color:var(--muted);
+}
+
+.donut-legend{
+    display:flex;
+    flex-direction:column;
+    gap:1px;
+    width:100%;
+    margin:0;
+    padding:0;
+    list-style:none;
+}
+
+.donut-legend li{
+    display:grid;
+    grid-template-columns:10px minmax(0,1fr) auto auto;
+    align-items:center;
+    gap:9px;
+    padding:5px 7px;
+    border-radius:7px;
+    font-size:12.5px;
+    transition:background .16s ease;
+}
+
+.donut-legend li.is-active{ background:var(--surface-2); }
+
+.donut-key{
+    width:10px;
+    height:10px;
+    border-radius:3px;
+    background:var(--cat-1);
+}
+
+.donut-key.is-muted{ background:var(--line-2); }
+
+/* Text wears ink, never the slice colour. */
+.donut-name{
+    color:var(--ink-2);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.donut-value{
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.donut-share{
+    min-width:34px;
+    text-align:right;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+}
+
+/* ---------------------------------------------------------
+   Module catalogue (core/modules/pages/ModuleAccessPage)
+
+   A table, not cards: the catalogue grows, and at forty rows
+   cards cannot be sorted, compared or scanned. The capability
+   list that would make every card tall lives in a dialog
+   instead, read on demand.
+   --------------------------------------------------------- */
+
+.cat-cell{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+}
+
+.cat-cell b{
+    display:block;
+    font-size:13px;
+    color:var(--ink);
+}
+
+.cat-cell span{
+    display:block;
+    margin-top:1px;
+    font-size:11.5px;
+    line-height:1.4;
+    color:var(--muted);
+    /* Two lines at most — a description is context, not the row. */
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+}
+
+/* Same construction as .ma-icon, for the same reason. */
+.cat-icon{
+    box-sizing:border-box;
+    width:32px;
+    height:32px;
+    flex:0 0 32px;
+    display:block;
+    padding:0;
+    border-radius:9px;
+    background:rgba(var(--brand),.1);
+    text-align:center;
+}
+
+.cat-icon i{
+    display:block;
+    width:100%;
+    font-size:17px;
+    line-height:32px;
+    text-align:center;
+    color:rgb(var(--brand));
+}
+
+.cat-tag{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:3px 9px;
+    border-radius:30px;
+    background:var(--surface-3);
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--ink-3);
+    white-space:nowrap;
+}
+
+.cat-tag i{ font-size:13px; }
+
+.cat-tag.is-core{ background:rgba(var(--brand),.1); color:rgb(var(--brand)); }
+.cat-tag.is-warn{ background:rgba(217,119,6,.14); color:#b45309; }
+
+.cat-count{
+    font-size:13.5px;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.cat-caps-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:3px 10px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:transparent;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    font-variant-numeric:tabular-nums;
+    cursor:pointer;
+    transition:border-color .15s ease,color .15s ease;
+}
+
+.cat-caps-btn i{ font-size:13px; }
+
+.cat-caps-btn:hover{
+    border-color:rgb(var(--brand));
+    color:rgb(var(--brand));
+}
+
+/* The dialog is where the bad date is, so the way in says so. */
+.cat-caps-btn.is-invalid{
+    border-color:rgba(220,53,69,.5);
+    background:rgba(220,53,69,.06);
+    color:#c92a3a;
+}
+
+.cat-caps-title{
+    display:block;
+    margin-bottom:6px;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+}
+
+/* the dialog's list */
+.cat-caps{
+    display:flex;
+    flex-direction:column;
+    gap:1px;
+    margin:0;
+    padding:0;
+    list-style:none;
+}
+
+.cat-caps li{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:14px;
+    padding:9px 2px;
+    font-size:13px;
+    color:var(--ink-2);
+}
+
+.cat-caps li + li{ border-top:1px solid var(--line); }
+
+/* The key, because a role screen and a route will name it. */
+.cat-caps code{
+    flex-shrink:0;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+
+/* ---------------------------------------------------------
+   Module assignment
+   (organizations/components/ModuleAssignPanel.tsx and the
+   split view in modules/pages/ModuleAccessPage.tsx)
+
+   A switch per module rather than a table of ticks: this is
+   a small, grouped set of decisions about one customer, not
+   a list to be sorted and scanned. The terms open in place
+   under the module they belong to, so the answer to "until
+   when?" never leaves the question.
+   --------------------------------------------------------- */
+
+.ma-split{
+    display:grid;
+    grid-template-columns:290px minmax(0,1fr);
+    gap:16px;
+    align-items:start;
+}
+
+@media (max-width:991.98px){
+    /* The rail becomes a picker above the stage rather than a
+       290px column squeezed against it. */
+    .ma-split{ grid-template-columns:minmax(0,1fr); }
+    .ma-rail-list{ max-height:230px; }
+}
+
+/* --- the picker ------------------------------------------ */
+
+.ma-rail{
+    position:sticky;
+    top:calc(var(--tb-height, 62px) + 16px);
+    display:flex;
+    flex-direction:column;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:var(--surface);
+    overflow:hidden;
+}
+
+.ma-rail-search{
+    position:relative;
+    padding:10px;
+    border-bottom:1px solid var(--line);
+}
+
+.ma-rail-search i{
+    position:absolute;
+    left:22px;
+    top:50%;
+    transform:translateY(-50%);
+    font-size:16px;
+    line-height:1;
+    color:var(--muted);
+    pointer-events:none;
+}
+
+/*
+   Styled outright rather than through .form-control. The
+   theme sets `.app-content .form-control{padding:0 14px}`,
+   which outranks any single-class rule here — so a
+   padding-left declared for the icon simply never applied and
+   the placeholder rendered underneath it. The table's search
+   input avoids the class for the same reason.
+
+   The padding clears the icon's RIGHT edge, not its left one.
+*/
+.ma-rail-search input{
+    width:100%;
+    height:36px;
+    padding:0 12px 0 34px;
+    border:1px solid var(--line-2);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:13px;
+    color:var(--ink);
+    transition:border-color .18s ease,box-shadow .18s ease;
+}
+
+.ma-rail-search input::placeholder{ color:var(--muted); }
+
+.ma-rail-search input:focus{
+    outline:0;
+    border-color:rgb(var(--brand));
+    box-shadow:0 0 0 3px rgba(var(--brand),.1);
+}
+
+.ma-rail-list{
+    max-height:min(62vh,620px);
+    overflow-y:auto;
+    padding:6px;
+}
+
+.ma-rail-item{
+    display:block;
+    width:100%;
+    padding:9px 11px;
+    border:0;
+    border-radius:9px;
+    background:transparent;
+    text-align:left;
+    cursor:pointer;
+    transition:background .14s ease;
+}
+
+.ma-rail-item:hover{ background:var(--surface-2); }
+
+/* The selected row wears the accent, the same as a tab does,
+   so the two never disagree about what "current" looks like. */
+.ma-rail-item.is-active{ background:rgba(var(--brand),.1); }
+
+.ma-rail-name{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.ma-rail-item.is-active .ma-rail-name{ color:rgb(var(--brand)); }
+
+.ma-rail-sub{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin-top:2px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.ma-rail-warn{ font-size:13px; color:#b45309; }
+
+.ma-rail-empty,
+.ma-rail-more{
+    margin:0;
+    padding:12px;
+    font-size:12px;
+    color:var(--muted);
+}
+
+.ma-rail-more{ border-top:1px solid var(--line); }
+
+/* --- the stage ------------------------------------------- */
+
+.ma-stage{
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:var(--surface);
+    padding:18px;
+}
+
+.ma-blank{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    min-height:280px;
+    text-align:center;
+}
+
+.ma-blank i{ font-size:26px; color:var(--muted); }
+.ma-blank b{ font-size:14px; color:var(--ink); }
+.ma-blank span{ max-width:34ch; font-size:12.5px; color:var(--muted); }
+
+/* --- the panel ------------------------------------------- */
+
+.ma-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:20px;
+}
+
+.ma-head-text h5{
+    margin:0;
+    display:flex;
+    align-items:center;
+    gap:9px;
+    font-size:17px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.ma-head-type{
+    padding:2px 8px;
+    border-radius:30px;
+    background:var(--surface-3);
+    font-size:11px;
+    font-weight:600;
+    color:var(--ink-3);
+}
+
+.ma-head-text p{
+    margin:5px 0 0;
+    font-size:12.5px;
+    color:var(--muted);
+}
+
+.ma-head-text b{ color:var(--ink); font-variant-numeric:tabular-nums; }
+
+.ma-group{ margin-bottom:22px; }
+.ma-group:last-child{ margin-bottom:0; }
+
+.ma-group h6{
+    margin:0 0 9px;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+}
+
+.ma-list{ display:flex; flex-direction:column; gap:8px; }
+
+.ma-item{
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface);
+    transition:border-color .16s ease,background .16s ease;
+}
+
+.ma-item.is-on{
+    border-color:rgba(var(--brand),.3);
+    background:rgba(var(--brand),.03);
+}
+
+/* Included with every organization: present, not a decision. */
+.ma-item.is-core{ background:var(--surface-2); border-color:var(--line); }
+
+.ma-item.has-error{ border-color:rgba(220,53,69,.45); }
+
+.ma-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+/*
+   Centred by line box, not by flex or grid.
+
+   The glyph kept landing at the tile's top-left, which is
+   what you get when the centring never takes effect at all.
+   A line-height equal to the tile's height plus
+   text-align:center needs no alignment property to survive:
+   the <i> is a plain block whose single line box is exactly
+   as tall as the tile, so the glyph sits on its centre
+   whatever else the cascade has to say. No overflow:hidden
+   either — clipping hides the symptom and makes a misplaced
+   glyph look cut off instead.
+*/
+.ma-icon{
+    box-sizing:border-box;
+    width:34px;
+    height:34px;
+    flex:0 0 34px;
+    display:block;
+    padding:0;
+    border-radius:10px;
+    background:rgba(var(--brand),.1);
+    text-align:center;
+}
+
+.ma-icon i{
+    display:block;
+    width:100%;
+    font-size:18px;
+    line-height:34px;
+    text-align:center;
+    color:rgb(var(--brand));
+}
+
+.ma-text{ min-width:0; flex:1; }
+
+.ma-text b{ display:block; font-size:13.5px; color:var(--ink); }
+
+.ma-text span{
+    display:block;
+    margin-top:1px;
+    font-size:12px;
+    line-height:1.45;
+    color:var(--muted);
+}
+
+.ma-locked{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    flex-shrink:0;
+    padding:4px 10px;
+    border-radius:30px;
+    background:rgba(var(--brand),.1);
+    font-size:11px;
+    font-weight:600;
+    color:rgb(var(--brand));
+}
+
+/* --- the switch ------------------------------------------ */
+
+/*
+   Every part is sized and placed explicitly, and both boxes
+   are border-box. The knob used to be a margin inside the
+   track, which left its position at the mercy of whatever
+   box model and margin rules the theme applies to a bare
+   span — and it rendered half outside the track.
+*/
+.ma-switch{
+    position:relative;
+    flex-shrink:0;
+    width:42px;
+    height:24px;
+    margin:0;
+    cursor:pointer;
+}
+
+.ma-switch input{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    margin:0;
+    opacity:0;
+    cursor:pointer;
+}
+
+.ma-track{
+    position:absolute;
+    inset:0;
+    box-sizing:border-box;
+    border-radius:100px;
+    background:var(--surface-3);
+    /* An inset ring rather than a border: it reads as a
+       control without moving anything a pixel. */
+    box-shadow:inset 0 0 0 1.5px var(--line-2);
+    transition:background .18s ease, box-shadow .18s ease;
+}
+
+.ma-track::after{
+    content:"";
+    position:absolute;
+    left:3px;
+    top:3px;
+    box-sizing:border-box;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:var(--surface);
+    box-shadow:0 1px 3px rgba(16,24,40,.28);
+    transition:transform .18s cubic-bezier(.22,1,.36,1);
+}
+
+.ma-switch input:checked + .ma-track{
+    background:rgb(var(--brand));
+    box-shadow:inset 0 0 0 1.5px rgb(var(--brand));
+}
+
+/* 42 − 18 − 3 − 3 = 18, so it lands with the same 3px gap. */
+.ma-switch input:checked + .ma-track::after{
+    transform:translateX(18px);
+}
+
+.ma-switch input:focus-visible + .ma-track{
+    box-shadow:
+        inset 0 0 0 1.5px rgb(var(--brand)),
+        0 0 0 3px rgba(var(--brand),.25);
+}
+
+.ma-switch input:disabled + .ma-track{
+    opacity:.5;
+    cursor:not-allowed;
+}
+
+/* --- the second line ------------------------------------- */
+
+/*
+   Everything on this line belongs to the module above it, so
+   it stays together on the left. Pushing the disclosure to
+   the far right left a wide dead band across every card —
+   and on a module that is switched off, a lone link floating
+   opposite nothing.
+*/
+.ma-meta{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:9px;
+    margin-top:8px;
+    padding-left:46px;          /* lines up under the name */
+}
+
+/* Each state is a different conversation with the customer,
+   so each gets its own colour rather than on/off. */
+.ma-state{
+    padding:3px 9px;
+    border-radius:30px;
+    font-size:11px;
+    font-weight:600;
+    background:var(--surface-3);
+    color:var(--ink-3);
+}
+
+.ma-state.is-live{ background:rgba(34,197,94,.12); color:#16a34a; }
+.ma-state.is-scheduled{ background:rgba(59,130,246,.12); color:#2563eb; }
+.ma-state.is-expired{ background:rgba(217,119,6,.14); color:#b45309; }
+.ma-state.is-revoked{ background:rgba(220,53,69,.1); color:#c92a3a; }
+
+.ma-term{ font-size:11.5px; color:var(--muted); }
+
+.ma-toggle{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    padding:0;
+    border:0;
+    background:transparent;
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--ink-3);
+    cursor:pointer;
+}
+
+.ma-toggle:hover{ color:rgb(var(--brand)); }
+.ma-toggle i{ font-size:14px; }
+
+.ma-error{
+    margin:9px 0 0;
+    padding-left:46px;
+    font-size:12px;
+    color:#dc3545;
+}
+
+/* --- the opened terms ------------------------------------ */
+
+.ma-detail{
+    margin-top:12px;
+    padding-top:13px;
+    padding-left:46px;
+    border-top:1px solid var(--line);
+}
+
+.ma-check{
+    display:flex;
+    align-items:flex-start;
+    gap:9px;
+    margin-bottom:12px;
+    cursor:pointer;
+}
+
+.ma-check > span{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-2);
+}
+
+.ma-check small{
+    display:block;
+    font-weight:400;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.ma-fields{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    gap:12px;
+    margin-bottom:16px;
+}
+
+.ma-field{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    min-width:0;
+}
+
+.ma-field > span{
+    font-size:11.5px;
+    font-weight:600;
+    letter-spacing:.02em;
+    color:var(--muted);
+}
+
+.ma-caps-title{
+    display:block;
+    margin-bottom:7px;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+}
+
+.ma-caps{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+    gap:5px 16px;
+    margin:0;
+    padding:0;
+    list-style:none;
+}
+
+.ma-caps li{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:12.5px;
+    color:var(--ink-2);
+}
+
+.ma-caps li i{ font-size:14px; color:#16a34a; }
+
+/* The key, because a role screen and a route will name it. */
+.ma-caps code{
+    margin-left:auto;
+    font-size:11px;
+    color:var(--muted);
+}
+
+/* ---------------------------------------------------------
+   Organization detail
+   (organizations/components/OrganizationHero.tsx and
+   organizations/pages/OrganizationDetailPage.tsx)
+
+   One header, not two. The page used to carry a PageHeader
+   with the organization's name and an identity card
+   repeating it directly underneath — two headings for one
+   thing, and the room went to saying it twice instead of
+   saying anything useful.
+   --------------------------------------------------------- */
+
+.oh{
+    position:relative;
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr) auto;
+    grid-template-areas:
+        "crumbs crumbs crumbs"
+        "avatar main   actions";
+    align-items:center;
+    gap:6px 16px;
+
+    padding:18px 20px;
+    margin-bottom:16px;
+
+    border:1px solid var(--line);
+    border-radius:16px;
+    background:linear-gradient(135deg,var(--surface) 0%,var(--surface-2) 55%,var(--surface-3) 100%);
+    overflow:hidden;
+}
+
+/* The same soft accent light the page header carries, so the
+   two screens still feel like one product. */
+.oh::after{
+    content:"";
+    position:absolute;
+    top:-60%;
+    right:-3%;
+    width:280px;
+    height:280px;
+    border-radius:50%;
+    background:radial-gradient(circle,rgba(var(--brand),.07) 0%,transparent 68%);
+    pointer-events:none;
+}
+
+.oh-crumbs{
+    grid-area:crumbs;
+    margin-bottom:6px;
+}
+
+/* Named rather than positional: a grid area picked by
+   nth-child breaks the moment anything is inserted. */
+.oh-avatar{
+    grid-area:avatar;
+    position:relative;
+    z-index:1;
+    display:block;
+}
+
+.oh-main{
+    grid-area:main;
+    position:relative;
+    z-index:1;
+    min-width:0;
+}
+
+.oh-actions{
+    grid-area:actions;
+    position:relative;
+    z-index:1;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+}
+
+.oh-title{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+}
+
+.oh-title h1{
+    margin:0;
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:-.025em;
+    line-height:1.2;
+    color:var(--ink);
+}
+
+.oh-type{
+    padding:3px 9px;
+    border-radius:30px;
+    background:var(--surface-3);
+    font-size:11px;
+    font-weight:600;
+    color:var(--ink-3);
+}
+
+/* --- handles --------------------------------------------- */
+
+.oh-handles{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+    margin-top:9px;
+}
+
+/*
+   A handle is a value that gets pasted somewhere else, so it
+   is a button that copies rather than text to retype.
+*/
+.oh-handle{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    max-width:100%;
+    padding:4px 10px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--surface);
+    font-size:12px;
+    color:var(--ink-2);
+    cursor:pointer;
+    transition:border-color .15s ease,color .15s ease;
+}
+
+.oh-handle > span{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.oh-handle i{ font-size:14px; color:var(--muted); }
+
+.oh-handle:hover{
+    border-color:rgba(var(--brand),.45);
+    color:var(--ink);
+}
+
+.oh-handle:hover i{ color:rgb(var(--brand)); }
+
+.oh-copied{ color:#16a34a !important; }
+
+@media (max-width:767.98px){
+    .oh{
+        grid-template-columns:auto minmax(0,1fr);
+        grid-template-areas:
+            "crumbs crumbs"
+            "avatar main"
+            "actions actions";
+    }
+
+    .oh-actions{ margin-top:12px; }
+    .oh-actions > *{ flex:1; }
+}
+
+/* ---------------------------------------------------------
+   The tabs' cards
+   --------------------------------------------------------- */
+
+/*
+   Cards in a row end level. Their content is definition
+   lists of different lengths, so without this a two-row card
+   sits beside a five-row one and the grid reads as broken
+   rather than as varied.
+*/
+.od-card{ height:100%; }
+
+.od-notes{
+    margin:0 0 6px;
+    font-size:13px;
+    line-height:1.6;
+    color:var(--ink-2);
+    white-space:pre-line;
+}
+
+/* --- lifecycle timeline ---------------------------------- */
+
+/*
+   These events happen in an order. As four date rows the
+   reader has to reconstruct that order every time; as a
+   timeline it is the shape of the thing.
+*/
+.od-timeline{
+    position:relative;
+    margin:0;
+    padding:0 0 0 4px;
+    list-style:none;
+}
+
+.od-timeline li{
+    position:relative;
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    padding-bottom:18px;
+}
+
+.od-timeline li:last-child{ padding-bottom:0; }
+
+/* The rail is drawn between dots, never past the last one. */
+.od-timeline li:not(:last-child)::before{
+    content:"";
+    position:absolute;
+    left:13px;
+    top:28px;
+    bottom:2px;
+    width:2px;
+    border-radius:2px;
+    background:var(--line);
+}
+
+.od-timeline-dot{
+    box-sizing:border-box;
+    width:28px;
+    height:28px;
+    flex:0 0 28px;
+    display:block;
+    padding:0;
+    border-radius:50%;
+    background:var(--surface-3);
+    text-align:center;
+}
+
+.od-timeline-dot i{
+    display:block;
+    width:100%;
+    font-size:15px;
+    line-height:28px;
+    text-align:center;
+    color:var(--ink-3);
+}
+
+.od-timeline li.is-emerald .od-timeline-dot{ background:rgba(34,197,94,.14); }
+.od-timeline li.is-emerald .od-timeline-dot i{ color:#16a34a; }
+
+.od-timeline li.is-rose .od-timeline-dot{ background:rgba(220,53,69,.12); }
+.od-timeline li.is-rose .od-timeline-dot i{ color:#c92a3a; }
+
+.od-timeline-body{ min-width:0; padding-top:3px; }
+
+.od-timeline-body b{
+    display:block;
+    font-size:13px;
+    color:var(--ink);
+}
+
+.od-timeline-body > span{
+    display:block;
+    margin-top:1px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+
+/* ---------------------------------------------------------
+   History timeline
+   (shared/components/ui/HistoryTimeline.tsx)
+
+   A timeline, not a table. Audit rows are not comparable to
+   one another — a rename and a module assignment share no
+   columns worth lining up — and what a reader wants from
+   each is a sentence: who, what, and what it used to be.
+
+   Grouped by day, because that is how a log is read: people
+   arrive with "what changed yesterday", not with a
+   timestamp. The day is said once on a sticky heading and
+   each row carries only a time, which is what keeps the rows
+   short enough to scan.
+   --------------------------------------------------------- */
+
+/*
+   The list scrolls inside its own box.
+
+   Before this the whole page scrolled, which took the
+   filters and the pager off screen — so paging meant
+   scrolling back up to find the control, and the reader lost
+   their place every time.
+*/
+.ht-scroll{
+    max-height:min(60vh,640px);
+    overflow-y:auto;
+    /* Clears the scrollbar so text does not run under it. */
+    padding-right:6px;
+    margin-right:-6px;
+}
+
+/* A page being fetched dims rather than disappears, so the
+   reader keeps their place. */
+.ht-fading{
+    opacity:.5;
+    transition:opacity .15s ease;
+}
+
+.ht-day + .ht-day{ margin-top:6px; }
+
+/*
+   Sticky, so the day a row belongs to is still readable
+   after scrolling into the middle of it.
+*/
+.ht-day-head{
+    position:sticky;
+    top:0;
+    z-index:2;
+
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:12px;
+
+    margin:0;
+    padding:8px 2px;
+
+    /* Opaque: the rows scroll underneath it. */
+    background:var(--surface);
+    border-bottom:1px solid var(--line);
+
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+}
+
+.ht-day-head small{
+    font-size:11px;
+    font-weight:500;
+    letter-spacing:0;
+    text-transform:none;
+    color:var(--muted);
+}
+
+.ht-list{
+    margin:0;
+    padding:0;
+    list-style:none;
+}
+
+.ht-item{
+    position:relative;
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    padding:12px 2px;
+}
+
+.ht-item + .ht-item{ border-top:1px solid var(--line); }
+
+.ht-item:hover{ background:var(--surface-2); }
+
+.ht-dot{
+    box-sizing:border-box;
+    width:30px;
+    height:30px;
+    flex:0 0 30px;
+    display:block;
+    padding:0;
+    border-radius:50%;
+    background:var(--surface-3);
+    text-align:center;
+}
+
+/* Centred by line box: it needs no alignment property to
+   survive whatever else the cascade has to say. */
+.ht-dot i{
+    display:block;
+    width:100%;
+    font-size:15px;
+    line-height:30px;
+    text-align:center;
+    color:var(--ink-3);
+}
+
+.ht-dot.is-emerald{ background:rgba(34,197,94,.14); }
+.ht-dot.is-emerald i{ color:#16a34a; }
+
+.ht-dot.is-sky{ background:rgba(59,130,246,.14); }
+.ht-dot.is-sky i{ color:#2563eb; }
+
+.ht-dot.is-rose{ background:rgba(220,53,69,.12); }
+.ht-dot.is-rose i{ color:#c92a3a; }
+
+.ht-dot.is-amber{ background:rgba(217,119,6,.14); }
+.ht-dot.is-amber i{ color:#b45309; }
+
+.ht-body{ min-width:0; flex:1; }
+
+.ht-line{
+    margin:0;
+    font-size:13px;
+    line-height:1.55;
+    color:var(--ink-2);
+}
+
+.ht-line b{ color:var(--ink); font-weight:600; }
+
+.ht-verb{ color:var(--muted); }
+
+.ht-subject{ font-weight:600; color:var(--ink); }
+
+/* Qualifiers — the record's type, and whether a platform
+   administrator was the one acting. Not the point of the
+   sentence, so they sit back from it. */
+.ht-kind{
+    display:inline-block;
+    margin-left:6px;
+    padding:1px 7px;
+    border-radius:30px;
+    background:var(--surface-3);
+    font-size:10.5px;
+    font-weight:600;
+    letter-spacing:.02em;
+    color:var(--ink-3);
+    vertical-align:1px;
+}
+
+.ht-kind.is-platform{
+    background:rgba(var(--brand),.12);
+    color:rgb(var(--brand));
+}
+
+/* The day heading carries the date, so a row needs only a
+   time — and it is aligned right, out of the sentence's way. */
+.ht-when{
+    flex-shrink:0;
+    padding-top:7px;
+    font-size:11.5px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+}
+
+/* --- the field diff -------------------------------------- */
+
+.ht-changes{
+    margin:8px 0 0;
+    padding:8px 11px;
+    border-radius:9px;
+    background:var(--surface-2);
+    list-style:none;
+}
+
+.ht-item:hover .ht-changes{ background:var(--surface-3); }
+
+.ht-changes li{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:8px;
+    padding:3px 0;
+    font-size:12.5px;
+}
+
+.ht-changes li + li{
+    margin-top:3px;
+    padding-top:6px;
+    border-top:1px solid var(--line);
+}
+
+.ht-field{
+    min-width:150px;
+    font-weight:600;
+    color:var(--ink-2);
+}
+
+/*
+   The old value is struck through, not merely greyed: an
+   audit trail's whole job is to say what something used to
+   be, and two similar-looking values side by side are easy
+   to read in the wrong order.
+*/
+.ht-from{
+    color:var(--muted);
+    text-decoration:line-through;
+    text-decoration-color:var(--line-2);
+}
+
+.ht-changes i{ font-size:14px; color:var(--muted); }
+
+.ht-to{
+    font-weight:600;
+    color:var(--ink);
+    overflow-wrap:anywhere;
+}
+
+/* --- empty and search ------------------------------------ */
+
+.ht-empty{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:5px;
+    padding:38px 16px;
+    text-align:center;
+}
+
+.ht-empty i{ font-size:26px; color:var(--muted); }
+.ht-empty b{ font-size:14px; color:var(--ink); }
+.ht-empty span{ max-width:36ch; font-size:12.5px; color:var(--muted); }
+
+/*
+   Styled outright rather than through .form-control: the
+   theme sets `.app-content .form-control{padding:0 14px}`,
+   which outranks any single-class rule here and would put
+   the icon on top of the placeholder.
+*/
+.ht-search{
+    position:relative;
+    min-width:240px;
+}
+
+.ht-search i{
+    position:absolute;
+    left:12px;
+    top:50%;
+    transform:translateY(-50%);
+    font-size:16px;
+    line-height:1;
+    color:var(--muted);
+    pointer-events:none;
+}
+
+.ht-search input{
+    width:100%;
+    height:36px;
+    padding:0 12px 0 34px;
+    border:1px solid var(--line-2);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:13px;
+    color:var(--ink);
+    transition:border-color .18s ease,box-shadow .18s ease;
+}
+
+.ht-search input::placeholder{ color:var(--muted); }
+
+.ht-search input:focus{
+    outline:0;
+    border-color:rgb(var(--brand));
+    box-shadow:0 0 0 3px rgba(var(--brand),.1);
+}
+
+/* The shared pager sits under the scroll box, not inside it. */
+.ht-scroll + .dt-foot{
+    margin-top:0;
+    padding-top:14px;
+    border-top:1px solid var(--line);
+}
+
+/* ---------------------------------------------------------
+   OPD — doctors and their availability
+   (core/doctors/components/ScheduleEditor.tsx)
+
+   A form laid out as a week, not a table of schedules. A
+   doctor who sits 10–1 in Gurgaon and 5–8 in Delhi on the
+   same Monday needs two entries under Monday, and one row
+   per schedule buries exactly that.
+   --------------------------------------------------------- */
+
+/* the doctor's qualification, under their name in the list */
+.dr-sub{
+    display:block;
+    margin-top:1px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.sched{ margin-top:16px; }
+
+.sched-hint{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    margin:0 0 14px;
+    padding:10px 12px;
+    border-radius:9px;
+    background:rgba(217,119,6,.1);
+    font-size:12.5px;
+    color:#b45309;
+}
+
+.sched-hint i{ font-size:16px; }
+
+.sched-week{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+}
+
+.sched-day{
+    padding:10px 0;
+}
+
+.sched-day + .sched-day{ border-top:1px solid var(--line); }
+
+.sched-day-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:8px;
+}
+
+.sched-day-head h6{
+    margin:0;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+}
+
+.sched-add{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:3px 10px;
+    border:1px dashed var(--line-2);
+    border-radius:8px;
+    background:transparent;
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--ink-3);
+    cursor:pointer;
+    transition:border-color .15s ease,color .15s ease;
+}
+
+.sched-add:hover:not(:disabled){
+    border-color:rgb(var(--brand));
+    color:rgb(var(--brand));
+}
+
+.sched-add:disabled{ opacity:.45; cursor:not-allowed; }
+
+.sched-add i{ font-size:14px; }
+
+/* A day with no sitting says so, rather than being a gap the
+   reader has to interpret. */
+.sched-off{
+    margin:0;
+    padding-left:2px;
+    font-size:12px;
+    color:var(--muted);
+}
+
+.sched-list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.sched-row{
+    display:grid;
+    grid-template-columns:minmax(120px,1.4fr) 96px 96px 92px 92px minmax(110px,1fr) auto;
+    gap:10px;
+    align-items:end;
+
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:11px;
+    background:var(--surface-2);
+}
+
+/* Paused: still a sitting, just not producing slots. */
+.sched-row.is-off{ opacity:.6; }
+
+.sched-row.has-error{
+    border-color:rgba(220,53,69,.45);
+    background:rgba(220,53,69,.04);
+}
+
+.sched-field{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    min-width:0;
+}
+
+.sched-field > span{
+    font-size:10.5px;
+    font-weight:600;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    color:var(--muted);
+}
+
+/* The unit rides the input rather than the label, so "Every"
+   and "15 min" read as one phrase. */
+.sched-slot-input{
+    position:relative;
+}
+
+.sched-slot-input input{ padding-right:34px; }
+
+.sched-slot-input em{
+    position:absolute;
+    right:10px;
+    top:50%;
+    transform:translateY(-50%);
+    font-size:11px;
+    font-style:normal;
+    color:var(--muted);
+    pointer-events:none;
+}
+
+.sched-tools{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    padding-bottom:2px;
+}
+
+.sched-toggle,
+.sched-remove{
+    width:30px;
+    height:30px;
+    display:grid;
+    place-items:center;
+    border:1px solid var(--line-2);
+    border-radius:8px;
+    background:var(--surface);
+    color:var(--ink-3);
+    cursor:pointer;
+    transition:border-color .15s ease,color .15s ease,background .15s ease;
+}
+
+.sched-toggle i,
+.sched-remove i{ font-size:15px; }
+
+.sched-toggle.is-on{
+    border-color:rgba(34,197,94,.35);
+    background:rgba(34,197,94,.1);
+    color:#16a34a;
+}
+
+.sched-remove:hover{
+    border-color:rgba(220,53,69,.4);
+    background:rgba(220,53,69,.08);
+    color:#c92a3a;
+}
+
+/* Spans the row, because an overlap is about the whole
+   sitting rather than one of its fields. */
+.sched-error{
+    grid-column:1 / -1;
+    margin:2px 0 0;
+    font-size:12px;
+    color:#dc3545;
+}
+
+@media (max-width:1199.98px){
+    /* Below this the seven columns stop being readable; each
+       sitting becomes a small block of its own. */
+    .sched-row{
+        grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+        align-items:start;
+    }
+
+    .sched-tools{ justify-content:flex-end; }
+}
+
+/* ---------------------------------------------------------
+   Availability
+   (core/availability/pages/AvailabilityPage.tsx)
+
+   Everything on this screen is derived: the weekly sittings
+   for that weekday, minus what is cancelled, with changed
+   hours applied, plus anything extra. There is no slot table
+   behind the times below — they are worked out for the date
+   being looked at and thrown away.
+   --------------------------------------------------------- */
+
+.av-controls{
+    display:flex;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:14px;
+    padding:14px 16px;
+    margin-bottom:16px;
+}
+
+.av-control{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    min-width:180px;
+}
+
+.av-control > span{
+    font-size:11.5px;
+    font-weight:600;
+    letter-spacing:.02em;
+    color:var(--muted);
+}
+
+/* The date in words, so nobody has to decode 2026-09-07. */
+.av-heading{
+    margin:0 0 6px auto;
+    font-size:15px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.card.av-card{ height:100%; }
+
+/* --- one sitting ----------------------------------------- */
+
+.av-session + .av-session{
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px solid var(--line);
+}
+
+.av-session-head{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:9px;
+    margin-bottom:9px;
+}
+
+.av-session-head b{
+    font-size:14px;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.av-session-name{
+    padding:2px 9px;
+    border-radius:30px;
+    background:var(--surface-3);
+    font-size:11px;
+    font-weight:600;
+    color:var(--ink-3);
+}
+
+.av-session-meta{
+    margin-left:auto;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+/* Says why today differs from the usual week, rather than
+   quietly showing different hours and letting somebody
+   wonder whether the timings were edited. */
+.av-changed{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:2px 9px;
+    border-radius:30px;
+    background:rgba(217,119,6,.14);
+    font-size:11px;
+    font-weight:600;
+    color:#b45309;
+}
+
+.av-changed i{ font-size:13px; }
+
+.av-session.is-changed .av-session-head b{ color:#b45309; }
+
+/* --- the derived times ----------------------------------- */
+
+.av-slots{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+/*
+   Deliberately plain. These are times a slot *could* be
+   booked at, not records — styling them as buttons would
+   promise an action this phase does not have.
+*/
+.av-slot{
+    padding:4px 9px;
+    border:1px solid var(--line);
+    border-radius:7px;
+    background:var(--surface-2);
+    font-size:11.5px;
+    color:var(--ink-2);
+    font-variant-numeric:tabular-nums;
+}
+
+/* --- leave & changes ------------------------------------- */
+
+.av-exceptions{
+    margin:0;
+    padding:0;
+    list-style:none;
+}
+
+.av-exceptions li{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    padding:11px 2px;
+}
+
+.av-exceptions li + li{ border-top:1px solid var(--line); }
+
+.av-ex-dot{
+    box-sizing:border-box;
+    width:32px;
+    height:32px;
+    flex:0 0 32px;
+    display:block;
+    padding:0;
+    border-radius:50%;
+    background:var(--surface-3);
+    text-align:center;
+}
+
+/* Centred by line box — the construction that survives
+   whatever else the cascade has to say. */
+.av-ex-dot i{
+    display:block;
+    width:100%;
+    font-size:16px;
+    line-height:32px;
+    text-align:center;
+    color:var(--ink-3);
+}
+
+.av-ex-dot.is-rose{ background:rgba(220,53,69,.12); }
+.av-ex-dot.is-rose i{ color:#c92a3a; }
+
+.av-ex-dot.is-amber{ background:rgba(217,119,6,.14); }
+.av-ex-dot.is-amber i{ color:#b45309; }
+
+.av-ex-dot.is-emerald{ background:rgba(34,197,94,.14); }
+.av-ex-dot.is-emerald i{ color:#16a34a; }
+
+.av-ex-body{ min-width:0; flex:1; }
+
+.av-ex-body p{
+    margin:0;
+    font-size:13px;
+    color:var(--ink-2);
+}
+
+.av-ex-body p b{ color:var(--ink); }
+
+.av-ex-tag{
+    margin-left:7px;
+    padding:1px 7px;
+    border-radius:30px;
+    background:rgba(220,53,69,.1);
+    font-size:10.5px;
+    font-weight:600;
+    color:#c92a3a;
+}
+
+.av-ex-when{
+    display:block;
+    margin-top:2px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.av-ex-remove{
+    width:30px;
+    height:30px;
+    flex-shrink:0;
+    display:grid;
+    place-items:center;
+    border:1px solid var(--line-2);
+    border-radius:8px;
+    background:transparent;
+    color:var(--ink-3);
+    cursor:pointer;
+    transition:border-color .15s ease,background .15s ease,color .15s ease;
+}
+
+.av-ex-remove:hover{
+    border-color:rgba(220,53,69,.4);
+    background:rgba(220,53,69,.08);
+    color:#c92a3a;
+}
+
+/* --- the dialog ------------------------------------------ */
+
+.av-form{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+}
+
+.av-field{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    min-width:0;
+}
+
+.av-field--wide{ grid-column:1 / -1; }
+
+.av-field > span{
+    font-size:11.5px;
+    font-weight:600;
+    letter-spacing:.02em;
+    color:var(--muted);
+}
+
+.av-field em{
+    font-size:12px;
+    font-style:normal;
+    color:#dc3545;
+}
+
+/*
+   Three cards rather than a dropdown: the kinds want
+   different fields, and picking one changes what the form
+   asks for — a change worth seeing before it happens.
+*/
+.av-types{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:8px;
+}
+
+.av-type{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    padding:10px 12px;
+    border:1px solid var(--line-2);
+    border-radius:11px;
+    background:var(--surface);
+    text-align:left;
+    cursor:pointer;
+    transition:border-color .16s ease,background .16s ease;
+}
+
+.av-type i{ font-size:17px; color:var(--ink-3); }
+.av-type b{ font-size:12.5px; color:var(--ink); }
+.av-type small{ font-size:11px; line-height:1.4; color:var(--muted); }
+
+.av-type.is-on{
+    border-color:rgba(var(--brand),.45);
+    background:rgba(var(--brand),.05);
+}
+
+.av-type.is-on i{ color:rgb(var(--brand)); }
+
+@media (max-width:575.98px){
+    .av-form{ grid-template-columns:1fr; }
+}
+
+/* ---------------------------------------------------------
+   OPD queue
+   (core/appointments/pages/QueuePage.tsx)
+
+   Booked patients and walk-ins are one list in arrival
+   order. A booked patient is not floated to the top — their
+   time is shown so the desk can call somebody out of turn on
+   purpose, which is a person's judgement rather than a rule
+   applied behind their back.
+   --------------------------------------------------------- */
+
+.q{
+    margin:0;
+    padding:0;
+    list-style:none;
+}
+
+.q-row{
+    display:grid;
+    grid-template-columns:52px minmax(0,1fr) 130px 70px auto;
+    align-items:center;
+    gap:14px;
+    padding:12px 4px;
+}
+
+.q-row + .q-row{ border-top:1px solid var(--line); }
+
+/* Seen and gone recede: the queue is about who is still here. */
+.q-row.is-emerald,
+.q-row.is-rose{ opacity:.55; }
+
+/* --- the number ------------------------------------------ */
+
+.q-token{
+    box-sizing:border-box;
+    width:44px;
+    height:44px;
+    display:block;
+    border-radius:12px;
+    background:var(--surface-3);
+    font-size:17px;
+    font-weight:700;
+    line-height:44px;
+    text-align:center;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+/* Nobody who has not arrived holds a number — the dash says
+   so rather than leaving an empty box to interpret. */
+.q-token i{ font-size:15px; color:var(--muted); }
+
+.q-row.is-sky .q-token{ background:rgba(59,130,246,.14); color:#2563eb; }
+.q-row.is-amber .q-token{ background:rgba(217,119,6,.16); color:#b45309; }
+
+.q-who{ min-width:0; }
+
+.q-who b{
+    display:block;
+    font-size:14px;
+    color:var(--ink);
+}
+
+.q-who > span{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    margin-top:2px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.q-who em{ font-style:normal; }
+
+.q-walkin{
+    padding:1px 7px;
+    border-radius:30px;
+    background:var(--surface-3);
+    font-size:10.5px;
+    font-weight:600;
+    color:var(--ink-3);
+}
+
+.q-status{
+    justify-self:start;
+    padding:4px 10px;
+    border-radius:30px;
+    background:var(--surface-3);
+    font-size:11px;
+    font-weight:600;
+    color:var(--ink-3);
+    white-space:nowrap;
+}
+
+.q-status.is-sky{ background:rgba(59,130,246,.12); color:#2563eb; }
+.q-status.is-amber{ background:rgba(217,119,6,.14); color:#b45309; }
+.q-status.is-emerald{ background:rgba(34,197,94,.12); color:#16a34a; }
+.q-status.is-rose{ background:rgba(220,53,69,.1); color:#c92a3a; }
+
+/* How long somebody has been standing there. */
+.q-wait{
+    font-size:12px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+    text-align:right;
+}
+
+/* --- what can be done next ------------------------------- */
+
+.q-actions{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    justify-content:flex-end;
+}
+
+.q-act{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    height:30px;
+    padding:0 11px;
+    border:1px solid rgba(var(--brand),.3);
+    border-radius:8px;
+    background:rgba(var(--brand),.07);
+    font-size:12px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    white-space:nowrap;
+    cursor:pointer;
+    transition:background .15s ease,border-color .15s ease;
+}
+
+.q-act:hover{ background:rgba(var(--brand),.14); }
+
+.q-act i{ font-size:14px; }
+
+/* Cancelling and no-show are not the ordinary rhythm of the
+   desk, so they do not compete with the move that is. */
+.q-act.is-quiet{
+    border-color:var(--line-2);
+    background:transparent;
+    color:var(--ink-3);
+}
+
+.q-act.is-quiet:hover{
+    border-color:rgba(220,53,69,.4);
+    background:rgba(220,53,69,.07);
+    color:#c92a3a;
+}
+
+@media (max-width:991.98px){
+    .q-row{
+        grid-template-columns:52px minmax(0,1fr);
+        row-gap:8px;
+    }
+
+    .q-status,
+    .q-wait{ grid-column:2; justify-self:start; text-align:left; }
+
+    .q-actions{ grid-column:1 / -1; justify-content:flex-start; flex-wrap:wrap; }
+}
+
+/* ---------------------------------------------------------
+   Booking dialog
+   (core/appointments/components/BookDialog.tsx)
+   --------------------------------------------------------- */
+
+.bk{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+}
+
+.bk-types{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+}
+
+.bk-type{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    padding:11px 13px;
+    border:1px solid var(--line-2);
+    border-radius:11px;
+    background:var(--surface);
+    text-align:left;
+    cursor:pointer;
+    transition:border-color .16s ease,background .16s ease;
+}
+
+.bk-type i{ font-size:18px; color:var(--ink-3); }
+.bk-type b{ font-size:13px; color:var(--ink); }
+.bk-type small{ font-size:11px; line-height:1.4; color:var(--muted); }
+
+.bk-type.is-on{
+    border-color:rgba(var(--brand),.45);
+    background:rgba(var(--brand),.05);
+}
+
+.bk-type.is-on i{ color:rgb(var(--brand)); }
+
+.bk-field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+
+.bk-field > span{
+    font-size:11.5px;
+    font-weight:600;
+    letter-spacing:.02em;
+    color:var(--muted);
+}
+
+.bk-field em,
+.bk-error{
+    font-size:12px;
+    font-style:normal;
+    color:#dc3545;
+}
+
+/* --- finding the patient --------------------------------- */
+
+.bk-matches{
+    display:flex;
+    flex-direction:column;
+    max-height:190px;
+    overflow-y:auto;
+    border:1px solid var(--line);
+    border-radius:10px;
+}
+
+.bk-matches p{
+    margin:0;
+    padding:12px;
+    font-size:12.5px;
+    color:var(--muted);
+}
+
+.bk-matches button{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 12px;
+    border:0;
+    background:transparent;
+    text-align:left;
+    cursor:pointer;
+}
+
+.bk-matches button + button{ border-top:1px solid var(--line); }
+.bk-matches button:hover{ background:var(--surface-2); }
+.bk-matches b{ font-size:13px; color:var(--ink); }
+.bk-matches code{ font-size:11.5px; color:var(--muted); }
+
+.bk-chosen{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    border:1px solid rgba(var(--brand),.3);
+    border-radius:10px;
+    background:rgba(var(--brand),.05);
+}
+
+.bk-chosen b{ font-size:13.5px; color:var(--ink); }
+.bk-chosen code{ font-size:11.5px; color:var(--muted); }
+
+.bk-chosen button{
+    margin-left:auto;
+    width:26px;
+    height:26px;
+    display:grid;
+    place-items:center;
+    border:0;
+    border-radius:7px;
+    background:transparent;
+    color:var(--ink-3);
+    cursor:pointer;
+}
+
+.bk-chosen button:hover{ background:var(--surface-3); color:#c92a3a; }
+
+/* --- the times ------------------------------------------- */
+
+.bk-session + .bk-session{ margin-top:12px; }
+
+.bk-session-head{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    margin:0 0 7px;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    font-variant-numeric:tabular-nums;
+}
+
+.bk-session-head span{
+    padding:1px 8px;
+    border-radius:30px;
+    background:var(--surface-3);
+    font-size:10.5px;
+    font-weight:600;
+    color:var(--ink-3);
+}
+
+.bk-session-head em{
+    font-style:normal;
+    font-size:10.5px;
+    font-weight:600;
+    color:#b45309;
+}
+
+.bk-slots{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.bk-slot{
+    padding:5px 10px;
+    border:1px solid var(--line-2);
+    border-radius:8px;
+    background:var(--surface);
+    font-size:12px;
+    color:var(--ink-2);
+    font-variant-numeric:tabular-nums;
+    cursor:pointer;
+    transition:border-color .15s ease,background .15s ease,color .15s ease;
+}
+
+.bk-slot:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+.bk-slot.is-on{
+    border-color:rgb(var(--brand));
+    background:rgb(var(--brand));
+    color:#fff;
+}
+
+/*
+   A taken time is shown rather than hidden, so "why can't I
+   have 10:30" is answered on the spot instead of leaving a
+   gap somebody has to guess at.
+*/
+.bk-slot.is-taken{
+    border-style:dashed;
+    background:var(--surface-2);
+    color:var(--muted);
+    text-decoration:line-through;
+    cursor:not-allowed;
+}
+
+.bk-none{
+    margin:0;
+    padding:11px 12px;
+    border-radius:9px;
+    background:var(--surface-2);
+    font-size:12.5px;
+    color:var(--muted);
+}
+
+/* ---------------------------------------------------------
+   Roles & permissions
+   (core/roles/pages/RolesPage.tsx,
+    core/roles/components/BranchModulePanel.tsx)
+
+   Levels two and three of the permission flow. Two panels of
+   equal weight: the roles on the left, and what the chosen
+   one may do on the right — both surfaces, because an
+   earlier pass gave the rail a card and left the permissions
+   floating on the page background, which read as a screen
+   somebody had abandoned halfway.
+
+   Density is the point throughout. Nine permissions across
+   four modules is a small thing to decide and should look
+   like one, not fill a page with air.
+   --------------------------------------------------------- */
+
+/* --- the three numbers ----------------------------------- */
+
+/*
+   In a card rather than loose on the page.
+   Three numbers floating under the header had nothing holding
+   them, which in light mode — where --line is barely a shade
+   off white — read as text somebody forgot to place.
+*/
+.rp-stats{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:10px 22px;
+    margin:0 0 16px;
+    padding:13px 18px;
+    border:1px solid var(--line-2);
+    border-radius:14px;
+    background:var(--surface);
+}
+
+.rp-stats span{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    font-size:12.5px;
+    color:var(--muted);
+}
+
+.rp-stats i{ font-size:16px; color:var(--ink-3); }
+
+.rp-stats b{
+    font-size:13.5px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+/* Hairline between the counts rather than a bullet, so they
+   read as one strip instead of a sentence. */
+.rp-stats span + span{
+    padding-left:22px;
+    border-left:1px solid var(--line);
+}
+
+.rp-split{
+    display:grid;
+    grid-template-columns:300px minmax(0,1fr);
+    gap:16px;
+    align-items:start;
+}
+
+/* --- the roles ------------------------------------------- */
+
+/*
+   The rail is the GROUND, not a card — its own background is
+   the tinted surface and the roles sit on it in white.
+
+   The other way round (white cards on a white rail, separated
+   by --line) works in dark, where --line is a clear step off
+   --surface, and collapses in light, where it is barely a
+   shade off white. Contrast from "the card is lighter than
+   what it sits on" survives both.
+*/
+.rp-rail{
+    position:sticky;
+    top:calc(var(--tb-height, 62px) + 16px);
+    display:flex;
+    flex-direction:column;
+    border:1px solid var(--line-2);
+    border-radius:14px;
+    background:var(--surface-2);
+    overflow:hidden;
+}
+
+.rp-rail-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:11px 13px;
+    border-bottom:1px solid var(--line-2);
+}
+
+.rp-rail-head h6{
+    margin:0;
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+}
+
+.rp-rail-add{
+    width:26px;
+    height:26px;
+    display:block;
+    border:1px solid var(--line-2);
+    border-radius:8px;
+    background:transparent;
+    font-size:14px;
+    line-height:24px;
+    text-align:center;
+    color:var(--ink-3);
+    cursor:pointer;
+    transition:border-color .14s ease,background .14s ease,color .14s ease;
+}
+
+.rp-rail-add:hover{
+    border-color:rgba(var(--brand),.4);
+    background:rgba(var(--brand),.08);
+    color:rgb(var(--brand));
+}
+
+.rp-rail-list{
+    max-height:min(70vh,720px);
+    overflow-y:auto;
+    padding:10px;
+}
+
+/* System and custom kept apart: one set cannot be deleted
+   and the other is entirely the owner's, which is worth
+   knowing before clicking rather than after. */
+.rp-rail-group{
+    margin:0 0 7px;
+    padding:0 3px;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--muted);
+}
+
+.rp-rail-group:not(:first-child){ margin-top:16px; }
+
+.rp-role{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    padding:10px 11px;
+    border:1px solid var(--line-2);
+    border-radius:11px;
+    background:var(--surface);
+    text-align:left;
+    cursor:pointer;
+    transition:border-color .16s ease,box-shadow .16s ease;
+}
+
+.rp-role + .rp-role{ margin-top:7px; }
+
+.rp-role:hover{
+    border-color:var(--ink-3);
+}
+
+/*
+   Selection is a ring and a bar, not a fill.
+   A lavender wash behind two lines of text was the loudest
+   thing on a screen that already spends the accent on the
+   active tab, the save button and every module icon.
+*/
+.rp-role.is-active{
+    border-color:rgb(var(--brand));
+    box-shadow:0 0 0 1px rgb(var(--brand));
+}
+
+.rp-role.is-active::before{
+    content:"";
+    position:absolute;
+    left:-1px;
+    top:11px;
+    bottom:11px;
+    width:3px;
+    border-radius:0 3px 3px 0;
+    background:rgb(var(--brand));
+}
+
+.rp-role-icon{
+    flex:0 0 auto;
+    width:30px;
+    height:30px;
+    display:block;
+    border-radius:9px;
+    background:var(--surface-3);
+    font-size:15px;
+    line-height:30px;
+    text-align:center;
+    color:var(--ink-3);
+}
+
+.rp-role.is-active .rp-role-icon{
+    background:rgba(var(--brand),.12);
+    color:rgb(var(--brand));
+}
+
+.rp-role-text{ min-width:0; flex:1 1 auto; }
+
+.rp-role-text b{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.rp-role-text b i{ font-size:12px; color:var(--muted); }
+
+.rp-role.is-active .rp-role-text b{ color:rgb(var(--brand)); }
+
+.rp-role-text small{
+    display:block;
+    margin-top:2px;
+    font-size:11px;
+    color:var(--muted);
+}
+
+/* Marks the row being edited while changes are pending, so
+   switching away is a visible decision rather than a
+   surprise. */
+.rp-role-dot{
+    flex:0 0 auto;
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:rgb(var(--brand));
+}
+
+.rp-rail-empty{
+    margin:0;
+    padding:18px 12px;
+    font-size:12.5px;
+    text-align:center;
+    color:var(--muted);
+}
+
+/* --- what it may do -------------------------------------- */
+
+.rp-panel{
+    display:flex;
+    flex-direction:column;
+    min-height:520px;
+    border:1px solid var(--line-2);
+    border-radius:14px;
+    background:var(--surface);
+    overflow:hidden;
+}
+
+.rp-head{
+    padding:15px 18px 0;
+    border-bottom:1px solid var(--line-2);
+}
+
+.rp-head-top{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+}
+
+/* Neutral. The page header above already carries a tinted
+   icon of its own, and two lavender tiles stacked eighty
+   pixels apart is one too many. */
+.rp-head-icon{
+    flex:0 0 auto;
+    width:42px;
+    height:42px;
+    display:block;
+    border:1px solid var(--line-2);
+    border-radius:12px;
+    background:var(--surface-2);
+    box-sizing:border-box;
+    font-size:20px;
+    line-height:40px;
+    text-align:center;
+    color:var(--ink-2);
+}
+
+.rp-head-text{ flex:1 1 auto; min-width:0; }
+
+.rp-head-text h5{
+    margin:0;
+    font-size:18px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.rp-head-text p{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    margin:3px 0 0;
+    font-size:12.5px;
+    color:var(--muted);
+}
+
+.rp-head-text p b{
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.rp-head-text p i{ font-size:8px; opacity:.55; }
+
+.rp-head-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex:0 0 auto;
+}
+
+/* Quieter than a Button on purpose: these sit beside the
+   role's name, and the loud control on this screen is Save. */
+.rp-act{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    height:32px;
+    padding:0 11px;
+    border:1px solid var(--line-2);
+    border-radius:8px;
+    background:var(--surface);
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+    cursor:pointer;
+    transition:border-color .14s ease,background .14s ease,color .14s ease;
+}
+
+.rp-act i{ font-size:15px; }
+
+.rp-act:hover{ border-color:var(--ink-3); background:var(--surface-2); }
+
+.rp-act.is-icon{ width:32px; padding:0; justify-content:center; }
+
+.rp-act.is-danger{
+    border-color:rgba(220,53,69,.35);
+    color:#c92a3a;
+}
+
+.rp-act.is-danger:hover{
+    border-color:#c92a3a;
+    background:rgba(220,53,69,.07);
+    color:#c92a3a;
+}
+
+.rp-menu{ position:relative; }
+
+.rp-menu-list{
+    position:absolute;
+    right:0;
+    top:calc(100% + 6px);
+    z-index:5;
+    min-width:180px;
+    padding:5px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+    box-shadow:0 10px 30px rgba(15,23,42,.13);
+}
+
+.rp-menu-list button{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    width:100%;
+    padding:8px 10px;
+    border:0;
+    border-radius:7px;
+    background:transparent;
+    font-size:12.5px;
+    color:var(--ink-2);
+    text-align:left;
+    cursor:pointer;
+}
+
+.rp-menu-list button:hover{ background:var(--surface-2); }
+
+.rp-desc{
+    margin:11px 0 0;
+    font-size:13px;
+    line-height:1.5;
+    color:var(--muted);
+}
+
+/* --- editing the role itself ----------------------------- */
+
+.rp-edit{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);
+    gap:12px;
+    margin-top:14px;
+    padding:14px;
+    border:1px solid var(--line-2);
+    border-radius:11px;
+    background:var(--surface-2);
+}
+
+.rp-field{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+}
+
+.rp-field > span{
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+}
+
+.rp-field > span b{ color:#dc3545; }
+
+.rp-field em{
+    font-style:normal;
+    font-size:12px;
+    color:#dc3545;
+}
+
+.rp-field .form-control{ height:36px; font-size:13px; }
+
+.rp-icons{ grid-column:1 / -1; }
+
+.rp-icons > div{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+/* A row of outlined boxes read as a toolbar. Without borders
+   the picker is a set of marks to choose between, which is
+   what it is — only the chosen one is drawn. */
+.rp-icon{
+    box-sizing:border-box;
+    width:32px;
+    height:32px;
+    display:block;
+    border:1px solid transparent;
+    border-radius:9px;
+    background:var(--surface);
+    font-size:15px;
+    line-height:30px;
+    text-align:center;
+    color:var(--ink-3);
+    cursor:pointer;
+    transition:border-color .14s ease,background .14s ease,color .14s ease;
+}
+
+.rp-icon:hover{ background:var(--surface-3); color:var(--ink); }
+
+.rp-icon.is-on{
+    border-color:rgb(var(--brand));
+    background:rgba(var(--brand),.1);
+    color:rgb(var(--brand));
+}
+
+/* --- the tabs -------------------------------------------- */
+
+.rp-tabs{
+    display:flex;
+    gap:4px;
+    margin-top:14px;
+}
+
+.rp-tab{
+    position:relative;
+    padding:10px 14px;
+    border:0;
+    background:transparent;
+    font-size:13px;
+    font-weight:600;
+    color:var(--muted);
+    cursor:pointer;
+    transition:color .14s ease;
+}
+
+.rp-tab:hover{ color:var(--ink-2); }
+
+.rp-tab.is-active{ color:rgb(var(--brand)); }
+
+/* The underline sits on the panel's own bottom border, so
+   the active tab reads as attached to what is below it. */
+.rp-tab::after{
+    content:"";
+    position:absolute;
+    left:10px;
+    right:10px;
+    bottom:-1px;
+    height:2px;
+    border-radius:2px;
+    background:transparent;
+    transition:background .16s ease;
+}
+
+.rp-tab.is-active::after{ background:rgb(var(--brand)); }
+
+.rp-body{
+    flex:1 1 auto;
+    padding:16px 18px;
+}
+
+/* --- finding one permission ------------------------------ */
+
+.rp-toolbar{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    margin-bottom:14px;
+}
+
+.rp-search{
+    position:relative;
+    flex:1 1 auto;
+    max-width:320px;
+}
+
+.rp-search i{
+    position:absolute;
+    left:11px;
+    top:50%;
+    transform:translateY(-50%);
+    font-size:15px;
+    color:var(--muted);
+    pointer-events:none;
+}
+
+/*
+   Styled outright rather than borrowing .form-control:
+   `.app-content .form-control` sets its own padding at a
+   specificity a single class cannot beat, which is what put
+   the search icon on top of the text last time.
+*/
+.rp-search input{
+    box-sizing:border-box;
+    width:100%;
+    height:34px;
+    padding:0 12px 0 33px;
+    border:1px solid var(--line-2);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:12.5px;
+    color:var(--ink);
+    outline:0;
+}
+
+.rp-search input::placeholder{ color:var(--muted); }
+
+.rp-search input:focus{
+    border-color:rgb(var(--brand));
+    box-shadow:0 0 0 3px rgba(var(--brand),.13);
+}
+
+.rp-enabled{
+    margin-left:auto;
+    font-size:12px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+}
+
+.rp-none{
+    margin:0;
+    padding:22px;
+    border-radius:11px;
+    background:var(--surface-2);
+    font-size:13px;
+    text-align:center;
+    color:var(--muted);
+}
+
+/* --- one module's permissions ---------------------------- */
+
+.rp-module{
+    border:1px solid var(--line-2);
+    border-radius:12px;
+    overflow:hidden;
+    transition:border-color .16s ease;
+}
+
+.rp-module + .rp-module{ margin-top:11px; }
+
+/*
+   A module with something ticked reads as touched at a
+   glance, so scanning the list answers "what does this role
+   actually do" without reading every row.
+
+   Carried by the header's ground rather than a coloured
+   border. Six modules outlined in the accent at once turned
+   the whole panel violet and stopped meaning anything.
+*/
+.rp-module.is-on > header{ background:var(--surface-2); }
+
+.rp-module > header{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:12px 14px;
+    transition:background .16s ease;
+}
+
+.rp-module-icon{
+    flex:0 0 auto;
+    width:34px;
+    height:34px;
+    display:block;
+    border-radius:10px;
+    font-size:17px;
+    line-height:34px;
+    text-align:center;
+}
+
+/*
+   Colour keyed to the module, never to its position in the
+   list. A hue that follows rank repaints every module the
+   moment one is bought or withdrawn, and somebody who has
+   learnt that green means the diary has to learn it again.
+*/
+.rp-module-icon.is-sky{ background:rgba(59,130,246,.13); color:#2563eb; }
+.rp-module-icon.is-violet{ background:rgba(139,92,246,.14); color:#7c3aed; }
+.rp-module-icon.is-indigo{ background:rgba(99,102,241,.14); color:#4f46e5; }
+.rp-module-icon.is-emerald{ background:rgba(16,185,129,.14); color:#059669; }
+.rp-module-icon.is-amber{ background:rgba(217,119,6,.15); color:#b45309; }
+.rp-module-icon.is-slate{ background:var(--surface-3); color:var(--ink-3); }
+
+.rp-module-text{ flex:1 1 auto; min-width:0; }
+
+.rp-module-text b{
+    display:block;
+    font-size:14px;
+    font-weight:600;
+    color:var(--ink);
+}
+
+.rp-module-text small{
+    display:block;
+    margin-top:1px;
+    font-size:11.5px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+}
+
+.rp-selectall{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    margin:0;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+    cursor:pointer;
+}
+
+.rp-collapse{
+    width:28px;
+    height:28px;
+    display:block;
+    border:0;
+    border-radius:8px;
+    background:transparent;
+    font-size:16px;
+    line-height:28px;
+    text-align:center;
+    color:var(--muted);
+    cursor:pointer;
+}
+
+.rp-collapse:hover{ background:var(--surface-3); color:var(--ink-2); }
+
+/*
+   Two columns. In one column across a full-width panel the
+   name sat at the far left with several hundred pixels of
+   nothing after it, which made three permissions look like a
+   long list.
+*/
+.rp-caps{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+    gap:2px 10px;
+    padding:0 14px 13px 14px;
+}
+
+.rp-cap{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    margin:0;
+    padding:6px 8px;
+    border-radius:8px;
+    font-size:13px;
+    color:var(--ink-2);
+    cursor:pointer;
+    transition:background .14s ease;
+}
+
+.rp-cap:hover{ background:var(--surface-2); }
+
+.rp-cap.is-on{ color:var(--ink); font-weight:500; }
+
+.rp-cap input{ flex:0 0 auto; margin:0; }
+
+.rp-cap > span{
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+/* Says why this one cannot be unticked alone: the rest of
+   the module rests on it. */
+.rp-cap em{
+    flex:0 0 auto;
+    padding:1px 7px;
+    border-radius:30px;
+    background:var(--surface-3);
+    font-style:normal;
+    font-size:10px;
+    font-weight:600;
+    color:var(--ink-3);
+    white-space:nowrap;
+}
+
+/* --- somewhere to start ---------------------------------- */
+
+/* Solid, not dashed. A dashed edge reads as a drop zone or
+   as something not finished, and this is neither. */
+.rp-templates{
+    margin-bottom:14px;
+    padding:15px;
+    border:1px solid var(--line-2);
+    border-radius:12px;
+    background:var(--surface-2);
+}
+
+.rp-templates > header,
+.rp-card > header{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:12px;
+}
+
+.rp-templates > header i,
+.rp-card > header i{ font-size:16px; color:rgb(var(--brand)); }
+
+.rp-templates > header b,
+.rp-card > header b{
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.rp-templates > header span,
+.rp-card > header span{
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.rp-templates > div{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
+    gap:9px;
+}
+
+/* A template is a starting point and nothing more — once
+   applied it is an ordinary set of ticks with no memory of
+   where it came from, so none of these ever reads as
+   "selected". */
+.rp-template{
+    display:grid;
+    grid-template-columns:28px minmax(0,1fr);
+    gap:2px 10px;
+    padding:12px;
+    border:1px solid var(--line-2);
+    border-radius:11px;
+    background:var(--surface);
+    text-align:left;
+    cursor:pointer;
+    transition:border-color .16s ease,box-shadow .16s ease;
+}
+
+/* No lift on hover. Four cards jumping under the pointer is
+   restless on a screen whose job is careful reading. */
+.rp-template:hover{
+    border-color:rgb(var(--brand));
+    box-shadow:0 0 0 1px rgb(var(--brand));
+}
+
+.rp-template i{
+    grid-row:1 / 3;
+    width:28px;
+    height:28px;
+    display:block;
+    border-radius:9px;
+    background:var(--surface-3);
+    font-size:15px;
+    line-height:28px;
+    text-align:center;
+    color:var(--ink-3);
+}
+
+.rp-template:hover i{ background:rgba(var(--brand),.1); color:rgb(var(--brand)); }
+
+.rp-template b{ font-size:13px; font-weight:600; color:var(--ink); }
+
+.rp-template small{
+    grid-column:2;
+    font-size:11px;
+    line-height:1.45;
+    color:var(--muted);
+}
+
+/* Plain, not shouted. It is a count, not a call to action. */
+.rp-template em{
+    grid-column:2;
+    margin-top:5px;
+    font-style:normal;
+    font-size:11px;
+    font-weight:600;
+    color:var(--ink-3);
+    font-variant-numeric:tabular-nums;
+}
+
+/* --- overview -------------------------------------------- */
+
+.rp-overview{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+}
+
+.rp-card{
+    padding:15px;
+    border:1px solid var(--line-2);
+    border-radius:12px;
+    background:var(--surface-2);
+}
+
+/* Each section rendered as the little block of menu it is,
+   so the shape on screen matches the shape in the sidebar
+   they will be looking at. Sized to its contents rather than
+   stretched: a section holding one item was being pulled to
+   half the panel. */
+.rp-preview{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+}
+
+.rp-preview > div{
+    flex:0 1 200px;
+    min-width:0;
+    padding:10px 11px;
+    border:1px solid var(--line-2);
+    border-radius:10px;
+    background:var(--surface);
+}
+
+.rp-preview h6{
+    margin:0 0 7px;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+}
+
+.rp-preview ul{ margin:0; padding:0; list-style:none; }
+
+.rp-preview li{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    padding:4px 0;
+    font-size:12.5px;
+    color:var(--ink-2);
+}
+
+.rp-preview li i{ font-size:14px; color:var(--muted); }
+
+.rp-spread{ display:flex; flex-direction:column; gap:2px; }
+
+.rp-spread-row{
+    display:grid;
+    grid-template-columns:minmax(0,120px) minmax(0,1fr) 26px;
+    align-items:center;
+    gap:11px;
+    width:100%;
+    padding:6px 8px;
+    border:0;
+    border-radius:8px;
+    background:transparent;
+    text-align:left;
+    cursor:pointer;
+    transition:background .14s ease;
+}
+
+.rp-spread-row:hover{ background:var(--surface-3); }
+
+/* Selecting here selects the same role the list does — two
+   views of one choice, never two choices. */
+.rp-spread-row.is-active{ background:rgba(var(--brand),.1); }
+
+.rp-spread-row > span:first-child{
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-3);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.rp-spread-row.is-active > span:first-child{ color:rgb(var(--brand)); }
+
+.rp-spread-track{
+    height:8px;
+    display:block;
+    border-radius:30px;
+    background:var(--surface-3);
+    box-shadow:inset 0 0 0 1px var(--line);
+    overflow:hidden;
+}
+
+.rp-spread-fill{
+    display:block;
+    height:100%;
+    border-radius:30px;
+    background:rgb(var(--brand));
+    transition:width .3s ease;
+}
+
+/*
+   A role holding three-quarters of everything is worth a
+   second look before it is handed out, so it says so in
+   colour rather than leaving the reader to do the division.
+   Amber, not red: a thing to notice, not a fault.
+*/
+.rp-spread-fill.is-broad{ background:#d97706; }
+
+.rp-spread-row b{
+    font-size:11.5px;
+    font-weight:700;
+    text-align:right;
+    color:var(--ink-3);
+    font-variant-numeric:tabular-nums;
+}
+
+.rp-spread-row.is-active b{ color:rgb(var(--brand)); }
+
+/* --- who holds it ---------------------------------------- */
+
+.rp-members{ margin:0; padding:0; list-style:none; }
+
+.rp-members li{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:11px 12px;
+    border:1px solid var(--line-2);
+    border-radius:11px;
+    background:var(--surface);
+}
+
+.rp-members li + li{ margin-top:8px; }
+
+.rp-member-avatar{
+    flex:0 0 auto;
+    width:32px;
+    height:32px;
+    display:block;
+    border-radius:50%;
+    background:rgba(var(--brand),.12);
+    font-size:13px;
+    font-weight:700;
+    line-height:32px;
+    text-align:center;
+    color:rgb(var(--brand));
+}
+
+.rp-member-text{ flex:1 1 auto; min-width:0; }
+.rp-member-text b{ display:block; font-size:13px; color:var(--ink); }
+.rp-member-text small{ display:block; font-size:11.5px; color:var(--muted); }
+
+.rp-member-at{
+    padding:2px 9px;
+    border-radius:30px;
+    background:var(--surface-3);
+    font-size:11px;
+    font-weight:600;
+    color:var(--ink-3);
+    white-space:nowrap;
+}
+
+.rp-member-state{
+    padding:2px 9px;
+    border-radius:30px;
+    font-size:11px;
+    font-weight:600;
+    white-space:nowrap;
+}
+
+.rp-member-state.is-on{ background:rgba(34,197,94,.12); color:#16a34a; }
+.rp-member-state.is-off{ background:var(--surface-3); color:var(--muted); }
+
+/* --- what is pending ------------------------------------- */
+
+/*
+   Pinned rather than riding the header: the change somebody
+   just made is at the bottom of a long list, and the count
+   says what is waiting without them having to remember.
+*/
+.rp-foot{
+    position:sticky;
+    bottom:0;
+    z-index:3;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 18px;
+    border-top:1px solid var(--line-2);
+    background:var(--surface);
+}
+
+.rp-foot-state{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    margin-right:auto;
+    font-size:12.5px;
+    color:var(--muted);
+}
+
+.rp-foot-state i{ font-size:14px; }
+
+.rp-foot.is-dirty .rp-foot-state{ color:#b45309; font-weight:600; }
+
+/* --- narrower ------------------------------------------- */
+
+@media (max-width:1199.98px){
+    .rp-split{ grid-template-columns:250px minmax(0,1fr); }
+}
+
+@media (max-width:991.98px){
+    /* The rail becomes a picker above the panel rather than a
+       column squeezed against it. */
+    .rp-split{ grid-template-columns:minmax(0,1fr); }
+    .rp-rail{ position:static; }
+    .rp-rail-list{ max-height:270px; }
+    .rp-panel{ min-height:0; }
+}
+
+@media (max-width:767.98px){
+    .rp-stats span + span{ padding-left:0; border-left:0; }
+
+    .rp-edit{ grid-template-columns:minmax(0,1fr); }
+
+    .rp-head-top{ flex-wrap:wrap; }
+    .rp-head-actions{ width:100%; }
+
+    .rp-toolbar{ flex-wrap:wrap; }
+    .rp-search{ max-width:none; flex:1 1 100%; }
+    .rp-enabled{ margin-left:0; }
+
+    .rp-module > header{ flex-wrap:wrap; }
+    .rp-selectall{ order:3; }
+
+    .rp-foot{ flex-wrap:wrap; }
+    .rp-foot-state{ flex:1 1 100%; margin-right:0; }
+}
+
+/* ---------------------------------------------------------
+   Modules at a branch
+   (core/roles/components/BranchModulePanel.tsx)
+
+   Level two of the flow, on the branch's own edit page.
+   Shares .rp-panel and .rp-head with the roles screen on
+   purpose: it is the same kind of decision one level up, and
+   the two should not look like different products.
+   --------------------------------------------------------- */
+
+.bm-list{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
+    gap:10px;
+}
+
+.bm-item{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    margin:0;
+    padding:13px 14px;
+    border:1px solid var(--line-2);
+    border-radius:12px;
+    background:var(--surface);
+    cursor:pointer;
+    transition:border-color .16s ease,background .16s ease;
+}
+
+.bm-item:hover{ background:var(--surface-2); }
+
+.bm-item.is-on{
+    border-color:rgba(var(--brand),.35);
+    background:rgba(var(--brand),.05);
+}
+
+.bm-text{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    min-width:0;
+    flex:1 1 auto;
+}
+
+.bm-text b{ font-size:13.5px; font-weight:600; color:var(--ink); }
+
+.bm-text small{
+    font-size:11.5px;
+    line-height:1.45;
+    color:var(--muted);
+}
+
+/* The switch is a <span> here rather than the <label> it is
+   on the platform screen — the whole row is the label, so
+   nesting one inside another would stop the click working. */
+.bm-item .ma-switch{ flex:0 0 auto; }
+
+.bm-note{
+    display:flex;
+    align-items:flex-start;
+    gap:9px;
+    margin:14px 0 0;
+    padding:11px 13px;
+    border-radius:10px;
+    background:var(--surface-2);
+    font-size:12.5px;
+    line-height:1.5;
+    color:var(--muted);
+}
+
+.bm-note i{
+    flex:0 0 auto;
+    margin-top:1px;
+    font-size:15px;
+    color:var(--ink-3);
+}
+
+/*
+   The branch panel has no tabs under its header, so nothing
+   is there to take up the bottom padding the roles screen's
+   tab strip provides.
+*/
+.rp-panel > .rp-head:last-of-type{ padding-bottom:15px; }
+
+.rp-head-meta{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    margin-top:3px;
+    font-size:12.5px;
+    color:var(--muted);
+}
+
+.rp-head-meta em{
+    font-style:normal;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+/* ---------------------------------------------------------
+   Light-mode weight for the permissions screen
+
+   Dark already separates its layers: --surface sits a clear
+   step above --surface-2, and --line reads against both. In
+   light, --line is #edeff6 against #ffffff — near invisible —
+   so the same card drawn the same way had no edge at all.
+
+   Borders moved to --line-2 above. This adds the other half
+   of what a light card needs: a shadow shallow enough to
+   read as a raised surface rather than a floating box.
+   Defined once here and inherited by both themes, because on
+   the dark ground --shadow is near-black and .04 of it
+   simply does not register — the layers there are already
+   doing the work.
+   --------------------------------------------------------- */
+
+.rp-stats,
+.rp-rail,
+.rp-panel{
+    box-shadow:0 1px 2px rgba(var(--shadow),.04);
+}
+
+/*
+   The one place the accent still fills rather than outlines
+   is the active tab's underline and the save button. Kept
+   deliberately few: an accent used in eight places on one
+   screen stops marking anything, which is what made this
+   read as busy rather than considered.
+*/
+
+
+/* ---------------------------------------------------------
+   The workspace dashboard
+   (core/tenant-auth/pages/TenantDashboardPage.tsx,
+    core/dashboard/panels.tsx)
+
+   Cards arrive from the server and are laid out by whatever
+   came, so nothing here may assume a fixed set. A module
+   shipping adds a card; a person without a capability is one
+   card short. Both have to look deliberate — which is why
+   the layout is two flexible columns rather than a grid with
+   named slots.
+   --------------------------------------------------------- */
+
+/* --- the greeting ---------------------------------------- */
+
+.db-welcome{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-bottom:20px;
+}
+
+.db-welcome h1{
+    margin:0;
+    font-size:24px;
+    font-weight:700;
+    letter-spacing:-.02em;
+    color:var(--ink);
+}
+
+.db-welcome h1 span{ margin-right:4px; }
+
+.db-welcome p{
+    margin:4px 0 0;
+    font-size:13.5px;
+    color:var(--muted);
+}
+
+/* Says which branches every figure below is about, so nobody
+   reads a branch manager's numbers as the network's. */
+.db-scope{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    padding:7px 13px;
+    border:1px solid var(--line-2);
+    border-radius:30px;
+    background:var(--surface);
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+}
+
+.db-scope i{ font-size:15px; color:var(--muted); }
+
+/* --- the four figures ------------------------------------ */
+
+.db-cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(215px,1fr));
+    gap:14px;
+    margin-bottom:16px;
+}
+
+.db-card{
+    display:flex;
+    align-items:flex-start;
+    gap:13px;
+    padding:16px 17px;
+    border:1px solid var(--line-2);
+    border-radius:14px;
+    background:var(--surface);
+    box-shadow:0 1px 2px rgba(var(--shadow),.04);
+}
+
+.db-card-icon{
+    flex:0 0 auto;
+    width:42px;
+    height:42px;
+    display:block;
+    border-radius:12px;
+    font-size:20px;
+    line-height:42px;
+    text-align:center;
+}
+
+/*
+   Colour keyed to what the card counts, never to its position
+   in the row. A card that changes hue when another appears
+   teaches nothing.
+*/
+.db-card.is-violet .db-card-icon{ background:rgba(139,92,246,.13); color:#7c3aed; }
+.db-card.is-sky .db-card-icon{ background:rgba(59,130,246,.13); color:#2563eb; }
+.db-card.is-emerald .db-card-icon{ background:rgba(16,185,129,.14); color:#059669; }
+.db-card.is-amber .db-card-icon{ background:rgba(217,119,6,.14); color:#b45309; }
+
+.db-card-body{ min-width:0; }
+
+.db-card-label{
+    display:block;
+    font-size:12.5px;
+    color:var(--muted);
+}
+
+.db-card-value{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    margin-top:3px;
+    font-size:25px;
+    font-weight:700;
+    line-height:1.15;
+    letter-spacing:-.02em;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.db-card-hint{
+    display:block;
+    margin-top:3px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+/*
+   Direction in colour AND in an arrow. A minus sign at 11px
+   is easy to miss, and "down 8%" is the half somebody needs
+   to catch.
+*/
+.db-delta{
+    display:inline-flex;
+    align-items:center;
+    gap:2px;
+    padding:2px 8px;
+    border-radius:30px;
+    background:var(--surface-3);
+    font-style:normal;
+    font-size:11.5px;
+    font-weight:700;
+    color:var(--ink-3);
+    font-variant-numeric:tabular-nums;
+}
+
+.db-delta i{ font-size:13px; }
+.db-delta.is-up{ background:rgba(21,127,82,.11); color:#157f52; }
+.db-delta.is-down{ background:rgba(191,39,64,.1); color:#bf2740; }
+
+/* --- the two columns ------------------------------------- */
+
+.db-layout{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 330px;
+    gap:16px;
+    align-items:start;
+}
+
+.db-layout.is-single{ grid-template-columns:minmax(0,1fr); }
+
+.db-main,
+.db-rail{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    min-width:0;
+}
+
+/* --- links out of a card --------------------------------- */
+
+.db-link{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:12.5px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    text-decoration:none;
+    white-space:nowrap;
+}
+
+.db-link i{ font-size:14px; transition:transform .16s ease; }
+.db-link:hover i{ transform:translateX(2px); }
+
+/* --- tables inside a card -------------------------------- */
+
+.db-scroll{ overflow-x:auto; }
+
+.db-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+}
+
+.db-table thead th{
+    padding:0 12px 9px;
+    border-bottom:1px solid var(--line-2);
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    text-align:left;
+    color:var(--ink-3);
+    white-space:nowrap;
+}
+
+.db-table tbody td{
+    padding:11px 12px;
+    border-bottom:1px solid var(--line);
+    color:var(--ink-2);
+    white-space:nowrap;
+}
+
+.db-table tbody tr:last-child td{ border-bottom:0; }
+
+.db-table tbody td a{
+    font-weight:600;
+    color:var(--ink);
+    text-decoration:none;
+}
+
+.db-table tbody td a:hover{ color:rgb(var(--brand)); }
+
+.db-table .is-num{ text-align:right; font-variant-numeric:tabular-nums; }
+.db-table .is-muted{ color:var(--muted); }
+
+.db-status,
+.db-type{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:2px 10px;
+    border-radius:30px;
+    font-size:11px;
+    font-weight:600;
+    white-space:nowrap;
+}
+
+.db-status::before,
+.db-type::before{
+    content:"";
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:currentColor;
+}
+
+.db-status.is-on{ background:rgba(21,127,82,.11); color:#157f52; }
+.db-status.is-off{ background:var(--surface-3); color:var(--muted); }
+
+.db-type.is-booked{ background:rgba(59,130,246,.11); color:#2563eb; }
+.db-type.is-walk_in{ background:rgba(217,119,6,.13); color:#b45309; }
+
+/* --- licences -------------------------------------------- */
+
+.db-licences{
+    margin:14px 0 0;
+    padding:0;
+    list-style:none;
+}
+
+.db-licences li{
+    display:grid;
+    grid-template-columns:18px minmax(0,1fr) auto;
+    align-items:center;
+    gap:10px;
+    padding:9px 11px;
+    border-radius:10px;
+    background:rgba(217,119,6,.08);
+    font-size:12.5px;
+    color:var(--ink-2);
+}
+
+.db-licences li + li{ margin-top:6px; }
+.db-licences i{ font-size:16px; color:#b45309; }
+
+.db-licences em{
+    font-style:normal;
+    font-size:11.5px;
+    font-weight:600;
+    color:#b45309;
+    white-space:nowrap;
+}
+
+/* Already lapsed is a different problem from lapsing soon,
+   and the two must not read the same. */
+.db-licences li.is-expired{ background:rgba(191,39,64,.08); }
+.db-licences li.is-expired i,
+.db-licences li.is-expired em{ color:#bf2740; }
+
+/* --- insights -------------------------------------------- */
+
+.db-insights{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:11px;
+}
+
+.db-insight{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:14px;
+    border:1px solid var(--line-2);
+    border-radius:12px;
+    background:var(--surface);
+}
+
+.db-insight-icon{
+    flex:0 0 auto;
+    width:34px;
+    height:34px;
+    display:block;
+    border-radius:10px;
+    background:var(--surface-3);
+    font-size:16px;
+    line-height:34px;
+    text-align:center;
+    color:var(--ink-3);
+}
+
+.db-insight-body{ min-width:0; }
+
+.db-insight-label{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.db-insight-body b{
+    display:block;
+    margin-top:2px;
+    font-size:19px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+/*
+   A figure whose module has not shipped is drawn quieter and
+   labelled. An untraceable number gets repeated in a meeting;
+   a marked one shows the shape of the screen and nothing more.
+*/
+.db-insight.is-sample{
+    border-style:dashed;
+    background:var(--surface-2);
+}
+
+.db-insight.is-sample .db-insight-body b{ color:var(--muted); }
+
+.db-sample{
+    padding:1px 6px;
+    border-radius:30px;
+    background:rgba(217,119,6,.14);
+    font-size:9.5px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:#b45309;
+}
+
+/* --- quick actions --------------------------------------- */
+
+.db-actions{
+    margin:0;
+    padding:0;
+    list-style:none;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.db-actions a{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:11px 12px;
+    border:1px solid var(--line-2);
+    border-radius:11px;
+    background:var(--surface);
+    text-decoration:none;
+    transition:border-color .16s ease,background .16s ease;
+}
+
+.db-actions a:hover{
+    border-color:rgba(var(--brand),.45);
+    background:rgba(var(--brand),.05);
+}
+
+.db-action-icon{
+    flex:0 0 auto;
+    width:34px;
+    height:34px;
+    display:block;
+    border-radius:10px;
+    background:rgba(var(--brand),.1);
+    font-size:17px;
+    line-height:34px;
+    text-align:center;
+    color:rgb(var(--brand));
+}
+
+.db-action-text{ flex:1 1 auto; min-width:0; }
+
+.db-action-text b{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+}
+
+.db-action-text small{
+    display:block;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.db-actions a > i{ font-size:16px; color:var(--muted); }
+
+/* --- what the organization holds ------------------------- */
+
+.db-plan{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    padding:16px;
+    border:1px solid rgba(var(--brand),.25);
+    border-radius:14px;
+    background:rgba(var(--brand),.05);
+}
+
+.db-plan > i{ font-size:22px; color:rgb(var(--brand)); }
+
+.db-plan b{
+    display:block;
+    font-size:14px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.db-plan p{
+    margin:3px 0 0;
+    font-size:12px;
+    line-height:1.5;
+    color:var(--ink-2);
+    word-break:break-word;
+}
+
+.db-plan small{
+    display:block;
+    margin-top:6px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+/* --- activity -------------------------------------------- */
+
+.db-activity{
+    margin:0;
+    padding:0;
+    list-style:none;
+}
+
+.db-activity li{
+    display:flex;
+    align-items:flex-start;
+    gap:11px;
+    padding:9px 0;
+}
+
+.db-activity li + li{ border-top:1px solid var(--line); }
+
+.db-dot{
+    flex:0 0 auto;
+    width:28px;
+    height:28px;
+    display:block;
+    border-radius:50%;
+    background:var(--surface-3);
+    font-size:14px;
+    line-height:28px;
+    text-align:center;
+    color:var(--ink-3);
+}
+
+.db-dot.is-created{ background:rgba(21,127,82,.12); color:#157f52; }
+.db-dot.is-updated{ background:rgba(59,130,246,.12); color:#2563eb; }
+.db-dot.is-deleted{ background:rgba(191,39,64,.1); color:#bf2740; }
+
+.db-activity-what{ min-width:0; }
+
+.db-activity-what b{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.db-activity-what small{
+    display:block;
+    margin-top:1px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+/* --- the quiet state ------------------------------------- */
+
+/*
+   An empty card says what empty means. "No bookings today"
+   and "the diary is broken" look identical otherwise.
+*/
+.db-quiet{
+    display:flex;
+    align-items:flex-start;
+    gap:9px;
+    margin:0;
+    padding:14px 15px;
+    border-radius:11px;
+    background:var(--surface-2);
+    font-size:13px;
+    line-height:1.5;
+    color:var(--muted);
+}
+
+.db-quiet i{ flex:0 0 auto; font-size:16px; color:var(--ink-3); }
+
+/* --- the comparison line on the area chart --------------- */
+
+.area-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:6px;
+}
+
+.area-legend{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin:0;
+}
+
+.area-key{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.area-key::before{
+    content:"";
+    width:9px;
+    height:9px;
+    border-radius:50%;
+}
+
+.area-key.is-primary::before{ background:var(--chart-mark); }
+.area-key.is-compare::before{ background:var(--ink-3); }
+
+/* Thin, no fill: the comparison is context for the month
+   being read, not a second thing of equal weight. */
+.area-compare{
+    fill:none;
+    stroke:var(--ink-3);
+    stroke-width:1.5;
+    stroke-dasharray:4 4;
+    opacity:.55;
+    vector-effect:non-scaling-stroke;
+}
+
+@media (max-width:1199.98px){
+    .db-layout{ grid-template-columns:minmax(0,1fr); }
+}
+
+@media (max-width:575.98px){
+    .db-welcome h1{ font-size:20px; }
+    .db-cards{ grid-template-columns:minmax(0,1fr); }
+}
+
+/* ---------------------------------------------------------
+   Sidebar — planned modules, and whose workspace this is
+   (shared/components/layout/Sidebar.tsx, app/TenantShell.tsx)
+   --------------------------------------------------------- */
+
+/*
+   A module that is planned but has not shipped. Not a link:
+   a menu entry that 404s reads as a broken product, while a
+   marked row answers "where is billing" before anybody asks.
+*/
+.app-nav-item.is-soon{
+    opacity:.45;
+    cursor:default;
+}
+
+.app-nav-item.is-soon:hover{ background:transparent; }
+
+.app-nav-soon{
+    margin-left:auto;
+    padding:1px 7px;
+    border-radius:30px;
+    background:rgba(255,255,255,.14);
+    font-style:normal;
+    font-size:9.5px;
+    font-weight:700;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+}
+
+/* The sidebar is dark by default but can be set light. */
+.app-sidebar[data-surface='light'] .app-nav-soon,
+[data-sidebar='light'] .app-nav-soon{
+    background:var(--surface-3);
+    color:var(--ink-3);
+}
+
+/* --- whose workspace this is ----------------------------- */
+
+.app-sidebar-card{
+    margin:auto 12px 12px;
+    padding:12px;
+    border-radius:12px;
+    background:rgba(255,255,255,.08);
+}
+
+.app-org{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+}
+
+.app-org-mark{
+    flex:0 0 auto;
+    width:34px;
+    height:34px;
+    display:grid;
+    place-items:center;
+    overflow:hidden;
+    border-radius:10px;
+    background:rgba(255,255,255,.14);
+    font-size:17px;
+}
+
+.app-org-mark img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+}
+
+.app-org-text{ min-width:0; }
+
+.app-org-text b{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.app-org-text small{
+    display:block;
+    font-size:11px;
+    opacity:.7;
+}
+
+/* --- the last rows of the sidebar ------------------------ */
+
+.app-sidebar-help{
+    padding:0 12px 14px;
+}
+
+.app-help{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:9px 11px;
+    border-radius:10px;
+    font-size:13px;
+    text-decoration:none;
+    color:inherit;
+    opacity:.75;
+    transition:background .14s ease,opacity .14s ease;
+}
+
+.app-help:hover{ background:rgba(255,255,255,.08); opacity:1; color:inherit; }
+.app-help i{ font-size:17px; }
+
+/* --- extras on the dashboard ----------------------------- */
+
+/* The branch somebody works at, marked in the list. */
+.db-primary{
+    margin-right:6px;
+    font-size:13px;
+    color:#d9a406;
+    vertical-align:-1px;
+}
+
+.db-insight-value{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-top:2px;
+}
+
+.db-insight-value b{
+    font-size:19px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+/* A fuller line under an activity title. */
+.db-activity-what > span{
+    display:block;
+    margin-top:1px;
+    font-size:12px;
+    color:var(--ink-2);
 }

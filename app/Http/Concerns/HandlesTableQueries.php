@@ -22,7 +22,7 @@ trait HandlesTableQueries
 
     /**
      * @param  array<int, string>  $searchable  Columns matched against ?search
-     * @param  array<int, string>  $sortable    Columns allowed in ?sort
+     * @param  array<int, string>  $sortable  Columns allowed in ?sort
      */
     protected function tableQuery(
         Builder $query,
@@ -49,7 +49,7 @@ trait HandlesTableQueries
             return;
         }
 
-        $pattern = '%' . $term . '%';
+        $pattern = '%'.$term.'%';
 
         // Grouped so the OR set cannot leak past other filters.
         $query->where(function (Builder $builder) use ($searchable, $pattern) {

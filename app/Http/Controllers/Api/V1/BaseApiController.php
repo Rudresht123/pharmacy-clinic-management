@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
@@ -54,7 +55,7 @@ abstract class BaseApiController extends Controller
      * top level; this flattens it to { data, meta } so every endpoint —
      * paginated or not — answers with the same shape.
      *
-     * @param  class-string<\Illuminate\Http\Resources\Json\JsonResource>  $resource
+     * @param  class-string<JsonResource>  $resource
      */
     protected function paginated(LengthAwarePaginator $page, string $resource): JsonResponse
     {

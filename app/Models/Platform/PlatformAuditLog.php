@@ -15,10 +15,20 @@ class PlatformAuditLog extends Model
     const UPDATED_AT = null;
 
     protected $fillable = [
+        'organization_id',
         'platform_user_id',
+        /*
+         * Copied at write time, not joined. The foreign key above is nulled
+         * when an administrator is deleted, which is right for the key and
+         * useless for an audit trail — "somebody suspended this
+         * organization" answers nothing.
+         */
+        'actor_name',
         'action',
         'entity_type',
         'entity_id',
+        // What the subject was called then, for the same reason.
+        'entity_label',
         'before',
         'after',
         'ip_address',
@@ -32,5 +42,10 @@ class PlatformAuditLog extends Model
     public function platformUser(): BelongsTo
     {
         return $this->belongsTo(PlatformUser::class);
+    }
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
     }
 }

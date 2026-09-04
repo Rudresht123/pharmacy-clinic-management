@@ -25,8 +25,7 @@ class LocationController extends BaseApiController
 
     public function __construct(
         private readonly LocationRepositoryInterface $locations,
-    ) {
-    }
+    ) {}
 
     /**
      * The field definitions the form and table render from — the code

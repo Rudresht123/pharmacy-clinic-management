@@ -8,6 +8,7 @@ use App\Services\Platform\OrganizationProvisioningService;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -26,7 +27,7 @@ class TenantsMigrateCommandTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->createdDatabases as $databaseName) {
-            (new TenantConnectionService())->disconnect();
+            (new TenantConnectionService)->disconnect();
 
             if (DatabaseService::exists($databaseName)) {
                 DatabaseService::drop($databaseName);
@@ -98,7 +99,7 @@ class TenantsMigrateCommandTest extends TestCase
 
     public function test_unknown_org_uuid_fails_cleanly(): void
     {
-        $this->artisan('tenants:migrate', ['--org' => (string) \Illuminate\Support\Str::uuid(), '--force' => true])
+        $this->artisan('tenants:migrate', ['--org' => (string) Str::uuid(), '--force' => true])
             ->assertExitCode(1);
     }
 
@@ -106,7 +107,7 @@ class TenantsMigrateCommandTest extends TestCase
     {
         $organization = $this->provisionOrganization();
 
-        (new TenantConnectionService())->disconnect();
+        (new TenantConnectionService)->disconnect();
         DatabaseService::drop($organization->database_name);
         $this->createdDatabases = array_diff($this->createdDatabases, [$organization->database_name]);
 

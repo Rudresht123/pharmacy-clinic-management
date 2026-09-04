@@ -18,8 +18,7 @@ class OrganizationTypeController extends BaseApiController
 
     public function __construct(
         private readonly OrganizationTypeRepositoryInterface $types,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): JsonResponse
     {

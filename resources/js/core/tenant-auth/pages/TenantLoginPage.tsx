@@ -68,28 +68,22 @@ export default function TenantLoginPage() {
             // Left undefined (not null) while branding hasn't loaded yet, so
             // AuthLayout's own default logo shows instead of nothing.
             brand={
-                branding
-                    ? (
-                        <div className="hx-brand-org">
-                            {branding.has_logo ? (
-                                <img
-                                    src={branding.logo_url}
-                                    alt=""
-                                    className="hx-brand-org-logo"
-                                />
-                            ) : (
-                                <span
-                                    className="hx-brand-org-logo hx-brand-org-logo--initials"
-                                    aria-hidden="true"
-                                >
-                                    {initials(branding.name)}
-                                </span>
-                            )}
+                branding ? (
+                    <div className="hx-brand-org">
+                        {branding.has_logo ? (
+                            <img src={branding.logo_url} alt="" className="hx-brand-org-logo" />
+                        ) : (
+                            <span
+                                className="hx-brand-org-logo hx-brand-org-logo--initials"
+                                aria-hidden="true"
+                            >
+                                {initials(branding.name)}
+                            </span>
+                        )}
 
-                            <span className="hx-brand-org-name">{branding.name}</span>
-                        </div>
-                    )
-                    : undefined
+                        <span className="hx-brand-org-name">{branding.name}</span>
+                    </div>
+                ) : undefined
             }
             eyebrow="Organization Workspace"
             heading={

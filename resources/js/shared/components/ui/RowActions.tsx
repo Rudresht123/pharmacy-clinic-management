@@ -38,10 +38,7 @@ export function RowActions({
         function onOutside(event: MouseEvent) {
             const target = event.target as Node;
 
-            if (
-                !buttonRef.current?.contains(target) &&
-                !menuRef.current?.contains(target)
-            ) {
+            if (!buttonRef.current?.contains(target) && !menuRef.current?.contains(target)) {
                 setOpen(false);
             }
         }
@@ -102,7 +99,12 @@ export function RowActions({
                     ref={menuRef}
                     className="dropdown-menu show mt-0"
                     role="menu"
-                    style={{ position: 'fixed', top: coords.top, right: coords.right, left: 'auto' }}
+                    style={{
+                        position: 'fixed',
+                        top: coords.top,
+                        right: coords.right,
+                        left: 'auto',
+                    }}
                 >
                     {(editTo || onEdit) &&
                         (editTo ? (

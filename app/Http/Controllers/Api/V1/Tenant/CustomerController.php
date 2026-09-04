@@ -9,8 +9,10 @@ use App\Http\Requests\Api\V1\Tenant\UpdateCustomerRequest;
 use App\Http\Resources\Tenant\CustomerResource;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\EntityFieldSetting;
+use App\Models\Tenant\User;
 use App\Repositories\Tenant\Contracts\CustomerRepositoryInterface;
 use App\Services\Fields\FieldSchema;
+use App\Services\Permissions\Permission;
 use App\Support\Fields\CustomerFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,16 +31,22 @@ class CustomerController extends BaseApiController
 
     public function __construct(
         private readonly CustomerRepositoryInterface $customers,
-    ) {
-    }
+        private readonly Permission $permission,
+    ) {}
 
     /**
-     * The branch the signed-in person works at, or null for the owner, who
-     * works across the whole network.
+     * The branch to record a customer against.
+     *
+     * Resolved from memberships through Permission rather than read off
+     * `users.location_id`, so somebody who works at two branches is stamped
+     * with the one they are actually working in — and the owner and head
+     * office, who work across the network, still get null and choose.
      */
     private function callersBranch(): ?int
     {
-        return Auth::guard('web')->user()?->location_id;
+        $user = Auth::guard('web')->user();
+
+        return $user instanceof User ? $this->permission->branchFor($user) : null;
     }
 
     /** The field definitions the form and table render from. */
@@ -82,6 +90,9 @@ class CustomerController extends BaseApiController
             registeredLocationId: $request->filled('registered_location_id')
                 ? (int) $request->input('registered_location_id')
                 : null,
+            // Named rather than positional: the filter card grows, and a
+            // fifth boolean argument here would be unreadable.
+            filters: $request->only(['gender', 'age_band', 'city', 'joined_within']),
         );
 
         return $this->paginated(

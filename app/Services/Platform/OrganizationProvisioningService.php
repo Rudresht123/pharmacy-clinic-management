@@ -40,9 +40,8 @@ class OrganizationProvisioningService
         private readonly TenantProvisionEventRepositoryInterface $provisionEvents,
         private readonly TenantDatabaseRepositoryInterface $tenantDatabases,
         private readonly DbClusterRepositoryInterface $dbClusters,
-        private readonly TenantConnectionService $tenants = new TenantConnectionService(),
-    ) {
-    }
+        private readonly TenantConnectionService $tenants = new TenantConnectionService,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data  Validated attributes, including database_name.
@@ -242,8 +241,8 @@ class OrganizationProvisioningService
 
     /**
      * @throws \RuntimeException if the email genuinely fails to send — a
-     *   missing/inactive template should be a retryable provisioning
-     *   failure, not a silently skipped invite.
+     *                           missing/inactive template should be a retryable provisioning
+     *                           failure, not a silently skipped invite.
      */
     private function sendSetupEmail(Organization $organization): void
     {

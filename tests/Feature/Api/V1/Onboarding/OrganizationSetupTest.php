@@ -27,7 +27,7 @@ class OrganizationSetupTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->createdDatabases as $databaseName) {
-            (new TenantConnectionService())->disconnect();
+            (new TenantConnectionService)->disconnect();
             DatabaseService::drop($databaseName);
         }
 
@@ -73,7 +73,7 @@ class OrganizationSetupTest extends TestCase
             ->assertJsonPath('data.email', $organization->email);
 
         // The owner now exists in the tenant's own database.
-        (new TenantConnectionService())->connect($organization->database_name);
+        (new TenantConnectionService)->connect($organization->database_name);
 
         $user = TenantUser::on(TenantConnectionService::CONNECTION)
             ->where('email', $organization->email)
@@ -83,7 +83,7 @@ class OrganizationSetupTest extends TestCase
         $this->assertSame(TenantUser::OWNER, $user->role);
         $this->assertTrue((bool) $user->is_active);
 
-        (new TenantConnectionService())->disconnect();
+        (new TenantConnectionService)->disconnect();
 
         // And the token is spent.
         $organization->refresh();

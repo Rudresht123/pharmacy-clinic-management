@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import type { ApiResponse } from '@/shared/types/api';
@@ -11,7 +11,8 @@ import type {
 
 export type { ConfigurableEntity } from './types';
 
-const settingsKey = (entity: ConfigurableEntity) => ['tenant', 'field-settings', entity];
+const SETTINGS_ROOT = ['tenant', 'field-settings'] as const;
+const settingsKey = (entity: ConfigurableEntity) => [...SETTINGS_ROOT, entity];
 
 /**
  * The effective schema for one screen, and the types a new field may take.
@@ -33,8 +34,6 @@ export function useFieldSettings(entity: ConfigurableEntity) {
 }
 
 export function useSaveFieldSettings(entity: ConfigurableEntity) {
-    const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: async (payload: {
             fields: FieldSettingInput[];
@@ -47,16 +46,8 @@ export function useSaveFieldSettings(entity: ConfigurableEntity) {
 
             return data.data;
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: settingsKey(entity) });
-
-            // The form and list that render from this schema are now stale.
-            queryClient.invalidateQueries({ queryKey: ['tenant', entity] });
-            queryClient.invalidateQueries({ queryKey: ['tenant', 'locations', 'fields'] });
-            queryClient.invalidateQueries({ queryKey: ['tenant', 'users', 'fields'] });
-
-            notify.success('Field settings saved');
-        },
+        // Invalidation is the query client's job, for every mutation.
+        onSuccess: () => notify.success('Field settings saved'),
     });
 }
 
@@ -68,7 +59,7 @@ export function useSaveFieldSettings(entity: ConfigurableEntity) {
  */
 export function useConfigurableEntities() {
     return useQuery({
-        queryKey: ['tenant', 'field-settings', 'entities'],
+        queryKey: [...SETTINGS_ROOT, 'entities'],
         queryFn: async (): Promise<EntityLabel[]> => {
             const { data } = await http.get<ApiResponse<EntityLabel[]>>('/tenant/settings/fields');
 

@@ -29,6 +29,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             PlatformRoleSeeder::class,
             PlatformUserSeeder::class,
+            // The module catalogue an organization's entitlements point at.
+            ModuleSeeder::class,
         ]);
     }
 }

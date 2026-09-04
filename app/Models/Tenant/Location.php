@@ -2,8 +2,11 @@
 
 namespace App\Models\Tenant;
 
+use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -19,12 +22,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Location extends Model
 {
-    use SoftDeletes;
+    use RecordsHistory, SoftDeletes;
 
     public const RETAIL_STORE = 'RETAIL_STORE';
+
     public const WHOLESALE_STORE = 'WHOLESALE_STORE';
+
     public const WAREHOUSE = 'WAREHOUSE';
+
     public const CLINIC = 'CLINIC';
+
     public const DOCTOR_VISITING_LOCATION = 'DOCTOR_VISITING_LOCATION';
 
     /** Every value the database CHECK constraint permits. */
@@ -37,15 +44,23 @@ class Location extends Model
     ];
 
     /**
-     * What a user may actually pick today.
+     * What a user may actually pick.
      *
-     * CLINIC is reserved by the spec but unused at launch, so the schema
-     * accepts it while validation and the UI do not offer it yet.
+     * CLINIC was held back while it had nothing behind it. OPD is what it
+     * was reserved for: a doctor's sitting happens at a clinic, so the type
+     * is now offered.
+     *
+     * Every value in TYPES is selectable today. The two lists stay separate
+     * rather than collapsing into one, because the CHECK constraint and the
+     * dropdown answer different questions — the schema must go on accepting
+     * a value that validation later stops offering, or existing rows become
+     * unsavable.
      */
     public const SELECTABLE_TYPES = [
         self::RETAIL_STORE,
         self::WHOLESALE_STORE,
         self::WAREHOUSE,
+        self::CLINIC,
         self::DOCTOR_VISITING_LOCATION,
     ];
 
@@ -89,10 +104,46 @@ class Location extends Model
         return $query->where('is_active', true);
     }
 
+    /**
+     * This branch's decisions about the organization's modules.
+     *
+     * Sparse: a row exists only where something was switched off here. Read
+     * through App\Services\Permissions\Permission rather than directly, so the
+     * "no row means inherited" rule lives in one place.
+     */
+    public function moduleOverrides(): HasMany
+    {
+        return $this->hasMany(LocationModule::class);
+    }
+
+    /**
+     * Who works here, and what they hold here.
+     *
+     * Through memberships rather than a `users.location_id` column, so
+     * somebody can work at this branch and another without either being the
+     * one true answer.
+     */
+    public function memberships(): HasMany
+    {
+        return $this->hasMany(BranchMembership::class);
+    }
+
+    public function members(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'branch_users', 'location_id', 'user_id')
+            ->withPivot(['role_id', 'is_primary'])
+            ->withTimestamps();
+    }
+
     /** True once the drug licence on file is out of date. */
     public function hasExpiredLicence(): bool
     {
+        /*
+         * Compared date to date, not to this instant. isPast() measures
+         * against now, so a licence expiring today — which is valid for the
+         * whole of today — read as already expired from midnight onwards.
+         */
         return $this->drug_license_expiry_date !== null
-            && $this->drug_license_expiry_date->isPast();
+            && $this->drug_license_expiry_date->startOfDay()->lt(now()->startOfDay());
     }
 }

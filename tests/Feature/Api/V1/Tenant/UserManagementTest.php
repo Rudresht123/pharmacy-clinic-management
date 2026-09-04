@@ -3,12 +3,8 @@
 namespace Tests\Feature\Api\V1\Tenant;
 
 use App\Models\Platform\Organization;
-use App\Models\Platform\OrganizationType;
-use App\Models\Platform\PlatformRole;
-use App\Models\Platform\PlatformUser;
 use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\User as TenantUser;
-use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Support\Fields\UserFields;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,28 +23,44 @@ class UserManagementTest extends TenantTestCase
 
     private function userId(Organization $organization, string $email): int
     {
-        (new TenantConnectionService())->connect($organization->database_name);
+        (new TenantConnectionService)->connect($organization->database_name);
 
         $id = TenantUser::on(TenantConnectionService::CONNECTION)
             ->where('email', $email)
             ->value('id');
 
-        (new TenantConnectionService())->disconnect();
+        (new TenantConnectionService)->disconnect();
 
         return (int) $id;
     }
 
-    /** @return array<string, mixed> */
-    private function payload(array $overrides = []): array
+    /**
+     * A valid new-person payload.
+     *
+     * Takes the organization because a staff account now needs a role to hold
+     * — level three of the permission flow — and roles live in the tenant
+     * database. An owner is given none: they bypass roles, and the request
+     * refuses one rather than storing a limit nothing enforces.
+     *
+     * @return array<string, mixed>
+     */
+    private function payload(Organization $organization, array $overrides = []): array
     {
-        return array_merge([
+        $payload = array_merge([
             'name' => 'Priya Sharma',
             'email' => 'priya-'.uniqid().'@example.com',
             'password' => 'Str0ng!Pass',
             'password_confirmation' => 'Str0ng!Pass',
             'role' => TenantUser::STAFF,
+            'role_id' => $this->staffRoleId($organization),
             'is_active' => true,
         ], $overrides);
+
+        if (($payload['role'] ?? null) === TenantUser::OWNER) {
+            unset($payload['role_id']);
+        }
+
+        return $payload;
     }
 
     public function test_an_owner_can_add_and_list_people(): void
@@ -56,7 +68,7 @@ class UserManagementTest extends TenantTestCase
         $organization = $this->provisionOrganization();
         $this->signIn($organization, $organization->email);
 
-        $this->postJson('/api/v1/tenant/users', $this->payload())
+        $this->postJson('/api/v1/tenant/users', $this->payload($organization))
             ->assertCreated()
             ->assertJsonPath('data.role', TenantUser::STAFF);
 
@@ -73,7 +85,7 @@ class UserManagementTest extends TenantTestCase
 
         $email = 'newcomer-'.uniqid().'@example.com';
 
-        $this->postJson('/api/v1/tenant/users', $this->payload(['email' => $email]))
+        $this->postJson('/api/v1/tenant/users', $this->payload($organization, ['email' => $email]))
             ->assertCreated();
 
         $this->postJson('/api/v1/tenant/auth/logout')->assertOk();
@@ -94,7 +106,7 @@ class UserManagementTest extends TenantTestCase
         $this->signIn($organization, self::STAFF_EMAIL);
 
         $this->getJson('/api/v1/tenant/users')->assertStatus(403);
-        $this->postJson('/api/v1/tenant/users', $this->payload())->assertStatus(403);
+        $this->postJson('/api/v1/tenant/users', $this->payload($organization))->assertStatus(403);
         $this->deleteJson("/api/v1/tenant/users/{$staffId}")->assertStatus(403);
     }
 
@@ -109,6 +121,7 @@ class UserManagementTest extends TenantTestCase
             'name' => 'Renamed Staff',
             'email' => self::STAFF_EMAIL,
             'role' => TenantUser::STAFF,
+            'role_id' => $this->staffRoleId($organization),
             'is_active' => true,
         ])->assertOk()->assertJsonPath('data.name', 'Renamed Staff');
 
@@ -131,6 +144,7 @@ class UserManagementTest extends TenantTestCase
             'name' => 'Owner',
             'email' => $organization->email,
             'role' => TenantUser::STAFF,
+            'role_id' => $this->staffRoleId($organization),
             'is_active' => true,
         ])->assertStatus(422)->assertJsonValidationErrors('role');
     }
@@ -152,7 +166,7 @@ class UserManagementTest extends TenantTestCase
 
         $secondOwner = 'second-owner-'.uniqid().'@example.com';
 
-        $this->postJson('/api/v1/tenant/users', $this->payload([
+        $this->postJson('/api/v1/tenant/users', $this->payload($organization, [
             'email' => $secondOwner,
             'role' => TenantUser::OWNER,
         ]))->assertCreated();
@@ -161,6 +175,7 @@ class UserManagementTest extends TenantTestCase
             'name' => 'Owner',
             'email' => $organization->email,
             'role' => TenantUser::STAFF,
+            'role_id' => $this->staffRoleId($organization),
             'is_active' => true,
         ])->assertOk()->assertJsonPath('data.role', TenantUser::STAFF);
     }
@@ -172,7 +187,7 @@ class UserManagementTest extends TenantTestCase
         $this->signIn($organization, $organization->email);
 
         // A second owner, so the "last owner" rule is not what refuses these.
-        $this->postJson('/api/v1/tenant/users', $this->payload([
+        $this->postJson('/api/v1/tenant/users', $this->payload($organization, [
             'email' => 'second-owner-'.uniqid().'@example.com',
             'role' => TenantUser::OWNER,
         ]))->assertCreated();
@@ -199,7 +214,7 @@ class UserManagementTest extends TenantTestCase
 
         $this->deleteJson("/api/v1/tenant/users/{$staffId}")->assertOk();
 
-        $this->postJson('/api/v1/tenant/users', $this->payload([
+        $this->postJson('/api/v1/tenant/users', $this->payload($organization, [
             'email' => self::STAFF_EMAIL,
         ]))->assertCreated();
     }
@@ -209,7 +224,7 @@ class UserManagementTest extends TenantTestCase
         $organization = $this->provisionOrganization();
         $this->signIn($organization, $organization->email);
 
-        $this->postJson('/api/v1/tenant/users', $this->payload([
+        $this->postJson('/api/v1/tenant/users', $this->payload($organization, [
             'email' => self::STAFF_EMAIL,
         ]))->assertStatus(422)->assertJsonValidationErrors('email');
     }
@@ -260,12 +275,12 @@ class UserManagementTest extends TenantTestCase
             ->assertOk();
 
         // Now mandatory, so somebody without it is refused…
-        $this->postJson('/api/v1/tenant/users', $this->payload())
+        $this->postJson('/api/v1/tenant/users', $this->payload($organization))
             ->assertStatus(422)
             ->assertJsonValidationErrors('custom_fields.employee_code');
 
         // …and it round-trips once given.
-        $this->postJson('/api/v1/tenant/users', $this->payload([
+        $this->postJson('/api/v1/tenant/users', $this->payload($organization, [
             'custom_fields' => ['employee_code' => 'EMP-014'],
         ]))->assertCreated();
     }
@@ -285,7 +300,7 @@ class UserManagementTest extends TenantTestCase
         $organization = $this->provisionOrganization();
         $this->signIn($organization, $organization->email);
 
-        $this->postJson('/api/v1/tenant/users', $this->payload([
+        $this->postJson('/api/v1/tenant/users', $this->payload($organization, [
             'password' => 'password',
             'password_confirmation' => 'password',
         ]))->assertStatus(422)->assertJsonValidationErrors('password');

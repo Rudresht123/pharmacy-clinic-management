@@ -70,17 +70,24 @@ export default function TenantUserListPage() {
             }),
             column.accessor('role', {
                 header: 'Role',
+                /*
+                 * An owner has no role and needs none — they bypass level
+                 * three. For staff the role's own name is shown, since "Staff"
+                 * stopped being the answer the moment roles became something
+                 * the owner writes.
+                 */
                 cell: (info) =>
                     info.getValue() === 'owner' ? (
                         <span className="badge bg-primary-transparent">Owner</span>
                     ) : (
-                        <span className="badge bg-light text-muted">Staff</span>
+                        <span className="badge bg-light text-muted">
+                            {info.row.original.role_name ?? 'No role'}
+                        </span>
                     ),
             }),
             column.accessor('last_login_at', {
                 header: 'Last signed in',
-                cell: (info) =>
-                    info.getValue() ? formatDateTime(info.getValue()) : orDash(null),
+                cell: (info) => (info.getValue() ? formatDateTime(info.getValue()) : orDash(null)),
             }),
             column.accessor('is_active', {
                 header: 'Status',
@@ -144,7 +151,6 @@ export default function TenantUserListPage() {
                     }
                 />
             </Card>
-
         </>
     );
 }

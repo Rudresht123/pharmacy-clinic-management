@@ -15,7 +15,9 @@ use App\Models\Tenant\Customer;
 class CustomerFields
 {
     public const GROUP_IDENTITY = 'identity';
+
     public const GROUP_CONTACT = 'contact';
+
     public const GROUP_OTHER = 'other';
 
     /**

@@ -19,6 +19,22 @@ import { queryClient } from '@/shared/api/queryClient';
 interface TenantAuthContextValue {
     user: TenantUser | null;
     organization: TenantOrganization | null;
+    /** The modules running where this person works; drives the sidebar. */
+    modules: string[];
+    /**
+     * What this person may do — all three levels already resolved by the
+     * server, not the organization's whole pool.
+     */
+    capabilities: string[];
+    /**
+     * Whether they hold a capability.
+     *
+     * For hiding what would be refused anyway, never for deciding it: the
+     * route answers 403 from the same source, and this only spares somebody
+     * the click. A button hidden here is still reachable by typing the URL,
+     * and has to be.
+     */
+    can(capability: string): boolean;
     /** True until the initial session check finishes. */
     initialising: boolean;
     isAuthenticated: boolean;
@@ -39,6 +55,8 @@ const TenantAuthContext = createContext<TenantAuthContextValue | null>(null);
 export function TenantAuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<TenantUser | null>(null);
     const [organization, setOrganization] = useState<TenantOrganization | null>(null);
+    const [modules, setModules] = useState<string[]>([]);
+    const [capabilities, setCapabilities] = useState<string[]>([]);
     const [initialising, setInitialising] = useState(true);
 
     useEffect(() => {
@@ -50,12 +68,16 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
                 if (!cancelled) {
                     setUser(session.user);
                     setOrganization(session.organization);
+                    setModules(session.modules ?? []);
+                    setCapabilities(session.capabilities ?? []);
                 }
             })
             .catch(() => {
                 if (!cancelled) {
                     setUser(null);
                     setOrganization(null);
+                    setModules([]);
+                    setCapabilities([]);
                 }
             })
             .finally(() => {
@@ -74,6 +96,8 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         setUnauthenticatedHandler(() => {
             setUser(null);
             setOrganization(null);
+            setModules([]);
+            setCapabilities([]);
             queryClient.clear();
         });
     }, []);
@@ -83,6 +107,8 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
 
         setUser(session.user);
         setOrganization(session.organization);
+        setModules(session.modules ?? []);
+        setCapabilities(session.capabilities ?? []);
 
         return session.user;
     }, []);
@@ -93,21 +119,31 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         } finally {
             setUser(null);
             setOrganization(null);
+            setModules([]);
+            setCapabilities([]);
             queryClient.clear();
         }
     }, []);
+
+    const can = useCallback(
+        (capability: string) => capabilities.includes(capability),
+        [capabilities],
+    );
 
     const value = useMemo<TenantAuthContextValue>(
         () => ({
             user,
             organization,
+            modules,
+            capabilities,
+            can,
             initialising,
             isAuthenticated: user !== null,
             login,
             logout,
             setUser,
         }),
-        [user, organization, initialising, login, logout],
+        [user, organization, modules, capabilities, can, initialising, login, logout],
     );
 
     return <TenantAuthContext.Provider value={value}>{children}</TenantAuthContext.Provider>;

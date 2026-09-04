@@ -2,12 +2,14 @@
 
 namespace App\Http\Requests\Api\V1\Tenant;
 
+use App\Http\Requests\Api\V1\Tenant\Concerns\ChecksRoleGrant;
 use App\Http\Requests\Api\V1\Tenant\Concerns\MergesFieldSettings;
 use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\Location;
+use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
-use App\Support\Fields\UserFields;
 use App\Repositories\Tenant\Contracts\TenantUserRepositoryInterface;
+use App\Support\Fields\UserFields;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -21,7 +23,7 @@ use Illuminate\Validation\Validator;
  */
 class UpdateTenantUserRequest extends FormRequest
 {
-    use MergesFieldSettings;
+    use ChecksRoleGrant, MergesFieldSettings;
 
     public function authorize(): bool
     {
@@ -55,10 +57,29 @@ class UpdateTenantUserRequest extends FormRequest
 
             'role' => ['required', 'string', Rule::in(User::ROLES)],
 
-            // The branch they work at. Null for the owner, who works
-            // across the whole network.
+            /*
+             * The set of capabilities they hold — level three of the
+             * permission flow. Required for staff and refused for an owner,
+             * who bypasses roles entirely. Promoting somebody to owner
+             * therefore clears their role rather than leaving a limit behind
+             * that nothing enforces.
+             */
+            'role_id' => [
+                'nullable', 'integer',
+                'required_if:role,'.User::STAFF,
+                'prohibited_if:role,'.User::OWNER,
+                Rule::exists(Role::class, 'id'),
+            ],
+
+            /*
+             * Where they work — see StoreTenantUserRequest for the three
+             * placements. Null for staff means the organization itself rather
+             * than any one branch. Promoting somebody to owner clears it, the
+             * same way it clears their role.
+             */
             'location_id' => [
                 'nullable', 'integer',
+                'prohibited_if:role,'.User::OWNER,
                 Rule::exists(Location::class, 'id')->whereNull('deleted_at'),
             ],
             'is_active' => ['nullable', 'boolean'],
@@ -86,6 +107,23 @@ class UpdateTenantUserRequest extends FormRequest
             $signedIn = Auth::guard('web')->user();
             $editingSelf = $signedIn && $signedIn->getKey() === $target->getKey();
 
+            /*
+             * `people.edit` is delegatable, which is the point of it — but
+             * without this, delegating it would hand over every other
+             * permission at the same time, since the holder could promote
+             * themselves out of their own role.
+             */
+            if ($this->input('role') === User::OWNER
+                && ! $target->isOwner()
+                && $signedIn
+                && ! $signedIn->isOwner()
+            ) {
+                $validator->errors()->add(
+                    'role',
+                    'Only an owner can make somebody else an owner.'
+                );
+            }
+
             $losingOwnership = $target->isOwner()
                 && ($this->input('role') !== User::OWNER || $this->boolean('is_active') === false);
 
@@ -107,6 +145,8 @@ class UpdateTenantUserRequest extends FormRequest
                 }
             }
 
+            $this->validateRoleGrant($validator);
+
             // Even with another owner around, locking yourself out mid-edit
             // is almost never what was meant.
             if ($editingSelf && $this->boolean('is_active') === false) {
@@ -127,6 +167,10 @@ class UpdateTenantUserRequest extends FormRequest
             'email.unique' => 'Somebody in your organization already uses this address.',
             'password.confirmed' => 'The two passwords do not match.',
             'role.in' => 'Choose either owner or staff.',
+            'role_id.required_if' => 'Choose the role this person holds.',
+            'role_id.prohibited_if' => 'An owner is not limited by a role.',
+            'role_id.exists' => 'That role no longer exists.',
+            'location_id.prohibited_if' => 'An owner works across every branch.',
         ];
     }
 }

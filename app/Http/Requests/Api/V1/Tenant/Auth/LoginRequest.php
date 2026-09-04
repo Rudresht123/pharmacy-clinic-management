@@ -30,6 +30,7 @@ use Illuminate\Validation\ValidationException;
 class LoginRequest extends FormRequest
 {
     private const MAX_ATTEMPTS = 5;
+
     private const DECAY_SECONDS = 900;
 
     public function __construct(

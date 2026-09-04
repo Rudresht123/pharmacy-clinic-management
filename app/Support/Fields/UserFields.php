@@ -3,7 +3,6 @@
 namespace App\Support\Fields;
 
 use App\Models\Tenant\User;
-use App\Support\Fields\LocationOptions;
 
 /**
  * What a person in the organization is made of.
@@ -20,6 +19,7 @@ use App\Support\Fields\LocationOptions;
 class UserFields
 {
     public const GROUP_PERSON = 'person';
+
     public const GROUP_ACCESS = 'access';
 
     /**

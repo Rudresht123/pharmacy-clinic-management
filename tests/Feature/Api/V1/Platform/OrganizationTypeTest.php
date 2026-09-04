@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Api\V1\Platform;
 
+use App\Models\Platform\OrganizationType;
 use App\Models\Platform\PlatformRole;
 use App\Models\Platform\PlatformUser;
-use App\Models\Platform\OrganizationType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

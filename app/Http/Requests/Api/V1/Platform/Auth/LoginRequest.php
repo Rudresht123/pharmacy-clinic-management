@@ -20,6 +20,7 @@ class LoginRequest extends FormRequest
 {
     /** Spec §18: five attempts per fifteen minutes. */
     private const MAX_ATTEMPTS = 5;
+
     private const DECAY_SECONDS = 900;
 
     public function authorize(): bool

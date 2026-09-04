@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/shared/utils/cn';
+import { DASH, formatDate } from '@/shared/utils/format';
 import type { Tone } from './tones';
 
 /** Small inline spinner for buttons and table cells. */
@@ -140,6 +141,52 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
  * Uses the theme's own pill classes (.status-badge / .active-badge /
  * .inactive-badge with a .status-dot) so it matches the Blade tables.
  */
+/** Anything within this many days is worth acting on now. */
+const EXPIRING_SOON_DAYS = 30;
+
+/**
+ * A date that carries a warning: a licence, a registration, a certificate.
+ *
+ * Three states rather than two. "Expired" is the emergency, but a licence
+ * with three weeks left is the one somebody can still do something about,
+ * and a plain red/not-red badge never tells them until it is too late.
+ *
+ * Each state ships an icon and a word as well as its colour, so it is not
+ * read by colour alone.
+ */
+export function ExpiryBadge({ date, expired }: { date: string | null; expired?: boolean }) {
+    if (!date) {
+        return <>{DASH}</>;
+    }
+
+    const days = Math.ceil(
+        (new Date(`${date}T00:00:00`).getTime() - new Date().setHours(0, 0, 0, 0)) / 86_400_000,
+    );
+
+    // The server's verdict wins when it has one — it is the same value the
+    // rest of the application makes decisions on.
+    const isExpired = expired ?? days < 0;
+    const soon = !isExpired && days <= EXPIRING_SOON_DAYS;
+
+    if (!isExpired && !soon) {
+        return <>{formatDate(date)}</>;
+    }
+
+    return (
+        <span className={cn('expiry-badge', isExpired ? 'is-expired' : 'is-soon')}>
+            <i className={isExpired ? 'ti ti-alert-triangle' : 'ti ti-clock-exclamation'} />
+            {formatDate(date)}
+            <span className="expiry-note">
+                {isExpired
+                    ? 'Expired'
+                    : days === 0
+                      ? 'Today'
+                      : `${days} day${days === 1 ? '' : 's'} left`}
+            </span>
+        </span>
+    );
+}
+
 export function StatusBadge({ active, labels }: { active: boolean; labels?: [string, string] }) {
     const [on, off] = labels ?? ['Active', 'Inactive'];
 

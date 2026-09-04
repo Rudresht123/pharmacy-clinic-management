@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api\V1\Platform;
 
 use App\Models\Platform\Organization;
+use App\Models\Platform\OrganizationType;
 use App\Models\Platform\PlatformRole;
 use App\Models\Platform\PlatformUser;
 use App\Repositories\Platform\Contracts\OrganizationRepositoryInterface;
@@ -239,7 +240,7 @@ class OrganizationTest extends TestCase
     /** The update rules require a real organization type. */
     private function aTypeId(): int
     {
-        return \App\Models\Platform\OrganizationType::create([
+        return OrganizationType::create([
             'name' => 'Pharmacy '.uniqid(),
             'slug' => 'pharmacy-'.uniqid(),
             'is_active' => true,

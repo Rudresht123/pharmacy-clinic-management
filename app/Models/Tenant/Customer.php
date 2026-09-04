@@ -2,6 +2,7 @@
 
 namespace App\Models\Tenant;
 
+use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,10 +18,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Customer extends Model
 {
-    use SoftDeletes;
+    use RecordsHistory, SoftDeletes;
 
     public const MALE = 'male';
+
     public const FEMALE = 'female';
+
     public const OTHER = 'other';
 
     /** Mirrors the database CHECK. */

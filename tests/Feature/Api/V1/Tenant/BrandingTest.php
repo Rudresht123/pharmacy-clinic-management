@@ -25,7 +25,7 @@ class BrandingTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->createdDatabases as $databaseName) {
-            (new TenantConnectionService())->disconnect();
+            (new TenantConnectionService)->disconnect();
             DatabaseService::drop($databaseName);
         }
 

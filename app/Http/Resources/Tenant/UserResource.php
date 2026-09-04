@@ -17,7 +17,17 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            // The account's kind — owner or staff. Not the same question as
+            // `role_id` below, which is what they may do.
             'role' => $this->role,
+
+            'role_id' => $this->role_id,
+            'role_name' => $this->whenLoaded(
+                'permissionRole',
+                fn () => $this->permissionRole?->name,
+                null,
+            ),
+
             'location_id' => $this->location_id,
             'location' => $this->whenLoaded(
                 'location',

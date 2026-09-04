@@ -1,11 +1,5 @@
 export type FieldDataType =
-    | 'text'
-    | 'email'
-    | 'date'
-    | 'select'
-    | 'textarea'
-    | 'boolean'
-    | 'number';
+    'text' | 'email' | 'date' | 'select' | 'textarea' | 'boolean' | 'number';
 
 /**
  * One field as the server describes it, after the organization's own
@@ -58,7 +52,7 @@ export interface FieldSettingInput {
 }
 
 /** Entity keys are singular and match the server's EntityFieldSetting constants. */
-export type ConfigurableEntity = 'location' | 'user' | 'customer';
+export type ConfigurableEntity = 'location' | 'user' | 'customer' | 'doctor';
 
 /** What one organization calls a record — pharmacies say customer, clinics patient. */
 export interface EntityLabel {

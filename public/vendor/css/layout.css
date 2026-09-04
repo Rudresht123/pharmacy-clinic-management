@@ -564,7 +564,10 @@ body {
     font-size: 22px;
     font-weight: 700;
     letter-spacing: -0.025em;
-    color: #141936;
+    /* A token, not a hex. This was #141936, which is fine on the light
+       surface and all but invisible on the dark one — the page title
+       disappeared on every screen in dark mode. */
+    color: var(--ink);
     line-height: 1.22;
 }
 
@@ -1281,10 +1284,24 @@ body {
 .app-content .form-control.is-invalid,
 .app-content .form-select.is-invalid {
     border-color: #e5484d;
-    background-color: #fffafa;
+    /* Translucent, so the tint composites over whatever surface the field
+       sits on. It used to be #fffafa — a near-white that, in dark mode,
+       put the field's light ink on a white ground and made the text of an
+       errored input unreadable. */
+    background-color: rgba(229, 72, 77, 0.05);
     /* Bootstrap's inline warning glyph crowds a small input */
     background-image: none;
     padding-right: 14px;
+}
+
+[data-theme='dark'] .app-content .form-control.is-invalid,
+[data-theme='dark'] .app-content .form-select.is-invalid {
+    background-color: rgba(229, 72, 77, 0.12);
+}
+
+/* The mid red is legible on white; on the dark surface it needs a step up. */
+[data-theme='dark'] .app-content .invalid-feedback {
+    color: #ff9ea1;
 }
 
 .app-content .form-control.is-invalid:focus,
@@ -2352,129 +2369,21 @@ body {
 
 /* ---------------------------------------------------------
    Organization detail — Build Spec §17
+
+   The identity card that used to live here is gone: the
+   screen now leads with one header (.oh in custom.css)
+   instead of a page title and a card repeating the same name
+   underneath it. .org-status and .org-details below are
+   still in use.
    --------------------------------------------------------- */
-
-.org-identity {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-
-    padding: 16px 18px;
-    margin-bottom: 16px;
-
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-}
-
-.org-identity-main {
-    min-width: 0;
-    flex: 1;
-}
-
-.org-identity-title {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.org-identity-title h5 {
-    margin: 0;
-    font-size: 17px;
-    font-weight: 700;
-    color: var(--ink);
-}
-
-.org-identity-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 18px;
-    margin-top: 6px;
-
-    font-size: 13px;
-    color: var(--muted);
-}
-
-.org-identity-meta span {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    min-width: 0;
-}
-
-.org-identity-meta i {
-    font-size: 15px;
-    opacity: 0.7;
-}
 
 /* Tabs
 
-   .app-tabs is the general name; .org-tabs is what the organization
-   detail screen already used and is kept so nothing there changes. */
-
-.org-tabs,
-.app-tabs {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 16px;
-    padding-bottom: 2px;
-
-    /* Seven tabs do not fit on a phone; scroll rather than wrap into a
-       two-line block that pushes the content down. */
-    overflow-x: auto;
-    scrollbar-width: thin;
-}
-
-.org-tab,
-.app-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-
-    height: 40px;
-    padding: 0 14px;
-    flex-shrink: 0;
-
-    border: 1px solid transparent;
-    border-radius: 10px;
-    background: transparent;
-
-    font-size: 13.5px;
-    font-weight: 600;
-    color: var(--ink-3);
-    white-space: nowrap;
-    cursor: pointer;
-
-    transition:
-        background 0.16s ease,
-        color 0.16s ease,
-        border-color 0.16s ease;
-}
-
-.org-tab i,
-.app-tab i {
-    font-size: 17px;
-}
-
-.org-tab:hover,
-.app-tab:hover {
-    background: var(--surface-3);
-    color: rgb(var(--brand));
-}
-
-.org-tab.is-active,
-.app-tab.is-active {
-    background: rgba(var(--brand), 0.09);
-    border-color: rgba(var(--brand), 0.18);
-    color: rgb(var(--brand));
-}
-
-.org-tab:focus-visible,
-.app-tab:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(var(--brand), 0.25);
-}
+   Every tab strip in the app is now the .app-tabs segmented
+   tray in vendor/css/custom.css — one control, one look. The
+   .org-* class names are gone with the markup that used
+   them; OrganizationDetailPage renders <Tabs> like everything
+   else. */
 
 /* Definition lists inside the overview cards */
 

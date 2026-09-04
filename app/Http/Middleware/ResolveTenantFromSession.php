@@ -23,8 +23,7 @@ class ResolveTenantFromSession
 {
     public function __construct(
         private readonly TenantConnectionService $tenants,
-    ) {
-    }
+    ) {}
 
     public function handle(Request $request, Closure $next): Response
     {

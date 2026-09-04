@@ -41,9 +41,9 @@ class CustomerTest extends TenantTestCase
     {
         $organization = $this->provisionOrganization();
 
-        (new TenantConnectionService())->connect($organization->database_name);
+        (new TenantConnectionService)->connect($organization->database_name);
         $columns = Schema::connection('organization')->getColumnListing('customers');
-        (new TenantConnectionService())->disconnect();
+        (new TenantConnectionService)->disconnect();
 
         $this->assertNotContains('location_id', $columns);
         $this->assertNotContains('store_id', $columns);
@@ -250,12 +250,10 @@ class CustomerTest extends TenantTestCase
                 'type' => Location::RETAIL_STORE, 'is_active' => true,
             ]);
 
-            TenantUser::on('organization')
-                ->where('email', self::STAFF_EMAIL)
-                ->update(['location_id' => $mine->id]);
-
             return [$mine, $theirs];
         });
+
+        $this->placeStaffAt($organization, $mine->id);
 
         $this->signInAsStaff($organization);
 
@@ -300,6 +298,244 @@ class CustomerTest extends TenantTestCase
         ]))
             ->assertCreated()
             ->assertJsonPath('data.registered_location_id', $location->id);
+    }
+
+    /**
+     * The monthly series is twelve buckets whether or not anybody joined.
+     *
+     * A month with nobody has to come back as zero rather than be skipped —
+     * a missing bucket would draw as a shorter axis instead of a quiet
+     * month, which reads as the opposite of what happened.
+     */
+    public function test_the_monthly_series_fills_in_quiet_months(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signInAsOwner($organization);
+
+        $this->postJson('/api/v1/tenant/customers', $this->payload())->assertCreated();
+
+        $months = $this->getJson('/api/v1/tenant/customers/stats')
+            ->assertOk()
+            ->json('data.by_month');
+
+        $this->assertCount(12, $months);
+
+        // Oldest first, ending on the current month.
+        $this->assertSame(now()->format('Y-m'), end($months)['month']);
+        $this->assertSame(1, end($months)['total']);
+
+        // The eleven before it are real zeroes, not gaps.
+        foreach (array_slice($months, 0, 11) as $bucket) {
+            $this->assertSame(0, $bucket['total']);
+        }
+    }
+
+    /**
+     * Age bands are ordinal, and their boundaries are inclusive.
+     *
+     * The band a person falls in comes from a CASE built in PHP from a list
+     * of upper bounds, so an off-by-one there would silently file a
+     * thirteen-year-old as a child. Exercised on the boundaries themselves
+     * rather than on comfortable middles, and asserted in order — the
+     * screen renders this series unsorted, so the order is part of the
+     * contract, not a coincidence.
+     */
+    public function test_age_bands_are_bounded_and_stay_in_order(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signInAsOwner($organization);
+
+        // One either side of the 12/13 boundary, and one well past the last.
+        foreach ([12, 13, 70] as $age) {
+            $this->postJson('/api/v1/tenant/customers', $this->payload([
+                // Mid-year, so the test does not flip on a birthday.
+                'date_of_birth' => now()->subYears($age)->subMonths(6)->toDateString(),
+            ]))->assertCreated();
+        }
+
+        // Somebody with no date of birth at all.
+        $this->postJson('/api/v1/tenant/customers', $this->payload())->assertCreated();
+
+        $bands = $this->getJson('/api/v1/tenant/customers/stats')
+            ->assertOk()
+            ->json('data.by_age_band');
+
+        $this->assertSame(
+            ['0-12', '13-25', '26-40', '41-60', '61+', 'unknown'],
+            array_column($bands, 'key'),
+        );
+
+        $totals = array_column($bands, 'total', 'key');
+
+        $this->assertSame(1, $totals['0-12']);
+        $this->assertSame(1, $totals['13-25']);
+        $this->assertSame(0, $totals['26-40']);
+        $this->assertSame(1, $totals['61+']);
+        $this->assertSame(1, $totals['unknown']);
+
+        // An absence is greyed on the chart rather than given a hue.
+        $this->assertTrue($bands[5]['muted']);
+        $this->assertFalse($bands[0]['muted']);
+    }
+
+    /**
+     * Every gender option comes back, including the ones nobody has.
+     *
+     * A segment that is missing and a segment that is empty look the same
+     * on a chart, and they do not mean the same thing.
+     */
+    public function test_the_gender_split_returns_every_option(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signInAsOwner($organization);
+
+        $this->postJson('/api/v1/tenant/customers', $this->payload(['gender' => 'female']))
+            ->assertCreated();
+
+        // Left blank on the form.
+        $this->postJson('/api/v1/tenant/customers', $this->payload())->assertCreated();
+
+        $split = $this->getJson('/api/v1/tenant/customers/stats')
+            ->assertOk()
+            ->json('data.by_gender');
+
+        $this->assertSame(['male', 'female', 'other', 'unknown'], array_column($split, 'key'));
+
+        $totals = array_column($split, 'total', 'key');
+
+        $this->assertSame(0, $totals['male']);
+        $this->assertSame(1, $totals['female']);
+        $this->assertSame(1, $totals['unknown']);
+    }
+
+    /**
+     * One town is one bar, however it was typed.
+     *
+     * City is free text taken at a counter. Grouping on the raw string
+     * would draw "pune" and "Pune" as two smaller towns, which is a wrong
+     * answer rather than an untidy one.
+     */
+    public function test_towns_are_counted_once_however_they_were_typed(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signInAsOwner($organization);
+
+        foreach (['Pune', 'pune', '  PUNE '] as $spelling) {
+            $this->postJson('/api/v1/tenant/customers', $this->payload(['city' => $spelling]))
+                ->assertCreated();
+        }
+
+        $this->postJson('/api/v1/tenant/customers', $this->payload(['city' => 'Nashik']))
+            ->assertCreated();
+
+        $towns = $this->getJson('/api/v1/tenant/customers/stats')
+            ->assertOk()
+            ->json('data.by_city');
+
+        $this->assertSame(
+            [['label' => 'Pune', 'total' => 3], ['label' => 'Nashik', 'total' => 1]],
+            $towns,
+        );
+    }
+
+    /**
+     * The filter panel's fields actually narrow the list.
+     *
+     * Each is asserted to exclude somebody, not merely to include the row
+     * that matches — a filter that is silently ignored still returns the
+     * expected row, and would pass a weaker test.
+     */
+    public function test_the_listing_filters_narrow_the_results(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signInAsOwner($organization);
+
+        $this->postJson('/api/v1/tenant/customers', $this->payload([
+            'name' => 'Asha Rane',
+            'gender' => 'female',
+            'city' => 'Pune',
+            'date_of_birth' => now()->subYears(30)->subMonths(6)->toDateString(),
+        ]))->assertCreated();
+
+        $this->postJson('/api/v1/tenant/customers', $this->payload([
+            'name' => 'Vikram Shah',
+            'gender' => 'male',
+            'city' => 'Nashik',
+            'date_of_birth' => now()->subYears(70)->subMonths(6)->toDateString(),
+        ]))->assertCreated();
+
+        $only = function (array $query, string $expected) {
+            $names = $this->getJson('/api/v1/tenant/customers?'.http_build_query($query))
+                ->assertOk()
+                ->json('data.*.name');
+
+            $this->assertSame([$expected], $names);
+        };
+
+        $only(['gender' => 'female'], 'Asha Rane');
+        $only(['age_band' => '61+'], 'Vikram Shah');
+        $only(['age_band' => '26-40'], 'Asha Rane');
+
+        // Partial and differently cased, the way somebody actually types it.
+        $only(['city' => 'nash'], 'Vikram Shah');
+    }
+
+    /**
+     * A window filter counts from today, not from a calendar boundary.
+     *
+     * Also proves the filter is applied at all: without it both rows come
+     * back, and the assertion on the total would not notice.
+     */
+    public function test_the_joined_window_excludes_older_records(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signInAsOwner($organization);
+
+        $this->postJson('/api/v1/tenant/customers', $this->payload(['name' => 'Recent']))
+            ->assertCreated();
+
+        $this->postJson('/api/v1/tenant/customers', $this->payload(['name' => 'Old']))
+            ->assertCreated();
+
+        // Backdated past the window, in the tenant database.
+        $this->onTenant($organization, function () {
+            Customer::on('organization')
+                ->where('name', 'Old')
+                ->update(['created_at' => now()->subDays(45)]);
+        });
+
+        $names = $this->getJson('/api/v1/tenant/customers?joined_within=30')
+            ->assertOk()
+            ->json('data.*.name');
+
+        $this->assertSame(['Recent'], $names);
+
+        // Unfiltered, both are still there — the row was backdated, not lost.
+        $this->assertCount(
+            2,
+            $this->getJson('/api/v1/tenant/customers')->assertOk()->json('data')
+        );
+    }
+
+    /**
+     * A band the application does not know is ignored, not obeyed.
+     *
+     * A stale bookmark should show the whole list rather than an empty one,
+     * which would read as "you have no patients".
+     */
+    public function test_an_unknown_age_band_is_ignored(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signInAsOwner($organization);
+
+        $this->postJson('/api/v1/tenant/customers', $this->payload())->assertCreated();
+
+        $this->assertCount(
+            1,
+            $this->getJson('/api/v1/tenant/customers?age_band=nonsense')
+                ->assertOk()
+                ->json('data')
+        );
     }
 
     /** The same configuration layer Locations and People use. */

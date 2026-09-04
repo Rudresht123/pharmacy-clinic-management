@@ -9,6 +9,9 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Validation\ValidationException;
+use App\Http\Middleware\EnsureTenantCan;
+use App\Http\Middleware\EnsureTenantHasModule;
+use App\Http\Middleware\ResolveActingBranch;
 use App\Http\Middleware\EnsureTenantUserIsOwner;
 use App\Http\Middleware\ResolveTenantFromSession;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
@@ -31,6 +34,21 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'resolve.tenant' => ResolveTenantFromSession::class,
             'tenant.owner' => EnsureTenantUserIsOwner::class,
+
+            /*
+             * Which branch this request is happening in. Declared on the route
+             * group ahead of the two gates below, because both ask about a
+             * branch and this is what decides — and verifies — which one.
+             */
+            'branch' => ResolveActingBranch::class,
+
+            // Levels one and two: the organization was sold this module, and
+            // the person's branch runs it.
+            'module' => EnsureTenantHasModule::class,
+
+            // Level three: their role holds this capability. Asks the two
+            // above first — see App\Services\Permissions\Permission.
+            'permission' => EnsureTenantCan::class,
         ]);
 
         /*

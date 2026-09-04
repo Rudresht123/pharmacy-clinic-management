@@ -14,9 +14,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class PlatformRole extends Model
 {
     public const SUPER_ADMIN = 'super_admin';
+
     public const OPS = 'ops';
+
     public const SUPPORT = 'support';
+
     public const BILLING = 'billing';
+
     public const CATALOG = 'catalog';
 
     protected $fillable = [

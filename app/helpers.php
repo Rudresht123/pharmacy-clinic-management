@@ -2,11 +2,12 @@
 
 use App\Models\File;
 use App\Repositories\GlobalSettingRepo;
+use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-if (!function_exists('versionedAsset')) {
+if (! function_exists('versionedAsset')) {
     /**
      * A public asset URL stamped with the file's last-modified time.
      *
@@ -19,15 +20,15 @@ if (!function_exists('versionedAsset')) {
     {
         $absolute = public_path($path);
 
-        if (!is_file($absolute)) {
+        if (! is_file($absolute)) {
             return asset($path);
         }
 
-        return asset($path) . '?v=' . filemtime($absolute);
+        return asset($path).'?v='.filemtime($absolute);
     }
 }
 
-if (!function_exists('formatDate')) {
+if (! function_exists('formatDate')) {
     /**
      * Format a date value for display, or null when it cannot be parsed.
      */
@@ -38,14 +39,14 @@ if (!function_exists('formatDate')) {
         }
 
         try {
-            return \Carbon\Carbon::parse($date)->format($format);
-        } catch (\Exception) {
+            return Carbon::parse($date)->format($format);
+        } catch (Exception) {
             return null;
         }
     }
 }
 
-if (!function_exists('uploadFile')) {
+if (! function_exists('uploadFile')) {
     /**
      * Store an uploaded file and record it in the files table.
      *
@@ -60,8 +61,8 @@ if (!function_exists('uploadFile')) {
         $extension = $file->getClientOriginalExtension();
 
         $fileName = $customName
-            ? $customName . '.' . $extension
-            : Str::uuid() . '.' . $extension;
+            ? $customName.'.'.$extension
+            : Str::uuid().'.'.$extension;
 
         $path = $file->storeAs($folder, $fileName, $disk);
 
@@ -76,13 +77,13 @@ if (!function_exists('uploadFile')) {
     }
 }
 
-if (!function_exists('getFileUrl')) {
+if (! function_exists('getFileUrl')) {
     /**
      * Resolve a stored file id to a public URL, falling back to a placeholder.
      */
     function getFileUrl(?int $fileId, string $default = 'images/no_image.png'): string
     {
-        if (!$fileId) {
+        if (! $fileId) {
             return asset($default);
         }
 
@@ -92,7 +93,7 @@ if (!function_exists('getFileUrl')) {
     }
 }
 
-if (!function_exists('deleteFile')) {
+if (! function_exists('deleteFile')) {
     /**
      * Delete a stored file: removes it from disk and drops the files row.
      *
@@ -101,13 +102,13 @@ if (!function_exists('deleteFile')) {
      */
     function deleteFile(?int $fileId): bool
     {
-        if (!$fileId) {
+        if (! $fileId) {
             return false;
         }
 
         $file = File::find($fileId);
 
-        if (!$file) {
+        if (! $file) {
             return false;
         }
 
@@ -119,7 +120,7 @@ if (!function_exists('deleteFile')) {
     }
 }
 
-if (!function_exists('orgtypes')) {
+if (! function_exists('orgtypes')) {
     /**
      * Organization types for legacy Blade selects.
      *
@@ -127,11 +128,11 @@ if (!function_exists('orgtypes')) {
      */
     function orgtypes(?array $search = null)
     {
-        return (new GlobalSettingRepo())->getOrgTypes($search);
+        return (new GlobalSettingRepo)->getOrgTypes($search);
     }
 }
 
-if (!function_exists('emailButton')) {
+if (! function_exists('emailButton')) {
     /**
      * Inline-styled call-to-action button for transactional emails.
      */

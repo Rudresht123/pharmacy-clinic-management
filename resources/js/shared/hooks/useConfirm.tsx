@@ -104,7 +104,12 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 }
             >
                 <div className="text-center py-2">
-                    <div className={cn('confirm-icon-circle', options?.danger ? 'tone-danger' : 'tone-primary')}>
+                    <div
+                        className={cn(
+                            'confirm-icon-circle',
+                            options?.danger ? 'tone-danger' : 'tone-primary',
+                        )}
+                    >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             width="30"

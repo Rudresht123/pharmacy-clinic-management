@@ -163,7 +163,9 @@ export function AuthLayout({
                 </div>
 
                 <div className="hx-stage-foot">
-                    <span>© {new Date().getFullYear()} {footerBrand}</span>
+                    <span>
+                        © {new Date().getFullYear()} {footerBrand}
+                    </span>
                     <span>
                         <i className="ti ti-shield-check" aria-hidden="true" />
                         Encrypted &amp; access-controlled

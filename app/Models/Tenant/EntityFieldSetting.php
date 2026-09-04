@@ -2,6 +2,7 @@
 
 namespace App\Models\Tenant;
 
+use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -13,18 +14,34 @@ use Illuminate\Database\Eloquent\Model;
  */
 class EntityFieldSetting extends Model
 {
+    use RecordsHistory;
+
     public const ENTITY_LOCATION = 'location';
+
     public const ENTITY_USER = 'user';
+
     public const ENTITY_CUSTOMER = 'customer';
 
+    public const ENTITY_DOCTOR = 'doctor';
+
     /** Entities that can be configured. Mirrors the database CHECK. */
-    public const ENTITIES = [self::ENTITY_LOCATION, self::ENTITY_USER, self::ENTITY_CUSTOMER];
+    public const ENTITIES = [
+        self::ENTITY_LOCATION,
+        self::ENTITY_USER,
+        self::ENTITY_CUSTOMER,
+        self::ENTITY_DOCTOR,
+    ];
 
     public const TYPE_TEXT = 'text';
+
     public const TYPE_TEXTAREA = 'textarea';
+
     public const TYPE_NUMBER = 'number';
+
     public const TYPE_DATE = 'date';
+
     public const TYPE_BOOLEAN = 'boolean';
+
     public const TYPE_SELECT = 'select';
 
     /** Types an organization may give a field it adds itself. */

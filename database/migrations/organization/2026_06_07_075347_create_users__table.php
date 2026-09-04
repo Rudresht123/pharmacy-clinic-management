@@ -15,7 +15,7 @@ return new class extends Migration
 
             $table->id();
 
-             $table->string('name');
+            $table->string('name');
 
             /*
             |--------------------------------------------------------------------------
@@ -42,7 +42,7 @@ return new class extends Migration
             |
             */
 
-         $table->nullableMorphs('userable');
+            $table->nullableMorphs('userable');
 
             /*
             |--------------------------------------------------------------------------

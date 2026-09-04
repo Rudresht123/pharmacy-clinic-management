@@ -2,13 +2,26 @@ import {
     keepPreviousData,
     useMutation,
     useQuery,
-    useQueryClient,
     type UseQueryOptions,
 } from '@tanstack/react-query';
 import { notify } from '@/shared/utils/notify';
 import type { Page, ResourceApi, WriteOptions } from '@/shared/api/resource';
 import type { TableQueryParams } from './useServerTable';
 import type { Id } from '@/shared/types/api';
+
+/**
+ * A cache key inside one resource's namespace.
+ *
+ * Anything hand-written that belongs to a resource — its field schema, its
+ * totals — must be keyed with this rather than an array of its own, or
+ * `keys.all` will not prefix-match it and writing a record will silently
+ * leave it stale. That exact mismatch (`['tenant/locations']` never matching
+ * `['tenant','locations','fields']`) is why adding a branch used to need a
+ * hard refresh before the new one appeared anywhere else.
+ */
+export function resourceKey(endpoint: string, ...parts: readonly unknown[]) {
+    return [endpoint, ...parts] as const;
+}
 
 /**
  * React Query bindings for a ResourceApi.
@@ -62,45 +75,32 @@ export function createResourceHooks<TModel, TPayload = Record<string, unknown>>(
         });
     }
 
-    /**
-     * @param options  Pass `onUploadProgress` on a form that uploads a file,
-     *                 to drive a progress bar. Omit it and nothing changes.
+    /*
+     * None of these invalidate anything themselves. The query client does it
+     * for every successful mutation in the application — see
+     * shared/api/queryClient.ts for why naming affected keys turned out to be
+     * a promise this codebase could not keep.
      */
-    function useCreate(options?: WriteOptions) {
-        const client = useQueryClient();
 
+    function useCreate(writeOptions?: WriteOptions) {
         return useMutation({
-            mutationFn: (payload: TPayload | FormData) => api.create(payload, options),
-            onSuccess: () => {
-                client.invalidateQueries({ queryKey: keys.all });
-                notify.success(`${labels.singular} created`);
-            },
+            mutationFn: (payload: TPayload | FormData) => api.create(payload, writeOptions),
+            onSuccess: () => notify.success(`${labels.singular} created`),
         });
     }
 
-    function useUpdate(options?: WriteOptions) {
-        const client = useQueryClient();
-
+    function useUpdate(writeOptions?: WriteOptions) {
         return useMutation({
             mutationFn: ({ id, payload }: { id: Id; payload: TPayload | FormData }) =>
-                api.update(id, payload, options),
-            onSuccess: (_data, variables) => {
-                client.invalidateQueries({ queryKey: keys.all });
-                client.invalidateQueries({ queryKey: keys.detail(variables.id) });
-                notify.success(`${labels.singular} updated`);
-            },
+                api.update(id, payload, writeOptions),
+            onSuccess: () => notify.success(`${labels.singular} updated`),
         });
     }
 
     function useRemove() {
-        const client = useQueryClient();
-
         return useMutation({
             mutationFn: (id: Id) => api.remove(id),
-            onSuccess: () => {
-                client.invalidateQueries({ queryKey: keys.all });
-                notify.success(`${labels.singular} deleted`);
-            },
+            onSuccess: () => notify.success(`${labels.singular} deleted`),
         });
     }
 

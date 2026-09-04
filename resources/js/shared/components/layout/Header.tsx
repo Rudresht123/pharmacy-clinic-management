@@ -169,9 +169,7 @@ export function Header({
                             )}
 
                             <div
-                                className={
-                                    profileTo || onLock ? 'pt-2 mt-2 border-top' : undefined
-                                }
+                                className={profileTo || onLock ? 'pt-2 mt-2 border-top' : undefined}
                             >
                                 <button
                                     type="button"

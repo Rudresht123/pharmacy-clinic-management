@@ -22,7 +22,7 @@ class TenantConnectionService
     public function connect(string $databaseName): void
     {
         Config::set(
-            'database.connections.' . self::CONNECTION . '.database',
+            'database.connections.'.self::CONNECTION.'.database',
             $databaseName
         );
 
@@ -54,6 +54,6 @@ class TenantConnectionService
     {
         DB::purge(self::CONNECTION);
 
-        Config::set('database.connections.' . self::CONNECTION . '.database', null);
+        Config::set('database.connections.'.self::CONNECTION.'.database', null);
     }
 }

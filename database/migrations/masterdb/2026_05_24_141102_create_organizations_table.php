@@ -4,7 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     /**
      * Run the migrations.
      */
@@ -50,7 +51,7 @@ return new class extends Migration {
                 'pending_setup',
                 'active',
                 'suspended',
-                'expired'
+                'expired',
             ])->default('pending_setup');
 
             $table->boolean('is_active')->default(1)->comment('1 = Active, 0 = Inactive');

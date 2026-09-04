@@ -18,6 +18,7 @@ class FieldRegistry
         EntityFieldSetting::ENTITY_LOCATION => LocationFields::class,
         EntityFieldSetting::ENTITY_USER => UserFields::class,
         EntityFieldSetting::ENTITY_CUSTOMER => CustomerFields::class,
+        EntityFieldSetting::ENTITY_DOCTOR => DoctorFields::class,
     ];
 
     /** Human labels for the settings screens. */
@@ -25,6 +26,7 @@ class FieldRegistry
         EntityFieldSetting::ENTITY_LOCATION => 'Locations',
         EntityFieldSetting::ENTITY_USER => 'People',
         EntityFieldSetting::ENTITY_CUSTOMER => 'Customers',
+        EntityFieldSetting::ENTITY_DOCTOR => 'Doctors',
     ];
 
     /** Singular names, for buttons and page titles. */
@@ -32,6 +34,7 @@ class FieldRegistry
         EntityFieldSetting::ENTITY_LOCATION => 'Location',
         EntityFieldSetting::ENTITY_USER => 'Person',
         EntityFieldSetting::ENTITY_CUSTOMER => 'Customer',
+        EntityFieldSetting::ENTITY_DOCTOR => 'Doctor',
     ];
 
     public static function singular(string $entity): string

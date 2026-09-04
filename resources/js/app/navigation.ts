@@ -11,6 +11,15 @@ export interface NavItem {
     icon: string;
     /** Also highlight the parent when a child route is active. */
     match?: string;
+    /**
+     * A module that is planned but has not shipped.
+     *
+     * Rendered as a labelled, unclickable row rather than a link. A menu entry
+     * that leads to a 404 is worse than no entry — but showing the shape of
+     * what is coming, clearly marked, is honest and answers "where is billing"
+     * before anybody has to ask.
+     */
+    soon?: boolean;
 }
 
 export interface NavSection {
@@ -37,6 +46,21 @@ export const navigation: NavSection[] = [
                 to: '/organization-types',
                 icon: 'ti ti-category',
                 match: '/organization-types',
+            },
+            {
+                // The catalogue is read-only; modules are assigned from an
+                // organization's own Modules tab, which is where the
+                // commercial decision actually gets made.
+                label: 'Modules',
+                to: '/modules',
+                icon: 'ti ti-puzzle',
+                match: '/modules',
+            },
+            {
+                label: 'Audit Log',
+                to: '/audit',
+                icon: 'ti ti-history',
+                match: '/audit',
             },
         ],
     },

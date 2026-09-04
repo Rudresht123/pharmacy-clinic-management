@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Button } from '@/shared/components/ui/Button';
+import { RecordHistory } from '@/core/tenant-history/RecordHistory';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { FormError } from '@/shared/components/form/Fields';
 import { useApiForm } from '@/shared/components/form/useApiForm';
@@ -129,6 +130,12 @@ export default function CustomerFormPage() {
                 />
 
                 <div className="form-actions">
+                    {/* Only on edit: a record being created has no
+                        history to show yet. */}
+                    {isEdit && customer && (
+                        <RecordHistory entity="Customer" id={customer.id} label={customer?.name} />
+                    )}
+
                     <span className="form-actions-note">
                         This record belongs to the whole organization, not one store.
                     </span>

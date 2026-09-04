@@ -4,11 +4,7 @@
  * Every file that uses this type must import it explicitly.
  */
 export type LocationType =
-    | 'RETAIL_STORE'
-    | 'WHOLESALE_STORE'
-    | 'WAREHOUSE'
-    | 'CLINIC'
-    | 'DOCTOR_VISITING_LOCATION';
+    'RETAIL_STORE' | 'WHOLESALE_STORE' | 'WAREHOUSE' | 'CLINIC' | 'DOCTOR_VISITING_LOCATION';
 
 export interface Location {
     id: number;
@@ -44,13 +40,7 @@ export interface Location {
  * either screen changing.
  */
 export type FieldDataType =
-    | 'text'
-    | 'email'
-    | 'date'
-    | 'select'
-    | 'textarea'
-    | 'boolean'
-    | 'number';
+    'text' | 'email' | 'date' | 'select' | 'textarea' | 'boolean' | 'number';
 
 export interface LocationField {
     key: string;

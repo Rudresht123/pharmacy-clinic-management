@@ -3,6 +3,7 @@
 namespace App\Models\Platform;
 
 use App\Models\Record;
+use App\Support\History\RecordsHistory;
 use Database\Factories\Platform\OrganizationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,8 @@ class Organization extends Record
 {
     /** @use HasFactory<OrganizationFactory> */
     use HasFactory, SoftDeletes;
+
+    use RecordsHistory;
 
     /*
     |--------------------------------------------------------------------------
@@ -30,10 +33,15 @@ class Organization extends Record
     |
     */
     public const PENDING = 'pending';
+
     public const PROVISIONING = 'provisioning';
+
     public const ACTIVE = 'active';
+
     public const SUSPENDED = 'suspended';
+
     public const CANCELLED = 'cancelled';
+
     public const FAILED = 'failed';
 
     public const STATUSES = [
@@ -107,6 +115,12 @@ class Organization extends Record
         });
     }
 
+    /** Its own history is its own. */
+    protected function historyOrganizationId(): ?int
+    {
+        return $this->id;
+    }
+
     /** URLs carry the ULID, never the auto-increment id. */
     public function getRouteKeyName(): string
     {
@@ -132,6 +146,19 @@ class Organization extends Record
     public function contacts(): HasMany
     {
         return $this->hasMany(OrganizationContact::class);
+    }
+
+    /**
+     * The modules this organization has been sold.
+     *
+     * Bindings, not effective access — a row here may be revoked, scheduled
+     * or lapsed, and core modules have no row at all. Ask
+     * App\Services\Modules\ModuleAccess what the organization can actually
+     * use; do not read this relation to make that decision.
+     */
+    public function moduleEntitlements(): HasMany
+    {
+        return $this->hasMany(OrganizationModule::class);
     }
 
     public function profile(): HasOne
@@ -248,7 +275,7 @@ class Organization extends Record
 
         // The DB-name CHECK constraint requires a leading letter.
         if (! preg_match('/^[a-z]/', $base)) {
-            $base = 'org_' . $base;
+            $base = 'org_'.$base;
         }
 
         $key = $base;
@@ -273,7 +300,7 @@ class Organization extends Record
      */
     public static function generateDatabaseName(string $tenantKey): string
     {
-        $baseName = 'hms_tenant_' . $tenantKey;
+        $baseName = 'hms_tenant_'.$tenantKey;
 
         $databaseName = $baseName;
         $counter = 1;
@@ -298,7 +325,7 @@ class Organization extends Record
         $prefix = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $organizationName), 0, 3));
 
         do {
-            $code = $prefix . random_int(1000, 9999);
+            $code = $prefix.random_int(1000, 9999);
         } while (self::where('organization_code', $code)->exists());
 
         return $code;

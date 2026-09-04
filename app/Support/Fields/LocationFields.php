@@ -20,7 +20,9 @@ use App\Models\Tenant\Location;
 class LocationFields
 {
     public const GROUP_IDENTITY = 'identity';
+
     public const GROUP_ADDRESS = 'address';
+
     public const GROUP_COMPLIANCE = 'compliance';
 
     /**

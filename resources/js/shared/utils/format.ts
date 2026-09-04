@@ -3,7 +3,7 @@
  * different ways in two different tables.
  */
 
-const DASH = '—';
+export const DASH = '—';
 
 export function formatDate(value: string | null | undefined): string {
     if (!value) {
@@ -79,4 +79,48 @@ export function formatBytes(bytes: number): string {
 
     // Whole numbers for bytes and kilobytes, one decimal above that.
     return `${value.toFixed(index < 2 ? 0 : 1)} ${units[index]}`;
+}
+
+/**
+ * How long ago, in the words somebody would use.
+ *
+ * "2 hours ago" rather than a timestamp: an activity feed is read for
+ * recency, and a reader converting 14:32 into "about two hours" is doing
+ * arithmetic the screen should have done. Falls back to a date past a week,
+ * where "9 days ago" stops being more useful than the day itself.
+ */
+export function formatRelative(value: string | null | undefined): string {
+    if (!value) {
+        return '';
+    }
+
+    const then = new Date(value);
+
+    if (Number.isNaN(then.getTime())) {
+        return '';
+    }
+
+    const seconds = Math.floor((Date.now() - then.getTime()) / 1000);
+
+    if (seconds < 60) {
+        return 'just now';
+    }
+
+    const units: [number, string][] = [
+        [60, 'minute'],
+        [3600, 'hour'],
+        [86400, 'day'],
+    ];
+
+    for (const [size, name] of units) {
+        const next = size * (name === 'minute' ? 60 : name === 'hour' ? 24 : 7);
+
+        if (seconds < next) {
+            const count = Math.floor(seconds / size);
+
+            return `${count} ${name}${count === 1 ? '' : 's'} ago`;
+        }
+    }
+
+    return formatDate(value);
 }

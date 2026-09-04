@@ -4,6 +4,4 @@ namespace App\Repositories\Platform\Contracts;
 
 use App\Repositories\Contracts\RepositoryInterface;
 
-interface TenantProvisionEventRepositoryInterface extends RepositoryInterface
-{
-}
+interface TenantProvisionEventRepositoryInterface extends RepositoryInterface {}

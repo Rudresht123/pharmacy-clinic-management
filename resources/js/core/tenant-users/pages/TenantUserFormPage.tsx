@@ -2,10 +2,12 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Button } from '@/shared/components/ui/Button';
+import { RecordHistory } from '@/core/tenant-history/RecordHistory';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { FormError, TextField } from '@/shared/components/form/Fields';
 import { useApiForm } from '@/shared/components/form/useApiForm';
 import { ConfigurableForm, type FieldGroup } from '@/core/field-settings/ConfigurableForm';
+import { rolesHooks } from '@/core/roles/api';
 import { tenantUsersHooks, useTenantUserFields } from '../api';
 
 // A `type`, not an `interface` — only type aliases get the implicit index
@@ -46,16 +48,22 @@ export default function TenantUserFormPage() {
     const create = tenantUsersHooks.useCreate();
     const update = tenantUsersHooks.useUpdate();
 
+    const { data: roles } = rolesHooks.useList();
+
     const {
         register,
         control,
         handleSubmit,
         reset,
         submit,
+        watch,
         formState: { errors, isSubmitting },
     } = useApiForm<UserFormValues>({
-        defaultValues: { role: 'staff', is_active: true },
+        defaultValues: { role: 'staff', role_id: '', is_active: true },
     });
+
+    // An owner bypasses roles, so the picker only means anything for staff.
+    const isStaff = watch('role') === 'staff';
 
     useEffect(() => {
         if (!person) {
@@ -66,6 +74,7 @@ export default function TenantUserFormPage() {
             name: person.name,
             email: person.email,
             role: person.role,
+            role_id: person.role_id ?? '',
             is_active: person.is_active,
             password: '',
             password_confirmation: '',
@@ -82,10 +91,15 @@ export default function TenantUserFormPage() {
             delete payload.password_confirmation;
         }
 
+        /*
+         * An owner is refused a role by the server rather than quietly given
+         * one, so promoting somebody clears it here instead of sending a
+         * limit that nothing would enforce.
+         */
+        payload.role_id = payload.role === 'staff' ? Number(payload.role_id) || null : null;
+
         const result = await submit(payload, async () =>
-            isEdit && id
-                ? update.mutateAsync({ id, payload })
-                : create.mutateAsync(payload),
+            isEdit && id ? update.mutateAsync({ id, payload }) : create.mutateAsync(payload),
         );
 
         if (result) {
@@ -131,6 +145,47 @@ export default function TenantUserFormPage() {
                 />
             </>
         ),
+
+        /*
+         * Sits beside `role` rather than in the schema: which capabilities
+         * somebody holds is not a configurable field an organization can
+         * rename or remove, and it has to disappear the moment they become an
+         * owner — which no field setting can express.
+         */
+        access: isStaff ? (
+            <div className="form-group">
+                <label className="form-label" htmlFor="role_id">
+                    Role <span className="req">*</span>
+                </label>
+
+                <select
+                    id="role_id"
+                    className={`form-select${errors.role_id ? ' is-invalid' : ''}`}
+                    {...register('role_id')}
+                >
+                    <option value="">Choose a role…</option>
+                    {(roles ?? []).map((role) => (
+                        <option key={role.id} value={role.id}>
+                            {role.name}
+                        </option>
+                    ))}
+                </select>
+
+                {errors.role_id ? (
+                    <p className="invalid-feedback d-block">
+                        {String(errors.role_id.message ?? '')}
+                    </p>
+                ) : (
+                    <p className="form-hint">
+                        What they may do. Manage the list under Roles &amp; Permissions.
+                    </p>
+                )}
+            </div>
+        ) : (
+            <p className="form-hint">
+                An owner is not limited by a role, and works across every branch.
+            </p>
+        ),
     };
 
     return (
@@ -159,6 +214,12 @@ export default function TenantUserFormPage() {
                 />
 
                 <div className="form-actions">
+                    {/* Only on edit: a record being created has no
+                        history to show yet. */}
+                    {isEdit && person && (
+                        <RecordHistory entity="User" id={person.id} label={person?.name} />
+                    )}
+
                     <span className="form-actions-note">
                         {isEdit
                             ? 'They keep their password unless you set a new one.'

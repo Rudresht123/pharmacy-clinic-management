@@ -3,14 +3,8 @@
 namespace Tests\Feature\Api\V1\Tenant;
 
 use App\Models\Platform\Organization;
-use App\Models\Platform\OrganizationType;
-use App\Models\Platform\PlatformRole;
-use App\Models\Platform\PlatformUser;
 use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\Location;
-use App\Models\Tenant\User as TenantUser;
-use App\Services\Tenancy\DatabaseService;
-use App\Services\Tenancy\TenantConnectionService;
 use App\Support\Fields\CustomerFields;
 use App\Support\Fields\LocationFields;
 use Illuminate\Foundation\Testing\RefreshDatabase;

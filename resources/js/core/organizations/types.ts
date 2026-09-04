@@ -108,3 +108,53 @@ export interface OrganizationFormValues {
     gstin: string;
     drug_license_no: string;
 }
+
+/**
+ * Why a module is or is not usable by one organization.
+ *
+ * `core` means it was never a commercial choice; `unbound` means it has not
+ * been sold. The other three are all "has a binding, but" — kept apart
+ * because they are different conversations with the customer.
+ */
+export type ModuleState = 'core' | 'unbound' | 'active' | 'scheduled' | 'expired' | 'revoked';
+
+export interface ModuleCapability {
+    key: string;
+    name: string;
+}
+
+/** A catalogue row, joined with where this organization stands on it. */
+export interface OrganizationModule {
+    key: string;
+    name: string;
+    description: string | null;
+    group: string;
+    icon: string | null;
+    is_core: boolean;
+
+    state: ModuleState;
+    /** Usable right now — enabled, started and unexpired. */
+    is_live: boolean;
+
+    starts_at: string | null;
+    expires_at: string | null;
+    note: string | null;
+
+    /** What this module lets somebody do, once roles exist to grant it. */
+    capabilities: ModuleCapability[];
+}
+
+export interface OrganizationModulesPayload {
+    modules: OrganizationModule[];
+    /** Everything the organization is in a position to grant its own roles. */
+    capabilities: string[];
+}
+
+/** One binding as the screen submits it. */
+export interface ModuleBindingInput {
+    key: string;
+    is_enabled: boolean;
+    starts_at: string | null;
+    expires_at: string | null;
+    note: string | null;
+}

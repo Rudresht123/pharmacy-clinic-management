@@ -2,15 +2,13 @@
 
 namespace Tests\Feature\Api\V1\Tenant;
 
+use App\Http\Middleware\EnsureTenantCan;
 use App\Http\Middleware\EnsureTenantUserIsOwner;
+use App\Http\Middleware\ResolveTenantFromSession;
 use App\Models\Platform\Organization;
-use App\Models\Platform\OrganizationType;
-use App\Models\Platform\PlatformRole;
-use App\Models\Platform\PlatformUser;
 use App\Models\Tenant\Location;
-use App\Models\Tenant\User as TenantUser;
-use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
+use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TenantTestCase;
 
@@ -38,12 +36,12 @@ class LocationTest extends TenantTestCase
     /** Creates a location directly in the tenant database. */
     private function makeLocation(Organization $organization, array $attributes = []): Location
     {
-        (new TenantConnectionService())->connect($organization->database_name);
+        (new TenantConnectionService)->connect($organization->database_name);
 
         $location = Location::on(TenantConnectionService::CONNECTION)
             ->create($this->validPayload($attributes));
 
-        (new TenantConnectionService())->disconnect();
+        (new TenantConnectionService)->disconnect();
 
         return $location;
     }
@@ -141,14 +139,34 @@ class LocationTest extends TenantTestCase
             ->assertStatus(403);
     }
 
-    /** The schema accepts CLINIC; validation withholds it until that module exists. */
-    public function test_the_reserved_clinic_type_is_not_selectable(): void
+    /**
+     * CLINIC is selectable now that OPD gives it a use.
+     *
+     * This test used to assert the opposite — that validation withheld the
+     * type while nothing depended on it. It is rewritten rather than deleted
+     * so the change of behaviour is recorded rather than quietly disappearing
+     * to make a new feature pass.
+     */
+    public function test_the_clinic_type_is_selectable(): void
     {
         $organization = $this->provisionOrganization();
         $this->signIn($organization, $organization->email);
 
         $this->postJson('/api/v1/tenant/locations', $this->validPayload([
             'type' => Location::CLINIC,
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('data.type', Location::CLINIC);
+    }
+
+    /** A type the schema does not know is still refused. */
+    public function test_an_unknown_location_type_is_rejected(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signIn($organization, $organization->email);
+
+        $this->postJson('/api/v1/tenant/locations', $this->validPayload([
+            'type' => 'DENTAL_LAB',
         ]))->assertStatus(422)->assertJsonValidationErrors('type');
     }
 
@@ -178,47 +196,91 @@ class LocationTest extends TenantTestCase
     }
 
     /**
+     * A licence that runs out today has not run out yet.
+     *
+     * The check used to be isPast(), which compares against this instant:
+     * a licence expiring today read as expired from midnight, so a pharmacy
+     * was told it was trading illegally on the last day it was not.
+     */
+    public function test_a_licence_expiring_today_is_not_expired_yet(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signIn($organization, $organization->email);
+
+        $this->postJson('/api/v1/tenant/locations', $this->validPayload([
+            'drug_license_no' => 'DL-TODAY',
+            'drug_license_expiry_date' => now()->toDateString(),
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('data.has_expired_licence', false);
+
+        // Yesterday's, by contrast, is gone.
+        $this->postJson('/api/v1/tenant/locations', $this->validPayload([
+            'code' => 'YDAY',
+            'drug_license_no' => 'DL-YDAY',
+            'drug_license_expiry_date' => now()->subDay()->toDateString(),
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('data.has_expired_licence', true);
+    }
+
+    /**
      * Declaration order on the route is not what runs — Laravel sorts
      * gathered middleware by priority, which is what disguised an earlier
      * bug where auth ran before the tenant database was selected.
+     *
+     * Was written against EnsureTenantUserIsOwner, which used to guard this
+     * route; it is now EnsureTenantCan, and the trap is identical. Both are
+     * kept out of the middleware priority list precisely so they sort after
+     * the guard, and both would be handed a request with no signed-in user if
+     * anybody ever listed them. Rewritten rather than deleted: a test that
+     * only stops passing because the thing it protects moved must be pointed
+     * at where it moved to.
      */
-    public function test_the_owner_check_runs_after_the_guard_and_the_tenant_is_resolved_first(): void
+    public function test_the_permission_check_runs_after_the_guard_and_the_tenant_is_resolved_first(): void
     {
         $router = app('router');
-        $route = $router->getRoutes()->getByName('tenant.locations.store');
+        $checks = [
+            'tenant.locations.store' => EnsureTenantCan::class,
+            'tenant.roles.store' => EnsureTenantUserIsOwner::class,
+        ];
 
-        $this->assertNotNull($route, 'The locations.store route is missing.');
+        foreach ($checks as $routeName => $permissionMiddleware) {
+            $route = $router->getRoutes()->getByName($routeName);
 
-        $middleware = array_values(array_filter(
-            $router->gatherRouteMiddleware($route),
-            'is_string'
-        ));
+            $this->assertNotNull($route, "The {$routeName} route is missing.");
 
-        $tenant = null;
-        $guard = null;
-        $owner = null;
+            $middleware = array_values(array_filter(
+                $router->gatherRouteMiddleware($route),
+                'is_string'
+            ));
 
-        foreach ($middleware as $position => $name) {
-            if (str_starts_with($name, \App\Http\Middleware\ResolveTenantFromSession::class)) {
-                $tenant ??= $position;
+            $tenant = null;
+            $guard = null;
+            $permission = null;
+
+            foreach ($middleware as $position => $name) {
+                if (str_starts_with($name, ResolveTenantFromSession::class)) {
+                    $tenant ??= $position;
+                }
+
+                if (str_starts_with($name, Authenticate::class)) {
+                    $guard ??= $position;
+                }
+
+                if (str_starts_with($name, $permissionMiddleware)) {
+                    $permission ??= $position;
+                }
             }
 
-            if (str_starts_with($name, \Illuminate\Auth\Middleware\Authenticate::class)) {
-                $guard ??= $position;
-            }
+            $order = implode(' -> ', $middleware);
 
-            if (str_starts_with($name, EnsureTenantUserIsOwner::class)) {
-                $owner ??= $position;
-            }
+            $this->assertNotNull($tenant, "No tenant resolution on {$routeName}: {$order}");
+            $this->assertNotNull($guard, "No guard on {$routeName}: {$order}");
+            $this->assertNotNull($permission, "No permission check on {$routeName}: {$order}");
+
+            $this->assertLessThan($guard, $tenant, "Guard runs before the tenant database: {$order}");
+            $this->assertLessThan($permission, $guard, "Permission check runs before the guard: {$order}");
         }
-
-        $order = implode(' -> ', $middleware);
-
-        $this->assertNotNull($tenant, "No tenant resolution on locations.store: {$order}");
-        $this->assertNotNull($guard, "No guard on locations.store: {$order}");
-        $this->assertNotNull($owner, "No owner check on locations.store: {$order}");
-
-        $this->assertLessThan($guard, $tenant, "Guard runs before the tenant database: {$order}");
-        $this->assertLessThan($owner, $guard, "Owner check runs before the guard: {$order}");
     }
 }

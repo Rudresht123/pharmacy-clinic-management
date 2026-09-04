@@ -3,13 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Card } from '@/shared/components/ui/Card';
 import { DataTable } from '@/shared/components/ui/DataTable';
-import { StatusBadge } from '@/shared/components/ui/Feedback';
+import { ExpiryBadge, StatusBadge } from '@/shared/components/ui/Feedback';
 import { Button } from '@/shared/components/ui/Button';
 import { RowActions } from '@/shared/components/ui/RowActions';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { useServerTable } from '@/shared/hooks/useServerTable';
 import { useFieldColumns } from '@/core/field-settings/useFieldColumns';
-import { orDash } from '@/shared/utils/format';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { locationsHooks, useLocationFields } from '../api';
 import type { Location } from '../types';
@@ -65,20 +64,14 @@ export default function LocationListPage() {
             code: (row: Location) => <code className="fs-13">{row.code}</code>,
             type: (row: Location) => typeLabels[row.type] ?? row.type,
             is_active: (row: Location) => <StatusBadge active={row.is_active} />,
-            drug_license_expiry_date: (row: Location) => {
-                if (!row.drug_license_expiry_date) {
-                    return orDash(null);
-                }
-
-                // An expired licence may exist — it just has to be obvious.
-                return row.has_expired_licence ? (
-                    <span className="badge bg-danger-transparent">
-                        Expired {row.drug_license_expiry_date}
-                    </span>
-                ) : (
-                    row.drug_license_expiry_date
-                );
-            },
+            // A licence may be expired — a compliance record has to be able
+            // to say so. The badge is what makes it impossible to miss.
+            drug_license_expiry_date: (row: Location) => (
+                <ExpiryBadge
+                    date={row.drug_license_expiry_date}
+                    expired={row.has_expired_licence}
+                />
+            ),
         }),
         [typeLabels],
     );

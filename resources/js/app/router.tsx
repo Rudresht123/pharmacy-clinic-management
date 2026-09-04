@@ -11,6 +11,8 @@ const ForgotPasswordPage = lazy(() => import('@/core/auth/pages/ForgotPasswordPa
 const ResetPasswordPage = lazy(() => import('@/core/auth/pages/ResetPasswordPage'));
 const OrganizationSetupPage = lazy(() => import('@/core/onboarding/pages/OrganizationSetupPage'));
 const DashboardPage = lazy(() => import('@/core/dashboard/pages/DashboardPage'));
+const ModuleAccessPage = lazy(() => import('@/core/modules/pages/ModuleAccessPage'));
+const AuditLogPage = lazy(() => import('@/core/audit/pages/AuditLogPage'));
 const OrganizationListPage = lazy(() => import('@/core/organizations/pages/OrganizationListPage'));
 const OrganizationFormPage = lazy(() => import('@/core/organizations/pages/OrganizationFormPage'));
 const OrganizationDetailPage = lazy(
@@ -76,6 +78,10 @@ export function AppRoutes() {
                                 path="/organization-types"
                                 element={<OrganizationTypeListPage />}
                             />
+
+                            <Route path="/modules" element={<ModuleAccessPage />} />
+
+                            <Route path="/audit" element={<AuditLogPage />} />
 
                             <Route path="/profile" element={<ProfilePage />} />
 

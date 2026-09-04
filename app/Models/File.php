@@ -18,7 +18,7 @@ class File extends Model
      */
     public function getUrlAttribute(): ?string
     {
-        if (!$this->file_path) {
+        if (! $this->file_path) {
             return null;
         }
 

@@ -14,6 +14,15 @@ interface AppShellProps {
     onLock?: () => void;
     /** Omitted where there is no profile screen yet. */
     profileTo?: string;
+    /**
+     * Sits below the menu — whose workspace this is.
+     *
+     * The platform panel passes nothing: an administrator moving between
+     * organizations has no single one to name there.
+     */
+    sidebarFooter?: React.ReactNode;
+    /** Sits at the very bottom, below the workspace card. */
+    sidebarHelp?: React.ReactNode;
 }
 
 /**
@@ -27,7 +36,15 @@ interface AppShellProps {
  * organization's own workspace render the same chrome without either one
  * reaching into the other's auth.
  */
-export function AppShell({ navigation, user, onLogout, onLock, profileTo }: AppShellProps) {
+export function AppShell({
+    navigation,
+    user,
+    onLogout,
+    onLock,
+    profileTo,
+    sidebarFooter,
+    sidebarHelp,
+}: AppShellProps) {
     const { settings, update } = useAppSettings();
 
     /**
@@ -69,6 +86,8 @@ export function AppShell({ navigation, user, onLogout, onLock, profileTo }: AppS
                 collapsed={collapsed}
                 onToggleCollapse={() => update('compactSidebar', !collapsed)}
                 onNavigate={() => setMobileOpen(false)}
+                footer={sidebarFooter}
+                help={sidebarHelp}
             />
 
             {mobileOpen && (

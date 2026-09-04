@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api\V1\Onboarding;
 
 use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Http\Requests\Api\V1\Onboarding\SetupOrganizationRequest;
-use App\Models\Tenant\User as TenantUser;
 use App\Models\Platform\Organization;
+use App\Models\Tenant\User as TenantUser;
 use App\Services\Notifications\EmailService;
 use App\Services\Tenancy\TenantConnectionService;
 use Illuminate\Http\JsonResponse;
@@ -20,8 +20,7 @@ class OrganizationSetupController extends BaseApiController
 {
     public function __construct(
         private readonly TenantConnectionService $tenants,
-    ) {
-    }
+    ) {}
 
     /**
      * Validate the token and return just enough to render the setup form.
@@ -141,8 +140,8 @@ class OrganizationSetupController extends BaseApiController
          * http, where an https link simply fails to connect. The path is
          * explicit too — landing on / would bounce through /dashboard first.
          */
-        return $request->getScheme() . '://'
-            . $organization->subdomain . '.' . $domain
-            . '/login';
+        return $request->getScheme().'://'
+            .$organization->subdomain.'.'.$domain
+            .'/login';
     }
 }

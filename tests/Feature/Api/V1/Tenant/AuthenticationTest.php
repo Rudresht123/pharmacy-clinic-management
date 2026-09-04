@@ -2,14 +2,13 @@
 
 namespace Tests\Feature\Api\V1\Tenant;
 
+use App\Http\Middleware\ResolveTenantFromSession;
 use App\Models\Platform\Organization;
 use App\Models\Platform\OrganizationType;
 use App\Models\Platform\PlatformRole;
 use App\Models\Platform\PlatformUser;
 use App\Models\Tenant\User as TenantUser;
 use App\Repositories\Platform\Contracts\OrganizationRepositoryInterface;
-use App\Services\Platform\OrganizationProvisioningService;
-use App\Http\Middleware\ResolveTenantFromSession;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
 use Illuminate\Auth\Middleware\Authenticate;
@@ -36,7 +35,7 @@ class AuthenticationTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->createdDatabases as $databaseName) {
-            (new TenantConnectionService())->disconnect();
+            (new TenantConnectionService)->disconnect();
             DatabaseService::drop($databaseName);
         }
 
@@ -67,7 +66,7 @@ class AuthenticationTest extends TestCase
         $organization = Organization::where('uuid', $organization['uuid'])->firstOrFail();
         $this->createdDatabases[] = $organization->database_name;
 
-        (new TenantConnectionService())->connect($organization->database_name);
+        (new TenantConnectionService)->connect($organization->database_name);
 
         TenantUser::on(TenantConnectionService::CONNECTION)->create([
             'name' => 'Owner',
@@ -77,7 +76,7 @@ class AuthenticationTest extends TestCase
             'role' => TenantUser::OWNER,
         ]);
 
-        (new TenantConnectionService())->disconnect();
+        (new TenantConnectionService)->disconnect();
 
         return $organization;
     }

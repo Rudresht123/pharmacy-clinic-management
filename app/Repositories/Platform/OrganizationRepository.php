@@ -25,7 +25,7 @@ class OrganizationRepository extends BaseRepository implements OrganizationRepos
     public function findByUuidOrFail(string $uuid): Organization
     {
         return $this->findByUuid($uuid)
-            ?? throw (new ModelNotFoundException())->setModel(Organization::class, [$uuid]);
+            ?? throw (new ModelNotFoundException)->setModel(Organization::class, [$uuid]);
     }
 
     public function findBySlug(string $slug): ?Organization

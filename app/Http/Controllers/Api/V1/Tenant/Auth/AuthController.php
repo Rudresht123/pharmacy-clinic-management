@@ -6,6 +6,9 @@ use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Http\Requests\Api\V1\Tenant\Auth\LoginRequest;
 use App\Http\Resources\Tenant\OrganizationSummaryResource;
 use App\Http\Resources\Tenant\UserResource;
+use App\Models\Platform\Organization;
+use App\Models\Tenant\User as TenantUser;
+use App\Services\Permissions\Permission;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,7 +23,7 @@ use Illuminate\Support\Facades\Auth;
  */
 class AuthController extends BaseApiController
 {
-    public function login(LoginRequest $request): JsonResponse
+    public function login(LoginRequest $request, Permission $permission): JsonResponse
     {
         $organization = $request->authenticate();
 
@@ -40,11 +43,21 @@ class AuthController extends BaseApiController
             'last_login_ip' => $request->ip(),
         ])->save();
 
+        /*
+         * The same shape `me()` answers with, from the same method.
+         *
+         * Login used to return only the user and the organization, which was
+         * fine while the sidebar was built from the role alone. The moment it
+         * became capability-driven, signing in left the client with an empty
+         * capability list — so the menu showed only what needs no capability
+         * (the dashboard, and the owner-gated Roles entry) until a hard
+         * refresh ran `me()` and filled it in.
+         *
+         * Two endpoints describing one session had drifted apart, so they now
+         * share one method rather than agreeing by inspection.
+         */
         return $this->ok(
-            [
-                'user' => UserResource::make($user),
-                'organization' => OrganizationSummaryResource::make($organization),
-            ],
+            $this->session($user, $organization, $permission),
             'Signed in successfully.'
         );
     }
@@ -60,13 +73,61 @@ class AuthController extends BaseApiController
         return $this->noContent('Signed out successfully.');
     }
 
-    public function me(Request $request): JsonResponse
+    public function me(Request $request, Permission $permission): JsonResponse
     {
-        return $this->ok([
-            'user' => UserResource::make($request->user()),
-            'organization' => OrganizationSummaryResource::make(
-                $request->attributes->get('tenant.organization')
+        $organization = $request->attributes->get('tenant.organization');
+        $user = $request->user();
+
+        if (! $organization) {
+            return $this->ok([
+                'user' => UserResource::make($user),
+                'organization' => null,
+                'modules' => [],
+                'capabilities' => [],
+            ]);
+        }
+
+        return $this->ok($this->session($user, $organization, $permission));
+    }
+
+    /**
+     * Everything a client needs to know about the signed-in session.
+     *
+     * ONE method, used by both `login` and `me`. They described the same
+     * session in two places and drifted: login answered without `modules` or
+     * `capabilities` at all, so a freshly signed-in person saw a sidebar built
+     * from an empty capability list until something forced `me` to run.
+     *
+     * @return array<string, mixed>
+     */
+    private function session(
+        TenantUser $user,
+        Organization $organization,
+        Permission $permission,
+    ): array {
+        return [
+            'user' => UserResource::make($user),
+            'organization' => OrganizationSummaryResource::make($organization),
+
+            /*
+             * What is running where this person works: sold to the
+             * organization, and switched on at their branch. The sidebar hides
+             * what is not here and EnsureTenantHasModule refuses it, from this
+             * same service — the menu and the API agree by construction rather
+             * than by coincidence.
+             */
+            'modules' => $permission->modulesAt(
+                $organization,
+                $permission->branchFor($user),
             ),
-        ]);
+
+            /*
+             * This person's own capabilities, NOT the organization's pool.
+             * They differ the moment roles exist, and answering with the pool
+             * would have every client believing a member of staff could do
+             * everything the organization had been sold.
+             */
+            'capabilities' => $permission->capabilitiesFor($organization, $user),
+        ];
     }
 }

@@ -3,7 +3,7 @@ import { http } from '@/shared/api/http';
 import type { ApiResponse } from '@/shared/types/api';
 import type { ConfigurableField } from '@/core/field-settings/types';
 import { createResourceApi } from '@/shared/api/resource';
-import { createResourceHooks } from '@/shared/hooks/useResource';
+import { createResourceHooks, resourceKey } from '@/shared/hooks/useResource';
 import type { TenantUser } from '@/core/tenant-auth/api';
 
 /**
@@ -23,11 +23,10 @@ export const tenantUsersHooks = createResourceHooks(tenantUsersApi, {
  */
 export function useTenantUserFields() {
     return useQuery({
-        queryKey: ['tenant', 'users', 'fields'],
+        queryKey: resourceKey(tenantUsersApi.endpoint, 'fields'),
         queryFn: async (): Promise<ConfigurableField[]> => {
-            const { data } = await http.get<ApiResponse<ConfigurableField[]>>(
-                '/tenant/users/fields',
-            );
+            const { data } =
+                await http.get<ApiResponse<ConfigurableField[]>>('/tenant/users/fields');
 
             return data.data;
         },

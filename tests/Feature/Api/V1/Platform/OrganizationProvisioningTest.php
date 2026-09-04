@@ -30,7 +30,7 @@ class OrganizationProvisioningTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->createdDatabases as $databaseName) {
-            (new TenantConnectionService())->disconnect();
+            (new TenantConnectionService)->disconnect();
             DatabaseService::drop($databaseName);
         }
 
@@ -76,7 +76,7 @@ class OrganizationProvisioningTest extends TestCase
 
         $this->assertTrue(DatabaseService::exists($organization->database_name));
 
-        (new TenantConnectionService())->connect($organization->database_name);
+        (new TenantConnectionService)->connect($organization->database_name);
         $this->assertTrue(Schema::connection('organization')->hasTable('users'));
 
         $tenantDatabase = $organization->tenantDatabase;

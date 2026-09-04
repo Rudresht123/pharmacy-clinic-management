@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
+import { Tabs } from '@/shared/components/ui/Tabs';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { notify } from '@/shared/utils/notify';
 import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
@@ -140,7 +141,6 @@ export default function FieldSettingsPage() {
     }, [data]);
 
     // Every edit path runs through these three, so one flag covers them all.
-
 
     function patch(index: number, changes: Partial<Row>) {
         setDirty(true);
@@ -286,7 +286,7 @@ export default function FieldSettingsPage() {
         <>
             <PageHeader
                 title="Field Settings"
-                subtitle={`Choose what your team is asked for on ${data?.label ?? "each"} screens, and what the list shows.`}
+                subtitle={`Choose what your team is asked for on ${data?.label ?? 'each'} screens, and what the list shows.`}
                 icon="ti ti-adjustments"
                 tone="violet"
                 crumbs={[{ label: 'Settings' }, { label: data?.label ?? 'Fields' }]}
@@ -297,21 +297,16 @@ export default function FieldSettingsPage() {
                 }
             />
 
-            <nav className="app-tabs" role="tablist" aria-label="Settings sections">
-                {(entities ?? []).map((tab) => (
-                    <button
-                        key={tab.entity}
-                        type="button"
-                        role="tab"
-                        aria-selected={tab.entity === entity}
-                        className={`app-tab${tab.entity === entity ? ' is-active' : ''}`}
-                        onClick={() => switchTo(tab.entity)}
-                    >
-                        <i className="ti ti-list-details" />
-                        <span>{tab.label}</span>
-                    </button>
-                ))}
-            </nav>
+            <Tabs<ConfigurableEntity>
+                label="Settings sections"
+                value={entity}
+                onChange={switchTo}
+                tabs={(entities ?? []).map((tab) => ({
+                    value: tab.entity,
+                    label: tab.label,
+                    icon: 'ti ti-list-details',
+                }))}
+            />
 
             <div className="row g-3">
                 <div className="col-lg-8">
@@ -529,7 +524,8 @@ export default function FieldSettingsPage() {
                                                                         resolvedType: next,
                                                                         options:
                                                                             next === 'select'
-                                                                                ? (row.options ?? [])
+                                                                                ? (row.options ??
+                                                                                  [])
                                                                                 : null,
                                                                     });
                                                                 }}
@@ -651,7 +647,10 @@ export default function FieldSettingsPage() {
                                                                     patch(index, {
                                                                         options: [
                                                                             ...(row.options ?? []),
-                                                                            { value: '', label: '' },
+                                                                            {
+                                                                                value: '',
+                                                                                label: '',
+                                                                            },
                                                                         ],
                                                                     })
                                                                 }

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\Permissions\Permission;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
@@ -13,6 +14,21 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        /*
+         * One Permission per request.
+         *
+         * `scoped` rather than `singleton`: the object holds request state —
+         * which branch this request is happening in, set once by
+         * ResolveActingBranch after checking membership — and a singleton
+         * would carry that between requests on a queue worker or Octane.
+         *
+         * Without a binding at all it was a fresh instance per injection, so
+         * the branch the middleware resolved was set on a copy nothing else
+         * ever saw, and every gate went on answering about the person's
+         * default branch. The switcher appeared to do nothing.
+         */
+        $this->app->scoped(Permission::class);
+
         /*
          * The central schema lives in database/migrations/masterdb, which
          * plain `php artisan migrate` does not scan — Laravel reads only the
