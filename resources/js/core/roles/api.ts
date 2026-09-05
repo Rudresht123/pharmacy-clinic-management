@@ -62,6 +62,29 @@ export function useRoleMembers(roleId: number | undefined, enabled = true) {
     });
 }
 
+/**
+ * Where somebody works — the whole set, replaced in one write.
+ *
+ * "At most one primary" and "one membership per branch" are rules about the
+ * set, so it is written as a set. The server checks both, plus that every
+ * branch is one the assigner can act on and every role within their own reach.
+ */
+export function useSaveUserBranches(userId: number | string | undefined) {
+    return useMutation({
+        mutationFn: async (
+            branches: { location_id: number; role_id: number | null; is_primary: boolean }[],
+        ) => {
+            const { data } = await http.put<ApiResponse<unknown>>(
+                `/tenant/users/${userId}/branches`,
+                { branches },
+            );
+
+            return data.data;
+        },
+        onSuccess: () => notify.success('Branches updated'),
+    });
+}
+
 /*
 |------------------------------------------------------------------------------
 | Level two — which modules a branch runs

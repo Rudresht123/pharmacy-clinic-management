@@ -100,7 +100,7 @@ class CustomerController extends BaseApiController
                 $query,
                 $request,
                 // Phone first in spirit: the counter searches by number.
-                searchable: ['name', 'phone', 'email', 'city'],
+                searchable: ['code', 'name', 'phone', 'email', 'city'],
                 sortable: ['name', 'phone', 'city', 'is_active', 'created_at'],
                 defaultSort: 'created_at',
             ),

@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\Tenant\Auth\LoginRequest;
 use App\Http\Resources\Tenant\OrganizationSummaryResource;
 use App\Http\Resources\Tenant\UserResource;
 use App\Models\Platform\Organization;
+use App\Models\Tenant\Doctor;
 use App\Models\Tenant\User as TenantUser;
 use App\Services\Permissions\Permission;
 use Illuminate\Http\JsonResponse;
@@ -105,9 +106,42 @@ class AuthController extends BaseApiController
         Organization $organization,
         Permission $permission,
     ): array {
+        $user->loadMissing(['memberships.location', 'memberships.role']);
+
         return [
             'user' => UserResource::make($user),
             'organization' => OrganizationSummaryResource::make($organization),
+
+            /*
+             * Where this person may work, and which of those the answers below
+             * are about. The client's branch switcher renders from this and
+             * sends the choice back as X-Branch-Id — which ResolveActingBranch
+             * checks against these same memberships rather than trusting.
+             */
+            'branches' => $user->memberships
+                ->map(fn ($membership) => [
+                    'id' => $membership->location_id,
+                    'name' => $membership->location?->name,
+                    'role' => $membership->role?->name,
+                    'is_primary' => $membership->is_primary,
+                ])
+                ->values(),
+
+            'active_branch' => $permission->branchFor($user),
+
+            /*
+             * Which doctor this account belongs to, when it belongs to one.
+             *
+             * A doctor may have no login at all — a visiting consultant who
+             * never touches the system is why `doctors` is its own table — so
+             * this is null for almost everybody. Where it is set, the queue
+             * opens on their own list instead of the whole department, which
+             * is the only thing standing between a doctor and the screen they
+             * actually want.
+             */
+            'doctor_id' => $user->userable_type === Doctor::class
+                ? (int) $user->userable_id
+                : null,
 
             /*
              * What is running where this person works: sold to the

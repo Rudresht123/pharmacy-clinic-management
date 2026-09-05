@@ -170,7 +170,18 @@ export function CustomerTable({
     // back to the shared rendering.
     const renderers = useMemo(
         () => ({
-            name: (row: Customer) => <span className="fw-semibold">{row.name}</span>,
+            /*
+             * The number under the name rather than in a column of its own.
+             * It is how somebody is told apart from the other Rahul Sharma,
+             * which makes it part of identifying them — not a separate fact
+             * competing for width on a narrow screen.
+             */
+            name: (row: Customer) => (
+                <span className="pt-name">
+                    <b>{row.name}</b>
+                    {row.code && <code>{row.code}</code>}
+                </span>
+            ),
             phone: (row: Customer) =>
                 // The counter's usual way in, so it reads as a handle.
                 row.phone ? <code className="fs-13">{row.phone}</code> : orDash(null),

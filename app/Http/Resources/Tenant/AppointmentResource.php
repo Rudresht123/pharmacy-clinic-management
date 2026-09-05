@@ -18,7 +18,21 @@ class AppointmentResource extends JsonResource
 
             'customer_id' => $this->customer_id,
             'customer_name' => $this->whenLoaded('customer', fn () => $this->customer?->name),
+            'customer_code' => $this->whenLoaded('customer', fn () => $this->customer?->code),
             'customer_phone' => $this->whenLoaded('customer', fn () => $this->customer?->phone),
+
+            /*
+             * Age is worked out on the screen rather than sent, because it is
+             * a fact about today and a cached response would be wrong on
+             * somebody's birthday. The date of birth is the thing that does
+             * not change.
+             */
+            'customer_dob' => $this->whenLoaded(
+                'customer',
+                fn () => $this->customer?->date_of_birth?->toDateString(),
+            ),
+
+            'customer_gender' => $this->whenLoaded('customer', fn () => $this->customer?->gender),
 
             'doctor_id' => $this->doctor_id,
             'doctor_name' => $this->whenLoaded('doctor', fn () => $this->doctor?->name),
@@ -48,7 +62,14 @@ class AppointmentResource extends JsonResource
              * browser so every screen agrees on when the clock started.
              */
             'waiting_minutes' => $this->checked_in_at && ! $this->started_at
-                ? $this->checked_in_at->diffInMinutes(now())
+                /*
+                 * Cast, because Carbon 3 returns a float here where Carbon 2
+                 * returned an int — so this reached the queue as
+                 * "100.86940301666667m" and ran straight through the column
+                 * beside it. Nothing about a wait is worth a fifteenth decimal
+                 * place.
+                 */
+                ? (int) $this->checked_in_at->diffInMinutes(now())
                 : null,
 
             'cancellation_reason' => $this->cancellation_reason,

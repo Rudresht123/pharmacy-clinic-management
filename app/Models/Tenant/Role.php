@@ -3,7 +3,9 @@
 namespace App\Models\Tenant;
 
 use App\Support\History\RecordsHistory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -92,6 +94,7 @@ class Role extends Model
         'name',
         'slug',
         'scope',
+        'location_id',
         'description',
         'icon',
     ];
@@ -116,6 +119,36 @@ class Role extends Model
     public function isOrganizationScoped(): bool
     {
         return $this->scope === self::SCOPE_ORGANIZATION;
+    }
+
+    /** The branch that wrote it, or null for one the organization wrote. */
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class);
+    }
+
+    /** Written by the organization, and therefore offered at every branch. */
+    public function isOrganizationWide(): bool
+    {
+        return $this->location_id === null;
+    }
+
+    /**
+     * Roles that may be assigned at one branch.
+     *
+     * The organization's own, plus that branch's. A role another branch wrote
+     * is not narrower — it is somebody else's, and offering it here would let
+     * one branch's choices leak into another's.
+     */
+    public function scopeAssignableAt(Builder $query, ?int $locationId): Builder
+    {
+        return $query->where(function (Builder $scoped) use ($locationId) {
+            $scoped->whereNull('location_id');
+
+            if ($locationId !== null) {
+                $scoped->orWhere('location_id', $locationId);
+            }
+        });
     }
 
     /**

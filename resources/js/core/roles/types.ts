@@ -26,6 +26,22 @@ export interface Role {
     description: string | null;
     /** A Tabler class from the closed list on the Role model. */
     icon: string;
+    /**
+     * Where it can be assigned: across the network, or at one branch.
+     *
+     * An organization role sits on the person; a branch role sits on a
+     * membership and means nothing anywhere else.
+     */
+    scope: 'organization' | 'branch';
+
+    /**
+     * Which branch wrote it.
+     *
+     * Null means the organization did, and every branch may use it — but only
+     * an owner may change it. Set means it belongs to that branch alone.
+     */
+    location_id: number | null;
+    location?: string | null;
     capabilities: string[];
     users_count?: number;
     created_at: string | null;

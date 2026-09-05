@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { useAppSettings } from '@/shared/hooks/useAppSettings';
@@ -24,6 +24,14 @@ interface HeaderProps {
     onLock?: () => void;
     /** Omitted where there is no profile screen yet. */
     profileTo?: string;
+    /**
+     * Rendered on the left of the header, before everything else.
+     *
+     * A slot rather than a built-in search box: the platform header has
+     * nothing to search across, and a tenant's search is over its own
+     * patients — which this component has no business knowing about.
+     */
+    search?: ReactNode;
 }
 
 export function Header({
@@ -33,6 +41,7 @@ export function Header({
     onLogout,
     onLock,
     profileTo,
+    search,
 }: HeaderProps) {
     const confirm = useConfirm();
     const navigate = useNavigate();
@@ -86,6 +95,8 @@ export function Header({
             >
                 <i className="ti ti-menu-2 fs-20" />
             </button>
+
+            {search}
 
             <div className="ms-auto d-flex align-items-center gap-1">
                 {/* Day/night is the one appearance setting people reach for

@@ -3,7 +3,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { FullPageLoader } from '@/shared/components/ui/Loader';
 import { NavigationLoader } from './NavigationLoader';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
-import { RequireCapability, RequireModule, RequireOwner } from './tenant-guards';
+import { RequireCapability, RequireModule } from './tenant-guards';
 import { TenantShell } from './TenantShell';
 
 const TenantLoginPage = lazy(() => import('@/core/tenant-auth/pages/TenantLoginPage'));
@@ -21,6 +21,7 @@ const DoctorListPage = lazy(() => import('@/core/doctors/pages/DoctorListPage'))
 const DoctorFormPage = lazy(() => import('@/core/doctors/pages/DoctorFormPage'));
 const AvailabilityPage = lazy(() => import('@/core/availability/pages/AvailabilityPage'));
 const QueuePage = lazy(() => import('@/core/appointments/pages/QueuePage'));
+const OpdTodayPage = lazy(() => import('@/core/opd/pages/OpdTodayPage'));
 
 /** Mirrors app/guards.tsx's ProtectedRoute, against the tenant auth context. */
 function TenantProtectedRoute() {
@@ -134,7 +135,19 @@ export function TenantAppRoutes() {
                                 >
                                     <Route path="/doctors" element={<DoctorListPage />} />
                                     <Route path="/availability" element={<AvailabilityPage />} />
-                                    <Route path="/queue" element={<QueuePage />} />
+
+                                    <Route path="/opd" element={<OpdTodayPage />} />
+                                    <Route path="/opd/queue" element={<QueuePage />} />
+
+                                    {/*
+                                        The old address. Anybody who bookmarked
+                                        the queue, or wrote it into a note by
+                                        the desk, still lands on it.
+                                    */}
+                                    <Route
+                                        path="/queue"
+                                        element={<Navigate to="/opd/queue" replace />}
+                                    />
                                 </Route>
 
                                 {/* Literal before the :id pattern, as with locations. */}
@@ -168,10 +181,10 @@ export function TenantAppRoutes() {
                                 />
                             </Route>
 
-                            {/* Level three of the permission flow. Owner-only
-                                on the server, and deliberately not behind a
-                                capability — see RoleController. */}
-                            <Route element={<RequireOwner />}>
+                            {/* Level three of the permission flow. Reading is
+                                open to anybody who administers staff; writing
+                                is decided per role on the server. */}
+                            <Route element={<RequireCapability capability="people.view" />}>
                                 <Route path="/roles" element={<RolesPage />} />
                             </Route>
 

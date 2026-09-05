@@ -91,6 +91,18 @@ class DashboardSummary
                 'resolve' => fn (?array $allowed) => $this->appointments($allowed),
             ],
             [
+                /*
+                 * A module with no table, model or routes yet. Declared so it
+                 * is a panel the permission model knows about — without an
+                 * entry here it was not "empty", it was forbidden, and demo
+                 * data correctly refused to fill it.
+                 */
+                'key' => 'departments',
+                'module' => null,
+                'capability' => 'people.view',
+                'resolve' => fn (?array $allowed) => [],
+            ],
+            [
                 'key' => 'insights',
                 'module' => null,
                 'capability' => 'customers.view',
@@ -108,6 +120,117 @@ class DashboardSummary
                 'capability' => 'settings.audit',
                 'resolve' => fn (?array $allowed) => $this->activity(),
             ],
+
+            /*
+             * Branch-only panels. They answer about one place and one day, so
+             * they are computed only when somebody is actually standing in a
+             * branch — organization-wide they would either be meaningless or a
+             * sum nobody asked for.
+             */
+            [
+                'key' => 'recent_patients',
+                'module' => null,
+                'capability' => 'customers.view',
+                'resolve' => fn (?array $allowed) => $this->recentPatients($allowed),
+            ],
+            [
+                'key' => 'branch_info',
+                'module' => null,
+                'capability' => 'branches.view',
+                'resolve' => fn (?array $allowed) => $this->branchInfo(
+                    $this->permission->branchFor($user)
+                ),
+            ],
+
+            /*
+             * Panels whose modules do not exist yet — pharmacy stock, billing,
+             * a task list, arrivals by hour.
+             *
+             * Declared so demo data can fill them: a panel that is not declared
+             * is not "empty", it is forbidden, and demo correctly refuses to
+             * fill a panel the caller was never entitled to.
+             *
+             * Their capabilities are PLACEHOLDERS. `customers.view` is what
+             * everybody working at a counter holds, so it is the closest true
+             * thing until each module ships its own — at which point these
+             * entries take the real capability and a real resolver.
+             */
+            [
+                'key' => 'visits',
+                'module' => null,
+                'capability' => 'customers.view',
+                'resolve' => fn (?array $allowed) => ['points' => []],
+            ],
+            [
+                'key' => 'by_type',
+                'module' => 'appointments',
+                'capability' => 'appointments.view',
+                'resolve' => fn (?array $allowed) => [],
+            ],
+            [
+                'key' => 'stock',
+                'module' => null,
+                'capability' => 'customers.view',
+                'resolve' => fn (?array $allowed) => [],
+            ],
+            [
+                'key' => 'revenue',
+                'module' => null,
+                'capability' => 'customers.view',
+                'resolve' => fn (?array $allowed) => ['rows' => [], 'total' => 0],
+            ],
+            [
+                'key' => 'tasks',
+                'module' => null,
+                'capability' => 'customers.view',
+                'resolve' => fn (?array $allowed) => [],
+            ],
+        ];
+    }
+
+    /**
+     * The people seen here most recently.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function recentPatients(?array $allowed): array
+    {
+        return $this->scopeToBranches(Customer::query(), 'registered_location_id', $allowed)
+            ->latest('created_at')
+            ->limit(6)
+            ->get()
+            ->map(fn (Customer $customer) => [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'phone' => $customer->phone,
+                'city' => $customer->city,
+                'joined_at' => $customer->created_at?->toDateString(),
+            ])
+            ->all();
+    }
+
+    /** The branch itself — the card a desk checks a phone number on. */
+    private function branchInfo(?int $branchId): ?array
+    {
+        if ($branchId === null) {
+            return null;
+        }
+
+        $branch = Location::find($branchId);
+
+        if (! $branch) {
+            return null;
+        }
+
+        return [
+            'id' => $branch->id,
+            'name' => $branch->name,
+            'city' => $branch->city,
+            'state' => $branch->state,
+            'phone' => $branch->phone,
+            'email' => $branch->email,
+            'address' => $branch->address,
+            'pincode' => $branch->pincode,
         ];
     }
 
@@ -154,9 +277,22 @@ class DashboardSummary
         $branch = $this->permission->branchFor($user);
 
         $summary = [
+            /*
+             * Which dashboard this is. Somebody working AT a branch gets that
+             * branch's day — arrivals, the queue, what is running low. Somebody
+             * organization-wide gets the network — how many branches, how the
+             * book is growing. Two different questions, so two different sets
+             * of panels rather than one set with numbers that mean less the
+             * further out you stand.
+             */
+            'context' => $branch === null ? 'organization' : 'branch',
+
             'scope' => [
                 'branches' => $allowed === null ? null : $allowed,
                 'label' => $this->scopeLabel($allowed),
+                'branch_id' => $branch,
+                'branch_name' => $branch ? Location::find($branch)?->name : null,
+                'city' => $branch ? Location::find($branch)?->city : null,
             ],
         ];
 

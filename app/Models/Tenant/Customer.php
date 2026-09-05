@@ -29,12 +29,32 @@ class Customer extends Model
     /** Mirrors the database CHECK. */
     public const GENDERS = [self::MALE, self::FEMALE, self::OTHER];
 
+    /**
+     * What a patient number looks like: P-00001.
+     *
+     * Short enough to read out over a counter and long enough not to run out.
+     * Per organization, because each one has its own database — there is no
+     * shared sequence to collide with.
+     */
+    public const PREFIX = 'P-';
+
+    public const CODE_LENGTH = 5;
+
     protected $connection = 'organization';
 
     protected $table = 'customers';
 
     protected $fillable = [
         'registered_location_id',
+
+        /*
+         * Fillable so an organization migrating from another system can carry
+         * its own numbers across. Left out, the repository allocates the next
+         * one — which is what every patient registered through the product
+         * gets.
+         */
+        'code',
+
         'name',
         'phone',
         'email',

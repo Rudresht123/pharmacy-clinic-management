@@ -6,7 +6,10 @@ use App\Http\Middleware\EnsureTenantCan;
 use App\Http\Middleware\EnsureTenantUserIsOwner;
 use App\Http\Middleware\ResolveTenantFromSession;
 use App\Models\Platform\Organization;
+use App\Models\Tenant\BranchMembership;
 use App\Models\Tenant\Location;
+use App\Models\Tenant\Role;
+use App\Models\Tenant\User;
 use App\Services\Tenancy\TenantConnectionService;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -225,6 +228,176 @@ class LocationTest extends TenantTestCase
     }
 
     /**
+     * The branch form can create somebody who can run the branch.
+     *
+     * Three things in one write: a role owned by that branch, a person with
+     * NOTHING in the organization slot, and a primary membership joining
+     * them. Asserted individually, because two of the three succeeding is the
+     * failure that leaves an email taken by a user nobody can see.
+     */
+    public function test_a_branch_can_be_created_with_an_admin_who_can_sign_in(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signIn($organization, $organization->email);
+
+        $this->postJson('/api/v1/tenant/locations', $this->validPayload([
+            'admin' => [
+                'name' => 'Priya Sharma',
+                'email' => 'priya@branch.test',
+                'password' => 'branch-secret-1',
+            ],
+        ]))->assertCreated();
+
+        (new TenantConnectionService)->connect($organization->database_name);
+
+        $branch = Location::on(TenantConnectionService::CONNECTION)
+            ->where('code', 'MSP-01')->firstOrFail();
+
+        $admin = User::on(TenantConnectionService::CONNECTION)
+            ->where('email', 'priya@branch.test')->first();
+
+        $this->assertNotNull($admin, 'The branch admin was not created.');
+        $this->assertSame(User::STAFF, $admin->role);
+
+        // Their authority is this branch's. On users.role_id it would be the
+        // whole network's, which is the distinction the membership exists for.
+        $this->assertNull($admin->role_id);
+
+        $membership = BranchMembership::on(TenantConnectionService::CONNECTION)
+            ->where('user_id', $admin->id)->first();
+
+        $this->assertNotNull($membership, 'The admin was not posted to the branch.');
+        $this->assertSame($branch->id, $membership->location_id);
+        $this->assertTrue($membership->is_primary);
+
+        $role = Role::on(TenantConnectionService::CONNECTION)
+            ->with('capabilities')
+            ->findOrFail($membership->role_id);
+
+        // The branch's own, not the organization's — that is what lets the
+        // branch change it without changing every other branch.
+        $this->assertSame($branch->id, $role->location_id);
+        $this->assertContains('people.roles', $role->capabilityKeys());
+
+        (new TenantConnectionService)->disconnect();
+
+        // The point of all of it: they can actually get in.
+        $this->flushSession();
+        $this->app['auth']->forgetGuards();
+
+        $this->postJson('/api/v1/tenant/auth/login', [
+            'subdomain' => $organization->subdomain,
+            'email' => 'priya@branch.test',
+            'password' => 'branch-secret-1',
+        ])->assertOk();
+    }
+
+    /**
+     * The role holds only what the branch actually runs.
+     *
+     * A capability whose module is off would be a permission that means
+     * nothing, and SaveRoleRequest would refuse it anyway — better to never
+     * write it. Both halves are asserted in one test on purpose: "does not
+     * contain appointments.book" passes just as well when the provisioner
+     * grants nothing at all, so it is only worth anything beside a branch
+     * where the same capability does appear.
+     */
+    public function test_the_branch_admin_role_holds_only_the_modules_that_are_on(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signIn($organization, $organization->email);
+
+        $this->postJson('/api/v1/tenant/locations', $this->validPayload([
+            'code' => 'OFF-1',
+            'admin' => [
+                'name' => 'Off Admin',
+                'email' => 'off@branch.test',
+                'password' => 'branch-secret-1',
+            ],
+        ]))->assertCreated();
+
+        $this->grantModule($organization, 'appointments');
+
+        $this->postJson('/api/v1/tenant/locations', $this->validPayload([
+            'code' => 'ON-1',
+            'admin' => [
+                'name' => 'On Admin',
+                'email' => 'on@branch.test',
+                'password' => 'branch-secret-1',
+            ],
+        ]))->assertCreated();
+
+        [$off, $on] = $this->onTenant($organization, fn () => [
+            $this->branchAdminRole('OFF-1'),
+            $this->branchAdminRole('ON-1'),
+        ]);
+
+        $this->assertNotContains('appointments.book', $off);
+        $this->assertContains('appointments.book', $on);
+
+        // Both branches still get the core ones, so the first list is short
+        // rather than empty — which is what makes the absence meaningful.
+        $this->assertContains('people.roles', $off);
+    }
+
+    /**
+     * What the branch admin at this code may do. Must run inside onTenant().
+     *
+     * @return list<string>
+     */
+    private function branchAdminRole(string $code): array
+    {
+        $locationId = Location::on(TenantConnectionService::CONNECTION)
+            ->where('code', $code)->value('id');
+
+        return Role::on(TenantConnectionService::CONNECTION)
+            ->with('capabilities')
+            ->where('location_id', $locationId)
+            ->firstOrFail()
+            ->capabilityKeys();
+    }
+
+    /** An email somebody already signs in with is a 422, not a 500. */
+    public function test_a_branch_admin_email_that_is_already_in_use_is_rejected(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signIn($organization, $organization->email);
+
+        $this->postJson('/api/v1/tenant/locations', $this->validPayload([
+            'admin' => [
+                'name' => 'Clash',
+                'email' => self::STAFF_EMAIL,
+                'password' => 'branch-secret-1',
+            ],
+        ]))->assertStatus(422)->assertJsonValidationErrors('admin.email');
+
+        // And nothing was written — the branch must not survive its admin.
+        $this->getJson('/api/v1/tenant/locations')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+    }
+
+    /** The admin section is optional; leaving it out creates nobody. */
+    public function test_a_branch_can_still_be_created_without_an_admin(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signIn($organization, $organization->email);
+
+        $this->postJson('/api/v1/tenant/locations', $this->validPayload([
+            'admin' => ['name' => '', 'email' => '', 'password' => ''],
+        ]))->assertCreated();
+
+        (new TenantConnectionService)->connect($organization->database_name);
+
+        $this->assertSame(
+            0,
+            Role::on(TenantConnectionService::CONNECTION)->whereNotNull('location_id')->count()
+        );
+
+        (new TenantConnectionService)->disconnect();
+    }
+
+    /**
      * Declaration order on the route is not what runs — Laravel sorts
      * gathered middleware by priority, which is what disguised an earlier
      * bug where auth ran before the tenant database was selected.
@@ -242,7 +415,9 @@ class LocationTest extends TenantTestCase
         $router = app('router');
         $checks = [
             'tenant.locations.store' => EnsureTenantCan::class,
-            'tenant.roles.store' => EnsureTenantUserIsOwner::class,
+            // Still owner-only: a branch that could switch its own modules on
+            // could re-open a door the owner closed.
+            'tenant.locations.modules.update' => EnsureTenantUserIsOwner::class,
         ];
 
         foreach ($checks as $routeName => $permissionMiddleware) {

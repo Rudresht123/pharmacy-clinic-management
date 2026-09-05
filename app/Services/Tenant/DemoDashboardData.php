@@ -36,11 +36,13 @@ use Illuminate\Support\Carbon;
 class DemoDashboardData
 {
     /**
-     * The sample payload, with anything genuinely known merged over the top.
+     * The sample payload, for every panel the caller is entitled to.
      *
-     * Real data wins wherever it exists: an organization that has entered
-     * three branches sees three, not five invented ones. Only the panels with
-     * nothing real behind them stay sample.
+     * Demo WINS over real data here. An earlier version preferred anything
+     * real, which sounded careful and made the screen useless for its one
+     * purpose: an organization with two branches and two patients showed two,
+     * so the layout could never be judged and a demonstration showed a nearly
+     * empty product. Demo mode is a mode, not a fallback.
      *
      * ONLY panels the caller is entitled to. A presentation flag must never
      * become a way around the permission model — without `$permitted` this
@@ -53,7 +55,15 @@ class DemoDashboardData
      */
     public function mergeInto(array $real, array $permitted): array
     {
-        $demo = $this->payload();
+        /*
+         * A branch dashboard is a different screen, not a narrower version of
+         * this one — see DemoBranchDashboardData. Standing in a clinic the
+         * questions are who is arriving and what is running low; neither means
+         * anything summed across five branches.
+         */
+        $demo = ($real['context'] ?? 'organization') === 'branch'
+            ? app(DemoBranchDashboardData::class)->payload()
+            : $this->payload();
 
         foreach ($demo as $key => $panel) {
             // `scope` is always real — it says which branches the figures are
@@ -62,7 +72,7 @@ class DemoDashboardData
                 continue;
             }
 
-            $real[$key] = $this->hasRealContent($real[$key] ?? null) ? $real[$key] : $panel;
+            $real[$key] = $panel;
         }
 
         /*
@@ -77,32 +87,6 @@ class DemoDashboardData
         return $real;
     }
 
-    /**
-     * Whether a real panel has anything in it worth showing.
-     *
-     * An organization mid-setup has a `patients` panel of zeroes, and a screen
-     * of zeroes teaches nothing about the design. A panel with real rows in it
-     * always wins.
-     */
-    private function hasRealContent(mixed $panel): bool
-    {
-        if ($panel === null || $panel === []) {
-            return false;
-        }
-
-        if (is_array($panel) && array_is_list($panel)) {
-            return $panel !== [];
-        }
-
-        foreach (['total', 'rows', 'by_branch', 'upcoming'] as $key) {
-            if (isset($panel[$key]) && ! empty($panel[$key])) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /** @return array<string, mixed> */
     private function payload(): array
     {
@@ -113,6 +97,7 @@ class DemoDashboardData
             'appointments' => $this->appointments(),
             'departments' => $this->departments(),
             'insights' => $this->insights(),
+            'plan' => $this->plan(),
             'activity' => $this->activity(),
         ];
     }
@@ -241,6 +226,26 @@ class DemoDashboardData
             ['key' => 'new_patients', 'label' => 'New Patients', 'value' => '342', 'icon' => 'ti ti-user-plus', 'change' => 18],
             ['key' => 'completed', 'label' => 'Completed Appointments', 'value' => '1,124', 'icon' => 'ti ti-circle-check', 'change' => 22],
             ['key' => 'retention', 'label' => 'Staff Retention', 'value' => '96%', 'icon' => 'ti ti-shield-check', 'change' => 4],
+        ];
+    }
+
+    /**
+     * A subscription tier — something the software does not have.
+     *
+     * Modules are assigned one at a time by a super admin; there are no plans
+     * and no self-serve upgrade. Present here because the reference design has
+     * it and this is demo mode; the real `plan` panel says the true thing
+     * instead, which is how many modules the organization holds.
+     *
+     * @return array<string, mixed>
+     */
+    private function plan(): array
+    {
+        return [
+            'name' => 'Pro Plan',
+            'blurb' => 'Manage unlimited branches and staff.',
+            'modules' => 5,
+            'names' => ['branches', 'people', 'customers', 'settings', 'appointments'],
         ];
     }
 

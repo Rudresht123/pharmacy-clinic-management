@@ -15,6 +15,10 @@ class CustomerResource extends JsonResource
     {
         return [
             'id' => $this->id,
+
+            // The number a patient quotes and the desk searches on.
+            'code' => $this->code,
+
             'name' => $this->name,
 
             'registered_location_id' => $this->registered_location_id,

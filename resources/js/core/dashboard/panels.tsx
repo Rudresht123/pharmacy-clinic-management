@@ -28,8 +28,23 @@ import type {
  */
 export interface PanelDefinition {
     key: string;
-    /** Which of the two columns it belongs to. */
-    column: 'main' | 'rail';
+    /**
+     * Where it sits.
+     *
+     * `main` and `rail` are the two columns. `full` is below both, edge to
+     * edge — for a panel that is a row of figures rather than a card, and
+     * would be cramped at two thirds.
+     */
+    column: 'main' | 'rail' | 'full';
+    /**
+     * How much of the main column it takes, out of twelve.
+     *
+     * The main column is itself a grid: the appointments chart sits beside the
+     * donut, and the two tables sit beside each other. Stacking everything full
+     * width made a short screen very long and lost the pairing that says
+     * "these two answer the same question from different sides".
+     */
+    span?: number;
     render: (summary: DashboardSummary) => React.ReactNode;
 }
 
@@ -37,15 +52,19 @@ export interface PanelDefinition {
 const CARD_TONE: Record<HeadlineCard['key'], string> = {
     branches: 'violet',
     staff: 'sky',
-    patients: 'emerald',
-    appointments: 'amber',
+    patients: 'violet',
+    appointments: 'sky',
+    consultations: 'emerald',
+    revenue: 'amber',
 };
 
 const CARD_ICON: Record<HeadlineCard['key'], string> = {
     branches: 'ti ti-building-store',
     staff: 'ti ti-users-group',
-    patients: 'ti ti-user-heart',
+    patients: 'ti ti-users',
     appointments: 'ti ti-calendar-event',
+    consultations: 'ti ti-stethoscope',
+    revenue: 'ti ti-credit-card',
 };
 
 /**
@@ -98,15 +117,21 @@ export function Headline({ cards }: { cards: HeadlineCard[] }) {
                             <span className="db-card-label">{card.label}</span>
 
                             <span className="db-card-value">
-                                {card.total.toLocaleString()}
+                                {card.money
+                                    ? `₹${card.total.toLocaleString('en-IN')}`
+                                    : card.total.toLocaleString()}
 
                                 {card.change !== null && <Delta change={card.change} />}
                             </span>
 
                             <span className="db-card-hint">
                                 {card.this_month > 0
-                                    ? `+${card.this_month} this month`
-                                    : 'None added this month'}
+                                    ? `+${
+                                          card.money
+                                              ? `₹${card.this_month.toLocaleString('en-IN')}`
+                                              : card.this_month
+                                      } ${card.hint ?? 'this month'}`
+                                    : `Nothing new ${card.hint ?? 'this month'}`}
                             </span>
                         </div>
                     </article>
@@ -160,14 +185,16 @@ function PatientsByBranch({ patients, label }: { patients: PatientsPanel; label:
             icon="ti ti-chart-donut"
             description="Distribution across the network"
         >
-            <DonutChart
-                slices={patients.by_branch.map((row) => ({
-                    label: row.label,
-                    value: row.total,
-                    muted: row.muted,
-                }))}
-                centreLabel={label}
-            />
+            <div className="db-donut">
+                <DonutChart
+                    slices={patients.by_branch.map((row) => ({
+                        label: row.label,
+                        value: row.total,
+                        muted: row.muted,
+                    }))}
+                    centreLabel={label}
+                />
+            </div>
         </Card>
     );
 }
@@ -442,15 +469,23 @@ function QuickActions({ summary }: { summary: DashboardSummary }) {
  */
 function Plan({ plan }: { plan: PlanPanel }) {
     return (
-        <div className="db-plan">
-            <i className="ti ti-package" />
+        <div className={`db-plan${plan.name ? ' is-tier' : ''}`}>
+            <i className={plan.name ? 'ti ti-crown' : 'ti ti-package'} />
 
             <div>
                 <b>
-                    {plan.modules} module{plan.modules === 1 ? '' : 's'} enabled
+                    {plan.name
+                        ? `You’re on ${plan.name}`
+                        : `${plan.modules} module${plan.modules === 1 ? '' : 's'} enabled`}
                 </b>
-                <p>{plan.names.join(' · ')}</p>
-                <small>Your administrator manages which modules you have.</small>
+
+                <p>{plan.blurb ?? plan.names.join(' · ')}</p>
+
+                <small>
+                    {plan.name
+                        ? plan.names.join(' · ')
+                        : 'Your administrator manages which modules you have.'}
+                </small>
             </div>
         </div>
     );
@@ -519,6 +554,7 @@ export function dashboardPanels(labels: Record<string, string>): PanelDefinition
         {
             key: 'appointments-overview',
             column: 'main',
+            span: 7,
             render: (summary) =>
                 summary.appointments ? (
                     <AppointmentsOverview appointments={summary.appointments} />
@@ -527,6 +563,7 @@ export function dashboardPanels(labels: Record<string, string>): PanelDefinition
         {
             key: 'patients-by-branch',
             column: 'main',
+            span: 5,
             render: (summary) =>
                 summary.patients && summary.patients.by_branch.length > 0 ? (
                     <PatientsByBranch patients={summary.patients} label={patients} />
@@ -535,6 +572,7 @@ export function dashboardPanels(labels: Record<string, string>): PanelDefinition
         {
             key: 'branches',
             column: 'main',
+            span: 6,
             render: (summary) =>
                 summary.branches ? (
                     <Branches branches={summary.branches} label={branches} />
@@ -543,12 +581,14 @@ export function dashboardPanels(labels: Record<string, string>): PanelDefinition
         {
             key: 'upcoming',
             column: 'main',
+            span: 6,
             render: (summary) =>
                 summary.appointments ? <Upcoming appointments={summary.appointments} /> : null,
         },
         {
             key: 'departments',
             column: 'main',
+            span: 12,
             render: (summary) =>
                 summary.departments?.length ? (
                     <Departments departments={summary.departments} />
@@ -556,7 +596,7 @@ export function dashboardPanels(labels: Record<string, string>): PanelDefinition
         },
         {
             key: 'insights',
-            column: 'main',
+            column: 'full',
             render: (summary) =>
                 summary.insights ? <Insights insights={summary.insights} /> : null,
         },

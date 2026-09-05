@@ -23,6 +23,20 @@ export interface TenantUser {
     role_id: number | null;
     role_name?: string | null;
 
+    /**
+     * Where they work, and what they hold at each place.
+     *
+     * Only present where the memberships were loaded — the list screen does
+     * not need them, the form does.
+     */
+    branches?: {
+        location_id: number;
+        location: string | null;
+        role_id: number | null;
+        role: string | null;
+        is_primary: boolean;
+    }[];
+
     is_active: boolean;
     last_login_at: string | null;
     /** Values for the fields the organization added itself. */
@@ -38,9 +52,37 @@ export interface TenantOrganization {
     has_logo: boolean;
 }
 
+/** One branch this person works at, and what they hold there. */
+export interface TenantBranch {
+    id: number;
+    name: string | null;
+    role: string | null;
+    is_primary: boolean;
+}
+
 export interface TenantSession {
     user: TenantUser;
     organization: TenantOrganization;
+
+    /**
+     * Where this person may work.
+     *
+     * Empty for the owner and for head office, who work across the network
+     * rather than at a counter — the switcher hides itself for both.
+     */
+    branches: TenantBranch[];
+
+    /** Which of them the modules and capabilities below are about. */
+    active_branch: number | null;
+
+    /**
+     * Which doctor this account belongs to, when it belongs to one.
+     *
+     * Null for almost everybody — a doctor may have no login at all, which is
+     * why doctors are their own table. Where it is set, the queue opens on
+     * their own list rather than the whole department.
+     */
+    doctor_id: number | null;
 
     /**
      * The modules running where this person works — sold to the organization

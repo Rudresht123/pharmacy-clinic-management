@@ -72,11 +72,15 @@ export function RequireModule({ module }: { module: string }) {
 }
 
 /**
- * Owner-only, for the two screens that are deliberately not delegatable.
+ * Owner-only.
  *
- * Roles and a branch's modules cannot sit behind a capability: a role able to
- * edit roles could grant itself every other one, so there would be nothing
- * left for the other levels to decide.
+ * Which branches run which modules stays here: a branch that could switch its
+ * own modules on could re-open a door the owner closed, so it is not
+ * delegatable at all.
+ *
+ * Roles used to be here too and no longer are — a branch writes its own, from
+ * the modules that branch was given, which bounds it without central
+ * authorship. Kept exported because the branch-modules panel still uses it.
  */
 export function RequireOwner() {
     const { user } = useTenantAuth();

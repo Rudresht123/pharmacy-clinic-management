@@ -41,9 +41,19 @@ export function tenantNavigation(
 
     /* --- the business ---------------------------------------------------- */
 
-    const organization: NavItem[] = [
-        { label: 'Dashboard', to: '/dashboard', icon: 'ti ti-layout-dashboard' },
-    ];
+    /*
+     * Dashboard stands alone above everything, under no heading.
+     *
+     * It is not part of "the business" or "the work" — it is where you land,
+     * and filing it under a section made the first thing in the menu look like
+     * a member of a group it has nothing to do with.
+     */
+    sections.push({
+        title: '',
+        items: [{ label: 'Dashboard', to: '/dashboard', icon: 'ti ti-layout-dashboard' }],
+    });
+
+    const organization: NavItem[] = [];
 
     if (can('branches.view')) {
         organization.push({
@@ -65,11 +75,12 @@ export function tenantNavigation(
     }
 
     /*
-     * Roles are the owner's alone and not reachable through a capability: a
-     * role able to edit roles could grant itself every other one, so there
-     * would be nothing left for the other levels to decide.
+     * Anybody who administers staff has to be able to see the roles they are
+     * assigning. Writing them is a separate question, answered per role on the
+     * screen: the organization's are the owner's, a branch's are that
+     * branch's.
      */
-    if (isOwner) {
+    if (can('people.view')) {
         organization.push({
             label: 'Roles & Permissions',
             to: '/roles',
@@ -113,11 +124,40 @@ export function tenantNavigation(
         });
     }
 
-    sections.push({ title: 'Organization', items: organization });
+    if (organization.length > 0) {
+        sections.push({ title: 'Organization', items: organization });
+    }
 
     /* --- the work -------------------------------------------------------- */
 
+    /*
+     * OPD asks two questions, not one: the module has to be running here at
+     * all, and this person has to be allowed to look at it.
+     *
+     * The board comes first and the queue under it, because that is the order
+     * somebody arriving in the morning wants them — what is the state of the
+     * place, then what do I do about it. The queue is a child rather than a
+     * sibling: it is the same subject at a different depth.
+     */
     const clinical: NavItem[] = [];
+
+    if (hasModule('appointments') && can('appointments.view')) {
+        clinical.push({
+            label: 'OPD',
+            to: '/opd',
+            icon: 'ti ti-building-hospital',
+            match: '/opd',
+            children: [
+                { label: 'Dashboard', to: '/opd', icon: 'ti ti-layout-dashboard' },
+                {
+                    label: 'Queue',
+                    to: '/opd/queue',
+                    icon: 'ti ti-list-check',
+                    match: '/opd/queue',
+                },
+            ],
+        });
+    }
 
     if (can('customers.view')) {
         clinical.push({
@@ -129,13 +169,15 @@ export function tenantNavigation(
     }
 
     /*
-     * OPD asks two questions, not one: the module has to be running here at
-     * all, and this person has to be allowed to look at it.
+     * Doctors and their timings sit with the work rather than in a section of
+     * their own. They were split off into "Clinical setup" on the grounds that
+     * nobody edits a weekly sitting mid-clinic — true, but it bought a whole
+     * extra heading for two rows, and headings are what the menu had too many
+     * of.
      */
     if (hasModule('appointments') && can('appointments.view')) {
         clinical.push(
             { label: 'Doctors', to: '/doctors', icon: 'ti ti-stethoscope', match: '/doctors' },
-            { label: 'Appointments', to: '/queue', icon: 'ti ti-calendar-event', match: '/queue' },
             {
                 label: 'Availability',
                 to: '/availability',
@@ -145,24 +187,36 @@ export function tenantNavigation(
         );
     }
 
-    /*
-     * Planned, not built. Shown as marked, unclickable rows rather than links
-     * to nowhere — a 404 from the menu reads as a broken product, while an
-     * honest "Soon" answers "where is billing" before anybody asks. Each one
-     * becomes a real entry when its module ships, guarded by hasModule() like
-     * the OPD block above.
-     */
-    if (isOwner) {
-        clinical.push(
-            { label: 'Billing', to: '/billing', icon: 'ti ti-receipt', soon: true },
-            { label: 'Inventory', to: '/inventory', icon: 'ti ti-package', soon: true },
-            { label: 'Reports', to: '/reports', icon: 'ti ti-chart-bar', soon: true },
-        );
-    }
-
     if (clinical.length > 0) {
         sections.push({ title: 'Clinical', items: clinical });
     }
+
+    /* --- what is coming -------------------------------------------------- */
+
+    /*
+     * One section, at the bottom, for everything not built yet.
+     *
+     * These used to be scattered through four headings of their own —
+     * Pharmacy & inventory, Billing & payments, Reports — so seven of the
+     * menu's fifteen rows were things nobody could click, filed as though they
+     * were as real as the rest. Gathered and labelled honestly they answer
+     * "where is billing" without pretending to be a working part of the
+     * product, and the eight rows above them are all things that work.
+     *
+     * Prescriptions is the sharpest case: its module and both capabilities are
+     * already in ModuleRegistry, so an organization can be sold it and a role
+     * granted it while nothing at all sits behind them.
+     */
+    sections.push({
+        title: 'Coming soon',
+        items: [
+            { label: 'Prescriptions', to: '/prescriptions', icon: 'ti ti-file-text', soon: true },
+            { label: 'Lab tests', to: '/lab', icon: 'ti ti-microscope', soon: true },
+            { label: 'Pharmacy', to: '/pharmacy', icon: 'ti ti-vaccine', soon: true },
+            { label: 'Billing', to: '/billing', icon: 'ti ti-receipt', soon: true },
+            { label: 'Reports', to: '/reports', icon: 'ti ti-chart-bar', soon: true },
+        ],
+    });
 
     return sections;
 }

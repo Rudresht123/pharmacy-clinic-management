@@ -23,6 +23,15 @@ interface AppShellProps {
     sidebarFooter?: React.ReactNode;
     /** Sits at the very bottom, below the workspace card. */
     sidebarHelp?: React.ReactNode;
+    /** Between the menu and the workspace card — the branch switcher. */
+    sidebarExtra?: React.ReactNode;
+    /**
+     * Sits in the header, before everything else.
+     *
+     * A slot rather than a built-in: the platform panel has nothing to search
+     * across, and a tenant's search is over its own patients.
+     */
+    headerSearch?: React.ReactNode;
 }
 
 /**
@@ -44,6 +53,8 @@ export function AppShell({
     profileTo,
     sidebarFooter,
     sidebarHelp,
+    sidebarExtra,
+    headerSearch,
 }: AppShellProps) {
     const { settings, update } = useAppSettings();
 
@@ -88,6 +99,7 @@ export function AppShell({
                 onNavigate={() => setMobileOpen(false)}
                 footer={sidebarFooter}
                 help={sidebarHelp}
+                extra={sidebarExtra}
             />
 
             {mobileOpen && (
@@ -99,6 +111,7 @@ export function AppShell({
             )}
 
             <Header
+                search={headerSearch}
                 onOpenSidebar={() => setMobileOpen(true)}
                 onOpenSettings={() => setSettingsOpen(true)}
                 user={user}

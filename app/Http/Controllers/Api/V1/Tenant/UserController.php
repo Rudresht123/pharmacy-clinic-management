@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Tenant;
 use App\Http\Concerns\HandlesTableQueries;
 use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Http\Requests\Api\V1\Tenant\StoreTenantUserRequest;
+use App\Http\Requests\Api\V1\Tenant\SaveUserBranchesRequest;
 use App\Http\Requests\Api\V1\Tenant\UpdateTenantUserRequest;
 use App\Http\Resources\Tenant\UserResource;
 use App\Models\Tenant\EntityFieldSetting;
@@ -12,10 +13,12 @@ use App\Models\Tenant\User;
 use App\Repositories\Tenant\Contracts\TenantUserRepositoryInterface;
 use App\Services\Fields\FieldSchema;
 use App\Services\Permissions\StaffScope;
+use App\Services\Tenancy\TenantBranchAccess;
 use App\Support\Fields\UserFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -29,6 +32,7 @@ class UserController extends BaseApiController
     public function __construct(
         private readonly TenantUserRepositoryInterface $users,
         private readonly StaffScope $scope,
+        private readonly TenantBranchAccess $branches,
     ) {}
 
     /**
@@ -66,7 +70,9 @@ class UserController extends BaseApiController
     {
         $this->mustReach($user);
 
-        return $this->ok(UserResource::make($user->load('permissionRole')));
+        return $this->ok(UserResource::make(
+            $user->load(['permissionRole', 'memberships.location', 'memberships.role'])
+        ));
     }
 
     public function store(StoreTenantUserRequest $request): JsonResponse
@@ -125,6 +131,66 @@ class UserController extends BaseApiController
         $this->users->delete($user);
 
         return $this->noContent('User removed successfully.');
+    }
+
+    /**
+     * Where somebody works — the whole set, replaced in one write.
+     *
+     * Separate from `update`, which is about who they are. Moving somebody
+     * between branches is organization-level work, and folding it into the
+     * ordinary edit would have handed it to every branch manager holding
+     * `people.edit`.
+     */
+    public function branches(SaveUserBranchesRequest $request, User $user): JsonResponse
+    {
+        $this->mustReach($user);
+
+        if ($user->isOwner()) {
+            abort(422, 'An owner works across every branch and is not assigned to one.');
+        }
+
+        $rows = collect($request->validated()['branches']);
+
+        $actor = Auth::guard('web')->user();
+        $reach = $this->branches->allowed($actor);
+
+        DB::connection('organization')->transaction(function () use ($rows, $user, $reach) {
+            $keep = $rows->pluck('location_id')->map(fn ($id) => (int) $id);
+
+            /*
+             * Only memberships the caller can actually act on are replaced.
+             *
+             * The payload is the whole set AS FAR AS THEY CAN SEE IT. A
+             * Lucknow manager sending "Lucknow only" is saying nothing about
+             * Delhi, and deleting the Delhi membership because it was absent
+             * would let them quietly remove somebody from a branch they have
+             * no business touching. Null reach — the owner, head office — is
+             * everywhere, so for them this is the whole set.
+             */
+            $removable = $user->memberships()
+                ->whereNotIn('location_id', $keep->all() ?: [0]);
+
+            if ($reach !== null) {
+                $removable->whereIn('location_id', $reach ?: [0]);
+            }
+
+            $removable->delete();
+
+            foreach ($rows as $row) {
+                $user->memberships()->updateOrCreate(
+                    ['location_id' => (int) $row['location_id']],
+                    [
+                        'role_id' => $row['role_id'] ?? null,
+                        'is_primary' => (bool) ($row['is_primary'] ?? false),
+                    ],
+                );
+            }
+        });
+
+        return $this->ok(
+            UserResource::make($user->fresh()->load(['memberships.location', 'memberships.role'])),
+            'Branches updated successfully.'
+        );
     }
 
     /**

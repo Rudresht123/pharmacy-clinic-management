@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
+import { BranchSwitcher } from '@/core/tenant-auth/BranchSwitcher';
+import { PatientSearch } from '@/core/opd/components/PatientSearch';
 import { tenantNavigation } from './tenant-navigation';
 import { useConfigurableEntities } from '@/core/field-settings/api';
 
@@ -58,6 +60,8 @@ export function TenantShell() {
                     </div>
                 )
             }
+            headerSearch={<PatientSearch />}
+            sidebarExtra={<BranchSwitcher />}
             sidebarHelp={
                 <a
                     className="app-help"

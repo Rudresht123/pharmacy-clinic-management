@@ -8,6 +8,7 @@ use App\Http\Resources\Tenant\AppointmentResource;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Doctor;
 use App\Services\Opd\BookingService;
+use App\Services\Opd\OpdBoard;
 use App\Services\Tenancy\TenantBranchAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,7 +30,12 @@ class AppointmentController extends BaseApiController
     ) {}
 
     /**
-     * One doctor's day at one branch, in arrival order.
+     * One branch's day in arrival order, optionally narrowed to one doctor.
+     *
+     * `doctor_id` is a filter, not a requirement. It used to be required, and
+     * that made the screen unusable for its main job: somebody at the desk is
+     * looking for a patient, and having to guess which of six doctors they
+     * belong to before the list appears is the wrong question.
      *
      * Booked patients are not floated to the top: their slot is shown so the
      * desk can call somebody out of turn deliberately, which is a person's
@@ -38,7 +44,7 @@ class AppointmentController extends BaseApiController
     public function index(Request $request): JsonResponse
     {
         $request->validate([
-            'doctor_id' => ['required', 'integer'],
+            'doctor_id' => ['nullable', 'integer'],
             'location_id' => ['required', 'integer'],
             'date' => ['required', 'date'],
         ]);
@@ -48,7 +54,7 @@ class AppointmentController extends BaseApiController
         $this->assertBranch($locationId);
 
         $queue = $this->booking->queue(
-            (int) $request->input('doctor_id'),
+            $request->filled('doctor_id') ? (int) $request->input('doctor_id') : null,
             $locationId,
             Carbon::parse($request->input('date')),
         );
@@ -56,8 +62,31 @@ class AppointmentController extends BaseApiController
         return $this->ok([
             'queue' => AppointmentResource::collection($queue),
             'waiting' => $queue->where('status', Appointment::STATUS_CHECKED_IN)->count(),
+            'with_doctor' => $queue->where('status', Appointment::STATUS_IN_CONSULTATION)->count(),
             'seen' => $queue->where('status', Appointment::STATUS_COMPLETED)->count(),
             'expected' => $queue->where('status', Appointment::STATUS_BOOKED)->count(),
+
+            /*
+             * The doctors working this branch's day, so the filter is built
+             * from the day itself rather than from every doctor on the books —
+             * one with nobody booked is not a filter anybody wants.
+             *
+             * From the WHOLE day, never from the queue above, which may already
+             * have been narrowed. Deriving it from a filtered list would leave
+             * one doctor in it the moment somebody filtered, and the control
+             * would collapse to the option already chosen with no way back.
+             */
+            'doctors' => $this->booking->doctorsOn(
+                $locationId,
+                Carbon::parse($request->input('date')),
+            ),
+
+            // The same numbers the board uses. Sent rather than hardcoded on
+            // the screen so "too long" means one thing across the product.
+            'thresholds' => [
+                'warn' => OpdBoard::WAIT_WARN,
+                'critical' => OpdBoard::WAIT_CRITICAL,
+            ],
         ]);
     }
 

@@ -12,8 +12,9 @@ import {
     type TenantUser,
     type TenantOrganization,
     type TenantLoginPayload,
+    type TenantBranch,
 } from './api';
-import { setUnauthenticatedHandler } from '@/shared/api/http';
+import { setActiveBranchHeader, setUnauthenticatedHandler } from '@/shared/api/http';
 import { queryClient } from '@/shared/api/queryClient';
 
 interface TenantAuthContextValue {
@@ -35,6 +36,33 @@ interface TenantAuthContextValue {
      * and has to be.
      */
     can(capability: string): boolean;
+    /**
+     * Where this person may work. Empty for the owner and head office, who
+     * work across the network — the switcher hides itself for both.
+     */
+    branches: TenantBranch[];
+
+    /** Which branch the workspace is currently being used from. */
+    activeBranch: number | null;
+
+    /**
+     * The doctor this account belongs to, when it belongs to one.
+     *
+     * Null for almost everybody — a doctor may have no login at all, which is
+     * why doctors are their own table rather than a role on `users`. Where it
+     * is set, the queue opens on their own list instead of the department's.
+     */
+    doctorId: number | null;
+
+    /**
+     * Move to another branch.
+     *
+     * Refetches the session rather than recomputing anything locally: which
+     * capabilities apply where is the server's answer, and a second
+     * implementation of that rule on the client is how the two drift.
+     */
+    setActiveBranch(branchId: number | null): void;
+
     /** True until the initial session check finishes. */
     initialising: boolean;
     isAuthenticated: boolean;
@@ -57,6 +85,12 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
     const [organization, setOrganization] = useState<TenantOrganization | null>(null);
     const [modules, setModules] = useState<string[]>([]);
     const [capabilities, setCapabilities] = useState<string[]>([]);
+    const [branches, setBranches] = useState<TenantBranch[]>([]);
+    const [activeBranch, setActive] = useState<number | null>(null);
+
+    /* Set only for an account that belongs to a doctor; null for everybody
+       else, which is almost everybody. */
+    const [doctorId, setDoctorId] = useState<number | null>(null);
     const [initialising, setInitialising] = useState(true);
 
     useEffect(() => {
@@ -70,6 +104,9 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
                     setOrganization(session.organization);
                     setModules(session.modules ?? []);
                     setCapabilities(session.capabilities ?? []);
+                    setBranches(session.branches ?? []);
+                    setActive(session.active_branch ?? null);
+                    setDoctorId(session.doctor_id ?? null);
                 }
             })
             .catch(() => {
@@ -78,6 +115,9 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
                     setOrganization(null);
                     setModules([]);
                     setCapabilities([]);
+                    setBranches([]);
+                    setActive(null);
+                    setDoctorId(null);
                 }
             })
             .finally(() => {
@@ -98,6 +138,9 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             setOrganization(null);
             setModules([]);
             setCapabilities([]);
+            setBranches([]);
+            setActive(null);
+            setDoctorId(null);
             queryClient.clear();
         });
     }, []);
@@ -109,6 +152,9 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         setOrganization(session.organization);
         setModules(session.modules ?? []);
         setCapabilities(session.capabilities ?? []);
+        setBranches(session.branches ?? []);
+        setActive(session.active_branch ?? null);
+        setDoctorId(session.doctor_id ?? null);
 
         return session.user;
     }, []);
@@ -121,6 +167,9 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             setOrganization(null);
             setModules([]);
             setCapabilities([]);
+            setBranches([]);
+            setActive(null);
+            setDoctorId(null);
             queryClient.clear();
         }
     }, []);
@@ -130,6 +179,25 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         [capabilities],
     );
 
+    /*
+     * The header goes out on every request from here on, and the session is
+     * refetched so modules and capabilities describe the new branch. Every
+     * cached query is dropped with it — a patient list fetched at Lucknow is
+     * not the answer at Delhi.
+     */
+    const setActiveBranch = useCallback((branchId: number | null) => {
+        setActive(branchId);
+        setActiveBranchHeader(branchId);
+        queryClient.clear();
+
+        tenantAuthApi.me().then((session) => {
+            setModules(session.modules ?? []);
+            setCapabilities(session.capabilities ?? []);
+            setActive(session.active_branch ?? null);
+            setDoctorId(session.doctor_id ?? null);
+        });
+    }, []);
+
     const value = useMemo<TenantAuthContextValue>(
         () => ({
             user,
@@ -137,13 +205,30 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             modules,
             capabilities,
             can,
+            branches,
+            activeBranch,
+            doctorId,
+            setActiveBranch,
             initialising,
             isAuthenticated: user !== null,
             login,
             logout,
             setUser,
         }),
-        [user, organization, modules, capabilities, can, initialising, login, logout],
+        [
+            user,
+            organization,
+            modules,
+            capabilities,
+            can,
+            branches,
+            activeBranch,
+            doctorId,
+            setActiveBranch,
+            initialising,
+            login,
+            logout,
+        ],
     );
 
     return <TenantAuthContext.Provider value={value}>{children}</TenantAuthContext.Provider>;

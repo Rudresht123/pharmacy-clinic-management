@@ -28,6 +28,23 @@ class UserResource extends JsonResource
                 null,
             ),
 
+            /*
+             * Where they work, and what they hold at each. The relationship
+             * `location_id` could not express — a doctor at three clinics is
+             * three rows, each with its own role.
+             */
+            'branches' => $this->whenLoaded(
+                'memberships',
+                fn () => $this->memberships->map(fn ($membership) => [
+                    'location_id' => $membership->location_id,
+                    'location' => $membership->location?->name,
+                    'role_id' => $membership->role_id,
+                    'role' => $membership->role?->name,
+                    'is_primary' => $membership->is_primary,
+                ])->values(),
+                [],
+            ),
+
             'location_id' => $this->location_id,
             'location' => $this->whenLoaded(
                 'location',

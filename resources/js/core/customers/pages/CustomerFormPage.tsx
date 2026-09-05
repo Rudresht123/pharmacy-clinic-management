@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Button } from '@/shared/components/ui/Button';
 import { RecordHistory } from '@/core/tenant-history/RecordHistory';
@@ -46,8 +46,30 @@ const GROUPS: FieldGroup[] = [
 export default function CustomerFormPage() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const [params] = useSearchParams();
     const isEdit = Boolean(id);
     const label = useEntityLabel('customer');
+
+    /*
+     * Where to go back to, and what the screen that sent us already knew.
+     *
+     * Registration is reached from the OPD desk mid-booking as often as from
+     * the patient list, and somebody who has already typed a name into the
+     * search box should not have to type it again here. `return` also means
+     * "back" can be the screen they actually came from rather than a list they
+     * were never on.
+     */
+    const returnTo = params.get('return');
+    const prefillName = params.get('name') ?? '';
+    const prefillPhone = params.get('phone') ?? '';
+
+    /*
+     * Which button was pressed, held across the await.
+     *
+     * The two differ only in what happens after the save succeeds, so the
+     * submit handler is one function and this says which ending it takes.
+     */
+    const [andAnother, setAndAnother] = useState(false);
 
     const { data: fields, isLoading: fieldsLoading } = useCustomerFields();
     const { data: customer, isLoading: recordLoading } = customersHooks.useDetail(id);
@@ -65,6 +87,16 @@ export default function CustomerFormPage() {
     } = useApiForm<CustomerFormValues>({
         defaultValues: { is_active: true },
     });
+
+    // Whatever the sending screen already had. Only on a new record: on an
+    // edit the row's own values arrive below and must win.
+    useEffect(() => {
+        if (isEdit || (!prefillName && !prefillPhone)) {
+            return;
+        }
+
+        reset({ is_active: true, name: prefillName, phone: prefillPhone });
+    }, [isEdit, prefillName, prefillPhone, reset]);
 
     useEffect(() => {
         if (!customer) {
@@ -93,9 +125,41 @@ export default function CustomerFormPage() {
             isEdit && id ? update.mutateAsync({ id, payload: values }) : create.mutateAsync(values),
         );
 
-        if (result) {
-            navigate('/customers');
+        if (!result) {
+            return;
         }
+
+        /*
+         * Registering several people in a row is one job, not several.
+         *
+         * A morning's new patients arrive together — a family, a camp, a
+         * backlog from the phone — and sending somebody back to a list after
+         * each one, to press Add again, is three clicks per person for no
+         * reason. The form clears and keeps its focus instead.
+         */
+        if (andAnother) {
+            reset({ is_active: true });
+            setAndAnother(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            return;
+        }
+
+        /*
+         * Back to whoever sent us, carrying who was just created — the desk
+         * was mid-booking when it left, and arriving back at an empty search
+         * box would waste the one thing it now knows.
+         */
+        if (returnTo) {
+            const back = new URL(returnTo, window.location.origin);
+            back.searchParams.set('patient', String((result as { id: number }).id));
+
+            navigate(`${back.pathname}${back.search}`);
+
+            return;
+        }
+
+        navigate('/customers');
     });
 
     if (fieldsLoading || (isEdit && recordLoading)) {
@@ -140,12 +204,39 @@ export default function CustomerFormPage() {
                         This record belongs to the whole organization, not one store.
                     </span>
 
-                    <Button variant="light" onClick={() => navigate('/customers')}>
+                    <Button
+                        variant="light"
+                        onClick={() => navigate(returnTo ?? '/customers')}
+                    >
                         Cancel
                     </Button>
 
-                    <Button type="submit" loading={isSubmitting} icon="ti ti-device-floppy">
-                        {`${isEdit ? 'Update' : 'Add'} ${label.singular}`}
+                    {/*
+                        Two endings on a new record, one on an edit. "Another"
+                        makes no sense when there is only ever this one row to
+                        change.
+                    */}
+                    {!isEdit && (
+                        <Button
+                            variant="light"
+                            type="submit"
+                            loading={isSubmitting && andAnother}
+                            disabled={isSubmitting}
+                            icon="ti ti-user-plus"
+                            onClick={() => setAndAnother(true)}
+                        >
+                            Save &amp; add another
+                        </Button>
+                    )}
+
+                    <Button
+                        type="submit"
+                        loading={isSubmitting && !andAnother}
+                        disabled={isSubmitting}
+                        icon="ti ti-device-floppy"
+                        onClick={() => setAndAnother(false)}
+                    >
+                        {isEdit ? `Update ${label.singular}` : 'Save & back'}
                     </Button>
                 </div>
             </form>

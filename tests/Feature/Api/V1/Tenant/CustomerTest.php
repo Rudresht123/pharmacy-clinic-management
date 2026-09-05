@@ -33,6 +33,96 @@ class CustomerTest extends TenantTestCase
         ], $overrides);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | The patient number
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Everybody registered gets a number, in sequence.
+     *
+     * Until this existed a patient was identified by name and phone, so two
+     * people called Rahul Sharma were indistinguishable in a search result and
+     * in the OPD queue, and there was nothing to read out over a counter.
+     */
+    public function test_a_customer_is_given_a_number_in_sequence(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signInAsOwner($organization);
+
+        $first = $this->postJson('/api/v1/tenant/customers', $this->payload())
+            ->assertCreated()->json('data.code');
+
+        $second = $this->postJson('/api/v1/tenant/customers', $this->payload([
+            'name' => 'Second Patient',
+        ]))->assertCreated()->json('data.code');
+
+        $this->assertSame('P-00001', $first);
+        $this->assertSame('P-00002', $second);
+    }
+
+    /**
+     * The next number is read off the highest one, not off the row count.
+     *
+     * Counting rows repeats a number the moment anybody is deleted, and the
+     * partial unique index would then reject the second registration — a
+     * failure at the counter with no explanation the receptionist could act
+     * on.
+     */
+    public function test_the_number_after_a_deletion_does_not_repeat(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signInAsOwner($organization);
+
+        $first = $this->postJson('/api/v1/tenant/customers', $this->payload())
+            ->assertCreated()->json('data');
+
+        $this->postJson('/api/v1/tenant/customers', $this->payload(['name' => 'Second']))
+            ->assertCreated();
+
+        $this->deleteJson("/api/v1/tenant/customers/{$first['id']}")->assertOk();
+
+        $this->postJson('/api/v1/tenant/customers', $this->payload(['name' => 'Third']))
+            ->assertCreated()
+            ->assertJsonPath('data.code', 'P-00003');
+    }
+
+    /**
+     * Compared as a number, not as a string.
+     *
+     * A plain string ordering puts P-00009 above P-00010, so the tenth
+     * registration of the day would be handed a number that already exists.
+     * Ten in a row is the cheapest way to cross that boundary for real.
+     */
+    public function test_the_sequence_crosses_a_digit_boundary(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signInAsOwner($organization);
+
+        for ($n = 1; $n <= 11; $n++) {
+            $this->postJson('/api/v1/tenant/customers', $this->payload([
+                'name' => "Patient {$n}",
+            ]))->assertCreated();
+        }
+
+        $this->getJson('/api/v1/tenant/customers?search=P-00010')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.name', 'Patient 10');
+    }
+
+    /** An organization migrating from another system keeps its own numbers. */
+    public function test_a_supplied_number_is_kept(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->signInAsOwner($organization);
+
+        $this->postJson('/api/v1/tenant/customers', $this->payload(['code' => 'UHID-4471']))
+            ->assertCreated()
+            ->assertJsonPath('data.code', 'UHID-4471');
+    }
+
     /**
      * The whole reason this table exists: a customer belongs to the
      * organization, so one person's history is not split per branch.

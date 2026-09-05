@@ -7,7 +7,7 @@ import { BranchModulePanel } from '@/core/roles/components/BranchModulePanel';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { RecordHistory } from '@/core/tenant-history/RecordHistory';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
-import { FormError } from '@/shared/components/form/Fields';
+import { FormError, TextField } from '@/shared/components/form/Fields';
 import { useApiForm } from '@/shared/components/form/useApiForm';
 import { ConfigurableForm, type FieldGroup } from '@/core/field-settings/ConfigurableForm';
 import { locationsHooks, useLocationFields } from '../api';
@@ -29,6 +29,19 @@ const GROUPS: FieldGroup[] = [
         title: 'Address & Contact',
         icon: 'ti ti-map-pin',
         description: 'Where it is and how to reach it.',
+    },
+    /*
+     * Not a configurable field — nothing here is stored on the location. It
+     * sits on the branch form because adding a branch and then discovering
+     * nobody can sign in to it is the commonest way a new site sits unused
+     * for a week, and because the role written for them is built from the
+     * modules THIS branch runs, which is only knowable here.
+     */
+    {
+        key: 'admin',
+        title: 'Branch Admin',
+        icon: 'ti ti-user-shield',
+        description: 'Somebody who can run this branch from day one.',
     },
     {
         key: 'compliance',
@@ -67,6 +80,10 @@ export default function LocationFormPage() {
     const isEdit = Boolean(id);
 
     const [tab, setTab] = useState<Tab>('details');
+
+    /* Off by default — a branch created without a login is a normal thing
+       to do, and a form that assumes otherwise makes it the harder path. */
+    const [withAdmin, setWithAdmin] = useState(false);
     const { user } = useTenantAuth();
 
     const { data: fields, isLoading: fieldsLoading } = useLocationFields();
@@ -110,8 +127,18 @@ export default function LocationFormPage() {
     }, [location, reset]);
 
     const onSubmit = handleSubmit(async (values) => {
-        const result = await submit(values, async () =>
-            isEdit && id ? update.mutateAsync({ id, payload: values }) : create.mutateAsync(values),
+        /*
+         * The inputs stay mounted while the section is switched off, so their
+         * values would still be sent. Stripped here rather than unmounted,
+         * because somebody who fills the section in, unticks it and ticks it
+         * again should find what they typed still there.
+         */
+        const payload = withAdmin ? values : { ...values, admin: null };
+
+        const result = await submit(payload, async () =>
+            isEdit && id
+                ? update.mutateAsync({ id, payload })
+                : create.mutateAsync(payload),
         );
 
         if (result) {
@@ -122,6 +149,73 @@ export default function LocationFormPage() {
     if (fieldsLoading || (isEdit && recordLoading)) {
         return <LoadingBlock label="Loading location…" />;
     }
+
+    /*
+     * Only when the branch is being created. On edit, staff are added and
+     * moved from People — doing it in two places would give two answers to
+     * "who works here".
+     */
+    const extras = isEdit
+        ? undefined
+        : {
+              admin: (
+                  <>
+                      <div className="form-check form-switch mb-3">
+                          <input
+                              id="with-admin"
+                              type="checkbox"
+                              className="form-check-input"
+                              checked={withAdmin}
+                              onChange={(event) => setWithAdmin(event.target.checked)}
+                          />
+
+                          <label className="form-check-label" htmlFor="with-admin">
+                              Create a login for this branch
+                          </label>
+
+                          <small className="text-muted d-block mt-1">
+                              They get a <b>Branch Admin</b> role built from the modules this
+                              branch runs — its staff, its patients and its diary. You can
+                              change what it holds afterwards under Roles &amp; Permissions.
+                          </small>
+                      </div>
+
+                      {withAdmin && (
+                          <>
+                              <TextField
+                                  name="admin.name"
+                                  label="Full name"
+                                  required
+                                  register={register}
+                                  errors={errors}
+                              />
+
+                              <TextField
+                                  name="admin.email"
+                                  label="Email"
+                                  type="email"
+                                  required
+                                  register={register}
+                                  errors={errors}
+                                  autoComplete="off"
+                                  hint="What they sign in with. It has to be unused across the organization."
+                              />
+
+                              <TextField
+                                  name="admin.password"
+                                  label="Password"
+                                  type="password"
+                                  required
+                                  register={register}
+                                  errors={errors}
+                                  autoComplete="new-password"
+                                  hint="At least 8 characters. Give it to them yourself — it is never shown again."
+                              />
+                          </>
+                      )}
+                  </>
+              ),
+          };
 
     return (
         <>
@@ -157,6 +251,7 @@ export default function LocationFormPage() {
                     register={register}
                     errors={errors}
                     control={control}
+                    extras={extras}
                 />
 
                 <div className="form-actions">

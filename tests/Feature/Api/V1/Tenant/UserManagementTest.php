@@ -37,10 +37,9 @@ class UserManagementTest extends TenantTestCase
     /**
      * A valid new-person payload.
      *
-     * Takes the organization because a staff account now needs a role to hold
-     * — level three of the permission flow — and roles live in the tenant
-     * database. An owner is given none: they bypass roles, and the request
-     * refuses one rather than storing a limit nothing enforces.
+     * No role here any more. `users.role_id` is the ORGANIZATION-scoped slot —
+     * head office's — and branch staff hold theirs on a membership instead, so
+     * the ordinary case of adding somebody to a branch sends nothing.
      *
      * @return array<string, mixed>
      */
@@ -52,7 +51,6 @@ class UserManagementTest extends TenantTestCase
             'password' => 'Str0ng!Pass',
             'password_confirmation' => 'Str0ng!Pass',
             'role' => TenantUser::STAFF,
-            'role_id' => $this->staffRoleId($organization),
             'is_active' => true,
         ], $overrides);
 
@@ -121,7 +119,6 @@ class UserManagementTest extends TenantTestCase
             'name' => 'Renamed Staff',
             'email' => self::STAFF_EMAIL,
             'role' => TenantUser::STAFF,
-            'role_id' => $this->staffRoleId($organization),
             'is_active' => true,
         ])->assertOk()->assertJsonPath('data.name', 'Renamed Staff');
 
@@ -144,7 +141,6 @@ class UserManagementTest extends TenantTestCase
             'name' => 'Owner',
             'email' => $organization->email,
             'role' => TenantUser::STAFF,
-            'role_id' => $this->staffRoleId($organization),
             'is_active' => true,
         ])->assertStatus(422)->assertJsonValidationErrors('role');
     }
@@ -175,7 +171,6 @@ class UserManagementTest extends TenantTestCase
             'name' => 'Owner',
             'email' => $organization->email,
             'role' => TenantUser::STAFF,
-            'role_id' => $this->staffRoleId($organization),
             'is_active' => true,
         ])->assertOk()->assertJsonPath('data.role', TenantUser::STAFF);
     }

@@ -52,9 +52,14 @@ class DashboardTest extends TenantTestCase
 
         $data = $this->getJson('/api/v1/tenant/dashboard')->assertOk()->json('data');
 
-        // Filled in, because this organization has no patients of its own yet.
+        /*
+         * Branch demo, not the organization's: this person works at Lucknow,
+         * so they get a branch's day rather than the network. Two different
+         * screens, chosen by where they are standing.
+         */
         $this->assertTrue($data['demo']);
-        $this->assertSame(3421, $data['patients']['total']);
+        $this->assertSame('branch', $data['context']);
+        $this->assertSame(124, $data['headline'][0]['total']);
 
         // Still absent: they hold no branches or audit capability, and a demo
         // flag is not a capability.
@@ -150,7 +155,7 @@ class DashboardTest extends TenantTestCase
          * modules the organization holds, which `/auth/me` already tells
          * them. Everything that answers a capability is gone.
          */
-        $this->assertSame(['scope', 'headline', 'plan'], array_keys($data));
+        $this->assertSame(['context', 'scope', 'headline', 'plan'], array_keys($data));
         $this->assertSame([], $data['headline']);
     }
 

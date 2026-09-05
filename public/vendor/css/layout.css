@@ -452,51 +452,50 @@ body {
    Page header + breadcrumb
    ========================================================= */
 
+/*
+ * Flat, and top-aligned.
+ *
+ * The three-stop gradient and the radial glow in the corner were decorative
+ * work on a component whose whole job is to say plainly where somebody is.
+ * And centring the icon against three lines left it floating in the middle of
+ * them rather than starting where they start — it now begins at the title and
+ * ends with the trail, covering the pair that names the page.
+ */
 .page-head {
     position: relative;
     display: flex;
-    /* Two lines only — centring the icon against them reads better than
-       top-aligning it. */
-    align-items: center;
-    gap: 14px;
+    align-items: flex-start;
+    gap: 13px;
 
-    padding: 15px 20px;
-    margin-bottom: 22px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
 
-    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface-3) 100%);
+    background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 16px;
-    box-shadow: 0 1px 2px rgba(17, 22, 51, 0.03);
-    overflow: hidden;
-}
-
-/* Soft accent light in the top-right corner */
-.page-head::after {
-    content: '';
-    position: absolute;
-    top: -55%;
-    right: -4%;
-    width: 280px;
-    height: 280px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(var(--brand), 0.07) 0%, transparent 68%);
-    pointer-events: none;
+    border-radius: 14px;
 }
 
 /* Identity icon */
 
+/*
+ * Sized to the title and the trail together — the pair that names the page.
+ *
+ * The subtitle runs on below it: an icon stretched to cover an explanation as
+ * well would be a block of colour rather than a mark, and the explanation is
+ * the one line here somebody skips.
+ */
 .page-head-icon {
     position: relative;
     z-index: 1;
-    width: 46px;
-    height: 46px;
+    width: 44px;
+    height: 44px;
     flex-shrink: 0;
 
     border-radius: 13px;
     display: grid;
     place-items: center;
 
-    font-size: 22px;
+    font-size: 21px;
     /* Colour comes from the shared tone system further down. */
 }
 
@@ -515,9 +514,9 @@ body {
     flex-wrap: wrap;
     gap: 4px;
 
-    /* Sits under the title */
-    margin-top: 6px;
-    font-size: 12px;
+    /* Sits under the title, inside the icon's own height */
+    margin: 5px 0 0;
+    font-size: 11.5px;
     line-height: 1;
     color: var(--muted);
 }
@@ -551,17 +550,22 @@ body {
     line-height: 1;
 }
 
+/*
+ * The last crumb is where you already are, and the title underneath says so in
+ * larger type immediately after. Repeating it in bold made the same word twice
+ * in two weights, so it stays quiet.
+ */
 .page-crumbs .crumb-current {
     padding: 3px 7px;
-    color: var(--ink);
-    font-weight: 600;
+    color: var(--ink-2);
+    font-weight: 500;
 }
 
 /* Title block */
 
 .page-head h1 {
     margin: 0;
-    font-size: 22px;
+    font-size: 21px;
     font-weight: 700;
     letter-spacing: -0.025em;
     /* A token, not a hex. This was #141936, which is fine on the light
@@ -572,9 +576,9 @@ body {
 }
 
 .page-head .page-lead {
-    margin: 6px 0 0;
-    font-size: 13.5px;
-    line-height: 1.55;
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    line-height: 1.5;
     color: var(--muted);
     max-width: 68ch;
 }
@@ -659,10 +663,6 @@ body {
         flex: 1;
     }
 
-    .page-head::after {
-        width: 190px;
-        height: 190px;
-    }
 }
 
 /* =========================================================
@@ -796,11 +796,6 @@ body {
 }
 
 .state-art::before {
-    background: radial-gradient(circle, rgba(var(--tone), 0.09) 0%, transparent 68%);
-}
-
-/* The page header's corner glow picks up the same tone */
-.page-head::after {
     background: radial-gradient(circle, rgba(var(--tone), 0.09) 0%, transparent 68%);
 }
 
@@ -2014,10 +2009,6 @@ body {
     border: 0;
     border-radius: 0;
     box-shadow: none;
-}
-
-:root[data-pagehead='plain'] .page-head::after {
-    display: none;
 }
 
 /* Three-across surface choices in the settings drawer */

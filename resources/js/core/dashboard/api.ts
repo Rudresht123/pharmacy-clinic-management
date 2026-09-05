@@ -8,16 +8,72 @@ export interface DashboardScope {
     /** Null means every branch — the owner, and head office. */
     branches: number[] | null;
     label: string;
+    branch_id: number | null;
+    branch_name: string | null;
+    city: string | null;
+}
+
+/** A branch's own day. */
+export interface VisitsPanel {
+    points: { label: string; title: string; value: number }[];
+}
+
+export interface TypeSlice {
+    label: string;
+    total: number;
+    muted: boolean;
+}
+
+export interface StockRow {
+    name: string;
+    stock: number;
+    status: 'low' | 'out';
+}
+
+export interface RevenuePanel {
+    rows: { label: string; amount: number; today?: boolean }[];
+    total: number;
+}
+
+export interface TaskRow {
+    label: string;
+    badge: string | null;
+    tone: string | null;
+}
+
+export interface RecentPatient {
+    id: number;
+    name: string;
+    age?: number;
+    type?: string;
+    phone?: string | null;
+    city?: string | null;
+    joined_at: string | null;
+}
+
+export interface BranchInfoPanel {
+    id: number;
+    name: string;
+    city: string | null;
+    state: string | null;
+    phone: string | null;
+    email: string | null;
+    address: string | null;
+    pincode: string | null;
 }
 
 /** One of the figures across the top. */
 export interface HeadlineCard {
-    key: 'branches' | 'staff' | 'patients' | 'appointments';
+    key: 'branches' | 'staff' | 'patients' | 'appointments' | 'consultations' | 'revenue';
     label: string;
     total: number;
     this_month: number;
     /** Null when last month was zero — a rise from nothing has no percentage. */
     change: number | null;
+    /** Formatted as currency rather than a count. */
+    money?: boolean;
+    /** What the "+N" is measured against — "this month", "from yesterday". */
+    hint?: string;
 }
 
 export interface PatientsPanel {
@@ -75,8 +131,12 @@ export interface AppointmentsPanel {
         id: number;
         time: string | null;
         patient: string;
-        branch: string | null;
+        /** The branch, on the organization dashboard. */
+        branch?: string | null;
+        /** The doctor, on a branch's own. */
+        doctor?: string | null;
         type: string;
+        status?: string;
     }[];
 }
 
@@ -115,6 +175,9 @@ export interface Department {
 export interface PlanPanel {
     modules: number;
     names: string[];
+    /** Only in demo mode — the software has no subscription tiers. */
+    name?: string;
+    blurb?: string;
 }
 
 export interface ActivityEntry {
@@ -138,6 +201,16 @@ export interface ActivityEntry {
  * is what lets a new module add one without a client release.
  */
 export interface DashboardSummary {
+    /**
+     * Which dashboard this is.
+     *
+     * Somebody working AT a branch gets that branch's day; somebody
+     * organization-wide gets the network. Two different questions, so two
+     * different sets of panels rather than one set that means less the further
+     * out you stand.
+     */
+    context: 'organization' | 'branch';
+
     scope: DashboardScope;
     headline?: HeadlineCard[];
     patients?: PatientsPanel;
@@ -146,6 +219,15 @@ export interface DashboardSummary {
     insights?: Insight[];
     departments?: Department[];
     plan?: PlanPanel;
+
+    /* --- a branch's own day ------------------------------------------- */
+    visits?: VisitsPanel;
+    by_type?: TypeSlice[];
+    recent_patients?: RecentPatient[];
+    branch_info?: BranchInfoPanel | null;
+    stock?: StockRow[];
+    revenue?: RevenuePanel;
+    tasks?: TaskRow[];
     activity?: ActivityEntry[];
     /** True while the screen is filled with sample figures — see config/hms.php. */
     demo?: boolean;

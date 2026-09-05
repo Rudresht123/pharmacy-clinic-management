@@ -9,13 +9,68 @@ use App\Repositories\Tenant\Contracts\CustomerRepositoryInterface;
 use App\Support\AgeBands;
 use App\Support\Fields\CustomerFields;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use RuntimeException;
 
 class CustomerRepository extends BaseRepository implements CustomerRepositoryInterface
 {
     public function __construct(Customer $model)
     {
         parent::__construct($model);
+    }
+
+    /**
+     * Register somebody, giving them a number if they arrived without one.
+     *
+     * Allocation is `max + 1`, and two receptionists registering at the same
+     * moment will both read the same maximum. The partial unique index on
+     * `customers.code` is what stops them both winning; this retries around
+     * the collision rather than handing one of them an error they cannot act
+     * on. The same arrangement as OPD tokens, for the same reason.
+     */
+    public function create(array $attributes): Customer
+    {
+        if (filled($attributes['code'] ?? null)) {
+            return parent::create($attributes);
+        }
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            try {
+                return parent::create([...$attributes, 'code' => $this->nextCode()]);
+            } catch (QueryException $exception) {
+                if (! str_contains($exception->getMessage(), 'customers_code_unique')) {
+                    throw $exception;
+                }
+            }
+        }
+
+        throw new RuntimeException('Could not allocate a patient number. Please try again.');
+    }
+
+    /**
+     * The next number in sequence.
+     *
+     * Read off the highest code rather than off the row count, which would
+     * repeat a number the moment anybody was deleted. The prefix is stripped
+     * and the remainder compared as an integer so P-00009 sorts below P-00010,
+     * which a plain string ordering would get backwards.
+     */
+    private function nextCode(): string
+    {
+        $highest = $this->model->newQuery()
+            ->withTrashed()
+            ->whereNotNull('code')
+            ->where('code', 'like', Customer::PREFIX.'%')
+            ->selectRaw('MAX(NULLIF(regexp_replace(code, \'\D\', \'\', \'g\'), \'\')::bigint) AS n')
+            ->value('n');
+
+        return Customer::PREFIX.str_pad(
+            (string) (((int) $highest) + 1),
+            Customer::CODE_LENGTH,
+            '0',
+            STR_PAD_LEFT,
+        );
     }
 
     /**

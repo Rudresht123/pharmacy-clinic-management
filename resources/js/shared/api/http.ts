@@ -49,11 +49,30 @@ function hasXsrfCookie(): boolean {
     return document.cookie.split('; ').some((c) => c.startsWith('XSRF-TOKEN='));
 }
 
+/**
+ * The branch the workspace is currently being used from.
+ *
+ * A header on every request rather than a parameter threaded through each
+ * call site — it applies to all of them, and threading it is how one gets
+ * forgotten. The server never trusts it: ResolveActingBranch checks it
+ * against the caller's own memberships and refuses a branch they do not work
+ * at, so this is a statement of intent, not a grant.
+ */
+let activeBranch: number | null = null;
+
+export function setActiveBranchHeader(branchId: number | null): void {
+    activeBranch = branchId;
+}
+
 http.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
     const method = (config.method ?? 'get').toLowerCase();
 
     if (MUTATING.includes(method) && !hasXsrfCookie()) {
         await ensureCsrfCookie();
+    }
+
+    if (activeBranch !== null) {
+        config.headers.set('X-Branch-Id', String(activeBranch));
     }
 
     return config;

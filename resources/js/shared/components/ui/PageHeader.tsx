@@ -48,6 +48,12 @@ export function PageHeader({
             )}
 
             <div className="page-head-body">
+                {/*
+                    Title first, then the trail, then the line explaining the
+                    page. The heading is what the screen is called, so it leads;
+                    the trail is context for it and sits underneath, close
+                    enough that the icon beside them covers both.
+                */}
                 <h1>{title}</h1>
 
                 {showTrail && (

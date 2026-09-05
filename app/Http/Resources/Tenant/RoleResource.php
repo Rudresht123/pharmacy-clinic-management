@@ -17,6 +17,16 @@ class RoleResource extends JsonResource
             'name' => $this->name,
             'slug' => $this->slug,
             'description' => $this->description,
+            'scope' => $this->scope,
+
+            /*
+             * Null means the organization wrote it, and every branch may use
+             * it. Set means it belongs to that branch and is offered nowhere
+             * else — the client shows which, because "why can I not edit this"
+             * has to be answerable on the screen.
+             */
+            'location_id' => $this->location_id,
+            'location' => $this->whenLoaded('location', fn () => $this->location?->name, null),
             'icon' => $this->icon ?: Role::DEFAULT_ICON,
 
             'capabilities' => $this->whenLoaded(

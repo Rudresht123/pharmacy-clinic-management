@@ -142,7 +142,7 @@ export default function RolesPage() {
      * that would drift the first time a screen moved, and a preview that lies
      * is worse than none.
      */
-    const { modules: orgModules } = useTenantAuth();
+    const { modules: orgModules, user } = useTenantAuth();
     const { data: entities } = useConfigurableEntities();
 
     const labels = useMemo(
@@ -350,6 +350,17 @@ export default function RolesPage() {
     const saving = create.isPending || update.isPending;
     const editing = selected !== null;
 
+    /*
+     * Whether this person may change THIS role, rather than roles in general.
+     *
+     * The owner may change any. Anybody else may change only their own
+     * branch's: an organization role is shared by every branch, so editing one
+     * here would quietly change what a receptionist may do everywhere — which
+     * is the whole reason a branch writes its own instead.
+     */
+    const isOwner = user?.role === 'owner';
+    const canWrite = !current || isOwner || current.location_id !== null;
+
     function railItem(role: Role) {
         return (
             <button
@@ -371,6 +382,19 @@ export default function RolesPage() {
                         {role.users_count === 1 ? 'member' : 'members'}
                     </small>
                 </span>
+
+                {/*
+                    Who wrote it — shown to everybody except the owner, for
+                    whom it is noise because every role here is theirs. For a
+                    branch it is the difference between a role they may change
+                    and one they may only copy, and reading that off the list
+                    is faster than clicking each to find out.
+                */}
+                {!isOwner && (
+                    <span className={`rp-owner${role.location_id === null ? ' is-shared' : ''}`}>
+                        {role.location_id === null ? 'Organization' : (role.location ?? 'Branch')}
+                    </span>
+                )}
 
                 {/* Marks the row being edited while it has changes pending, so
                     switching away is a visible decision rather than a
@@ -496,16 +520,36 @@ export default function RolesPage() {
                                             </div>
 
                                             <div className="rp-head-actions">
-                                                <button
-                                                    type="button"
-                                                    className="rp-act"
-                                                    onClick={() => setEditingMeta((on) => !on)}
-                                                >
-                                                    <i className="ti ti-pencil" />
-                                                    Edit
-                                                </button>
+                                                {/*
+                                                    An organization role is shared by
+                                                    every branch. Rather than only
+                                                    refusing the edit, offer the way
+                                                    out: a copy this branch owns and
+                                                    may change freely.
+                                                */}
+                                                {!canWrite && current && (
+                                                    <button
+                                                        type="button"
+                                                        className="rp-act"
+                                                        onClick={() => startNew(current)}
+                                                    >
+                                                        <i className="ti ti-copy" />
+                                                        Copy to this branch
+                                                    </button>
+                                                )}
 
-                                                {current && (
+                                                {canWrite && (
+                                                    <button
+                                                        type="button"
+                                                        className="rp-act"
+                                                        onClick={() => setEditingMeta((on) => !on)}
+                                                    >
+                                                        <i className="ti ti-pencil" />
+                                                        Edit
+                                                    </button>
+                                                )}
+
+                                                {canWrite && current && (
                                                     <button
                                                         type="button"
                                                         className="rp-act is-danger"
@@ -610,9 +654,28 @@ export default function RolesPage() {
                                                 </div>
                                             </div>
                                         ) : (
-                                            draft.description && (
-                                                <p className="rp-desc">{draft.description}</p>
-                                            )
+                                            <>
+                                                {draft.description && (
+                                                    <p className="rp-desc">{draft.description}</p>
+                                                )}
+
+                                                {/*
+                                                    Says why the controls are
+                                                    missing, and what to do
+                                                    instead. Refusing without
+                                                    offering the way out is
+                                                    where somebody gets stuck.
+                                                */}
+                                                {!canWrite && (
+                                                    <p className="rp-shared">
+                                                        <i className="ti ti-lock" />
+                                                        This role belongs to the whole
+                                                        organization, so changing it here would
+                                                        change it at every branch. Copy it to this
+                                                        branch to make your own version.
+                                                    </p>
+                                                )}
+                                            </>
                                         )}
 
                                         <nav className="rp-tabs" role="tablist">
@@ -700,7 +763,7 @@ export default function RolesPage() {
                                                     </button>
                                                 </div>
 
-                                                {draft.capabilities.length === 0 && !search && (
+                                                {draft.capabilities.length === 0 && !search && canWrite && (
                                                     <Templates
                                                         modules={modules ?? []}
                                                         onApply={(capabilities, icon) =>
@@ -760,6 +823,7 @@ export default function RolesPage() {
                                                                             type="checkbox"
                                                                             className="form-check-input"
                                                                             checked={all}
+                                                                            disabled={!canWrite}
                                                                             onChange={() =>
                                                                                 toggleModule(
                                                                                     module,
@@ -844,6 +908,9 @@ export default function RolesPage() {
                                                                                             checked={
                                                                                                 on
                                                                                             }
+                                                                                            disabled={
+                                                                                                !canWrite
+                                                                                            }
                                                                                             onChange={() =>
                                                                                                 toggle(
                                                                                                     capability.key,
@@ -884,7 +951,10 @@ export default function RolesPage() {
                                         says what is pending without them
                                         having to remember.
                                     */}
-                                    <footer className={`rp-foot${dirty ? ' is-dirty' : ''}`}>
+                                    <footer
+                                        className={`rp-foot${dirty ? ' is-dirty' : ''}`}
+                                        hidden={!canWrite}
+                                    >
                                         <span className="rp-foot-state">
                                             {dirty ? (
                                                 <>

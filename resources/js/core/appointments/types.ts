@@ -9,7 +9,11 @@ export interface Appointment {
 
     customer_id: number;
     customer_name?: string | null;
+    customer_code?: string | null;
     customer_phone?: string | null;
+    /** Age is derived on the screen — it is a fact about today, not the row. */
+    customer_dob?: string | null;
+    customer_gender?: string | null;
 
     doctor_id: number;
     doctor_name?: string | null;
@@ -47,9 +51,21 @@ export interface Appointment {
 
 export interface QueuePayload {
     queue: Appointment[];
+
     waiting: number;
+    with_doctor: number;
     seen: number;
     expected: number;
+
+    /**
+     * The doctors who appear in THIS list, so the filter is built from the
+     * day rather than from every doctor on the books. One with nobody booked
+     * is not a filter anybody wants.
+     */
+    doctors: { id: number; name: string | null }[];
+
+    /** How long is too long — the server's numbers, not the screen's. */
+    thresholds: { warn: number; critical: number };
 }
 
 /** One sitting with what is still free, and what has gone. */

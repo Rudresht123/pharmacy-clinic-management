@@ -43,6 +43,14 @@ class SaveRoleRequest extends FormRequest
                 Rule::unique(Role::class, 'name')->ignore($role?->getKey()),
             ],
 
+            /*
+             * Where the role can be assigned, and therefore where it means
+             * anything. Set once, at creation: changing a live role's scope
+             * would silently move every holder's permissions somewhere else,
+             * so the update path ignores it (see RoleController::update).
+             */
+            'scope' => ['nullable', 'string', Rule::in(Role::SCOPES)],
+
             'description' => ['nullable', 'string', 'max:255'],
 
             // A closed list: this value ends up in a `class` attribute, so it
@@ -83,7 +91,33 @@ class SaveRoleRequest extends FormRequest
                     }
                 }
 
+                $scope = $this->input('scope', Role::SCOPE_BRANCH);
+
                 foreach ((array) $this->input('capabilities', []) as $index => $capability) {
+                    /*
+                     * The rule is ASYMMETRIC, and only one direction is wrong.
+                     *
+                     * An organization role may hold anything: it applies across
+                     * the network, so a branch-scoped capability on it simply
+                     * applies everywhere — which is exactly what head-office HR
+                     * needs from `people.view`.
+                     *
+                     * A branch role may NOT hold an organization-scoped one.
+                     * `settings.manage` changes what every branch calls a
+                     * patient; there is no version of it that applies at one
+                     * branch, so offering it there is a choice the software
+                     * cannot honour.
+                     */
+                    if ($scope === Role::SCOPE_BRANCH
+                        && ModuleRegistry::capabilityScope($capability) === ModuleRegistry::SCOPE_ORGANIZATION) {
+                        $validator->errors()->add(
+                            "capabilities.{$index}",
+                            "\"{$capability}\" applies across the whole organization and cannot be put on a branch role."
+                        );
+
+                        continue;
+                    }
+
                     if (in_array($capability, $pool, true)) {
                         continue;
                     }
@@ -114,6 +148,7 @@ class SaveRoleRequest extends FormRequest
     {
         return [
             'name.unique' => 'Another role is already called this.',
+            'scope.in' => 'A role applies either across the organization or at one branch.',
             'capabilities.present' => 'Send the permissions this role holds, even if it holds none.',
         ];
     }

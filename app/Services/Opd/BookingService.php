@@ -224,23 +224,85 @@ class BookingService
     }
 
     /**
-     * The queue for one doctor's day at one branch.
+     * The queue for one branch's day, optionally narrowed to one doctor.
+     *
+     * Branch-wide by default. A department with six doctors cannot be
+     * understood one doctor at a time: the desk is looking for a patient, not
+     * for a doctor's list, and a manager wants the room. Passing a doctor
+     * narrows it, which is a filter rather than a prerequisite.
      *
      * Ordered by token, which is arrival order. Booked patients are not
      * given priority automatically: their slot is shown so the desk can call
      * somebody out of turn on purpose, which is a decision a person makes,
      * not a rule software should apply behind their back.
      */
-    public function queue(int $doctorId, int $locationId, Carbon $date)
+    public function queue(?int $doctorId, int $locationId, Carbon $date)
     {
         return Appointment::on('organization')
             ->with(['customer', 'doctor', 'location'])
-            ->where('doctor_id', $doctorId)
+            ->when($doctorId !== null, fn ($query) => $query->where('doctor_id', $doctorId))
             ->where('location_id', $locationId)
             ->whereDate('appointment_date', $date->toDateString())
+
+            /*
+             * Still here first, finished after.
+             *
+             * Arrival order alone put a whole morning of completed
+             * consultations above the handful of people actually waiting — by
+             * noon the screen opened on twenty-six rows nobody could act on,
+             * and the six that mattered were below the fold.
+             *
+             * This is NOT the auto-promotion the queue deliberately avoids.
+             * That is about not floating a booked patient above a walk-in who
+             * got here first, and it still holds: inside the live group, order
+             * is arrival order and nothing reorders it. What moves is the
+             * finished work, which is not in the queue in any sense a person
+             * at the desk would recognise.
+             */
+            ->orderByRaw(
+                "CASE status
+                    WHEN ? THEN 0
+                    WHEN ? THEN 1
+                    WHEN ? THEN 2
+                    ELSE 3
+                 END",
+                [
+                    Appointment::STATUS_CHECKED_IN,
+                    Appointment::STATUS_IN_CONSULTATION,
+                    Appointment::STATUS_BOOKED,
+                ]
+            )
             ->orderByRaw('token_no NULLS LAST')
             ->orderBy('slot_at')
             ->get();
+    }
+
+    /**
+     * The doctors who have somebody on their list at this branch today.
+     *
+     * Deliberately computed from the branch's WHOLE day, never from a queue
+     * that has already been narrowed. Deriving it from the filtered list would
+     * leave exactly one doctor in it the moment somebody filtered — so the
+     * filter would collapse to the option already chosen and there would be no
+     * way back to the whole branch.
+     *
+     * @return list<array{id: int, name: string|null}>
+     */
+    public function doctorsOn(int $locationId, Carbon $date): array
+    {
+        return Appointment::on('organization')
+            ->with('doctor:id,name')
+            ->where('location_id', $locationId)
+            ->whereDate('appointment_date', $date->toDateString())
+            ->get(['id', 'doctor_id'])
+            ->map(fn (Appointment $row) => [
+                'id' => (int) $row->doctor_id,
+                'name' => $row->doctor?->name,
+            ])
+            ->unique('id')
+            ->sortBy('name')
+            ->values()
+            ->all();
     }
 
     /** The session whose window contains this time, if any. */

@@ -11,9 +11,13 @@ use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\Location;
 use App\Repositories\Tenant\Contracts\LocationRepositoryInterface;
 use App\Services\Fields\FieldSchema;
+use App\Services\Permissions\Permission;
+use App\Services\Tenancy\TenantConnectionService;
+use App\Services\Tenant\BranchAdminProvisioner;
 use App\Support\Fields\LocationFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * An organization's own locations. Reads are open to any signed-in tenant
@@ -25,6 +29,7 @@ class LocationController extends BaseApiController
 
     public function __construct(
         private readonly LocationRepositoryInterface $locations,
+        private readonly Permission $permission,
     ) {}
 
     /**
@@ -70,13 +75,48 @@ class LocationController extends BaseApiController
         return $this->ok(LocationResource::make($location));
     }
 
-    public function store(StoreLocationRequest $request): JsonResponse
-    {
-        $location = $this->locations->create($request->validated());
+    /**
+     * Create the branch, and — if the form asked for one — somebody who can
+     * run it.
+     *
+     * Both in one transaction. A branch that exists with an admin half made
+     * is worse than one with no admin at all: the email is taken, so the
+     * second attempt fails on a user nobody can see.
+     */
+    public function store(
+        StoreLocationRequest $request,
+        BranchAdminProvisioner $provisioner,
+    ): JsonResponse {
+        $data = $request->validated();
+        $admin = $data['admin'] ?? null;
+        unset($data['admin']);
+
+        $location = DB::connection(TenantConnectionService::CONNECTION)
+            ->transaction(function () use ($data, $admin, $request, $provisioner) {
+                $location = $this->locations->create($data);
+
+                if ($admin) {
+                    $organization = $request->attributes->get('tenant.organization');
+
+                    /*
+                     * The role is built from what this branch actually runs,
+                     * not from the whole catalogue — an admin at a
+                     * counter-only branch gets no clinical permissions
+                     * without anybody choosing capability by capability.
+                     */
+                    $provisioner->provision($location, $admin, $organization
+                        ? $this->permission->modulesAt($organization, $location->id)
+                        : []);
+                }
+
+                return $location;
+            });
 
         return $this->created(
             LocationResource::make($location),
-            'Location created successfully.'
+            $admin
+                ? 'Location created, and '.$admin['name'].' can now sign in to it.'
+                : 'Location created successfully.'
         );
     }
 

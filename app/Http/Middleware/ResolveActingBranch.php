@@ -82,7 +82,16 @@ class ResolveActingBranch
             return $next($request);
         }
 
-        // Their own: primary, or only, or null for somebody organization-wide.
+        /*
+         * Their own: primary, or only, or null for somebody organization-wide.
+         *
+         * actAt(null) rather than leaving it alone, because Permission is
+         * scoped per request and a scoped instance is NOT rebuilt between
+         * requests inside one test. Without clearing here, a request that
+         * named a branch left it set for the next one, and a test that granted
+         * a module then asked `me` got the answer from before the grant.
+         */
+        $this->permission->actAt(null);
         $request->attributes->set('tenant.branch', $this->permission->branchFor($user));
 
         return $next($request);

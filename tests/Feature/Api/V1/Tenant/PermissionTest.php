@@ -556,24 +556,69 @@ class PermissionTest extends TenantTestCase
         ])->assertStatus(422)->assertJsonValidationErrors('modules.0');
     }
 
-    public function test_only_the_owner_can_reach_levels_two_and_three(): void
+    /**
+     * Level two stays the owner's; level three no longer does.
+     *
+     * Which modules run at a branch is not delegatable at all — a branch that
+     * could switch its own on could re-open a door the owner closed.
+     *
+     * Roles are different. In a large organization the owner is not going to
+     * write every one, so a branch writes its own — bounded not by central
+     * authorship but by the cascade: it may only draw on the modules that
+     * branch was given. What it still cannot do is touch the organization's
+     * own roles.
+     */
+    public function test_level_two_stays_the_owners_and_level_three_does_not(): void
     {
         [$organization, $here] = $this->network();
 
-        // Everything the seeded role could conceivably hold — and it is still
-        // refused, because neither is delegatable at all.
         $this->setStaffCapabilities($organization, [
             'branches.view', 'branches.create', 'branches.edit', 'branches.delete',
             'people.view', 'people.create', 'people.edit', 'people.delete',
-            'settings.manage', 'settings.audit',
+            'people.roles',
         ]);
 
         $this->signInAsStaff($organization);
 
-        $this->getJson('/api/v1/tenant/roles')->assertStatus(403);
-        $this->postJson('/api/v1/tenant/roles', ['name' => 'X', 'capabilities' => []])
-            ->assertStatus(403);
+        // Level two: refused, whatever else they hold.
         $this->getJson("/api/v1/tenant/locations/{$here}/modules")->assertStatus(403);
+
+        // Level three: they may read the roles they are assigning...
+        $this->getJson('/api/v1/tenant/roles')->assertOk();
+
+        // ...and write one for their own branch.
+        $mine = $this->postJson('/api/v1/tenant/roles', [
+            'name' => 'Front desk',
+            'capabilities' => ['customers.view'],
+        ])->assertCreated()->json('data');
+
+        $this->assertSame($here, $mine['location_id']);
+
+        // But not touch one the organization wrote.
+        $orgRoleId = $this->staffRoleId($organization);
+
+        $this->putJson("/api/v1/tenant/roles/{$orgRoleId}", [
+            'name' => 'Renamed',
+            'capabilities' => [],
+        ])->assertStatus(403);
+
+        $this->deleteJson("/api/v1/tenant/roles/{$orgRoleId}")->assertStatus(403);
+    }
+
+    /** Without `people.roles` a branch admin reads roles and writes none. */
+    public function test_writing_a_branch_role_needs_its_own_capability(): void
+    {
+        [$organization] = $this->network();
+
+        $this->setStaffCapabilities($organization, ['people.view', 'people.edit']);
+        $this->signInAsStaff($organization);
+
+        $this->getJson('/api/v1/tenant/roles')->assertOk();
+
+        $this->postJson('/api/v1/tenant/roles', [
+            'name' => 'Front desk',
+            'capabilities' => [],
+        ])->assertStatus(403);
     }
 
     /*
@@ -714,7 +759,6 @@ class PermissionTest extends TenantTestCase
             'password' => 'Str0ng!Pass',
             'password_confirmation' => 'Str0ng!Pass',
             'role' => User::STAFF,
-            'role_id' => $this->staffRoleId($organization),
             'is_active' => true,
         ])->assertCreated();
 
@@ -730,7 +774,15 @@ class PermissionTest extends TenantTestCase
         ])->assertStatus(422)->assertJsonValidationErrors('role');
     }
 
-    public function test_an_owner_is_refused_a_role_and_staff_are_required_one(): void
+    /**
+     * `users.role_id` is the head-office slot, and only that.
+     *
+     * Staff need nothing there — branch staff hold their role on a membership.
+     * A BRANCH role is refused here too: assigned to the person rather than to
+     * a membership it would apply across the network, which is a limit that
+     * reads as branch-specific and is not.
+     */
+    public function test_the_organization_role_slot_takes_only_organization_roles(): void
     {
         [$organization] = $this->network();
 
@@ -743,15 +795,29 @@ class PermissionTest extends TenantTestCase
             'is_active' => true,
         ];
 
+        // Staff with no organization role: fine. Theirs comes from a branch.
         $this->postJson('/api/v1/tenant/users', $base + [
             'email' => 'a-'.uniqid().'@example.com',
             'role' => User::STAFF,
-        ])->assertStatus(422)->assertJsonValidationErrors('role_id');
+        ])->assertCreated();
 
+        // The seeded `staff` role is branch-scoped, so it cannot go here.
         $this->postJson('/api/v1/tenant/users', $base + [
             'email' => 'b-'.uniqid().'@example.com',
-            'role' => User::OWNER,
+            'role' => User::STAFF,
             'role_id' => $this->staffRoleId($organization),
+        ])->assertStatus(422)->assertJsonValidationErrors('role_id');
+
+        // An owner is refused one whatever its scope.
+        $orgRoleId = $this->onTenant($organization, fn () => Role::on('organization')->create([
+            'name' => 'Head office', 'slug' => 'head-office-slot',
+            'scope' => Role::SCOPE_ORGANIZATION,
+        ])->id);
+
+        $this->postJson('/api/v1/tenant/users', $base + [
+            'email' => 'c-'.uniqid().'@example.com',
+            'role' => User::OWNER,
+            'role_id' => $orgRoleId,
         ])->assertStatus(422)->assertJsonValidationErrors('role_id');
     }
 

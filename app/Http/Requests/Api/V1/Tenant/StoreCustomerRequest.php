@@ -33,6 +33,17 @@ class StoreCustomerRequest extends FormRequest
         $rules = [
             'name' => ['required', 'string', 'max:191'],
 
+            /*
+             * Optional, and normally left out: the repository allocates the
+             * next number in sequence. Accepted so an organization migrating
+             * from another system can carry its own across, which it has to be
+             * able to do or every patient's old file becomes unfindable.
+             */
+            'code' => [
+                'nullable', 'string', 'max:20',
+                Rule::unique(Customer::class, 'code')->whereNull('deleted_at'),
+            ],
+
             // Where they signed up. Provenance only — it never limits
             // who may see or serve this customer.
             'registered_location_id' => [

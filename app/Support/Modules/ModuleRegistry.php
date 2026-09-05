@@ -129,6 +129,25 @@ class ModuleRegistry
                      * being null.
                      */
                     ['key' => 'people.across_branches', 'name' => 'Manage staff at every branch', 'scope' => self::SCOPE_ORGANIZATION],
+
+                    /*
+                     * Held apart from the four above, and organization-scoped
+                     * on purpose: moving somebody between branches is what
+                     * makes cross-branch reach transitive. A branch manager
+                     * who could do it would only have to move themselves.
+                     */
+                    ['key' => 'people.assign_branch', 'name' => 'Assign staff to branches', 'scope' => self::SCOPE_ORGANIZATION],
+
+                    /*
+                     * Lets a branch write its OWN roles, from the modules that
+                     * branch was given. Branch-scoped, so a manager holding it
+                     * at Lucknow writes Lucknow's roles and nobody else's.
+                     *
+                     * The owner never needs it — they bypass roles entirely —
+                     * and it cannot widen anything: the pool a branch may draw
+                     * from is what the organization switched on there.
+                     */
+                    ['key' => 'people.roles', 'name' => 'Write roles for this branch', 'scope' => self::SCOPE_BRANCH],
                 ],
             ],
             [

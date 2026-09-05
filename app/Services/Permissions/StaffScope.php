@@ -52,16 +52,26 @@ class StaffScope
             return $query;
         }
 
+        $branches = $actor->memberships->pluck('location_id')->all();
+
         /*
-         * Their own branch, plus themselves — somebody must always be able to
-         * find their own record, and a staff member with no branch would
-         * otherwise disappear from their own list.
+         * Anybody who works at a branch they work at, plus themselves —
+         * somebody must always be able to find their own record, and head
+         * office, who holds no memberships, would otherwise vanish from their
+         * own list.
+         *
+         * Through memberships rather than the old `users.location_id`: a
+         * doctor at three clinics is a colleague at all three, which a single
+         * column could not say.
          */
-        return $query->where(function (Builder $scoped) use ($actor) {
+        return $query->where(function (Builder $scoped) use ($actor, $branches) {
             $scoped->where('id', $actor->getKey());
 
-            if ($actor->location_id !== null) {
-                $scoped->orWhere('location_id', $actor->location_id);
+            if ($branches !== []) {
+                $scoped->orWhereHas(
+                    'memberships',
+                    fn (Builder $membership) => $membership->whereIn('location_id', $branches)
+                );
             }
         });
     }
@@ -101,10 +111,21 @@ class StaffScope
             return true;
         }
 
-        // Same branch, and a branch they actually have. Two nulls are not a
-        // match: it would make every head-office account mutually editable.
-        return $actor->location_id !== null
-            && $actor->location_id === $target->location_id;
+        /*
+         * They share a branch. Two people with no memberships at all are NOT a
+         * match — that would make every head-office account mutually editable,
+         * which is the null-equals-null trap the old column version had.
+         */
+        $mine = $actor->memberships->pluck('location_id');
+
+        if ($mine->isEmpty()) {
+            return false;
+        }
+
+        return $target->memberships
+            ->pluck('location_id')
+            ->intersect($mine)
+            ->isNotEmpty();
     }
 
     /**
@@ -135,9 +156,14 @@ class StaffScope
     /**
      * Does this person administer staff beyond their own branch?
      *
-     * Reads the role directly rather than going through Permission, because
-     * the question is about the person rather than about a branch — and
-     * because Permission would need a branch to answer at all.
+     * Every way they can hold it, not just the organization slot. It used to
+     * read `users.role_id` alone, so somebody granted it on a branch role held
+     * it in name and not in effect — the capability was there and the boundary
+     * never lifted.
+     *
+     * Read off the roles directly rather than through Permission, because the
+     * question is about the person rather than about a branch, and Permission
+     * would need a branch to answer at all.
      */
     private function reachesEveryBranch(User $actor): bool
     {
@@ -151,6 +177,16 @@ class StaffScope
             return false;
         }
 
-        return $actor->permissionRole?->grants(self::ACROSS_BRANCHES) ?? false;
+        if ($actor->permissionRole?->grants(self::ACROSS_BRANCHES)) {
+            return true;
+        }
+
+        return $actor->memberships->contains(
+            fn ($membership) => in_array(
+                self::ACROSS_BRANCHES,
+                $membership->capabilityKeys(),
+                true,
+            )
+        );
     }
 }

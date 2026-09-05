@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\Tenant\FieldSettingController;
 use App\Http\Controllers\Api\V1\Tenant\HistoryController;
 use App\Http\Controllers\Api\V1\Tenant\LocationController;
 use App\Http\Controllers\Api\V1\Tenant\LocationModuleController;
+use App\Http\Controllers\Api\V1\Tenant\OpdController;
 use App\Http\Controllers\Api\V1\Tenant\RoleController;
 use App\Http\Controllers\Api\V1\Tenant\UserController as TenantUserController;
 use Illuminate\Support\Facades\Route;
@@ -282,6 +283,21 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | in and calls patients through. The branch check narrows it to
             | where they work, which is a different question from seniority.
             */
+            /*
+            | The department as a whole, rather than one doctor's list.
+            |
+            | `opd/branches` is deliberately not /tenant/locations: that route
+            | needs `branches.view`, which somebody who runs the desk has no
+            | reason to hold, and it returns branches this person would be
+            | refused at the moment they picked one.
+            */
+            Route::middleware('permission:appointments.view')->group(function () {
+                Route::get('opd/branches', [OpdController::class, 'branches'])
+                    ->name('opd.branches');
+                Route::get('opd/today', [OpdController::class, 'today'])
+                    ->name('opd.today');
+            });
+
             Route::get('appointments', [AppointmentController::class, 'index'])
                 ->middleware('permission:appointments.view')
                 ->name('appointments.index');
@@ -400,6 +416,24 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             ->middleware('permission:people.delete')
             ->name('users.destroy');
 
+        /*
+        | Where somebody works, and what they hold at each place.
+        |
+        | `people.edit`, not an organization-scoped capability. A branch
+        | manager who may add somebody has to be able to give them a role, or
+        | the person they just created can do nothing at all — which is what
+        | happened while this was gated on `people.assign_branch`.
+        |
+        | What stops it becoming cross-branch reach is not the capability but
+        | TenantBranchAccess: every branch in the payload must be one the
+        | caller works at, and memberships anywhere else are left untouched.
+        | Moving somebody between two branches therefore needs access to both,
+        | which only the owner and head office have.
+        */
+        Route::put('users/{user}/branches', [TenantUserController::class, 'branches'])
+            ->middleware('permission:people.edit')
+            ->name('users.branches');
+
         Route::post('locations', [LocationController::class, 'store'])
             ->middleware('permission:branches.create')
             ->name('locations.store');
@@ -421,18 +455,42 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         | owner closed — so neither is delegatable, and there is nothing for
         | the other levels to be talked out of.
         */
+        /*
+        | Roles.
+        |
+        | No longer owner-only. In a large organization the owner is not going
+        | to sit writing every role, and the branch manager is the person who
+        | knows what their receptionist actually does — so a branch writes its
+        | own, from the modules that branch was given.
+        |
+        | Which roles somebody may write is decided per role in the controller,
+        | because "the organization's" and "this branch's" are different
+        | answers that no single middleware can give. Reading is open to
+        | anybody who administers staff: they have to pick a role from
+        | somewhere.
+        */
+        // Before the apiResource, or {role} would swallow the literal.
+        Route::get('roles/grantable', [RoleController::class, 'grantable'])
+            ->middleware('permission:people.view')
+            ->name('roles.grantable');
+
+        Route::get('roles/{role}/members', [RoleController::class, 'members'])
+            ->middleware('permission:people.view')
+            ->name('roles.members');
+
+        Route::apiResource('roles', RoleController::class)
+            ->parameters(['roles' => 'role'])
+            ->names('roles')
+            ->only(['index', 'show'])
+            ->middleware('permission:people.view');
+
+        Route::apiResource('roles', RoleController::class)
+            ->parameters(['roles' => 'role'])
+            ->names('roles')
+            ->only(['store', 'update', 'destroy'])
+            ->middleware('permission:people.view');
+
         Route::middleware('tenant.owner')->group(function () {
-            // Before the apiResource, or {role} would swallow the literal.
-            Route::get('roles/grantable', [RoleController::class, 'grantable'])
-                ->name('roles.grantable');
-
-            Route::get('roles/{role}/members', [RoleController::class, 'members'])
-                ->name('roles.members');
-
-            Route::apiResource('roles', RoleController::class)
-                ->parameters(['roles' => 'role'])
-                ->names('roles');
-
             Route::get('locations/{location}/modules', [LocationModuleController::class, 'show'])
                 ->name('locations.modules.show');
             Route::put('locations/{location}/modules', [LocationModuleController::class, 'update'])

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api\V1\Tenant;
 
 use App\Models\Platform\Organization;
+use App\Models\Tenant\BranchMembership;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
@@ -59,9 +60,21 @@ class StaffScopeTest extends TenantTestCase
                     ->where('slug', Role::SEEDED_STAFF)
                     ->value('id');
 
-                // The delegate: the seeded staff member, put at Lucknow.
+                /*
+                 * Memberships, not the old `users.location_id`. Where somebody
+                 * works comes from branch_users now, and setting the column
+                 * decides nothing — which is why every branch check in this
+                 * file was answering "no".
+                 */
                 $delegate = User::on('organization')->where('email', self::STAFF_EMAIL)->first();
-                $delegate->forceFill(['location_id' => $here->id])->save();
+                $delegate->forceFill(['role_id' => null])->save();
+
+                BranchMembership::on('organization')->create([
+                    'user_id' => $delegate->id,
+                    'location_id' => $here->id,
+                    'role_id' => $roleId,
+                    'is_primary' => true,
+                ]);
 
                 // Somebody at the other branch for them not to reach.
                 $other = User::on('organization')->create([
@@ -70,8 +83,12 @@ class StaffScopeTest extends TenantTestCase
                     'password' => bcrypt(self::OTHER_PASSWORD),
                     'is_active' => true,
                     'role' => User::STAFF,
-                    'role_id' => $roleId,
+                ]);
+
+                BranchMembership::on('organization')->create([
+                    'user_id' => $other->id,
                     'location_id' => $there->id,
+                    'role_id' => $roleId,
                 ]);
 
                 return [$here->id, $there->id, $delegate->id, $other->id];
@@ -168,7 +185,6 @@ class StaffScopeTest extends TenantTestCase
             'name' => 'Renamed',
             'email' => 'neha@example.com',
             'role' => User::STAFF,
-            'role_id' => $this->staffRoleId($organization),
             'is_active' => true,
         ])->assertStatus(404);
     }
@@ -184,9 +200,13 @@ class StaffScopeTest extends TenantTestCase
             'password' => bcrypt(self::OTHER_PASSWORD),
             'is_active' => true,
             'role' => User::STAFF,
-            'role_id' => Role::on('organization')->where('slug', Role::SEEDED_STAFF)->value('id'),
-            'location_id' => $here,
         ])->id);
+
+        $this->onTenant($organization, fn () => BranchMembership::on('organization')->create([
+            'user_id' => $sameBranchId,
+            'location_id' => $here,
+            'role_id' => Role::on('organization')->where('slug', Role::SEEDED_STAFF)->value('id'),
+        ]));
 
         $this->setStaffCapabilities($organization, ['people.view', 'people.edit']);
         $this->signInAsStaff($organization);
@@ -197,7 +217,6 @@ class StaffScopeTest extends TenantTestCase
             'name' => 'Amit Renamed',
             'email' => 'amit@example.com',
             'role' => User::STAFF,
-            'role_id' => $this->staffRoleId($organization),
             'is_active' => true,
             'location_id' => $here,
         ])->assertOk()->assertJsonPath('data.name', 'Amit Renamed');
@@ -264,8 +283,13 @@ class StaffScopeTest extends TenantTestCase
 
         $this->signInAsOwner($organization);
 
+        /*
+         * Organization-scoped, because `users.role_id` is the head-office slot
+         * — a branch role goes on a membership and is refused here.
+         */
         $powerful = $this->postJson('/api/v1/tenant/roles', [
             'name' => 'Everything',
+            'scope' => 'organization',
             'capabilities' => [
                 'people.view', 'people.create', 'people.edit', 'people.delete',
                 'customers.view', 'customers.delete', 'settings.manage',
@@ -274,6 +298,7 @@ class StaffScopeTest extends TenantTestCase
 
         $modest = $this->postJson('/api/v1/tenant/roles', [
             'name' => 'Modest',
+            'scope' => 'organization',
             'capabilities' => ['people.view', 'people.edit'],
         ])->assertCreated()->json('data');
 
@@ -309,6 +334,7 @@ class StaffScopeTest extends TenantTestCase
 
         $powerful = $this->postJson('/api/v1/tenant/roles', [
             'name' => 'Everything',
+            'scope' => 'organization',
             'capabilities' => ['people.view', 'people.edit', 'settings.manage'],
         ])->assertCreated()->json('data');
 
@@ -325,7 +351,166 @@ class StaffScopeTest extends TenantTestCase
         ])->assertStatus(422)->assertJsonValidationErrors('role_id');
     }
 
-    /** The owner is exempt — they already hold the whole pool. */
+    /*
+    |--------------------------------------------------------------------------
+    | Where somebody works
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Memberships are replaced as a whole, and one person can hold two.
+     *
+     * The relationship `users.location_id` could not express: a receptionist
+     * at Lucknow and a manager at Delhi, with neither role reaching the other
+     * branch.
+     */
+    public function test_branches_are_replaced_as_a_whole(): void
+    {
+        [$organization, $here, $there, $delegateId] = $this->network();
+
+        $this->signInAsOwner($organization);
+
+        $roleId = $this->staffRoleId($organization);
+
+        $data = $this->putJson("/api/v1/tenant/users/{$delegateId}/branches", [
+            'branches' => [
+                ['location_id' => $here, 'role_id' => $roleId, 'is_primary' => true],
+                ['location_id' => $there, 'role_id' => $roleId, 'is_primary' => false],
+            ],
+        ])->assertOk()->json('data');
+
+        $this->assertCount(2, $data['branches']);
+
+        // Sent again with one row, the other membership goes — a whole-set
+        // write, not an addition.
+        $data = $this->putJson("/api/v1/tenant/users/{$delegateId}/branches", [
+            'branches' => [['location_id' => $there, 'role_id' => $roleId, 'is_primary' => true]],
+        ])->assertOk()->json('data');
+
+        $this->assertCount(1, $data['branches']);
+        $this->assertSame($there, $data['branches'][0]['location_id']);
+
+        // An empty set is a real instruction: they become head office.
+        $data = $this->putJson("/api/v1/tenant/users/{$delegateId}/branches", [
+            'branches' => [],
+        ])->assertOk()->json('data');
+
+        $this->assertSame([], $data['branches']);
+    }
+
+    /** The set has rules of its own, which is why it is written as a set. */
+    public function test_the_set_is_checked_as_a_set(): void
+    {
+        [$organization, $here, , $delegateId] = $this->network();
+
+        $this->signInAsOwner($organization);
+        $roleId = $this->staffRoleId($organization);
+
+        $this->putJson("/api/v1/tenant/users/{$delegateId}/branches", [
+            'branches' => [
+                ['location_id' => $here, 'role_id' => $roleId],
+                ['location_id' => $here, 'role_id' => $roleId],
+            ],
+        ])->assertStatus(422)->assertJsonValidationErrors('branches.1.location_id');
+
+        [$organization2, $a, $b, $id2] = $this->network();
+        $this->signInAsOwner($organization2);
+
+        $this->putJson("/api/v1/tenant/users/{$id2}/branches", [
+            'branches' => [
+                ['location_id' => $a, 'is_primary' => true],
+                ['location_id' => $b, 'is_primary' => true],
+            ],
+        ])->assertStatus(422)->assertJsonValidationErrors('branches.1.is_primary');
+    }
+
+    /**
+     * A branch manager sets roles at their own branch, and nowhere else.
+     *
+     * Was written when this needed an organization-scoped capability, which
+     * left a branch manager able to CREATE somebody and unable to give them
+     * anything to do — `people.create` did nothing useful. What stops it
+     * becoming cross-branch reach is not the capability but the branch check:
+     * every branch in the payload has to be one they work at.
+     */
+    public function test_a_branch_manager_sets_roles_only_at_their_own_branch(): void
+    {
+        [$organization, $here, $there, $delegateId, $otherId] = $this->network();
+
+        $this->setStaffCapabilities($organization, [
+            'people.view', 'people.create', 'people.edit', 'people.delete',
+        ]);
+        $this->signInAsStaff($organization);
+
+        // Their own branch: allowed.
+        $this->putJson("/api/v1/tenant/users/{$delegateId}/branches", [
+            'branches' => [['location_id' => $here]],
+        ])->assertOk();
+
+        // Another branch: refused, naming the branch rather than the person.
+        $this->putJson("/api/v1/tenant/users/{$delegateId}/branches", [
+            'branches' => [['location_id' => $there]],
+        ])->assertStatus(422)->assertJsonValidationErrors('branches.0.location_id');
+
+        $this->assertNotNull($otherId);
+    }
+
+    /**
+     * A branch the caller cannot see is left alone, not deleted.
+     *
+     * The payload is the whole set AS FAR AS THE CALLER CAN SEE IT. A Lucknow
+     * manager sending "Lucknow only" says nothing about Delhi, and treating
+     * that absence as a removal would let them quietly take somebody off a
+     * branch they have no business touching.
+     */
+    public function test_a_membership_out_of_reach_survives_a_replacement(): void
+    {
+        [$organization, $here, $there] = $this->network();
+
+        $roleId = $this->staffRoleId($organization);
+
+        // Somebody who works at BOTH branches — the person in the middle.
+        $bothId = $this->onTenant($organization, function () use ($here, $there, $roleId) {
+            $user = User::on('organization')->create([
+                'name' => 'Works At Both',
+                'email' => 'both@example.com',
+                'password' => bcrypt(self::OTHER_PASSWORD),
+                'is_active' => true,
+                'role' => User::STAFF,
+            ]);
+
+            foreach ([$here, $there] as $branch) {
+                BranchMembership::on('organization')->create([
+                    'user_id' => $user->id,
+                    'location_id' => $branch,
+                    'role_id' => $roleId,
+                ]);
+            }
+
+            return $user->id;
+        });
+
+        // The delegate works at Lucknow only, and rewrites what they can see.
+        $this->setStaffCapabilities($organization, ['people.view', 'people.edit']);
+        $this->signInAsStaff($organization);
+
+        $this->putJson("/api/v1/tenant/users/{$bothId}/branches", [
+            'branches' => [['location_id' => $here, 'role_id' => $roleId, 'is_primary' => true]],
+        ])->assertOk();
+
+        // Delhi survived: it was never theirs to remove.
+        $branches = $this->onTenant($organization, fn () => BranchMembership::on('organization')
+            ->where('user_id', $bothId)
+            ->pluck('location_id')
+            ->map(fn ($id) => (int) $id)
+            ->sort()
+            ->values()
+            ->all());
+
+        $this->assertSame([$here, $there], $branches);
+    }
+
+    /** The owner-is-exempt rule from above. */
     public function test_the_owner_may_grant_any_role(): void
     {
         [$organization, $here] = $this->network();
@@ -334,6 +519,7 @@ class StaffScopeTest extends TenantTestCase
 
         $powerful = $this->postJson('/api/v1/tenant/roles', [
             'name' => 'Everything',
+            'scope' => 'organization',
             'capabilities' => ['people.view', 'people.delete', 'settings.manage'],
         ])->assertCreated()->json('data');
 

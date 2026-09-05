@@ -2592,26 +2592,80 @@ html::-webkit-scrollbar-track {
     --chart-mark:rgb(var(--brand));
     --chart-track:var(--surface-3);
 
-    --cat-1:#2a78d6;
-    --cat-2:#eb6834;
-    --cat-3:#1baf7a;
-    --cat-4:#eda100;
-    --cat-5:#e87ba4;
-    --cat-6:#4a3aa7;
+    /*
+     * Blue, green, violet, amber, pink, cyan — the order the reference
+     * design assigns them, so a chart here looks like the one it was drawn
+     * from. Ran through scripts/validate_palette.js rather than eyeballed:
+     * all six sit inside the lightness band, clear the chroma floor, keep
+     * adjacent pairs apart under deuteranopia and protanopia, and reach 3:1
+     * against the light surface.
+     *
+     * The orange that used to be second was the visible mismatch — a
+     * two-slice donut came out blue and orange where the reference is blue
+     * and green.
+     *
+     * The blue is the reference's own (#3b82f6) rather than the deeper
+     * #2563eb it started as; the whole six clear every check with it.
+     *
+     * The green stops at #16a34a and cannot go brighter. The reference's is
+     * nearer #22c55e, but measured against this surface that is 2.22:1 — under
+     * the 3:1 floor a filled mark has to reach. #16a34a is the brightest green
+     * on this hue that still clears it, at 3.02:1, so the small remaining
+     * difference from the reference is the contrast floor and not a choice.
+     */
+    --cat-1:#3b82f6;
+    --cat-2:#16a34a;
+    --cat-3:#8b5cf6;
+    --cat-4:#d97706;
+    --cat-5:#db2777;
+    --cat-6:#0891b2;
+
+    /*
+     * The flow chart's own two, lighter than the categorical steps above.
+     *
+     * A stacked column is a large filled area, and at full strength two of
+     * them side by side read as heavy — the chart shouted where it only had to
+     * speak. These are one step up in lightness, which drops them under the
+     * 3:1 floor a lone mark needs, so each carries a 1px edge in its own
+     * full-strength hue: the fill is quiet, the boundary is crisp, and the
+     * value is read off the axis behind it either way.
+     *
+     * Colour-blind separation is unaffected and still checked — #60a5fa
+     * against #4ade80 is deutan ΔE 24.3, well clear of the 8 target.
+     */
+    --flow-new:#60a5fa;
+    --flow-new-edge:#3b82f6;
+    --flow-return:#4ade80;
+    --flow-return-edge:#16a34a;
 }
 
 [data-theme='dark']{
     --chart-mark:rgb(var(--brand-2));
     --chart-track:var(--surface-3);
 
-    /* The same six hues, re-stepped for the dark surface
-       rather than flipped — all six clear 3:1 there. */
-    --cat-1:#3987e5;
-    --cat-2:#d95926;
-    --cat-3:#199e70;
-    --cat-4:#c98500;
-    --cat-5:#d55181;
-    --cat-6:#9085e9;
+    /*
+     * The same six hues, re-stepped for the dark surface rather than
+     * flipped. Validated separately against #161a2b — the light steps fall
+     * outside the lightness band there, and a palette that passes on one
+     * ground says nothing about the other.
+     */
+    --cat-1:#3b82f6;
+    --cat-2:#1fae5c;
+    --cat-3:#9575f5;
+    --cat-4:#cf8008;
+    --cat-5:#e85a9c;
+    --cat-6:#0e9bb8;
+
+    /*
+     * Lightening a fill works against a light ground and against a dark one it
+     * does the opposite — a pale bar on near-black is the loudest thing on the
+     * screen. So the dark steps go the other way: a touch deeper than the
+     * categorical ones, with the same full-strength edge.
+     */
+    --flow-new:#2f6fd0;
+    --flow-new-edge:#60a5fa;
+    --flow-return:#17864a;
+    --flow-return-edge:#3ccf75;
 }
 
 /* ranked horizontal bars */
@@ -2757,7 +2811,6 @@ html::-webkit-scrollbar-track {
 .trend-tip b{
     font-variant-numeric:tabular-nums;
 }
-
 
 
 /* ---------------------------------------------------------
@@ -3191,6 +3244,7 @@ html::-webkit-scrollbar-track {
     align-items:center;
     gap:16px;
 }
+
 
 .donut-plot{
     position:relative;
@@ -5024,6 +5078,1434 @@ html::-webkit-scrollbar-track {
 }
 
 /* ---------------------------------------------------------
+   OPD — the department, not one doctor's list
+   (core/opd/*)
+
+   Every state carries an icon AND a word. The queue is read
+   on a tablet at arm's length, sometimes printed, and by
+   people who do not all see the same reds and greens —
+   colour is the third signal here, never the first.
+   --------------------------------------------------------- */
+
+/* ==========================================================
+   Finding a patient from anywhere
+   (core/opd/components/PatientSearch.tsx)
+   ========================================================== */
+
+.gs{ position:relative; flex:1 1 auto; max-width:520px; margin-left:8px; }
+
+.gs-field{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    height:40px;
+    padding:0 10px 0 13px;
+    border:1px solid var(--line);
+    border-radius:11px;
+    background:var(--surface-2);
+    transition:border-color .14s ease, background .14s ease;
+}
+
+.gs-field:focus-within{ border-color:rgb(var(--brand)); background:var(--surface); }
+.gs-field > i{ font-size:17px; color:var(--muted); flex:0 0 auto; }
+
+.gs-field input{
+    flex:1 1 auto;
+    min-width:0;
+    border:0;
+    background:transparent;
+    font-size:13.5px;
+    color:var(--ink);
+    outline:none;
+}
+
+.gs-field input::-webkit-search-cancel-button{ display:none; }
+
+/* The shortcut, shown rather than remembered. Hidden where there is no
+   keyboard to press it with. */
+.gs-key{
+    flex:0 0 auto;
+    padding:3px 7px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    background:var(--surface);
+    font-family:inherit;
+    font-size:10.5px;
+    font-weight:600;
+    color:var(--muted);
+    white-space:nowrap;
+}
+
+@media (max-width:767.98px){
+    .gs{ max-width:none; }
+    .gs-key{ display:none; }
+}
+
+.gs-drop{
+    position:absolute;
+    top:calc(100% + 6px);
+    left:0;
+    right:0;
+    z-index:1050;
+    padding:6px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface);
+    box-shadow:0 16px 40px rgba(15,23,42,.16);
+}
+
+.gs-note{ margin:0; padding:14px 12px; font-size:12.5px; color:var(--muted); text-align:center; }
+
+.gs-hit{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    padding:9px 11px;
+    border:0;
+    border-radius:9px;
+    background:transparent;
+    text-align:left;
+    cursor:pointer;
+}
+
+.gs-hit.is-on{ background:var(--surface-2); }
+.gs-hit > i{ margin-left:auto; font-size:15px; color:rgb(var(--brand)); opacity:0; }
+.gs-hit.is-on > i{ opacity:1; }
+
+.gs-hit-who{ min-width:0; }
+.gs-hit-who b{ display:block; font-size:13px; font-weight:600; color:var(--ink); }
+
+.gs-hit-who small{
+    display:flex;
+    gap:9px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.gs-hit-who code{ color:var(--ink-2); font-weight:600; }
+
+/* ==========================================================
+   The OPD dashboard
+   (core/opd/pages/OpdTodayPage.tsx)
+   ========================================================== */
+
+.opd{ display:grid; gap:14px; }
+
+/* --- greeting, date, live pill, the two calls to action ---- */
+
+.opd-hero{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+
+    /*
+     * A wide gap, not a small one. The greeting and the controls are two
+     * different kinds of thing, and sitting them a few pixels apart made the
+     * heading read as the first item in a toolbar.
+     */
+    gap:14px 32px;
+    padding:2px 0 4px;
+}
+
+.opd-hero-said{ display:flex; align-items:center; gap:14px; min-width:0; }
+
+.opd-hero-sun{
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    width:46px;
+    height:46px;
+    border-radius:14px;
+    font-size:24px;
+    color:#d97706;
+    background:linear-gradient(145deg, rgba(251,191,36,.22), rgba(249,115,22,.14));
+}
+
+.opd-hero-said h1{
+    margin:0;
+    font-size:24px;
+    font-weight:700;
+    letter-spacing:-.02em;
+    line-height:1.2;
+    color:var(--ink);
+}
+
+.opd-hero-said p{ margin:2px 0 0; font-size:13px; color:var(--muted); }
+
+.opd-hero-tools{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+
+    /* Wider between the two clusters — when the day is, and what to do about
+       it — than within either of them. */
+    gap:10px 22px;
+    margin-left:auto;
+}
+
+/* Says the screen is alive. Left silent, a stale number looks exactly like a
+   quiet department. */
+/*
+ * The screen says whether it is still telling the truth.
+ *
+ * A shared board is read from across a room and nobody watching it can tell a
+ * quiet department from a page that stopped refreshing an hour ago. So it
+ * states both — that it is live, and when it last was — and it is a button, so
+ * the answer to "is this current?" is one click rather than a page reload.
+ *
+ * Green while it holds, amber while it is fetching. The dot breathes, because
+ * a static dot claiming "live" is the exact thing being guarded against.
+ */
+.opd-live{
+    display:inline-flex;
+    align-items:center;
+    gap:9px;
+    height:44px;
+    padding:0 14px 0 12px;
+    border:1px solid rgba(34,197,94,.28);
+    border-radius:12px;
+    background:rgba(34,197,94,.07);
+    text-align:left;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+}
+
+.opd-live:hover{ border-color:rgba(34,197,94,.5); background:rgba(34,197,94,.12); }
+
+.opd-live b{
+    display:block;
+    font-size:12.5px;
+    font-weight:700;
+    letter-spacing:.01em;
+    color:#15803d;
+}
+
+.opd-live small{
+    display:block;
+    font-size:10.5px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+}
+
+.opd-live-dot{
+    position:relative;
+    flex:0 0 auto;
+    width:9px;
+    height:9px;
+    border-radius:50%;
+    background:#16a34a;
+}
+
+/* The ring, expanding out from under the dot once a cycle. */
+.opd-live-dot::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    background:inherit;
+    animation:opd-pulse 2.4s ease-out infinite;
+}
+
+@keyframes opd-pulse{
+    0%{ transform:scale(1); opacity:.55; }
+    70%{ transform:scale(2.6); opacity:0; }
+    100%{ transform:scale(2.6); opacity:0; }
+}
+
+.opd-live.is-busy{
+    border-color:rgba(217,119,6,.32);
+    background:rgba(217,119,6,.08);
+}
+
+.opd-live.is-busy b{ color:#b45309; }
+.opd-live.is-busy .opd-live-dot{ background:#d97706; }
+
+/* A dot that keeps pulsing for somebody who asked the interface to stop
+   moving is the animation that most deserves to be switched off. */
+@media (prefers-reduced-motion:reduce){
+    .opd-live-dot::after{ animation:none; opacity:.35; transform:scale(2); }
+}
+
+/*
+ * One button, and the menu it opens.
+ *
+ * The header is three things now — when the day is, whether the screen is
+ * live, and what you can do — rather than a row of four controls with the
+ * greeting reading as the first item in it.
+ */
+.opd-menu{ position:relative; }
+
+.opd-menu-list{
+    position:absolute;
+    right:0;
+    top:calc(100% + 8px);
+    z-index:1040;
+    min-width:280px;
+    padding:6px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:var(--surface);
+    box-shadow:0 18px 44px rgba(15,23,42,.16);
+}
+
+.opd-menu-item{
+    display:flex;
+    align-items:flex-start;
+    gap:11px;
+    width:100%;
+    padding:10px 11px;
+    border:0;
+    border-radius:10px;
+    background:transparent;
+    text-align:left;
+    cursor:pointer;
+}
+
+.opd-menu-item:hover{ background:var(--surface-2); }
+
+.opd-menu-icon{
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    font-size:17px;
+    background:rgba(var(--brand), .1);
+    color:rgb(var(--brand));
+}
+
+.opd-menu-text{ min-width:0; }
+.opd-menu-text b{ display:block; font-size:13px; font-weight:600; color:var(--ink); }
+
+/* The line that says what the action is for — which a button the width of its
+   own label never had room for. */
+.opd-menu-text small{ display:block; font-size:11.5px; line-height:1.4; color:var(--muted); }
+
+.opd-cta{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    height:44px;
+    padding:0 20px;
+    border:0;
+    border-radius:12px;
+    background:rgb(var(--brand));
+    font-size:13.5px;
+    font-weight:600;
+    color:#fff;
+    white-space:nowrap;
+    cursor:pointer;
+    box-shadow:0 6px 16px rgba(var(--brand), .28);
+}
+
+.opd-cta:hover:not(:disabled){ filter:brightness(1.06); }
+.opd-cta:disabled{ opacity:.55; cursor:default; box-shadow:none; }
+
+/* --- the five figures -------------------------------------- */
+
+/*
+ * Five cards, on the page's own ground.
+ *
+ * They have been through three versions. Tinted panels put five background
+ * washes across the top of the screen before a number had been read; one
+ * divided card fixed that but read as a single block rather than five figures.
+ * This keeps them separate — which is what they are, five independent counts —
+ * and moves the colour off the panel and onto the icon, where it labels
+ * without shouting.
+ */
+.opd-stats{
+    display:grid;
+    grid-template-columns:repeat(5, minmax(0,1fr));
+    gap:12px;
+}
+
+@media (max-width:1399.98px){ .opd-stats{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
+@media (max-width:767.98px){ .opd-stats{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+@media (max-width:439.98px){ .opd-stats{ grid-template-columns:minmax(0,1fr); } }
+
+/*
+ * Icon and number on one line, then the label, then the fact that makes the
+ * number worth acting on. The icon carries the colour; the panel does not.
+ */
+.opd-stat{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr) auto;
+    align-items:center;
+    column-gap:11px;
+    row-gap:2px;
+    padding:15px 17px;
+    border:1px solid var(--line);
+    border-radius:16px;
+    background:var(--surface);
+}
+
+.opd-stat-icon{
+    grid-column:1;
+    grid-row:1;
+    display:grid;
+    place-items:center;
+    width:38px;
+    height:38px;
+    border-radius:11px;
+    font-size:19px;
+}
+
+.opd-stat b{
+    grid-column:2;
+    grid-row:1;
+    font-size:26px;
+    font-weight:700;
+    line-height:1.05;
+    letter-spacing:-.025em;
+    font-variant-numeric:tabular-nums;
+    color:var(--ink);
+}
+
+.opd-stat-name{
+    grid-column:1 / -1;
+    grid-row:2;
+    margin-top:9px;
+    font-size:12.5px;
+    font-weight:600;
+    line-height:1.3;
+    color:var(--ink-2);
+}
+
+/* Reserved even when empty, so the five stay one height. */
+.opd-stat small{
+    grid-column:1 / -1;
+    grid-row:3;
+    min-height:15px;
+    font-size:11px;
+    line-height:1.35;
+    color:var(--muted);
+}
+
+/*
+ * The comparison sits on the number's own line rather than pinned to a
+ * corner — there is no corner to pin to once the panels share a surface, and
+ * beside the figure is where it is actually read.
+ */
+.opd-stat-chip{
+    grid-column:3;
+    grid-row:1;
+    display:inline-flex;
+    align-items:center;
+    gap:3px;
+    padding:3px 7px;
+    border-radius:999px;
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.01em;
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+    background:rgba(34,197,94,.13);
+    color:#15803d;
+}
+
+.opd-stat-chip i{ font-size:12px; }
+.opd-stat-chip.is-down{ background:rgba(220,53,69,.11); color:#c92a3a; }
+.opd-stat-chip.is-time{ background:rgba(217,119,6,.14); color:#b45309; }
+
+/* Only the icon is tinted. Five washed panels in a row was five things to
+   look past before reaching the first number. */
+.opd-stat.is-sky .opd-stat-icon{ background:rgba(59,130,246,.13); color:#2563eb; }
+.opd-stat.is-violet .opd-stat-icon{ background:rgba(139,92,246,.13); color:#7c3aed; }
+.opd-stat.is-teal .opd-stat-icon{ background:rgba(20,184,166,.14); color:#0d9488; }
+.opd-stat.is-amber .opd-stat-icon{ background:rgba(245,158,11,.16); color:#b45309; }
+.opd-stat.is-rose .opd-stat-icon{ background:rgba(244,63,94,.12); color:#c92a3a; }
+
+/* --- the two columns --------------------------------------- */
+
+/*
+ * Two rows of two.
+ *
+ * The queue and the two cards beside it are row one; the charts and the
+ * activity feed are row two. A grid row is as tall as its tallest cell, so
+ * "these line up" is a property of the layout rather than three pixel values
+ * somebody has to keep in agreement — which is what the previous version was,
+ * and it drifted the first time a padding changed.
+ */
+.opd-main{
+    display:grid;
+    grid-template-columns:minmax(0, 1.85fr) minmax(0, 1fr);
+    gap:12px;
+    align-items:stretch;
+}
+
+@media (max-width:1199.98px){ .opd-main{ grid-template-columns:minmax(0,1fr); } }
+
+/* Every card in the grid is a window onto its data, never a container that
+   grows with it — one busy morning would otherwise push the whole second row
+   below the fold. */
+.opd-main > .card,
+.opd-stack > .card,
+.opd-charts > .card{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    overflow:hidden;
+}
+
+.opd-main > .card > .card-body,
+.opd-stack > .card > .card-body,
+.opd-charts > .card > .card-body{
+    display:flex;
+    flex-direction:column;
+    flex:1 1 auto;
+    min-height:0;
+}
+
+/* The two stacked cards split their row between them. */
+.opd-stack{ display:flex; flex-direction:column; gap:12px; min-height:0; }
+.opd-stack > .card{ flex:1 1 0; }
+
+/* Lists scroll; their card does not stretch to hold them. */
+.opd-stack .opd-list,
+.opd-main > .card .opd-list{
+    flex:1 1 auto;
+    min-height:0;
+    overflow-y:auto;
+    scrollbar-gutter:stable;
+}
+
+/*
+ * What caps row one.
+ *
+ * The queue is the only thing here whose length is unbounded, so it is the one
+ * that names a height — and it does it on the scrolling area rather than the
+ * card, leaving the tabs above and the footer below to take what they need.
+ */
+.opd-queue-card .opd-table-scroll{ flex:1 1 auto; min-height:0; max-height:420px; }
+
+.opd-charts{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; }
+
+@media (max-width:767.98px){ .opd-charts{ grid-template-columns:minmax(0,1fr); } }
+
+.opd-card-title{ display:inline-flex; align-items:center; gap:8px; }
+.opd-card-title i{ font-size:17px; color:rgb(var(--brand)); }
+
+.opd-viewall{
+    font-size:12px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    text-decoration:none;
+    white-space:nowrap;
+}
+
+.opd-viewall:hover{ text-decoration:underline; }
+
+/* --- the queue card ---------------------------------------- */
+
+.opd-queue-tools{ display:flex; align-items:center; gap:8px; }
+
+.opd-find{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    height:34px;
+    padding:0 11px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface-2);
+}
+
+.opd-find i{ font-size:15px; color:var(--muted); }
+
+.opd-find input{
+    width:150px;
+    border:0;
+    background:transparent;
+    font-size:12.5px;
+    color:var(--ink);
+    outline:none;
+}
+
+.opd-icon-btn{
+    display:grid;
+    place-items:center;
+    width:34px;
+    height:34px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:16px;
+    color:var(--ink-2);
+    cursor:pointer;
+}
+
+.opd-icon-btn:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+.opd-tabs{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+    margin-bottom:12px;
+}
+
+.opd-tab{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 12px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    background:var(--surface);
+    font-size:12.5px;
+    font-weight:500;
+    color:var(--ink-2);
+    white-space:nowrap;
+    cursor:pointer;
+    transition:border-color .14s ease, background .14s ease, color .14s ease;
+}
+
+.opd-tab em{
+    font-style:normal;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+    color:var(--muted);
+}
+
+.opd-tab:hover{ border-color:var(--ink-3); }
+
+.opd-tab.is-on{
+    border-color:transparent;
+    background:rgb(var(--brand));
+    color:#fff;
+    font-weight:600;
+}
+
+.opd-tab.is-on em{ color:rgba(255,255,255,.8); }
+
+/* --- the table --------------------------------------------- */
+
+/*
+ * The list scrolls inside the card rather than growing it.
+ *
+ * A busy morning made this card taller than the whole rail beside it, so the
+ * charts under it and everything opposite were pushed below the fold — and the
+ * dashboard's job is to be read without scrolling. Capped, the card is a fixed
+ * window onto the queue and the whole thing stays one screen.
+ *
+ * Sized in rows rather than pixels: about five, which is what fits beside the
+ * three cards in the rail.
+ */
+.opd-table-scroll{
+    overflow:auto;
+    max-height:296px;
+
+    /* Room for the scrollbar so the last row is not sitting under it. */
+    scrollbar-gutter:stable;
+}
+
+/*
+ * The header stays put while the rows move under it.
+ *
+ * Without this, scrolling to row eight leaves seven columns of numbers with
+ * nothing saying which is the wait and which is the age.
+ */
+.opd-table thead th{
+    position:sticky;
+    top:0;
+    z-index:1;
+    background:var(--surface-2);
+
+    /*
+     * The rule under the header is a shadow, not the border.
+     *
+     * In a border-collapse table a sticky cell leaves its border behind when
+     * it detaches, so the heading row ends up floating over the first row with
+     * nothing between them. An inset shadow travels with the cell.
+     */
+    box-shadow:inset 0 -1px 0 var(--line);
+}
+
+/* The band stops short of the card edge rather than running into it, so it
+   reads as a header rather than as a rule across the whole card. */
+.opd-table thead th:first-child{ border-radius:9px 0 0 9px; }
+.opd-table thead th:last-child{ border-radius:0 9px 9px 0; }
+
+.opd-table{ width:100%; border-collapse:collapse; }
+
+.opd-table th{
+    padding:10px;
+    text-align:left;
+    font-size:10.5px;
+    font-weight:600;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+    white-space:nowrap;
+    border-bottom:1px solid var(--line);
+}
+
+.opd-table td{
+    padding:11px 10px;
+    font-size:13px;
+    vertical-align:middle;
+    border-bottom:1px solid var(--line);
+}
+
+.opd-table tbody tr:last-child td{ border-bottom:0; }
+.opd-table tbody tr:hover{ background:var(--surface-2); }
+
+.opd-dim{ color:var(--muted); white-space:nowrap; }
+
+/* The row's place in the list — narrow, quiet, and never mistaken for the
+   token, which is the number that actually identifies somebody. */
+.opd-th-n{ width:34px; }
+.opd-n{ width:34px; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+.opd-th-act{ text-align:right; }
+
+/* Tabular so the column of numbers lines up for somebody scanning it forty
+   times an hour. */
+.opd-tok{
+    display:inline-grid;
+    place-items:center;
+    min-width:56px;
+    height:28px;
+    padding:0 9px;
+    white-space:nowrap;
+    border-radius:8px;
+    background:rgba(var(--brand), .1);
+    font-size:13px;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+    color:rgb(var(--brand));
+}
+
+.opd-person{ display:grid; gap:1px; }
+.opd-person b{ font-weight:600; color:var(--ink); }
+.opd-person code{ font-size:11px; color:var(--muted); }
+
+.opd-row-act{ text-align:right; white-space:nowrap; }
+
+.opd-act{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    height:30px;
+    padding:0 12px;
+    border:1px solid rgba(var(--brand),.3);
+    border-radius:8px;
+    background:rgba(var(--brand),.07);
+    font-size:12px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    text-decoration:none;
+    cursor:pointer;
+}
+
+.opd-act:hover:not(:disabled){ background:rgba(var(--brand),.14); }
+.opd-act:disabled{ opacity:.5; cursor:default; }
+.opd-act i{ font-size:14px; }
+
+.opd-act.is-quiet{
+    border-color:var(--line);
+    background:transparent;
+    color:var(--muted);
+}
+
+.opd-act.is-quiet:hover{ border-color:var(--ink-3); color:var(--ink-2); }
+
+/* The footer sits under the last row rather than beside it, and to the right,
+   where the eye already is after reading the actions column. */
+.opd-queue-foot{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:14px;
+    margin-top:12px;
+    padding-top:12px;
+    border-top:1px solid var(--line);
+}
+
+.opd-queue-card .opd-more{ margin-top:0; }
+
+/*
+ * "Showing 8 of 24".
+ *
+ * The dashboard carries a slice of each status rather than the whole day, so a
+ * tab reading 24 above eight rows is correct — but only if it says so. Without
+ * this the Completed tab looked broken, which is exactly what it was reported
+ * as.
+ */
+.opd-showing{
+    margin-right:auto;
+    font-size:11.5px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+}
+
+/* --- the rail's three lists -------------------------------- */
+
+.opd-list{ margin:0; padding:0; list-style:none; }
+.opd-list > li + li{ margin-top:2px; padding-top:11px; border-top:1px solid var(--line); }
+.opd-list > li{ padding-bottom:1px; }
+
+.opd-avatar{
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    width:36px;
+    height:36px;
+    border-radius:50%;
+    background:rgba(var(--brand), .12);
+    font-size:14px;
+    font-weight:700;
+    color:rgb(var(--brand));
+}
+
+.opd-doc{ display:flex; align-items:center; gap:11px; }
+.opd-doc-who{ min-width:0; flex:1 1 auto; }
+
+.opd-doc-who b{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+}
+
+.opd-doc-who small{ display:block; font-size:11.5px; color:var(--muted); }
+
+/* In its own bordered box rather than loose against the edge: it is a
+   measurement about the doctor, not a continuation of their name. */
+.opd-doc-avg{
+    flex:0 0 auto;
+    padding:6px 11px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface-2);
+    text-align:center;
+    min-width:74px;
+}
+
+.opd-doc-avg b{
+    display:block;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--ink-2);
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+}
+
+.opd-doc-avg small{ display:block; font-size:10px; color:var(--muted); white-space:nowrap; }
+
+/* What kind of appointment it is, dot and word together — never the dot on
+   its own, which is a legend somebody has to already know. */
+.opd-kind{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:11.5px;
+    color:var(--ink-2);
+    white-space:nowrap;
+}
+
+.opd-kind i{ width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+
+/* A state, in words. Never colour alone. */
+.opd-pin{
+    display:inline-flex;
+    align-items:center;
+    padding:2px 8px;
+    border-radius:999px;
+    font-size:10.5px;
+    font-weight:600;
+    font-style:normal;
+    white-space:nowrap;
+    background:var(--surface-2);
+    color:var(--ink-2);
+}
+
+.opd-pin.is-amber{ background:rgba(217,119,6,.14); color:#b45309; }
+.opd-pin.is-emerald{ background:rgba(34,197,94,.13); color:#15803d; }
+.opd-pin.is-rose{ background:rgba(220,53,69,.1); color:#c92a3a; }
+
+.opd-next{ display:flex; align-items:center; gap:11px; }
+
+.opd-next-at{
+    flex:0 0 auto;
+    width:48px;
+    font-size:12.5px;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+    color:rgb(var(--brand));
+}
+
+.opd-next-who{ min-width:0; flex:0 1 auto; }
+
+.opd-next-who b{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+/* The doctor sits beside the patient rather than under them — four short
+   facts across one line, which is how the row is scanned. */
+.opd-next-doc{
+    flex:1 1 auto;
+    min-width:0;
+    font-size:12px;
+    color:var(--muted);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.opd-feed{ display:flex; gap:11px; }
+
+.opd-feed-icon{
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    width:32px;
+    height:32px;
+    border-radius:10px;
+    font-size:15px;
+    background:var(--surface-2);
+    color:var(--ink-2);
+}
+
+.opd-feed-icon.is-sky{ background:rgba(59,130,246,.13); color:#2563eb; }
+.opd-feed-icon.is-amber{ background:rgba(217,119,6,.14); color:#b45309; }
+.opd-feed-icon.is-rose{ background:rgba(220,53,69,.1); color:#c92a3a; }
+
+.opd-feed-what{ min-width:0; }
+.opd-feed-what b{ display:block; font-size:12.5px; font-weight:600; color:var(--ink); }
+
+.opd-feed-what small{
+    display:block;
+    font-size:11.5px;
+    color:var(--ink-2);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.opd-feed-what em{ font-style:normal; font-size:10.5px; color:var(--muted); }
+
+/* --- patient flow, stacked --------------------------------- */
+
+.fl{ display:grid; gap:10px; }
+
+.fl-legend{ display:flex; gap:14px; }
+
+.fl-key{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:var(--muted); }
+.fl-key i{ width:9px; height:9px; border-radius:3px; }
+.fl-key.is-fresh i{ background:var(--cat-1); }
+.fl-key.is-returning i{ background:var(--cat-2); }
+
+/*
+ * Scale down the left, ticks along the bottom, plot between them.
+ *
+ * Bars need something to be read against. Without a scale the tallest column
+ * is always full height, so a peak of three draws exactly like a peak of
+ * thirty and the chart says nothing it did not already say in words.
+ */
+.fl-grid{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr);
+    grid-template-rows:150px auto;
+    column-gap:10px;
+    row-gap:6px;
+}
+
+.fl-axis{
+    grid-column:1;
+    grid-row:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    align-items:flex-end;
+    font-size:10px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+
+    /* Half a line-height either end, so each number sits ON its rule rather
+       than above it. */
+    margin:-6px 0;
+}
+
+.fl-plot{
+    position:relative;
+    grid-column:2;
+    grid-row:1;
+    display:flex;
+    align-items:flex-end;
+    gap:7px;
+    height:100%;
+}
+
+/* The rules, behind the bars. Recessive on purpose: they are a reference, and
+   a grid that competes with the data is a grid nobody looks past. */
+.fl-rules{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    pointer-events:none;
+}
+
+.fl-rules span{ display:block; height:1px; background:var(--line); }
+.fl-rules span:last-child{ background:var(--line-2); }
+
+.fl-slot{
+    position:relative;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    flex:1 1 0;
+    min-width:0;
+    height:100%;
+    cursor:default;
+}
+
+.fl-slot:focus-visible{ outline:2px solid rgb(var(--brand)); outline-offset:2px; border-radius:4px; }
+
+.fl-stack{
+    display:flex;
+    flex-direction:column-reverse;
+    width:100%;
+
+    /*
+     * A quiet day has few columns, and columns that divide the axis between
+     * them get very wide — four hours of arrivals drew four slabs the width of
+     * a finger. The slot still takes its share, so the ticks line up; the bar
+     * inside it stops at something bar-shaped.
+     */
+    max-width:46px;
+
+    border-radius:5px 5px 2px 2px;
+    overflow:hidden;
+}
+
+.fl-stack.is-zero{ background:var(--line); }
+
+/*
+ * Light fill, crisp edge.
+ *
+ * At full strength two large stacked areas read as heavy — the chart shouted
+ * where it only had to speak. The fill is a step lighter and each part carries
+ * a hairline of its own full-strength hue, so the bar stays defined against
+ * white without the block of colour doing the work.
+ *
+ * The 2px surface gap on top of that keeps the boundary between the two a
+ * break rather than a colour change somebody has to trust.
+ */
+.fl-part{ position:relative; }
+
+.fl-part.is-returning{
+    background:var(--flow-return);
+    box-shadow:inset 0 0 0 1px var(--flow-return-edge);
+}
+
+.fl-part.is-fresh{
+    background:var(--flow-new);
+    box-shadow:inset 0 0 0 1px var(--flow-new-edge), 0 2px 0 0 var(--surface);
+}
+
+/* The keys stay at full strength: a legend swatch is small, and a pale one is
+   the case the contrast floor actually exists for. */
+.fl-key.is-fresh i{ background:var(--flow-new-edge); }
+.fl-key.is-returning i{ background:var(--flow-return-edge); }
+.fl-tip .is-fresh i{ background:var(--flow-new-edge); }
+.fl-tip .is-returning i{ background:var(--flow-return-edge); }
+
+.fl-ticks{
+    grid-column:2;
+    grid-row:2;
+    display:flex;
+    gap:7px;
+}
+
+.fl-ticks span{
+    flex:1 1 0;
+    min-width:0;
+    font-size:10px;
+    color:var(--muted);
+    text-align:center;
+    font-variant-numeric:tabular-nums;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.fl-tip{
+    position:absolute;
+    bottom:calc(100% + 6px);
+    left:50%;
+    transform:translateX(-50%);
+    z-index:4;
+    display:grid;
+    gap:3px;
+    padding:8px 11px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:var(--surface);
+    font-size:11.5px;
+    line-height:1.35;
+    color:var(--ink-2);
+    white-space:nowrap;
+    pointer-events:none;
+    box-shadow:0 10px 26px rgba(15,23,42,.14);
+}
+
+.fl-tip b{ font-size:12px; color:var(--ink); }
+.fl-tip span{ display:flex; align-items:center; gap:6px; }
+.fl-tip i{ width:8px; height:8px; border-radius:50%; }
+.fl-tip .is-fresh i{ background:var(--cat-1); }
+.fl-tip .is-returning i{ background:var(--cat-2); }
+
+/* --- branch, day, and the filter chips -------------------- */
+
+.opd-bar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    gap:12px;
+    margin-bottom:14px;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface);
+}
+
+/*
+ * In the dashboard header the bar loses its own card and its labels: the
+ * header already establishes what the screen is about, and two more uppercase
+ * words above a date picker is noise there. On the queue, where the bar IS the
+ * context, both stay.
+ */
+.opd-bar.is-compact{
+    margin:0;
+    padding:0;
+    border:0;
+    background:transparent;
+    align-items:center;
+}
+
+.opd-bar.is-compact .opd-bar-field > span{ display:none; }
+
+/*
+ * "DAY" over a control that already shows a calendar icon and a date is a
+ * label for something nobody was going to mistake. Hidden visually rather
+ * than removed: the group is aria-labelledby this element, and display:none
+ * would take the name away from the only readers who need it.
+ */
+#opd-day-label{
+    position:absolute;
+    width:1px;
+    height:1px;
+    margin:-1px;
+    padding:0;
+    overflow:hidden;
+    clip-path:inset(50%);
+    white-space:nowrap;
+}
+
+/*
+ * One pill holding the date and both arrows.
+ *
+ * Three separately bordered controls in a row read as three decisions. The
+ * date and the two steps are one decision seen three ways, so they share a
+ * border and the pieces inside it lose theirs.
+ */
+.opd-bar-day{
+    display:flex;
+    align-items:stretch;
+
+    /* Wide enough for two arrows plus a readable date between them. */
+    min-width:215px;
+    gap:0;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface);
+    overflow:hidden;
+}
+
+.opd-bar-step{
+    height:44px;
+    width:36px;
+    border:0;
+    border-radius:0;
+    background:transparent;
+}
+
+.opd-bar-step:first-child{ border-right:1px solid var(--line); }
+.opd-bar-step:last-child{ border-left:1px solid var(--line); }
+
+.opd-bar-day .dp-input{
+    min-height:44px;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    white-space:nowrap;
+}
+
+/* The picker's own clear button has nothing to clear here — a day is always
+   one day, and blanking it would only mean "today" the long way round. */
+.opd-bar-day .dp-clear{ display:none; }
+
+.opd-bar-field{ display:grid; gap:4px; min-width:150px; }
+
+.opd-bar-field > span{
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    color:var(--muted);
+}
+
+/* Arrows either side of the picker: reading back through a week is the
+   commonest thing anybody does to this control. */
+.opd-bar-day > :not(.opd-bar-step){ flex:1 1 auto; min-width:0; }
+
+.opd-bar-step{
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    width:34px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface-2);
+    font-size:16px;
+    color:var(--ink-2);
+    cursor:pointer;
+}
+
+.opd-bar-step:hover:not(:disabled){ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+.opd-bar-step:disabled{ opacity:.4; cursor:default; }
+
+/* Getting back to now is the commonest move on this screen;
+   a date picker makes it three clicks. */
+.opd-bar-today{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    height:38px;
+    padding:0 12px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface-2);
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    cursor:pointer;
+}
+
+.opd-bar-today:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+
+.is-spinning{ animation:opd-spin 1s linear infinite; }
+
+@keyframes opd-spin{ to{ transform:rotate(360deg); } }
+
+@media (prefers-reduced-motion:reduce){
+    .is-spinning{ animation:none; }
+}
+
+/*
+ * The only thing on the board asking for something to be done.
+ *
+ * Shown only when it is true. A banner that is always there stops being read
+ * within a week, and then the one morning it matters it is furniture.
+ */
+.opd-alert{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+    padding:12px 16px;
+    border:1px solid rgba(220,53,69,.3);
+    border-left:3px solid #c92a3a;
+    border-radius:12px;
+    background:rgba(220,53,69,.06);
+    font-size:13px;
+    color:var(--ink-2);
+}
+
+.opd-alert > i{ font-size:18px; color:#c92a3a; }
+.opd-alert b{ color:#c92a3a; font-weight:600; }
+
+.opd-alert a{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    margin-left:auto;
+    font-size:12.5px;
+    font-weight:600;
+    color:#c92a3a;
+    text-decoration:none;
+    white-space:nowrap;
+}
+
+.opd-alert a:hover{ text-decoration:underline; }
+
+.opd-bar-filter{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    align-items:center;
+    margin-left:auto;
+}
+
+.opd-chip{
+    padding:6px 12px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    background:var(--surface);
+    font-size:12.5px;
+    font-weight:500;
+    color:var(--ink-2);
+    white-space:nowrap;
+    cursor:pointer;
+    transition:border-color .14s ease, background .14s ease, color .14s ease;
+}
+
+.opd-chip:hover{ border-color:var(--ink-3); }
+
+.opd-chip.is-on{
+    border-color:rgb(var(--brand));
+    background:rgba(var(--brand), .1);
+    color:rgb(var(--brand));
+    font-weight:600;
+}
+
+/* Nothing to report is a real answer, not an empty box. */
+.opd-quiet{
+    display:grid;
+    justify-items:center;
+    gap:6px;
+    padding:26px 12px;
+    text-align:center;
+    color:var(--muted);
+}
+
+.opd-quiet i{ font-size:26px; color:var(--ink-3); }
+.opd-quiet p{ margin:0; font-size:13px; }
+
+.opd-more{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    margin-top:10px;
+    font-size:12.5px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    text-decoration:none;
+}
+
+.opd-more:hover{ text-decoration:underline; }
+
+/* --- the counts above the queue --------------------------- */
+
+.opd-strip{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px 20px;
+    margin-bottom:12px;
+    padding:10px 16px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface);
+    font-size:12.5px;
+    color:var(--muted);
+}
+
+.opd-strip b{
+    font-size:15px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.opd-strip-link{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    margin-left:auto;
+    font-weight:600;
+    color:rgb(var(--brand));
+    text-decoration:none;
+}
+
+.opd-strip-link:hover{ text-decoration:underline; }
+
+/* --- status, wait and token ------------------------------- */
+
+.opd-status{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:3px 10px;
+    border-radius:999px;
+    font-size:11.5px;
+    font-weight:600;
+    white-space:nowrap;
+    background:var(--surface-2);
+    color:var(--ink-2);
+}
+
+.opd-status i{ font-size:13px; }
+
+.opd-status.is-sky{ background:rgba(217,119,6,.14); color:#b45309; }
+.opd-status.is-amber{ background:rgba(139,92,246,.14); color:#6d28d9; }
+.opd-status.is-emerald{ background:rgba(34,197,94,.12); color:#16a34a; }
+.opd-status.is-rose{ background:rgba(220,53,69,.1); color:#c92a3a; }
+
+/* Three bands, not a gradient: the only useful question is
+   whether somebody should do something about it. */
+.opd-wait{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-size:12.5px;
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+    color:var(--ink-2);
+}
+
+.opd-wait.is-none{ color:var(--ink-3); font-weight:500; }
+.opd-wait.is-warn{ color:#b45309; }
+.opd-wait.is-critical{ color:#c92a3a; }
+.opd-wait i{ display:none; }
+
+/* Tabular so 11 and 33 line up in a column somebody scans
+   forty times an hour. */
+.opd-token{
+    display:grid;
+    place-items:center;
+    width:44px;
+    height:34px;
+    border-radius:9px;
+    font-size:14px;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+    background:var(--surface-2);
+    color:var(--ink-2);
+}
+
+.opd-token.is-sky{ background:rgba(59,130,246,.14); color:#2563eb; }
+.opd-token.is-amber{ background:rgba(217,119,6,.16); color:#b45309; }
+.opd-token.is-empty{ color:var(--ink-3); }
+.opd-token.is-empty i{ font-size:15px; }
+
+/* ---------------------------------------------------------
    OPD queue
    (core/appointments/pages/QueuePage.tsx)
 
@@ -5040,43 +6522,48 @@ html::-webkit-scrollbar-track {
     list-style:none;
 }
 
+/*
+ * Six columns: token, who, doctor, status, wait, actions.
+ *
+ * The doctor is a column now that the queue is branch-wide —
+ * a list of one doctor's patients did not need to name them
+ * on every row, and a branch's day does.
+ */
+/*
+ * Six columns, sized to their content rather than to the space available.
+ *
+ * The patient column used to take every spare pixel, which on a wide screen
+ * opened a hand's width of nothing between somebody's name and the doctor
+ * seeing them — the row stopped reading as a row. Capping it keeps the six
+ * facts together as one line the eye can cross in a single move.
+ */
 .q-row{
     display:grid;
-    grid-template-columns:52px minmax(0,1fr) 130px 70px auto;
+    grid-template-columns:44px minmax(180px, 340px) minmax(120px, 1fr) 128px 72px auto;
     align-items:center;
-    gap:14px;
-    padding:12px 4px;
+    gap:16px;
+    padding:11px 6px;
+    border-radius:10px;
+    transition:background .12s ease;
 }
+
+.q-row:hover{ background:var(--surface-2); }
 
 .q-row + .q-row{ border-top:1px solid var(--line); }
 
 /* Seen and gone recede: the queue is about who is still here. */
-.q-row.is-emerald,
-.q-row.is-rose{ opacity:.55; }
+.q-row.is-completed,
+.q-row.is-cancelled,
+.q-row.is-no_show{ opacity:.55; }
 
-/* --- the number ------------------------------------------ */
-
-.q-token{
-    box-sizing:border-box;
-    width:44px;
-    height:44px;
-    display:block;
-    border-radius:12px;
-    background:var(--surface-3);
-    font-size:17px;
-    font-weight:700;
-    line-height:44px;
-    text-align:center;
-    color:var(--ink);
-    font-variant-numeric:tabular-nums;
+/* Which doctor, once the list holds more than one. */
+.q-doctor{
+    font-size:12.5px;
+    color:var(--ink-2);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
 }
-
-/* Nobody who has not arrived holds a number — the dash says
-   so rather than leaving an empty box to interpret. */
-.q-token i{ font-size:15px; color:var(--muted); }
-
-.q-row.is-sky .q-token{ background:rgba(59,130,246,.14); color:#2563eb; }
-.q-row.is-amber .q-token{ background:rgba(217,119,6,.16); color:#b45309; }
 
 .q-who{ min-width:0; }
 
@@ -5089,13 +6576,64 @@ html::-webkit-scrollbar-track {
 .q-who > span{
     display:flex;
     align-items:center;
-    gap:9px;
-    margin-top:2px;
+    flex-wrap:wrap;
+    gap:5px 9px;
+    margin-top:3px;
     font-size:11.5px;
     color:var(--muted);
 }
 
+/* Bootstrap paints every <code> pink. A phone number beside a patient's name
+   is a handle somebody reads out, not a code sample. */
+.q-who > span code{ color:var(--muted); }
+
 .q-who em{ font-style:normal; }
+
+/*
+ * The token, in the doctor's own colour.
+ *
+ * Tokens are unique per doctor per day, so a branch-wide list runs
+ * "1, 1, 1, 2, 2, 2" down the column and reads as broken data. The hue says
+ * which of the three each 1 belongs to; the doctor's name in the row says it
+ * again in words, so the colour is never carrying it alone.
+ */
+.q-token{
+    display:grid;
+    place-items:center;
+    width:44px;
+    height:34px;
+    border-radius:10px;
+    background:var(--surface-2);
+    font-size:15px;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+    box-shadow:inset 0 0 0 1px currentColor;
+}
+
+.q-token.is-empty{
+    color:var(--ink-3);
+    box-shadow:none;
+    font-weight:500;
+}
+
+/* The patient number. Tinted rather than plain so it reads as
+   an identifier, not as another phone number beside it. */
+.q-pid{
+    padding:1px 6px;
+    border-radius:5px;
+    background:var(--surface-3);
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.02em;
+    color:var(--ink-2);
+}
+
+/* The same pairing on the patients list: the number belongs
+   under the name, because it is part of identifying somebody
+   rather than a separate fact competing for width. */
+.pt-name{ display:grid; gap:1px; }
+.pt-name b{ font-weight:600; color:var(--ink); }
+.pt-name code{ font-size:11px; color:var(--muted); }
 
 .q-walkin{
     padding:1px 7px;
@@ -5106,29 +6644,13 @@ html::-webkit-scrollbar-track {
     color:var(--ink-3);
 }
 
-.q-status{
-    justify-self:start;
-    padding:4px 10px;
-    border-radius:30px;
-    background:var(--surface-3);
-    font-size:11px;
-    font-weight:600;
-    color:var(--ink-3);
-    white-space:nowrap;
-}
-
-.q-status.is-sky{ background:rgba(59,130,246,.12); color:#2563eb; }
-.q-status.is-amber{ background:rgba(217,119,6,.14); color:#b45309; }
-.q-status.is-emerald{ background:rgba(34,197,94,.12); color:#16a34a; }
-.q-status.is-rose{ background:rgba(220,53,69,.1); color:#c92a3a; }
-
-/* How long somebody has been standing there. */
-.q-wait{
-    font-size:12px;
-    color:var(--muted);
-    font-variant-numeric:tabular-nums;
-    text-align:right;
-}
+/*
+ * Status and wait now come from the shared OPD badges above
+ * (.opd-status / .opd-wait), so both read identically here,
+ * on the department board and anywhere either lands next.
+ */
+.q-row > .opd-status{ justify-self:start; }
+.q-row > .opd-wait{ justify-self:end; }
 
 /* --- what can be done next ------------------------------- */
 
@@ -5160,30 +6682,118 @@ html::-webkit-scrollbar-track {
 
 .q-act i{ font-size:14px; }
 
-/* Cancelling and no-show are not the ordinary rhythm of the
-   desk, so they do not compete with the move that is. */
-.q-act.is-quiet{
+.q-act.is-primary{ font-weight:600; }
+
+/* The overflow trigger. Square, quiet, and never carrying a
+   destructive verb on its face. */
+.q-act.is-icon{
+    width:30px;
+    padding:0;
+    justify-content:center;
     border-color:var(--line-2);
     background:transparent;
     color:var(--ink-3);
 }
 
-.q-act.is-quiet:hover{
-    border-color:rgba(220,53,69,.4);
-    background:rgba(220,53,69,.07);
-    color:#c92a3a;
+.q-act.is-icon:hover{ border-color:var(--ink-3); background:var(--surface-2); }
+
+.q-act:disabled{ opacity:.5; cursor:default; }
+
+/*
+ * Cancel and no-show live behind this rather than beside the
+ * primary move. On a tablet the two would be a thumb's width
+ * apart, and cancelling somebody already with the doctor is
+ * a mis-click, never an intention.
+ */
+.q-more{ position:relative; }
+
+.q-menu{
+    position:absolute;
+    right:0;
+    top:calc(100% + 6px);
+    z-index:5;
+    min-width:170px;
+    padding:5px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+    box-shadow:0 12px 28px rgba(15,23,42,.12);
+}
+
+.q-menu-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    padding:8px 10px;
+    border:0;
+    border-radius:7px;
+    background:transparent;
+    font-size:12.5px;
+    font-weight:500;
+    text-align:left;
+    color:var(--ink-2);
+    cursor:pointer;
+}
+
+.q-menu-item:hover{ background:var(--surface-2); }
+.q-menu-item i{ font-size:15px; }
+
+.q-menu-item.is-danger{ color:#c92a3a; }
+.q-menu-item.is-danger:hover{ background:rgba(220,53,69,.08); }
+
+/* Says why there is nothing to do, rather than leaving a
+   blank column that reads as a rendering fault. */
+.q-done{
+    font-size:11.5px;
+    font-weight:500;
+    color:var(--ink-3);
+    white-space:nowrap;
+}
+
+/* --- tablet and below ------------------------------------ */
+
+@media (max-width:1199.98px){
+    /* The doctor folds under the patient name rather than
+       taking a column the row can no longer spare. */
+    .q-row{ grid-template-columns:44px minmax(0,1fr) 128px 62px auto; }
+
+    .q-doctor{
+        grid-column:2;
+        grid-row:2;
+        font-size:11.5px;
+        color:var(--muted);
+    }
 }
 
 @media (max-width:991.98px){
+    /*
+     * Card rows. The token grows because it is the thing
+     * being pointed at, and the primary action goes
+     * full-width because fingers have replaced a mouse.
+     */
     .q-row{
-        grid-template-columns:52px minmax(0,1fr);
+        grid-template-columns:56px minmax(0,1fr);
         row-gap:8px;
+        padding:14px 4px;
     }
 
-    .q-status,
-    .q-wait{ grid-column:2; justify-self:start; text-align:left; }
+    .q-doctor{ grid-column:2; grid-row:auto; }
 
-    .q-actions{ grid-column:1 / -1; justify-content:flex-start; flex-wrap:wrap; }
+    .q-row > .opd-status,
+    .q-row > .opd-wait{ grid-column:2; justify-self:start; }
+
+    .q-actions{ grid-column:1 / -1; justify-content:stretch; flex-wrap:wrap; }
+
+    .q-act{ height:44px; }
+    .q-act.is-primary{ flex:1 1 auto; justify-content:center; font-size:13.5px; }
+    .q-act.is-icon{ width:44px; flex:0 0 auto; }
+
+    .opd-token{ width:56px; height:44px; font-size:16px; }
+
+    /* The filter chips are the widest thing in the bar on a
+       tablet; let them take their own line. */
+    .opd-bar-filter{ margin-left:0; width:100%; }
 }
 
 /* ---------------------------------------------------------
@@ -5232,6 +6842,39 @@ html::-webkit-scrollbar-track {
     flex-direction:column;
     gap:6px;
 }
+
+/*
+ * The way out of the dead end.
+ *
+ * This used to say "Nobody found. Add them first." and stop,
+ * sending the receptionist to another screen, through a full
+ * patient form, and back to start again — for the commonest
+ * thing that happens at an OPD desk.
+ */
+.bk-register{
+    display:grid;
+    grid-template-columns:20px minmax(0,1fr) 16px;
+    align-items:center;
+    gap:11px;
+    width:100%;
+    margin-top:10px;
+    padding:11px 13px;
+    border:1px dashed rgba(var(--brand), .45);
+    border-radius:10px;
+    background:rgba(var(--brand), .05);
+    text-align:left;
+    cursor:pointer;
+    transition:background .14s ease, border-color .14s ease;
+}
+
+.bk-register:hover{
+    border-style:solid;
+    background:rgba(var(--brand), .1);
+}
+
+.bk-register > i{ font-size:18px; color:rgb(var(--brand)); }
+.bk-register b{ display:block; font-size:13px; color:rgb(var(--brand)); }
+.bk-register small{ font-size:11px; line-height:1.4; color:var(--muted); }
 
 .bk-field > span{
     font-size:11.5px;
@@ -5634,6 +7277,54 @@ html::-webkit-scrollbar-track {
     border-radius:50%;
     background:rgb(var(--brand));
 }
+
+/* Who wrote the role — the branch's own, or the whole organization's.
+   Quiet by default because it is provenance rather than status; the
+   shared one is tinted because it is the row that will refuse an edit. */
+.rp-owner{
+    flex:0 0 auto;
+    max-width:88px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    padding:2px 7px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    font-size:10px;
+    font-weight:600;
+    letter-spacing:.02em;
+    color:var(--muted);
+    background:var(--surface-2);
+}
+
+.rp-owner.is-shared{
+    border-color:rgba(var(--brand), .28);
+    color:rgb(var(--brand));
+    background:rgba(var(--brand), .08);
+}
+
+/* Why the edit controls are gone, and what to do instead. Refusing
+   without offering the way out is where somebody gets stuck. */
+.rp-shared{
+    display:flex;
+    gap:8px;
+    align-items:flex-start;
+    margin:10px 0 0;
+    padding:9px 12px;
+    border:1px solid var(--line);
+    border-left:3px solid rgb(var(--brand));
+    border-radius:8px;
+    font-size:12.5px;
+    line-height:1.5;
+    color:var(--ink-2);
+    background:var(--surface-2);
+}
+
+.rp-shared i{ margin-top:1px; font-size:15px; color:rgb(var(--brand)); }
+
+/* The footer is display:flex, which beats the [hidden] attribute on
+   its own — a read-only role has to actually lose its save bar. */
+.rp-foot[hidden]{ display:none; }
 
 .rp-rail-empty{
     margin:0;
@@ -6673,6 +8364,7 @@ html::-webkit-scrollbar-track {
 .db-cards{
     display:grid;
     grid-template-columns:repeat(auto-fit,minmax(215px,1fr));
+    align-items:stretch;
     gap:14px;
     margin-bottom:16px;
 }
@@ -6681,6 +8373,7 @@ html::-webkit-scrollbar-track {
     display:flex;
     align-items:flex-start;
     gap:13px;
+    height:100%;
     padding:16px 17px;
     border:1px solid var(--line-2);
     border-radius:14px;
@@ -6704,10 +8397,28 @@ html::-webkit-scrollbar-track {
    in the row. A card that changes hue when another appears
    teaches nothing.
 */
-.db-card.is-violet .db-card-icon{ background:rgba(139,92,246,.13); color:#7c3aed; }
-.db-card.is-sky .db-card-icon{ background:rgba(59,130,246,.13); color:#2563eb; }
-.db-card.is-emerald .db-card-icon{ background:rgba(16,185,129,.14); color:#059669; }
-.db-card.is-amber .db-card-icon{ background:rgba(217,119,6,.14); color:#b45309; }
+.db-card.is-violet .db-card-icon{ background:#efeafd; color:#7c3aed; }
+.db-card.is-sky .db-card-icon{ background:#e6effd; color:#2563eb; }
+.db-card.is-emerald .db-card-icon{ background:#e6f6ee; color:#0f9d58; }
+.db-card.is-amber .db-card-icon{ background:#eef1fd; color:#4f46e5; }
+
+/* Solid pastels rather than a translucent wash. On the dark ground the wash
+   let the page show through and the four tiles came out muddy; a stated
+   colour reads the same on either surface. */
+:root[data-theme="dark"] .db-card-icon,
+:root:not([data-theme="light"]) .db-card-icon{ background:var(--surface-3); }
+
+@media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .db-card.is-violet .db-card-icon{ background:rgba(139,92,246,.18); }
+    :root:not([data-theme="light"]) .db-card.is-sky .db-card-icon{ background:rgba(59,130,246,.18); }
+    :root:not([data-theme="light"]) .db-card.is-emerald .db-card-icon{ background:rgba(16,185,129,.18); }
+    :root:not([data-theme="light"]) .db-card.is-amber .db-card-icon{ background:rgba(99,102,241,.2); }
+}
+
+:root[data-theme="dark"] .db-card.is-violet .db-card-icon{ background:rgba(139,92,246,.18); }
+:root[data-theme="dark"] .db-card.is-sky .db-card-icon{ background:rgba(59,130,246,.18); }
+:root[data-theme="dark"] .db-card.is-emerald .db-card-icon{ background:rgba(16,185,129,.18); }
+:root[data-theme="dark"] .db-card.is-amber .db-card-icon{ background:rgba(99,102,241,.2); }
 
 .db-card-body{ min-width:0; }
 
@@ -6757,7 +8468,7 @@ html::-webkit-scrollbar-track {
 }
 
 .db-delta i{ font-size:13px; }
-.db-delta.is-up{ background:rgba(21,127,82,.11); color:#157f52; }
+.db-delta.is-up{ background:#e6f6ee; color:#0f9d58; }
 .db-delta.is-down{ background:rgba(191,39,64,.1); color:#bf2740; }
 
 /* --- the two columns ------------------------------------- */
@@ -6766,18 +8477,67 @@ html::-webkit-scrollbar-track {
     display:grid;
     grid-template-columns:minmax(0,1fr) 330px;
     gap:16px;
-    align-items:start;
+    /*
+       Stretch, so the rail is as tall as the main column and its last card
+       can take the slack. Declared once — there were two rules here fighting
+       over this, `start` and `stretch`, and which won depended on their order
+       in the file rather than on anyone's decision.
+    */
+    align-items:stretch;
 }
 
 .db-layout.is-single{ grid-template-columns:minmax(0,1fr); }
 
-.db-main,
+/*
+   The main column is itself a grid. The appointments chart sits beside the
+   donut and the two tables sit beside each other, which is what says "these
+   answer the same question from different sides" — stacked full width, the
+   screen got very long and the pairing was lost.
+*/
+.db-main{
+    display:grid;
+    grid-template-columns:repeat(12,minmax(0,1fr));
+    gap:16px;
+    align-content:start;
+    /* Every card in a row ends level. A ragged bottom edge reads as
+       unfinished, and one short table drags the whole row out of line. */
+    align-items:stretch;
+    min-width:0;
+}
+
+/*
+   Flex rather than a bare height:100% on the child. The card is the only
+   thing in the slot, so making the slot a flex column and letting it grow
+   fills the row whatever the card's own height rules happen to be — height
+   percentages depend on the parent having a resolved height, which a grid
+   item does not always give.
+*/
+.db-slot{
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+}
+
+.db-slot > *{ flex:1 1 auto; margin:0; }
+
+/*
+   The rail is a column of its own, so its cards cannot match the grid's.
+   What matters is that the two COLUMNS end level: the last card takes
+   whatever height is left, rather than leaving the page with one side
+   hanging below the other.
+*/
 .db-rail{
     display:flex;
     flex-direction:column;
     gap:16px;
     min-width:0;
+    height:100%;
 }
+
+.db-rail > *{ flex:0 0 auto; display:flex; flex-direction:column; }
+.db-rail > *:last-child{ flex:1 1 auto; }
+.db-rail > * > *{ flex:1 1 auto; margin:0; }
+
 
 /* --- links out of a card --------------------------------- */
 
@@ -6821,8 +8581,28 @@ html::-webkit-scrollbar-track {
     padding:11px 12px;
     border-bottom:1px solid var(--line);
     color:var(--ink-2);
-    white-space:nowrap;
 }
+
+/*
+   Nothing wraps, and the table is compact enough not to need to.
+   Letting names wrap was the wrong fix: two-line rows made the appointments
+   card twice the height of the chart beside it, which is a worse problem
+   than a truncated word. Tighter padding and a smaller face buy the room
+   instead, and anything still too long gets an ellipsis rather than a second
+   line.
+*/
+.db-table td,
+.db-table th{ white-space:nowrap; }
+
+.db-table tbody td{
+    max-width:220px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    padding:9px 10px;
+    font-size:12.5px;
+}
+
+.db-table thead th{ padding:0 10px 8px; }
 
 .db-table tbody tr:last-child td{ border-bottom:0; }
 
@@ -6913,6 +8693,7 @@ html::-webkit-scrollbar-track {
     display:flex;
     align-items:center;
     gap:11px;
+    height:100%;
     padding:14px;
     border:1px solid var(--line-2);
     border-radius:12px;
@@ -7189,8 +8970,41 @@ html::-webkit-scrollbar-track {
     vector-effect:non-scaling-stroke;
 }
 
+/* The donut and its legend side by side, as the reference has them. */
+.db-donut .donut{
+    flex-direction:row;
+    align-items:center;
+    gap:20px;
+}
+
+/*
+   The ring gives up width to its legend. At 150px the names were being cut
+   to "Con…" and "Vacci…", which is worse than a slightly smaller ring — the
+   ring carries shape, the legend carries what the shapes are.
+*/
+.db-donut .donut-plot{ flex:0 0 auto; width:118px; max-width:118px; }
+.db-donut .donut-legend{ flex:1 1 auto; min-width:0; }
+
+/*
+   One line, with an ellipsis if it comes to that. Wrapping made
+   "Consultation" break as "Consultati / on", which is worse than a clipped
+   word — the ring is small enough now that it rarely does.
+*/
+.db-donut .donut-name{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
 @media (max-width:1199.98px){
     .db-layout{ grid-template-columns:minmax(0,1fr); }
+}
+
+@media (max-width:991.98px){
+    /* One column below the split: a 7/5 pair at half width is two cramped
+       cards rather than two readable ones. */
+    .db-slot{ grid-column:span 12 !important; }
+    .db-donut .donut{ flex-direction:column; }
 }
 
 @media (max-width:575.98px){
@@ -7208,39 +9022,244 @@ html::-webkit-scrollbar-track {
    a menu entry that 404s reads as a broken product, while a
    marked row answers "where is billing" before anybody asks.
 */
+/* ==========================================================
+   The rail, on a coloured ground
+   (shared/components/layout/Sidebar.tsx)
+   ========================================================== */
+
+/*
+ * The chevron that opens a group.
+ *
+ * Its own hit target inside the link rather than the whole row, so the row
+ * still navigates and the arrow only expands. A parent that can ONLY be
+ * expanded makes its own screen unreachable from the menu.
+ */
+.app-nav-caret{
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    width:24px;
+    height:24px;
+    margin-left:auto;
+    margin-right:-4px;
+    border-radius:6px;
+    font-size:15px;
+    opacity:.6;
+    cursor:pointer;
+    transition:transform .18s ease, background .14s ease, opacity .14s ease;
+}
+
+.app-nav-caret:hover{ opacity:1; background:var(--sb-hover-bg); }
+.app-nav-caret.is-open{ transform:rotate(90deg); opacity:1; }
+
+.app-nav-caret:focus-visible{
+    outline:2px solid var(--sb-accent);
+    outline-offset:1px;
+    opacity:1;
+}
+
+@media (prefers-reduced-motion:reduce){
+    .app-nav-caret{ transition:none; }
+}
+
+/*
+ * The current screen is a solid card, not a translucent wash.
+ *
+ * White at 17% over a saturated blue is the muddiest thing this rail can
+ * produce — light enough to notice, not light enough to read as chosen, and it
+ * drags the icon and the label down with it. Solid white with the brand as ink
+ * inverts the row instead: the highest contrast available here, and it reads
+ * as lifted off the surface rather than smeared onto it.
+ *
+ * The left accent bar goes with it. That existed to mark a row whose
+ * background was nearly invisible; against a solid card it is a second marker
+ * for something already unmistakable.
+ */
+:root[data-sidebar='brand'] .app-shell .app-nav-item.is-active,
+:root[data-sidebar='dark'] .app-shell .app-nav-item.is-active{
+    background:#fff;
+    color:rgb(var(--brand));
+    font-weight:600;
+    box-shadow:0 4px 14px rgba(0,0,0,.16);
+}
+
+:root[data-sidebar='brand'] .app-shell .app-nav-item.is-active i,
+:root[data-sidebar='dark'] .app-shell .app-nav-item.is-active i{
+    color:rgb(var(--brand));
+}
+
+:root[data-sidebar='brand'] .app-shell .app-nav-item.is-active::before,
+:root[data-sidebar='dark'] .app-shell .app-nav-item.is-active::before{
+    display:none;
+}
+
+/*
+ * Except when it is the parent of an open group.
+ *
+ * Then the solid card belongs to whichever child you are actually on, and the
+ * parent only has to say which section is open — two filled rows stacked in a
+ * column was the thing that looked wrong to begin with.
+ */
+:root[data-sidebar='brand'] .app-shell .app-nav-item.is-active.is-open-parent,
+:root[data-sidebar='dark'] .app-shell .app-nav-item.is-active.is-open-parent{
+    background:var(--sb-hover-bg);
+    color:var(--sb-hover-fg);
+    box-shadow:none;
+}
+
+:root[data-sidebar='brand'] .app-shell .app-nav-item.is-active.is-open-parent i,
+:root[data-sidebar='dark'] .app-shell .app-nav-item.is-active.is-open-parent i{
+    color:inherit;
+}
+
+/* The chosen child takes the solid card the parent gave up. */
+:root[data-sidebar='brand'] .app-shell .app-nav-child.is-active,
+:root[data-sidebar='dark'] .app-shell .app-nav-child.is-active{
+    background:#fff;
+    color:rgb(var(--brand));
+    box-shadow:0 3px 10px rgba(0,0,0,.14);
+}
+
+:root[data-sidebar='brand'] .app-shell .app-nav-child.is-active::before,
+:root[data-sidebar='dark'] .app-shell .app-nav-child.is-active::before{
+    display:none;
+}
+
+/*
+ * The screens inside a section, shown once the group is opened.
+ *
+ * Set in plain text rather than repeating the parent's icon: a second column
+ * of icons at this depth reads as a second menu, and the rail is already the
+ * widest thing on a laptop screen.
+ *
+ * Every colour comes from the SIDEBAR VARIANT tokens — --sb-fg, --sb-hover-bg,
+ * --sb-active-*, --sb-border — never from --sb-muted or --sb-line. Those two
+ * are the light rail's own defaults and are never re-themed, so on the brand
+ * and dark rails the child rows came out as grey text on blue with a spine
+ * nobody could see.
+ */
+.app-nav-sub{
+    position:relative;
+    display:grid;
+    gap:2px;
+    margin:4px 0 8px;
+    padding:0 0 0 30px;
+    list-style:none;
+}
+
+/*
+ * One continuous spine down the group, drawn once.
+ *
+ * A segment per row left visible breaks between them, and the active row's
+ * segment then had to be a thick bar to look deliberate — which is what made
+ * the whole group heavy. Faint, because it is a bracket saying "these belong
+ * to the row above", not a divider anybody has to read.
+ */
+.app-nav-sub::before{
+    content:"";
+    position:absolute;
+    left:18px;
+    top:4px;
+    bottom:4px;
+    width:1.5px;
+    border-radius:2px;
+    background:var(--sb-border);
+}
+
+.app-nav-child{
+    display:flex;
+    align-items:center;
+    position:relative;
+    height:36px;
+    padding:0 12px;
+    border-radius:9px;
+    font-size:13px;
+    font-weight:500;
+    color:var(--sb-fg);
+    opacity:.7;
+    text-decoration:none;
+    white-space:nowrap;
+    transition:opacity .14s ease, background .14s ease, color .14s ease;
+}
+
+.app-nav-child:hover{ opacity:1; background:var(--sb-hover-bg); color:var(--sb-hover-fg); }
+
+/*
+ * The current screen: brighter text and a small marker on the spine, not a
+ * filled block. The parent above it is already showing which group you are
+ * in, so this only has to say which row — and two filled rows in a column was
+ * the thing that looked wrong.
+ */
+.app-nav-child.is-active{
+    opacity:1;
+    font-weight:600;
+}
+
+.app-nav-child.is-active::before{
+    content:"";
+    position:absolute;
+    left:-12.5px;
+    top:50%;
+    width:5px;
+    height:5px;
+    margin-top:-2.5px;
+    border-radius:50%;
+    background:var(--sb-accent);
+}
+
+/*
+ * Everything not built yet, gathered under one heading at the foot of the
+ * menu rather than filed among the screens that work.
+ *
+ * Each row keeps its "Soon" tag, but the group as a whole recedes: smaller,
+ * lighter, and set flush so the icons no longer line up with the working
+ * items above. That last part does most of the work — a row that shares a
+ * column with the real ones reads as one of them however faint it is.
+ */
 .app-nav-item.is-soon{
-    opacity:.45;
+    height:34px;
+    padding-left:12px;
+    font-size:13px;
+    font-weight:400;
+    color:var(--sb-fg);
+    opacity:.5;
     cursor:default;
 }
+
+.app-nav-item.is-soon i{ font-size:16px; opacity:.6; }
+.app-nav-item.is-soon:hover{ background:transparent; }
 
 .app-nav-item.is-soon:hover{ background:transparent; }
 
 .app-nav-soon{
     margin-left:auto;
-    padding:1px 7px;
-    border-radius:30px;
-    background:rgba(255,255,255,.14);
-    font-style:normal;
-    font-size:9.5px;
-    font-weight:700;
-    letter-spacing:.05em;
-    text-transform:uppercase;
-}
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:currentColor;
+    opacity:.5;
 
-/* The sidebar is dark by default but can be set light. */
-.app-sidebar[data-surface='light'] .app-nav-soon,
-[data-sidebar='light'] .app-nav-soon{
-    background:var(--surface-3);
-    color:var(--ink-3);
+    /* The word is redundant once the section heading says it; the dot keeps
+       the row marked without repeating "SOON" five times down the rail. */
+    font-size:0;
+    text-indent:-999px;
+    overflow:hidden;
 }
 
 /* --- whose workspace this is ----------------------------- */
 
+/*
+   The sidebar has its own ink token, and everything inside it has to use it.
+   These panels inherited the page's colour instead, which on a
+   brand-coloured sidebar is dark navy on blue — legible only if you already
+   knew what it said.
+*/
 .app-sidebar-card{
     margin:auto 12px 12px;
     padding:12px;
     border-radius:12px;
-    background:rgba(255,255,255,.08);
+    background:var(--sb-line);
+    color:var(--sb-ink);
 }
 
 .app-org{
@@ -7258,7 +9277,8 @@ html::-webkit-scrollbar-track {
     place-items:center;
     overflow:hidden;
     border-radius:10px;
-    background:rgba(255,255,255,.14);
+    background:var(--sb-line);
+    color:var(--sb-ink);
     font-size:17px;
 }
 
@@ -7274,6 +9294,7 @@ html::-webkit-scrollbar-track {
     display:block;
     font-size:13px;
     font-weight:600;
+    color:var(--sb-ink);
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
@@ -7282,7 +9303,7 @@ html::-webkit-scrollbar-track {
 .app-org-text small{
     display:block;
     font-size:11px;
-    opacity:.7;
+    color:var(--sb-muted);
 }
 
 /* --- the last rows of the sidebar ------------------------ */
@@ -7299,12 +9320,11 @@ html::-webkit-scrollbar-track {
     border-radius:10px;
     font-size:13px;
     text-decoration:none;
-    color:inherit;
-    opacity:.75;
-    transition:background .14s ease,opacity .14s ease;
+    color:var(--sb-muted);
+    transition:background .14s ease,color .14s ease;
 }
 
-.app-help:hover{ background:rgba(255,255,255,.08); opacity:1; color:inherit; }
+.app-help:hover{ background:var(--sb-hover-bg); color:var(--sb-hover-fg); }
 .app-help i{ font-size:17px; }
 
 /* --- extras on the dashboard ----------------------------- */
@@ -7338,3 +9358,436 @@ html::-webkit-scrollbar-track {
     font-size:12px;
     color:var(--ink-2);
 }
+
+/* ---------------------------------------------------------
+   Branch switcher
+   (core/tenant-auth/BranchSwitcher.tsx)
+
+   Only rendered for somebody who works at more than one, so
+   it never appears as a control that cannot do anything.
+   --------------------------------------------------------- */
+
+.app-sidebar-extra{ margin-top:auto; padding:0 12px 10px; }
+
+.bs{ position:relative; }
+
+.bs-trigger{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    padding:10px 11px;
+    border:1px solid var(--sb-line);
+    border-radius:11px;
+    background:var(--sb-line);
+    color:var(--sb-ink);
+    text-align:left;
+    cursor:pointer;
+    transition:background .14s ease,color .14s ease;
+}
+
+.bs-trigger:hover{ background:var(--sb-hover-bg); color:var(--sb-hover-fg); }
+
+.bs-trigger > i{ font-size:16px; }
+.bs-trigger > i:last-child{ margin-left:auto; font-size:15px; }
+
+.bs-current{ min-width:0; }
+
+.bs-current small{
+    display:block;
+    font-size:10px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    color:var(--sb-muted);
+}
+
+.bs-current b{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+/* Opens upward: it sits near the bottom of the sidebar. */
+.bs-menu{
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:calc(100% + 8px);
+    z-index:20;
+    padding:6px;
+    border:1px solid var(--line-2);
+    border-radius:12px;
+    background:var(--surface);
+    box-shadow:0 12px 34px rgba(15,23,42,.22);
+}
+
+.bs-menu-label{
+    margin:4px 8px 6px;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+}
+
+.bs-option{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    width:100%;
+    padding:8px 10px;
+    border:0;
+    border-radius:8px;
+    background:transparent;
+    text-align:left;
+    cursor:pointer;
+}
+
+.bs-option:hover{ background:var(--surface-2); }
+.bs-option.is-on{ background:rgba(var(--brand),.09); }
+
+.bs-option span{ flex:1 1 auto; min-width:0; }
+
+.bs-option b{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+}
+
+/* The role they hold THERE — the whole point of switching. */
+.bs-option small{
+    display:block;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.bs-option.is-on b{ color:rgb(var(--brand)); }
+.bs-option > i{ font-size:16px; color:rgb(var(--brand)); }
+
+/* ---------------------------------------------------------
+   Branch memberships on the People form
+   (core/tenant-users/components/BranchMemberships.tsx)
+
+   One row is the common case and looks like one row, not a
+   table with a single entry in it.
+   --------------------------------------------------------- */
+
+.bm-rows{
+    margin:0 0 12px;
+    padding:0;
+    list-style:none;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.bm-rows li{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto;
+    align-items:end;
+    gap:12px;
+    padding:13px 14px;
+    border:1px solid var(--line-2);
+    border-radius:12px;
+    background:var(--surface);
+}
+
+.bm-cell{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    min-width:0;
+}
+
+.bm-cell > span{
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+}
+
+/* Exactly one, so the screen cannot disagree with the server. */
+.bm-primary{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    height:38px;
+    padding:0 12px;
+    border:1px solid var(--line-2);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-3);
+    white-space:nowrap;
+    cursor:pointer;
+    transition:border-color .14s ease,background .14s ease,color .14s ease;
+}
+
+.bm-primary:hover:not(:disabled){ border-color:var(--ink-3); }
+.bm-primary:disabled{ cursor:default; opacity:.7; }
+
+.bm-primary.is-on{
+    border-color:rgba(217,119,6,.4);
+    background:rgba(217,119,6,.09);
+    color:#b45309;
+}
+
+.bm-remove{
+    width:38px;
+    height:38px;
+    display:grid;
+    place-items:center;
+    border:1px solid var(--line-2);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:16px;
+    color:var(--ink-3);
+    cursor:pointer;
+}
+
+.bm-remove:hover{
+    border-color:rgba(191,39,64,.4);
+    background:rgba(191,39,64,.07);
+    color:#bf2740;
+}
+
+.bm-error{
+    grid-column:1 / -1;
+    font-style:normal;
+    font-size:12px;
+    color:#dc3545;
+}
+
+.bm-add{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    padding:9px 14px;
+    border:1px dashed var(--line-2);
+    border-radius:10px;
+    background:transparent;
+    font-size:12.5px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    cursor:pointer;
+}
+
+.bm-add:hover:not(:disabled){ border-color:rgb(var(--brand)); background:rgba(var(--brand),.05); }
+.bm-add:disabled{ color:var(--muted); cursor:default; }
+
+@media (max-width:767.98px){
+    .bm-rows li{ grid-template-columns:minmax(0,1fr); }
+}
+
+/* The plan card wearing a tier, which only demo mode supplies. */
+.db-plan.is-tier{
+    border-color:rgba(217,119,6,.3);
+    background:rgba(217,119,6,.07);
+}
+
+.db-plan.is-tier > i{ color:#d9a406; }
+
+.db-welcome-side{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:9px;
+}
+
+/* The span the figures cover. Not a picker — nothing here can answer a
+   different range yet, and a control that changes nothing is worse than
+   none. */
+.db-range{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    padding:7px 13px;
+    border:1px solid var(--line-2);
+    border-radius:30px;
+    background:var(--surface);
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+}
+
+.db-range i{ font-size:15px; color:var(--muted); }
+
+/*
+   Below both columns, edge to edge. A row of figures reads badly at two
+   thirds width: beside the rail each card gets about 250px, and a table of
+   "Paracetamol 500mg · 12 · Low stock" scrolls sideways inside its own card.
+*/
+.db-full{
+    display:grid;
+    grid-template-columns:repeat(12,minmax(0,1fr));
+    align-items:stretch;
+    gap:16px;
+    margin-top:16px;
+}
+
+/* With the whole width to use, the insight cards can breathe. */
+.db-full .db-insights{
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+}
+
+/* ---------------------------------------------------------
+   A branch's own day
+   (core/dashboard/branch-panels.tsx)
+   --------------------------------------------------------- */
+
+/* Where an appointment has got to. */
+.db-state{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:2px 10px;
+    border-radius:30px;
+    font-size:11px;
+    font-weight:600;
+    white-space:nowrap;
+}
+
+.db-state::before{
+    content:"";
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:currentColor;
+}
+
+.db-state.is-checked_in{ background:#e6f6ee; color:#0f9d58; }
+.db-state.is-waiting{ background:rgba(217,119,6,.13); color:#b45309; }
+.db-state.is-booked{ background:#e6effd; color:#2563eb; }
+
+.db-avatar{
+    display:inline-grid;
+    place-items:center;
+    width:24px;
+    height:24px;
+    margin-right:8px;
+    border-radius:50%;
+    background:rgba(var(--brand),.12);
+    font-size:10.5px;
+    font-weight:700;
+    color:rgb(var(--brand));
+    vertical-align:-8px;
+}
+
+/* Out of stock is a different problem from low, and the two must not read
+   the same — one needs ordering, the other needs it today. */
+.db-stock{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:2px 10px;
+    border-radius:30px;
+    font-size:11px;
+    font-weight:600;
+    white-space:nowrap;
+}
+
+.db-stock.is-low{ background:rgba(217,119,6,.13); color:#b45309; }
+.db-stock.is-out{ background:rgba(191,39,64,.11); color:#bf2740; }
+.db-stock.is-out::before{
+    content:"";
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:currentColor;
+}
+
+/* Today's row, in a table of days. */
+.db-table tbody tr.is-today td{ background:rgba(var(--brand),.05); font-weight:600; }
+
+.db-table tfoot td{
+    padding:11px 12px;
+    border-top:1px solid var(--line-2);
+    font-weight:700;
+    color:var(--ink);
+}
+
+/* --- tasks ----------------------------------------------- */
+
+.db-tasks{ margin:0; padding:0; list-style:none; }
+
+.db-tasks li{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 0;
+}
+
+.db-tasks li + li{ border-top:1px solid var(--line); }
+
+.db-tasks label{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex:1 1 auto;
+    min-width:0;
+    margin:0;
+    font-size:13px;
+    color:var(--ink-2);
+    cursor:pointer;
+}
+
+.db-tasks input:checked + span{ color:var(--muted); text-decoration:line-through; }
+
+.db-task-badge{
+    flex:0 0 auto;
+    padding:2px 9px;
+    border-radius:30px;
+    font-style:normal;
+    font-size:10.5px;
+    font-weight:600;
+    white-space:nowrap;
+    background:var(--surface-3);
+    color:var(--ink-3);
+}
+
+.db-task-badge.is-rose{ background:rgba(191,39,64,.1); color:#bf2740; }
+.db-task-badge.is-sky{ background:#e6effd; color:#2563eb; }
+.db-task-badge.is-amber{ background:rgba(217,119,6,.13); color:#b45309; }
+
+/* --- the branch itself ----------------------------------- */
+
+.db-branch b{
+    display:block;
+    font-size:15px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.db-branch > span{
+    display:block;
+    margin-top:2px;
+    font-size:12.5px;
+    color:var(--muted);
+}
+
+.db-branch ul{
+    margin:14px 0 0;
+    padding:0;
+    list-style:none;
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+}
+
+.db-branch li{
+    display:flex;
+    align-items:flex-start;
+    gap:9px;
+    font-size:12.5px;
+    line-height:1.45;
+    color:var(--ink-2);
+}
+
+.db-branch li i{ flex:0 0 auto; font-size:15px; color:var(--muted); }

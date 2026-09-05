@@ -56,16 +56,22 @@ class StoreTenantUserRequest extends FormRequest
             'role' => ['required', 'string', Rule::in(User::ROLES)],
 
             /*
-             * The set of capabilities they hold — level three of the
-             * permission flow. Required for staff and refused for an owner,
-             * who bypasses roles entirely; giving one to an owner would look
-             * like a limit that is not enforced anywhere.
+             * The role they hold ACROSS THE NETWORK — head office's, not a
+             * branch's. Optional: branch staff hold their role on the
+             * membership instead, so a receptionist at Lucknow has nothing
+             * here at all.
+             *
+             * It was `required_if:role,staff`, which forced every new branch
+             * member onto an organization-wide role — the opposite of what
+             * membership was built for. And it checked only that the role
+             * existed, so a branch role could be assigned here and quietly
+             * apply everywhere.
              */
             'role_id' => [
                 'nullable', 'integer',
-                'required_if:role,'.User::STAFF,
                 'prohibited_if:role,'.User::OWNER,
-                Rule::exists(Role::class, 'id'),
+                Rule::exists(Role::class, 'id')
+                    ->where('scope', Role::SCOPE_ORGANIZATION),
             ],
 
             /*
@@ -132,9 +138,8 @@ class StoreTenantUserRequest extends FormRequest
             'email.unique' => 'Somebody in your organization already uses this address.',
             'password.confirmed' => 'The two passwords do not match.',
             'role.in' => 'Choose either owner or staff.',
-            'role_id.required_if' => 'Choose the role this person holds.',
             'role_id.prohibited_if' => 'An owner is not limited by a role.',
-            'role_id.exists' => 'That role no longer exists.',
+            'role_id.exists' => 'Choose a role that applies across the whole organization. A branch role is given on the Branches panel instead.',
             'location_id.prohibited_if' => 'An owner works across every branch.',
         ];
     }

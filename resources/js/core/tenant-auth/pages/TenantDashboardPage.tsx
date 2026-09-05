@@ -4,6 +4,7 @@ import { ErrorState, LoadingBlock } from '@/shared/components/ui/Feedback';
 import { useConfigurableEntities } from '@/core/field-settings/api';
 import { useDashboard } from '@/core/dashboard/api';
 import { dashboardPanels, Headline } from '@/core/dashboard/panels';
+import { branchPanels } from '@/core/dashboard/branch-panels';
 import { useTenantAuth } from '../TenantAuthProvider';
 
 /**
@@ -29,7 +30,15 @@ export default function TenantDashboardPage() {
         [entities],
     );
 
-    const panels = useMemo(() => dashboardPanels(labels), [labels]);
+    /*
+     * Two screens, chosen by where this person is standing. A branch dashboard
+     * is not a narrower organization one — the questions are different, so the
+     * panels are.
+     */
+    const panels = useMemo(
+        () => (data?.context === 'branch' ? branchPanels() : dashboardPanels(labels)),
+        [data?.context, labels],
+    );
 
     const rendered = data
         ? panels
@@ -39,6 +48,7 @@ export default function TenantDashboardPage() {
 
     const main = rendered.filter((panel) => panel.column === 'main');
     const rail = rendered.filter((panel) => panel.column === 'rail');
+    const full = rendered.filter((panel) => panel.column === 'full');
 
     /** Their first name — a greeting, not a record. */
     const firstName = (user?.name ?? '').split(' ')[0];
@@ -59,16 +69,38 @@ export default function TenantDashboardPage() {
                         <span aria-hidden="true">👋</span> Welcome back, {firstName}!
                     </h1>
                     <p>
-                        Here’s what’s happening across {organization?.name ?? 'your organization'}.
+                        {data?.context === 'branch' && data.scope.branch_name
+                            ? `Here’s what’s happening at ${data.scope.branch_name}${
+                                  data.scope.city ? ` (${data.scope.city})` : ''
+                              } today.`
+                            : `Here’s what’s happening across ${
+                                  organization?.name ?? 'your organization'
+                              }.`}
                     </p>
                 </div>
 
-                {data?.scope.label && (
-                    <span className="db-scope">
-                        <i className="ti ti-map-pin" />
-                        {data.scope.label}
+                <div className="db-welcome-side">
+                    {/*
+                        The span every figure below is about. Fixed to this
+                        month rather than a picker: nothing on this screen can
+                        answer a different range yet, and a control that
+                        changes nothing is worse than no control.
+                    */}
+                    <span className="db-range">
+                        <i className="ti ti-calendar" />
+                        {new Date().toLocaleDateString(undefined, {
+                            month: 'short',
+                            year: 'numeric',
+                        })}
                     </span>
-                )}
+
+                    {data?.scope.label && (
+                        <span className="db-scope">
+                            <i className="ti ti-map-pin" />
+                            {data.scope.label}
+                        </span>
+                    )}
+                </div>
             </header>
 
             {isLoading ? (
@@ -94,7 +126,13 @@ export default function TenantDashboardPage() {
                         <div className={`db-layout${rail.length === 0 ? ' is-single' : ''}`}>
                             <div className="db-main">
                                 {main.map((panel) => (
-                                    <div key={panel.key}>{panel.node}</div>
+                                    <div
+                                        className="db-slot"
+                                        style={{ gridColumn: `span ${panel.span ?? 12}` }}
+                                        key={panel.key}
+                                    >
+                                        {panel.node}
+                                    </div>
                                 ))}
                             </div>
 
@@ -105,6 +143,25 @@ export default function TenantDashboardPage() {
                                     ))}
                                 </aside>
                             )}
+                        </div>
+                    )}
+
+                    {/*
+                        Below both columns, edge to edge — one grid, so
+                        consecutive panels sit side by side rather than
+                        stacking.
+                    */}
+                    {full.length > 0 && (
+                        <div className="db-full">
+                            {full.map((panel) => (
+                                <div
+                                    className="db-slot"
+                                    style={{ gridColumn: `span ${panel.span ?? 12}` }}
+                                    key={panel.key}
+                                >
+                                    {panel.node}
+                                </div>
+                            ))}
                         </div>
                     )}
                 </>

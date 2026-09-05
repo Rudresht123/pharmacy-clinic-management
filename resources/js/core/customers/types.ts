@@ -31,6 +31,8 @@ export interface CustomerStats {
 
 export interface Customer {
     id: number;
+    /** The number a patient quotes and the desk searches on: P-00001. */
+    code: string | null;
     name: string;
 
     /** Where they signed up — provenance, never a restriction on access. */

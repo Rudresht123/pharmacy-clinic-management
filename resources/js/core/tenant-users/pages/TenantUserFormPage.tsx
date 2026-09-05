@@ -8,6 +8,8 @@ import { FormError, TextField } from '@/shared/components/form/Fields';
 import { useApiForm } from '@/shared/components/form/useApiForm';
 import { ConfigurableForm, type FieldGroup } from '@/core/field-settings/ConfigurableForm';
 import { rolesHooks } from '@/core/roles/api';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
+import { BranchMemberships } from '../components/BranchMemberships';
 import { tenantUsersHooks, useTenantUserFields } from '../api';
 
 // A `type`, not an `interface` — only type aliases get the implicit index
@@ -49,6 +51,7 @@ export default function TenantUserFormPage() {
     const update = tenantUsersHooks.useUpdate();
 
     const { data: roles } = rolesHooks.useList();
+    const { can } = useTenantAuth();
 
     const {
         register,
@@ -212,6 +215,24 @@ export default function TenantUserFormPage() {
                     control={control}
                     extras={extras}
                 />
+
+                {/*
+                    Only once they exist: a person being created has no id to
+                    hang memberships on, so branches are set on the next screen.
+                    Saved separately because assigning them is a different,
+                    organization-scoped permission.
+                */}
+                {isEdit && person && (
+                    <BranchMemberships
+                        userId={person.id}
+                        initial={(person.branches ?? []).map((branch) => ({
+                            location_id: branch.location_id,
+                            role_id: branch.role_id,
+                            is_primary: branch.is_primary,
+                        }))}
+                        canAssign={can('people.assign_branch')}
+                    />
+                )}
 
                 <div className="form-actions">
                     {/* Only on edit: a record being created has no

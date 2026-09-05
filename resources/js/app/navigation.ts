@@ -20,6 +20,16 @@ export interface NavItem {
      * before anybody has to ask.
      */
     soon?: boolean;
+    /**
+     * Screens that are the same subject at a different depth.
+     *
+     * OPD's board and its queue are one thing seen two ways, not two peers —
+     * putting them side by side in a flat list made the menu read as a pile of
+     * unrelated screens. A parent with children is still a link itself: the
+     * group header goes somewhere, rather than being a lid you have to lift
+     * before anything happens.
+     */
+    children?: NavItem[];
 }
 
 export interface NavSection {

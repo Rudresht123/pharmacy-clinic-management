@@ -19,12 +19,18 @@ export function useQueue(doctorId: number | '', locationId: number | '', date: s
         queryKey: resourceKey(ENDPOINT, 'queue', doctorId, locationId, date),
         queryFn: async (): Promise<QueuePayload> => {
             const { data } = await http.get<ApiResponse<QueuePayload>>('/tenant/appointments', {
-                params: { doctor_id: doctorId, location_id: locationId, date },
+                params: {
+                    // Omitted rather than sent empty: the doctor is a filter,
+                    // and no filter is the branch's whole day.
+                    ...(doctorId === '' ? {} : { doctor_id: doctorId }),
+                    location_id: locationId,
+                    date,
+                },
             });
 
             return data.data;
         },
-        enabled: Boolean(doctorId && locationId && date),
+        enabled: Boolean(locationId && date),
         refetchInterval: 30_000,
     });
 }
