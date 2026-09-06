@@ -45,8 +45,19 @@ export function CustomerTable({
     const confirm = useConfirm();
     const navigate = useNavigate();
 
-    const { user } = useTenantAuth();
-    const canRemove = user?.role === 'owner';
+    const { can } = useTenantAuth();
+    /*
+     * The capability, not the role.
+     *
+     * This asked whether the signed-in person was the OWNER, while the route
+     * behind it asks for customers.delete. A branch admin holds that
+     * capability and was still shown a screen with no way to act on it — the
+     * server would have allowed the write the button was never offered for.
+     *
+     * The rule the navigation already follows: every control names the
+     * capability its endpoint demands, so the two cannot disagree.
+     */
+    const canRemove = can('customers.delete');
 
     const { data: page, isLoading, isFetching, isError, refetch } = customersHooks.useTable(params);
     const remove = customersHooks.useRemove();

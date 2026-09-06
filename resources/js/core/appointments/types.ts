@@ -17,6 +17,8 @@ export interface Appointment {
 
     doctor_id: number;
     doctor_name?: string | null;
+    /** Standing in for a department, which does not exist as a table yet. */
+    doctor_specialisation?: string | null;
 
     location_id: number;
     location_name?: string | null;

@@ -19,6 +19,15 @@ interface ModalProps {
     tone?: 'primary' | 'danger';
     /** Block dismissal while a request is in flight. */
     busy?: boolean;
+    /**
+     * Where the dialog sits.
+     *
+     * A centred box is right for a question — confirm, choose, cancel. A side
+     * panel is right for a task done ALONGSIDE the page: registering somebody
+     * at the desk means glancing back at the queue behind it, and a centred
+     * box covers the thing being worked from.
+     */
+    placement?: 'centre' | 'side';
 }
 
 const SIZES: Record<ModalSize, string> = {
@@ -65,6 +74,7 @@ export function Modal({
     icon,
     tone = 'primary',
     busy,
+    placement = 'centre',
 }: ModalProps) {
     // `mounted` keeps the dialog in the DOM through its exit transition;
     // `visible` toggles Bootstrap's .show class.
@@ -131,13 +141,23 @@ export function Modal({
                 aria-modal="true"
                 // Centring is set here rather than left to Bootstrap's
                 // .modal-dialog-centered so no theme rule can shift it.
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflowY: 'auto',
-                    padding: '1rem',
-                }}
+                style={
+                    placement === 'side'
+                        ? {
+                              display: 'flex',
+                              alignItems: 'stretch',
+                              justifyContent: 'flex-end',
+                              overflow: 'hidden',
+                              padding: 0,
+                          }
+                        : {
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              overflowY: 'auto',
+                              padding: '1rem',
+                          }
+                }
                 onMouseDown={(event) => {
                     // Only a press that starts on the backdrop should close.
                     if (event.target === event.currentTarget && !busy) {
@@ -147,15 +167,23 @@ export function Modal({
             >
                 <div
                     ref={dialogRef}
-                    className={cn('modal-dialog', SIZES[size])}
+                    className={cn(
+                        'modal-dialog',
+                        placement === 'side' ? 'modal-side' : SIZES[size],
+                    )}
                     style={{ margin: 0, width: '100%' }}
                     tabIndex={-1}
                 >
                     <div
                         className="modal-content border-0 shadow-sm"
                         // Keep tall forms scrollable inside the dialog rather
-                        // than pushing it off screen.
-                        style={{ maxHeight: 'calc(100vh - 2rem)' }}
+                        // than pushing it off screen. A side panel is the full
+                        // height of the window instead.
+                        style={
+                            placement === 'side'
+                                ? { height: '100vh', borderRadius: 0 }
+                                : { maxHeight: 'calc(100vh - 2rem)' }
+                        }
                     >
                         <div className="modal-header bg-light border-bottom position-relative">
                             <button

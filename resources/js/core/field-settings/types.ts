@@ -1,5 +1,13 @@
 export type FieldDataType =
-    'text' | 'email' | 'date' | 'select' | 'textarea' | 'boolean' | 'number';
+    | 'text'
+    | 'email'
+    | 'date'
+    | 'select'
+    /** Several of the same list at once; the value is an array. */
+    | 'multiselect'
+    | 'textarea'
+    | 'boolean'
+    | 'number';
 
 /**
  * One field as the server describes it, after the organization's own

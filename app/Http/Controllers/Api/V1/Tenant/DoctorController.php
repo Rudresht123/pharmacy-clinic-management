@@ -11,9 +11,13 @@ use App\Models\Tenant\Doctor;
 use App\Models\Tenant\EntityFieldSetting;
 use App\Repositories\Tenant\Contracts\DoctorRepositoryInterface;
 use App\Services\Fields\FieldSchema;
+use App\Services\Permissions\Permission;
+use App\Services\Tenancy\TenantConnectionService;
+use App\Services\Tenant\DoctorAccountProvisioner;
 use App\Support\Fields\DoctorFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The doctors an organization's patients are seen by.
@@ -28,6 +32,7 @@ class DoctorController extends BaseApiController
 
     public function __construct(
         private readonly DoctorRepositoryInterface $doctors,
+        private readonly Permission $permission,
     ) {}
 
     /** The field definitions the form and table render from. */
@@ -67,22 +72,82 @@ class DoctorController extends BaseApiController
 
     public function show(Doctor $doctor): JsonResponse
     {
-        // The schedules answer "which branches", which a doctor row cannot.
-        return $this->ok(DoctorResource::make($doctor->load('schedules.location')));
+        // The schedules answer "which branches", which a doctor row cannot;
+        // the user says whether the edit form should show a login section.
+        return $this->ok(DoctorResource::make($doctor->load(['schedules.location', 'user'])));
     }
 
-    public function store(StoreDoctorRequest $request): JsonResponse
-    {
-        $doctor = $this->doctors->create($request->validated());
+    public function store(
+        StoreDoctorRequest $request,
+        DoctorAccountProvisioner $accounts,
+    ): JsonResponse {
+        $data = $request->validated();
+        $account = $data['account'] ?? null;
+        unset($data['account']);
 
-        return $this->created(DoctorResource::make($doctor), 'Doctor added');
+        /*
+         * Both in one transaction. A doctor saved with a half-made login is
+         * worse than one with none: the email is taken, so the second attempt
+         * fails against an account nobody can see.
+         */
+        $doctor = DB::connection(TenantConnectionService::CONNECTION)
+            ->transaction(function () use ($data, $account, $request, $accounts) {
+                $doctor = $this->doctors->create($data);
+
+                if ($account) {
+                    $accounts->open($doctor, $account, $this->modules($request));
+                }
+
+                return $doctor;
+            });
+
+        return $this->created(
+            DoctorResource::make($doctor->load('user')),
+            $account ? 'Doctor added, and they can now sign in.' : 'Doctor added',
+        );
     }
 
-    public function update(UpdateDoctorRequest $request, Doctor $doctor): JsonResponse
-    {
-        $doctor = $this->doctors->update($doctor, $request->validated());
+    public function update(
+        UpdateDoctorRequest $request,
+        Doctor $doctor,
+        DoctorAccountProvisioner $accounts,
+    ): JsonResponse {
+        $data = $request->validated();
+        $account = $data['account'] ?? null;
+        unset($data['account']);
 
-        return $this->ok(DoctorResource::make($doctor), 'Doctor updated');
+        $updated = DB::connection(TenantConnectionService::CONNECTION)
+            ->transaction(function () use ($doctor, $data, $account, $request, $accounts) {
+                $updated = $this->doctors->update($doctor, $data);
+
+                if ($account) {
+                    $accounts->open($updated, $account, $this->modules($request));
+                } else {
+                    /*
+                     * The section was switched off, so the login goes. Sent
+                     * every time the form is saved, an absent block can only
+                     * mean "they should not have one" — which is what the
+                     * switch says.
+                     */
+                    $accounts->close($updated);
+                }
+
+                return $updated;
+            });
+
+        return $this->ok(DoctorResource::make($updated->load('user')), 'Doctor updated');
+    }
+
+    /**
+     * What this organization runs, for bounding the doctor role.
+     *
+     * @return list<string>
+     */
+    private function modules(Request $request): array
+    {
+        $organization = $request->attributes->get('tenant.organization');
+
+        return $organization ? $this->permission->modulesAt($organization, null) : [];
     }
 
     public function destroy(Doctor $doctor): JsonResponse

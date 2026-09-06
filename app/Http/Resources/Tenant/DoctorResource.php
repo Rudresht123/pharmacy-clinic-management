@@ -19,7 +19,18 @@ class DoctorResource extends JsonResource
             'code' => $this->code,
 
             'specialisation' => $this->specialisation,
-            'qualification' => $this->qualification,
+            'qualifications' => $this->qualifications ?? [],
+
+            /*
+             * The URL, not the id. Nothing on a screen can do anything with a
+             * file id, and sending one would make every avatar a second
+             * request to find out where the first one lives.
+             */
+            'photo_url' => $this->whenLoaded(
+                'photograph',
+                fn () => $this->photograph?->url,
+                null,
+            ),
             'registration_no' => $this->registration_no,
 
             'phone' => $this->phone,
@@ -47,6 +58,18 @@ class DoctorResource extends JsonResource
             'schedule_count' => $this->whenCounted('schedules'),
 
             'custom_fields' => $this->custom_fields ?? [],
+
+            /*
+             * Their login, when they have one.
+             *
+             * Only ever the email — a password is write-only, and sending a
+             * hash to a screen that has no use for it is how hashes end up in
+             * browser caches and bug reports.
+             */
+            'account' => $this->whenLoaded(
+                'user',
+                fn () => $this->user ? ['id' => $this->user->id, 'email' => $this->user->email] : null,
+            ),
 
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

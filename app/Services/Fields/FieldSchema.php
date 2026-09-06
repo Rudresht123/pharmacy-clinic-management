@@ -66,6 +66,23 @@ class FieldSchema
         $field['in_table'] = $override->show_in_table;
 
         /*
+         * The organization's own list, where it has one.
+         *
+         * Without this the settings screen could save a set of departments and
+         * every screen would go on offering the code's — the row was written
+         * and then read past. A built-in list's options are a starting point,
+         * not a fixture: one clinic runs "Obs & Gynae" where another runs
+         * "Gynaecology", and neither is the framework's business.
+         *
+         * Falls back to the registry when the row has none, so a setting saved
+         * for some other reason — hiding the field, renaming it — does not
+         * silently empty the list.
+         */
+        if (! empty($override->options)) {
+            $field['options'] = $override->options;
+        }
+
+        /*
          * A locked field is one the application itself depends on. Its
          * visibility and its required-ness are not negotiable, however the
          * settings row reads — validating on write is not enough, because a
@@ -142,6 +159,73 @@ class FieldSchema
                 $rule,
                 $this->typeRules($field)
             );
+
+            /*
+             * A list's members are validated under their own key, not the
+             * parent's — so the rule that says "each of these has to be one of
+             * the options" has to be added separately or it is never applied.
+             */
+            if (($field['type'] ?? null) === EntityFieldSetting::TYPE_MULTISELECT) {
+                $rules['custom_fields.'.$field['key'].'.*'] = [
+                    'string',
+                    'in:'.implode(',', array_column($field['options'] ?? [], 'value')),
+                ];
+            }
+        }
+
+        return $rules;
+    }
+
+    /**
+     * The option constraints for built-in select and multiselect fields.
+     *
+     * `customRules()` covers fields the organization invented; this covers the
+     * ones the code ships whose values are a list — the doctor's department,
+     * their qualifications. Without it the options were a suggestion: the form
+     * offered ten departments and the API accepted "Astrology", which is
+     * exactly the free-text problem the list was introduced to end.
+     *
+     * Returns the CONSTRAINT alone — an `in:` and, for a list, `array` — for
+     * the caller to append to whatever the request already declares. Returning
+     * a complete rule set instead would overwrite the request's own `integer`
+     * and `exists()` for the built-in selects whose options are branch ids.
+     *
+     * @param  list<array<string, mixed>>  $fields
+     * @return array<string, array<int, mixed>>
+     */
+    public function builtInOptionRules(array $fields): array
+    {
+        $rules = [];
+
+        foreach ($fields as $field) {
+            if ($field['is_custom'] ?? false) {
+                continue;
+            }
+
+            $values = array_column($field['options'] ?? [], 'value');
+
+            if ($values === []) {
+                continue;
+            }
+
+            $in = 'in:'.implode(',', $values);
+
+            if ($field['type'] === EntityFieldSetting::TYPE_SELECT) {
+                /*
+                 * Only the constraint. The request already says what shape the
+                 * value is — `integer` and an exists() for a branch id,
+                 * `string` for a department — and replacing that wholesale
+                 * broke every branch picker by insisting an id was a string.
+                 */
+                $rules[$field['key']] = [$in];
+            }
+
+            if ($field['type'] === EntityFieldSetting::TYPE_MULTISELECT) {
+                $rules[$field['key']] = ['array'];
+
+                // A list's members are validated under their own key.
+                $rules[$field['key'].'.*'] = ['string', $in];
+            }
         }
 
         return $rules;
@@ -163,6 +247,13 @@ class FieldSchema
                 // registry's own selects.
                 'in:'.implode(',', array_column($field['options'] ?? [], 'value')),
             ],
+
+            /*
+             * The array itself. What each entry has to be is a separate rule
+             * on `field.*`, because Laravel validates a list's members under
+             * their own key rather than the parent's.
+             */
+            EntityFieldSetting::TYPE_MULTISELECT => ['array'],
             default => ['string', 'max:1000'],
         };
     }

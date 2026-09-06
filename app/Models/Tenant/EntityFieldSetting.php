@@ -44,6 +44,15 @@ class EntityFieldSetting extends Model
 
     public const TYPE_SELECT = 'select';
 
+    /**
+     * Several of the same list at once.
+     *
+     * Distinct from a select because the value is an array, which changes how
+     * it is stored, validated and rendered — a doctor holds MBBS and MD, and
+     * one column holding "MBBS, MD" is a sentence nobody can filter on.
+     */
+    public const TYPE_MULTISELECT = 'multiselect';
+
     /** Types an organization may give a field it adds itself. */
     public const CUSTOM_TYPES = [
         self::TYPE_TEXT,

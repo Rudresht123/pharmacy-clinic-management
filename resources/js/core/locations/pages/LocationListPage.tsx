@@ -18,8 +18,19 @@ export default function LocationListPage() {
     const navigate = useNavigate();
 
     // Only the owner may change the network's shape; staff can look.
-    const { user } = useTenantAuth();
-    const canManage = user?.role === 'owner';
+    const { can } = useTenantAuth();
+    /*
+     * The capability, not the role.
+     *
+     * This asked whether the signed-in person was the OWNER, while the route
+     * behind it asks for branches.create / .edit / .delete. A branch admin holds that
+     * capability and was still shown a screen with no way to act on it — the
+     * server would have allowed the write the button was never offered for.
+     *
+     * The rule the navigation already follows: every control names the
+     * capability its endpoint demands, so the two cannot disagree.
+     */
+    const canManage = can('branches.create') || can('branches.edit');
 
     const table = useServerTable({ pageSize: 25, sort: 'name', direction: 'asc' });
     const {

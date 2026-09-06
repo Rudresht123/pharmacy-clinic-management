@@ -37,6 +37,18 @@ class AppointmentResource extends JsonResource
             'doctor_id' => $this->doctor_id,
             'doctor_name' => $this->whenLoaded('doctor', fn () => $this->doctor?->name),
 
+            /*
+             * What the doctor does, standing in for a department.
+             *
+             * There is no departments table, and a speciality answers the same
+             * question without a second place for the truth to live. It moves
+             * to a real column the day departments exist.
+             */
+            'doctor_specialisation' => $this->whenLoaded(
+                'doctor',
+                fn () => $this->doctor?->specialisation,
+            ),
+
             'location_id' => $this->location_id,
             'location_name' => $this->whenLoaded('location', fn () => $this->location?->name),
 

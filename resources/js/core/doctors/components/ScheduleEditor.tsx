@@ -5,6 +5,7 @@ import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { locationsHooks } from '@/core/locations/api';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { useDoctorSchedules, useSaveDoctorSchedules } from '../api';
 import type { DoctorScheduleInput } from '../types';
 
@@ -42,6 +43,17 @@ function blankSitting(weekday: number, locationId: number | ''): DoctorScheduleI
 export function ScheduleEditor({ doctorId }: { doctorId: number }) {
     const { data: saved, isLoading } = useDoctorSchedules(doctorId);
     const { data: branches } = locationsHooks.useList({ all: 1 });
+
+    /*
+     * A new sitting starts at the branch this person actually works from.
+     *
+     * It used to default to the organization's FIRST branch, which for a
+     * branch admin adding their own doctor is somebody else's — and a sitting
+     * at the wrong branch is invisible in the queue they were adding the
+     * doctor for, with nothing on screen saying why. An owner works across the
+     * network and has no own branch, so they keep the first as before.
+     */
+    const { activeBranch } = useTenantAuth();
     const save = useSaveDoctorSchedules(doctorId);
 
     const [rows, setRows] = useState<DoctorScheduleInput[]>([]);
@@ -79,7 +91,10 @@ export function ScheduleEditor({ doctorId }: { doctorId: number }) {
 
     function addTo(weekday: number) {
         setDirty(true);
-        setRows((current) => [...current, blankSitting(weekday, branches?.[0]?.id ?? '')]);
+        setRows((current) => [
+            ...current,
+            blankSitting(weekday, activeBranch ?? branches?.[0]?.id ?? ''),
+        ]);
     }
 
     function removeAt(index: number) {

@@ -150,7 +150,7 @@ export function tenantNavigation(
             children: [
                 { label: 'Dashboard', to: '/opd', icon: 'ti ti-layout-dashboard' },
                 {
-                    label: 'Queue',
+                    label: 'Queue management',
                     to: '/opd/queue',
                     icon: 'ti ti-list-check',
                     match: '/opd/queue',

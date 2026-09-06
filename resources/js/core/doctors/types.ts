@@ -12,7 +12,8 @@ export interface Doctor extends Timestamps {
     code: string | null;
 
     specialisation: string | null;
-    qualification: string | null;
+    /** A list. It was one comma-joined string until the column became jsonb. */
+    qualifications: string[];
     registration_no: string | null;
 
     phone: string | null;
@@ -22,6 +23,15 @@ export interface Doctor extends Timestamps {
     default_consultation_fee: string | null;
     is_active: boolean;
     notes: string | null;
+
+    /**
+     * Their login, when they have one.
+     *
+     * Email only — a password is write-only, and a hash sent to a screen with
+     * no use for it is how hashes reach browser caches and bug reports. Absent
+     * rather than null when the relation was not loaded.
+     */
+    account?: { id: number; email: string } | null;
 
     /** Only on the detail endpoint — on a list it would be a query per row. */
     locations?: string[];

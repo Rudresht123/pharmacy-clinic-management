@@ -49,6 +49,20 @@ interface Row extends FieldSettingInput {
     resolvedType: FieldDataType;
 }
 
+/**
+ * Whether this field is one whose options the organization decides.
+ *
+ * Both list types, built-in or custom. The doctor's department and their
+ * qualifications ship a starter list precisely so a new clinic is not asked to
+ * invent a taxonomy before adding its first doctor — and every clinic then
+ * edits it. Until now there was nowhere at all to do that: the editor opened
+ * only for custom fields, and its options block keyed off `data_type`, which
+ * is deliberately null for a built-in.
+ */
+function hasOptions(row: Row): boolean {
+    return row.resolvedType === 'select' || row.resolvedType === 'multiselect';
+}
+
 function toRow(field: ConfigurableField): Row {
     return {
         field_key: field.key,
@@ -56,7 +70,16 @@ function toRow(field: ConfigurableField): Row {
         placeholder: field.placeholder ?? null,
         is_custom: field.is_custom,
         data_type: field.is_custom ? field.type : null,
-        options: field.is_custom ? (field.options ?? null) : null,
+        /*
+         * Options travel for any field that has them, not only custom ones.
+         *
+         * A built-in select — the doctor's department, their qualifications —
+         * ships a starter list that every clinic then edits: one uses
+         * "Gynaecology", another "Obs & Gynae", and neither should have to
+         * choose between the code's spelling and a custom field that loses the
+         * column behind it.
+         */
+        options: field.options ?? null,
         is_required: field.required,
         show_in_form: field.show_in_form,
         show_in_table: field.in_table,
@@ -413,7 +436,14 @@ export default function FieldSettingsPage() {
                                                         </span>
                                                     )}
 
-                                                    {row.is_custom && (
+                                                    {/*
+                                                        A built-in list opens
+                                                        too — its options are
+                                                        the clinic's own, and
+                                                        there was previously
+                                                        nowhere to edit them.
+                                                    */}
+                                                    {(row.is_custom || hasOptions(row)) && (
                                                         <button
                                                             type="button"
                                                             className="lf-edit"
@@ -489,7 +519,22 @@ export default function FieldSettingsPage() {
 
                                             {isOpen && (
                                                 <div className="lf-editor">
-                                                    <div className="lf-editor-grid">
+                                                    {/*
+                                                        Key, type and
+                                                        placeholder belong to a
+                                                        field the organization
+                                                        invented. A built-in
+                                                        one opens this panel
+                                                        only for its options,
+                                                        and the rest would be
+                                                        controls that either do
+                                                        nothing or break the
+                                                        column behind them.
+                                                    */}
+                                                    <div
+                                                        className="lf-editor-grid"
+                                                        hidden={!row.is_custom}
+                                                    >
                                                         <label>
                                                             Key
                                                             <input
@@ -561,7 +606,7 @@ export default function FieldSettingsPage() {
                                                         </label>
                                                     </div>
 
-                                                    {row.data_type === 'select' && (
+                                                    {hasOptions(row) && (
                                                         <div className="lf-options">
                                                             <span className="lf-options-title">
                                                                 Dropdown options

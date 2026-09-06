@@ -6,6 +6,7 @@ import {
     TextareaField,
 } from '@/shared/components/form/Fields';
 import { DateField } from '@/shared/components/form/DateField';
+import { MultiSelectField } from './MultiSelectField';
 import type { ConfigurableField } from './types';
 
 /**
@@ -62,6 +63,31 @@ export function FieldInput<T extends FieldValues>({
 
         case 'select':
             return (
+                <SelectField
+                    {...shared}
+                    placeholder={field.placeholder ?? 'Choose one…'}
+                    options={field.options ?? []}
+                />
+            );
+
+        case 'multiselect':
+            /*
+             * Controlled, because the value is an array. Without a `control`
+             * there is no honest way to render one, so it falls back to the
+             * single select rather than to a text box that would let somebody
+             * type a value the server will refuse.
+             */
+            return control ? (
+                <MultiSelectField
+                    name={name}
+                    label={field.label}
+                    control={control}
+                    options={field.options ?? []}
+                    required={field.required}
+                    placeholder={field.placeholder ?? 'Choose…'}
+                    error={errors?.[field.key]?.message as string | undefined}
+                />
+            ) : (
                 <SelectField
                     {...shared}
                     placeholder={field.placeholder ?? 'Choose one…'}

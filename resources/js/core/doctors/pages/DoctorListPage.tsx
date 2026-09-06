@@ -31,8 +31,19 @@ export default function DoctorListPage() {
     const label = useEntityLabel('doctor');
 
     // Anyone signed in may look; only the owner may change.
-    const { user } = useTenantAuth();
-    const canManage = user?.role === 'owner';
+    const { can } = useTenantAuth();
+    /*
+     * The capability, not the role.
+     *
+     * This asked whether the signed-in person was the OWNER, while the route
+     * behind it asks for appointments.doctors. A branch admin holds that
+     * capability and was still shown a screen with no way to act on it — the
+     * server would have allowed the write the button was never offered for.
+     *
+     * The rule the navigation already follows: every control names the
+     * capability its endpoint demands, so the two cannot disagree.
+     */
+    const canManage = can('appointments.doctors');
 
     const [filters, setFilters] = useState<Record<string, string>>({});
 
@@ -69,7 +80,9 @@ export default function DoctorListPage() {
             name: (row: Doctor) => (
                 <div>
                     <b className="d-block">{row.name}</b>
-                    {row.qualification && <span className="dr-sub">{row.qualification}</span>}
+                    {row.qualifications?.length > 0 && (
+                        <span className="dr-sub">{row.qualifications.join(', ')}</span>
+                    )}
                 </div>
             ),
             code: (row: Doctor) =>

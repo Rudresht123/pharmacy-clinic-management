@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
-import { FormError } from '@/shared/components/form/Fields';
+import { FormError, TextField } from '@/shared/components/form/Fields';
 import { useApiForm } from '@/shared/components/form/useApiForm';
 import { ConfigurableForm, type FieldGroup } from '@/core/field-settings/ConfigurableForm';
 import { useEntityLabel } from '@/core/field-settings/api';
@@ -16,6 +16,22 @@ import { doctorsHooks, useDoctorFields } from '../api';
 type DoctorFormValues = Record<string, unknown>;
 
 const GROUPS: FieldGroup[] = [
+    /*
+     * Not a configurable field — none of this is stored on the doctor.
+     *
+     * `Doctor::user()` and the login's `doctor_id` have existed since the
+     * schema did, and nothing ever wrote the link between them: the morphOne
+     * was there, the unique index was there, the queue was ready to open on a
+     * doctor's own list, and no doctor could sign in because no screen could
+     * create the account. This is that screen.
+     */
+    {
+        key: 'account',
+        title: 'Login access',
+        icon: 'ti ti-key',
+        description: 'Lets this doctor sign in and see their own list.',
+        rail: true,
+    },
     {
         key: 'identity',
         title: 'Who They Are',
@@ -65,6 +81,13 @@ export default function DoctorFormPage() {
     const isEdit = Boolean(id);
     const label = useEntityLabel('doctor');
 
+    /*
+     * Off unless they already have one. A visiting consultant who never
+     * touches the system is why doctors are their own table rather than a role
+     * on users, so an account is the exception rather than the default.
+     */
+    const [withAccount, setWithAccount] = useState(false);
+
     const { data: fields, isLoading: fieldsLoading } = useDoctorFields();
     const { data: doctor, isLoading: recordLoading } = doctorsHooks.useDetail(id);
 
@@ -91,7 +114,7 @@ export default function DoctorFormPage() {
             name: doctor.name,
             code: doctor.code ?? '',
             specialisation: doctor.specialisation ?? '',
-            qualification: doctor.qualification ?? '',
+            qualifications: doctor.qualifications ?? [],
             registration_no: doctor.registration_no ?? '',
             phone: doctor.phone ?? '',
             email: doctor.email ?? '',
@@ -99,12 +122,30 @@ export default function DoctorFormPage() {
             notes: doctor.notes ?? '',
             is_active: doctor.is_active,
             custom_fields: doctor.custom_fields ?? {},
+
+            // The email only. A password is write-only, so the field starts
+            // blank and blank means "leave it alone".
+            account: { email: doctor.account?.email ?? '', password: '' },
         });
+
+        setWithAccount(Boolean(doctor.account));
     }, [doctor, reset]);
 
     const onSubmit = handleSubmit(async (values) => {
-        const result = await submit(values, async () =>
-            isEdit && id ? update.mutateAsync({ id, payload: values }) : create.mutateAsync(values),
+        /*
+         * The inputs stay mounted while the section is off, so their values
+         * would still be sent. Stripped here rather than unmounted, because
+         * somebody who fills it in, switches it off and on again should find
+         * what they typed still there.
+         *
+         * Null rather than omitted: on an edit the server reads an absent
+         * block as "they should not have a login" and closes the one they had,
+         * which is exactly what switching it off means.
+         */
+        const payload = { ...values, account: withAccount ? values.account : null };
+
+        const result = await submit(payload, async () =>
+            isEdit && id ? update.mutateAsync({ id, payload }) : create.mutateAsync(payload),
         );
 
         if (result) {
@@ -148,6 +189,71 @@ export default function DoctorFormPage() {
                     register={register}
                     errors={errors}
                     control={control}
+                    extras={{
+                        account: (
+                            <>
+                                <div className="form-check form-switch mb-3">
+                                    <input
+                                        id="with-account"
+                                        type="checkbox"
+                                        className="form-check-input"
+                                        checked={withAccount}
+                                        onChange={(event) =>
+                                            setWithAccount(event.target.checked)
+                                        }
+                                    />
+
+                                    <label className="form-check-label" htmlFor="with-account">
+                                        Give this doctor a login
+                                    </label>
+
+                                    <small className="text-muted d-block mt-1">
+                                        They see their own list and can write up what happened —
+                                        not the desk&rsquo;s work of booking and cancelling.
+                                    </small>
+                                </div>
+
+                                {withAccount && (
+                                    <>
+                                        <TextField
+                                            name="account.email"
+                                            label="Email"
+                                            type="email"
+                                            required
+                                            register={register}
+                                            errors={errors}
+                                            autoComplete="off"
+                                            hint="What they sign in with. Unused across the organization."
+                                        />
+
+                                        <TextField
+                                            name="account.password"
+                                            label={doctor?.account ? 'New password' : 'Password'}
+                                            type="password"
+                                            required={!doctor?.account}
+                                            register={register}
+                                            errors={errors}
+                                            autoComplete="new-password"
+                                            hint={
+                                                doctor?.account
+                                                    ? 'Leave blank to keep their current password.'
+                                                    : 'At least 8 characters.'
+                                            }
+                                        />
+                                    </>
+                                )}
+
+                                {/* Says what switching it off will do, before
+                                    it is done rather than after. */}
+                                {!withAccount && doctor?.account && (
+                                    <p className="form-hint text-danger">
+                                        Saving now removes their login. The doctor and everything
+                                        recorded against them stays.
+                                    </p>
+                                )}
+                            </>
+                        ),
+                    }}
                 />
 
                 <div className="form-actions">

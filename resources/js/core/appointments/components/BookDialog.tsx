@@ -13,6 +13,24 @@ import type { Customer } from '@/core/customers/types';
 import { useBookAppointment, useOpenSlots } from '../api';
 import type { AppointmentType } from '../types';
 
+/** "34 years", or nothing when there is no date of birth behind it. */
+function describe(dob: string | null | undefined): string | null {
+    if (!dob) {
+        return null;
+    }
+
+    const born = new Date(dob);
+    const now = new Date();
+    let years = now.getFullYear() - born.getFullYear();
+    const month = now.getMonth() - born.getMonth();
+
+    if (month < 0 || (month === 0 && now.getDate() < born.getDate())) {
+        years -= 1;
+    }
+
+    return years >= 0 && years < 150 ? `${years} years` : null;
+}
+
 /** Which question the dialog is on. */
 type Step = 'who' | 'when';
 
@@ -253,58 +271,125 @@ export function BookDialog({
                       : 'Book an appointment'
             }
             subtitle={`${branchName} · ${date}`}
-            size="md"
             icon={<i className="ti ti-calendar-plus" />}
             footer={footer}
+            /*
+             * A side panel, not a centred box.
+             *
+             * Taking somebody at the desk is done alongside the queue, not
+             * instead of it: the receptionist is reading the list while they
+             * type — which token is next, whether this doctor is already
+             * running late. A centred dialog covers the one thing being worked
+             * from.
+             */
+            placement="side"
         >
             <div className="bk">
+                {/*
+                    Two steps, named and numbered.
+
+                    Without them the dialog's Back button was the only sign
+                    there was more than one screen, and somebody who reached
+                    the second could not tell whether they were nearly done or
+                    halfway into something long.
+                */}
+                <ol className="bk-steps" aria-label="Steps">
+                    <li className={step === 'who' ? 'is-on' : 'is-done'}>
+                        <span aria-hidden="true">{step === 'who' ? '1' : <i className="ti ti-check" />}</span>
+                        {label.singular}
+                    </li>
+                    <li className={step === 'when' ? 'is-on' : undefined}>
+                        <span aria-hidden="true">2</span>
+                        Visit details
+                    </li>
+                </ol>
+
                 {/* ---------------------------------------- step 1: who */}
                 {step === 'who' && (
                     <>
-                        <label className="bk-field">
-                            <span>Search by name or phone</span>
+                        <div className="bk-search">
+                            <i className="ti ti-search" aria-hidden="true" />
                             <input
                                 type="search"
-                                className="form-control"
-                                placeholder="Start typing…"
+                                placeholder={`Search by name, mobile, or ${label.singular.toLowerCase()} ID…`}
+                                aria-label={`Search ${label.plural.toLowerCase()}`}
                                 autoFocus
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
                             />
-                        </label>
+                            {searching && (
+                                <i className="ti ti-loader-2 is-spinning" aria-hidden="true" />
+                            )}
+                        </div>
 
                         {search.trim().length < 2 ? (
-                            <p className="bk-none">
-                                Two letters is enough. A clinic's book of{' '}
-                                {label.plural.toLowerCase()} is long, so nothing is listed until
-                                you narrow it.
-                            </p>
+                            <div className="bk-prompt">
+                                <i className="ti ti-search" aria-hidden="true" />
+                                <b>Start typing a name or number</b>
+                                <small>
+                                    Two letters is enough. A clinic keeps a long book of{' '}
+                                    {label.plural.toLowerCase()}, so nothing is listed until you
+                                    narrow it.
+                                </small>
+                            </div>
+                        ) : searching && found.length === 0 ? (
+                            <div className="bk-prompt">
+                                <i className="ti ti-loader-2 is-spinning" aria-hidden="true" />
+                                <b>Searching…</b>
+                            </div>
+                        ) : found.length === 0 ? (
+                            <div className="bk-prompt">
+                                <i className="ti ti-user-question" aria-hidden="true" />
+                                <b>Nobody matches “{search.trim()}”</b>
+                                <small>
+                                    {canRegister
+                                        ? 'Register them below — you will come back here with them already chosen.'
+                                        : `Ask somebody who can add ${label.plural.toLowerCase()} to register them.`}
+                                </small>
+                            </div>
                         ) : (
                             <div className="bk-matches">
-                                {searching && found.length === 0 ? (
-                                    <p>Searching…</p>
-                                ) : found.length === 0 ? (
-                                    <p>
-                                        Nobody matches “{search.trim()}”.
-                                        {!canRegister &&
-                                            ' Ask somebody who can add patients to register them.'}
-                                    </p>
-                                ) : (
-                                    found.map((customer) => (
-                                        <button
-                                            type="button"
-                                            key={customer.id}
-                                            onClick={() => choose(customer)}
-                                        >
+                                {found.map((customer) => (
+                                    <button
+                                        type="button"
+                                        key={customer.id}
+                                        className="bk-hit"
+                                        onClick={() => choose(customer)}
+                                    >
+                                        <span className="bk-face" aria-hidden="true">
+                                            {(customer.name ?? '?').charAt(0)}
+                                        </span>
+
+                                        <span className="bk-hit-text">
                                             <b>{customer.name}</b>
-                                            {/* Enough to be sure it is the
-                                                right person before booking
-                                                somebody else's appointment. */}
-                                            {customer.code && <code>{customer.code}</code>}
-                                            {customer.phone && <code>{customer.phone}</code>}
-                                        </button>
-                                    ))
-                                )}
+
+                                            {/* Enough to be sure it is the right
+                                                person before booking somebody
+                                                else's appointment. */}
+                                            <small>
+                                                {[
+                                                    customer.code,
+                                                    describe(customer.date_of_birth),
+                                                    customer.gender
+                                                        ? customer.gender.charAt(0).toUpperCase() +
+                                                          customer.gender.slice(1)
+                                                        : null,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' · ')}
+                                            </small>
+
+                                            {customer.phone && (
+                                                <small className="bk-hit-phone">
+                                                    <i className="ti ti-phone" aria-hidden="true" />
+                                                    {customer.phone}
+                                                </small>
+                                            )}
+                                        </span>
+
+                                        <i className="ti ti-arrow-right" aria-hidden="true" />
+                                    </button>
+                                ))}
                             </div>
                         )}
 
@@ -339,18 +424,37 @@ export function BookDialog({
                     <>
                         {patient && (
                             <div className="bk-chosen">
-                                <b>{patient.name}</b>
-                                {patient.code && <code>{patient.code}</code>}
-                                {patient.phone && <code>{patient.phone}</code>}
+                                <span className="bk-face" aria-hidden="true">
+                                    {(patient.name ?? '?').charAt(0)}
+                                </span>
+
+                                <span className="bk-hit-text">
+                                    <b>{patient.name}</b>
+                                    <small>
+                                        {[
+                                            patient.code,
+                                            describe(patient.date_of_birth),
+                                            patient.phone,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                    </small>
+                                </span>
+
+                                {/* A word, not an ×. Clearing the person you
+                                    just chose is not what the button does — it
+                                    goes back to the list to choose again. */}
                                 <button
                                     type="button"
-                                    aria-label="Choose somebody else"
+                                    className="bk-change"
                                     onClick={() => setStep('who')}
                                 >
-                                    <i className="ti ti-x" />
+                                    Change
                                 </button>
                             </div>
                         )}
+
+                        <p className="bk-label">Kind of visit</p>
 
                         <div className="bk-types">
                             <button
@@ -374,51 +478,89 @@ export function BookDialog({
                             </button>
                         </div>
 
-                        <label className="bk-field">
-                            <span>
-                                Doctor <b className="req">*</b>
-                            </span>
+                        <div className="bk-group">
+                            <p className="bk-label">
+                                Doctor <em>required</em>
+                            </p>
 
                             {dayLoading ? (
-                                <p className="bk-none">Loading who is sitting today…</p>
+                                <div className="bk-prompt">
+                                    <i className="ti ti-loader-2 is-spinning" aria-hidden="true" />
+                                    <b>Loading who is sitting today…</b>
+                                </div>
                             ) : doctors.length === 0 ? (
-                                <p className="bk-none">
-                                    No doctor is sitting at {branchName} on this date. Set their
-                                    timings under Availability first.
-                                </p>
+                                <div className="bk-prompt">
+                                    <i className="ti ti-calendar-off" aria-hidden="true" />
+                                    <b>Nobody is sitting here on this date</b>
+                                    <small>
+                                        Set their timings under Availability, and they will appear
+                                        here.
+                                    </small>
+                                </div>
                             ) : (
-                                <select
-                                    className="form-select"
-                                    value={doctorId}
-                                    onChange={(event) => {
-                                        setDoctorId(Number(event.target.value));
-                                        setSlot('');
-                                    }}
-                                >
-                                    <option value="">Choose a doctor…</option>
+                                /*
+                                 * Cards rather than a dropdown.
+                                 *
+                                 * A branch runs three or four doctors on a given
+                                 * day, and choosing between them is the decision
+                                 * this step is FOR — a select hides all of it
+                                 * behind one line until you open it, and hides
+                                 * the speciality that usually decides the answer.
+                                 */
+                                <div className="bk-docs">
                                     {doctors.map((doctor) => (
-                                        <option key={doctor.doctor_id} value={doctor.doctor_id}>
-                                            {doctor.doctor_name}
-                                            {doctor.specialisation
-                                                ? ` · ${doctor.specialisation}`
-                                                : ''}
-                                        </option>
+                                        <button
+                                            type="button"
+                                            key={doctor.doctor_id}
+                                            className={`bk-doc${doctorId === doctor.doctor_id ? ' is-on' : ''}`}
+                                            aria-pressed={doctorId === doctor.doctor_id}
+                                            onClick={() => {
+                                                setDoctorId(doctor.doctor_id);
+                                                setSlot('');
+                                            }}
+                                        >
+                                            <span className="bk-face" aria-hidden="true">
+                                                {doctor.doctor_name
+                                                    .replace(/^Dr\.?\s*/i, '')
+                                                    .charAt(0)}
+                                            </span>
+
+                                            <span className="bk-hit-text">
+                                                <b>{doctor.doctor_name}</b>
+                                                <small>
+                                                    {doctor.specialisation ?? 'General'}
+                                                    {doctor.sessions.length > 0
+                                                        ? ` · ${doctor.sessions[0].starts_at}–${doctor.sessions[doctor.sessions.length - 1].ends_at}`
+                                                        : ''}
+                                                </small>
+                                            </span>
+
+                                            {doctorId === doctor.doctor_id && (
+                                                <i className="ti ti-circle-check-filled" aria-hidden="true" />
+                                            )}
+                                        </button>
                                     ))}
-                                </select>
+                                </div>
                             )}
 
-                            {errors.doctor_id && <em>{errors.doctor_id}</em>}
-                        </label>
+                            {errors.doctor_id && <em className="bk-error">{errors.doctor_id}</em>}
+                        </div>
 
                         {type === 'booked' && doctorId !== '' && (
-                            <div className="bk-field">
-                                <span>Time</span>
+                            <div className="bk-group">
+                                <p className="bk-label">
+                                    Time <em>required</em>
+                                </p>
 
                                 {(sessions ?? []).length === 0 ? (
-                                    <p className="bk-none">
-                                        This doctor is not sitting here on this date — or the day
-                                        is already taken.
-                                    </p>
+                                    <div className="bk-prompt">
+                                        <i className="ti ti-clock-off" aria-hidden="true" />
+                                        <b>No times left</b>
+                                        <small>
+                                            This doctor is not sitting here on this date, or every
+                                            slot has gone.
+                                        </small>
+                                    </div>
                                 ) : (
                                     (sessions ?? []).map((session, index) => (
                                         <div className="bk-session" key={index}>

@@ -221,29 +221,43 @@ export function Sidebar({
                                         */}
                                         {item.children && expanded && !collapsed && (
                                             <ul className="app-nav-sub">
-                                                {item.children.map((child) => (
-                                                    <li key={child.to}>
-                                                        <NavLink
-                                                            to={child.to}
-                                                            end={!child.match}
-                                                            className={({ isActive }) =>
-                                                                cn(
-                                                                    'app-nav-child',
-                                                                    (
-                                                                        child.match
-                                                                            ? pathname.startsWith(
-                                                                                  child.match,
-                                                                              )
-                                                                            : isActive
-                                                                    ) && 'is-active',
-                                                                )
-                                                            }
-                                                            onClick={onNavigate}
-                                                        >
-                                                            {child.label}
-                                                        </NavLink>
-                                                    </li>
-                                                ))}
+                                                {item.children.map((child) => {
+                                                    /*
+                                                     * A child whose link carries a
+                                                     * query string is an action,
+                                                     * not a place — it shares its
+                                                     * pathname with a sibling, and
+                                                     * without this both rows would
+                                                     * light up together, saying
+                                                     * you are in two places at
+                                                     * once.
+                                                     */
+                                                    const isAction = child.to.includes('?');
+
+                                                    return (
+                                                        <li key={child.to}>
+                                                            <NavLink
+                                                                to={child.to}
+                                                                end={!child.match}
+                                                                className={({ isActive }) =>
+                                                                    cn(
+                                                                        'app-nav-child',
+                                                                        !isAction &&
+                                                                            (child.match
+                                                                                ? pathname.startsWith(
+                                                                                      child.match,
+                                                                                  )
+                                                                                : isActive) &&
+                                                                            'is-active',
+                                                                    )
+                                                                }
+                                                                onClick={onNavigate}
+                                                            >
+                                                                {child.label}
+                                                            </NavLink>
+                                                        </li>
+                                                    );
+                                                })}
                                             </ul>
                                         )}
                                     </li>

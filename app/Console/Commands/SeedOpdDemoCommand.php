@@ -225,7 +225,8 @@ class SeedOpdDemoCommand extends Command
                 ['name' => $name],
                 [
                     'specialisation' => $speciality,
-                    'qualification' => $qualification,
+                    // A list now, so the demo data has the shape the form writes.
+                    'qualifications' => array_map('trim', explode(',', $qualification)),
                     'default_consultation_fee' => 400 + ($index * 150),
                     'is_active' => true,
                 ],
@@ -236,8 +237,20 @@ class SeedOpdDemoCommand extends Command
             $branch = $branches[$index % $branches->count()];
 
             foreach (range(Weekday::MONDAY, Weekday::SUNDAY) as $weekday) {
-                // Sunday off, which is what makes an empty day worth looking at.
-                if ($weekday === Weekday::SUNDAY) {
+                /*
+                 * A skeleton Sunday rather than no Sunday.
+                 *
+                 * Every doctor used to have the day off, on the grounds that an
+                 * empty day is worth being able to look at. True, but it meant
+                 * anybody opening the demo ON a Sunday found the whole product
+                 * blank — the one day it is most likely to be shown to somebody.
+                 * Two of the six sit a short morning, which is what a real
+                 * clinic does; the empty day is still reachable by stepping back
+                 * past the seeded window.
+                 */
+                $sunday = $weekday === Weekday::SUNDAY;
+
+                if ($sunday && $index >= 2) {
                     continue;
                 }
 
@@ -246,11 +259,11 @@ class SeedOpdDemoCommand extends Command
                         'doctor_id' => $doctor->id,
                         'location_id' => $branch->id,
                         'weekday' => $weekday,
-                        'starts_at' => '09:00',
+                        'starts_at' => $sunday ? '10:00' : '09:00',
                     ],
                     [
-                        'name' => 'Morning OPD',
-                        'ends_at' => '13:00',
+                        'name' => $sunday ? 'Sunday clinic' : 'Morning OPD',
+                        'ends_at' => $sunday ? '13:00' : '13:00',
                         'slot_minutes' => $minutes,
                         'is_active' => true,
                     ],
@@ -260,7 +273,7 @@ class SeedOpdDemoCommand extends Command
             $doctors->push($doctor);
         }
 
-        $this->line("  Doctors: {$doctors->count()}, each sitting Mon–Sat 09:00–13:00");
+        $this->line("  Doctors: {$doctors->count()}, sitting Mon–Sat 09:00–13:00 (two also on Sunday)");
 
         return $doctors;
     }
@@ -361,6 +374,20 @@ class SeedOpdDemoCommand extends Command
             $count = $today
                 ? [14, 11, 16, 8, 12, 6][$index % 6]
                 : random_int(9, 18);
+
+            /*
+             * A thin roster still runs a full clinic.
+             *
+             * The list length is per doctor, so a Sunday with one doctor
+             * sitting produced fourteen patients spread over three hours — all
+             * of whom had been seen by the time anybody looked, leaving the
+             * Waiting card and both panels empty on the day the demo is most
+             * likely to be opened. Fewer doctors means a longer list each, not
+             * a quieter department.
+             */
+            if ($sitting->count() <= 2) {
+                $count += 10;
+            }
 
             $consult = self::MINUTES[$doctor->name] ?? 15;
 

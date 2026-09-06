@@ -5092,7 +5092,25 @@ html::-webkit-scrollbar-track {
    (core/opd/components/PatientSearch.tsx)
    ========================================================== */
 
-.gs{ position:relative; flex:1 1 auto; max-width:520px; margin-left:8px; }
+/*
+ * min-width:0 is the whole fix, and it is not optional.
+ *
+ * A flex item defaults to min-width:auto, which means it will not shrink below
+ * the intrinsic width of its content. The input's placeholder — "Search
+ * patients by name, mobile, or ID…" — is therefore a floor on how narrow this
+ * box can get, so on a phone the header refused to fit, pushed past the
+ * viewport, and took the whole page into a horizontal scroll with it.
+ *
+ * The children already had min-width:0. The wrapper did not, and it is the
+ * wrapper the header is trying to squeeze.
+ */
+.gs{
+    position:relative;
+    flex:1 1 auto;
+    min-width:0;
+    max-width:520px;
+    margin-left:8px;
+}
 
 .gs-field{
     display:flex;
@@ -5137,8 +5155,26 @@ html::-webkit-scrollbar-track {
 }
 
 @media (max-width:767.98px){
-    .gs{ max-width:none; }
+    .gs{ max-width:none; margin-left:4px; }
     .gs-key{ display:none; }
+    .gs-field{ padding:0 8px 0 10px; }
+}
+
+/*
+ * On a phone the search gives up its width but keeps working.
+ *
+ * At this size the header is a menu button, a search and the account — three
+ * things that cannot all be comfortable. The search is the one that still
+ * functions at an icon's width: tapping it focuses the field, and the results
+ * that matter appear in the panel underneath.
+ *
+ * The panel is pinned to the search's own edges rather than pulled wider with
+ * negative offsets. Overhanging the viewport is how the horizontal scroll gets
+ * reintroduced by the fix for the horizontal scroll.
+ */
+@media (max-width:479.98px){
+    .gs-field input{ font-size:12.5px; }
+    .gs-drop{ left:0; right:0; min-width:0; }
 }
 
 .gs-drop{
@@ -6412,39 +6448,6 @@ html::-webkit-scrollbar-track {
 
 /* --- the counts above the queue --------------------------- */
 
-.opd-strip{
-    display:flex;
-    flex-wrap:wrap;
-    align-items:center;
-    gap:6px 20px;
-    margin-bottom:12px;
-    padding:10px 16px;
-    border:1px solid var(--line);
-    border-radius:12px;
-    background:var(--surface);
-    font-size:12.5px;
-    color:var(--muted);
-}
-
-.opd-strip b{
-    font-size:15px;
-    font-weight:700;
-    color:var(--ink);
-    font-variant-numeric:tabular-nums;
-}
-
-.opd-strip-link{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    margin-left:auto;
-    font-weight:600;
-    color:rgb(var(--brand));
-    text-decoration:none;
-}
-
-.opd-strip-link:hover{ text-decoration:underline; }
-
 /* --- status, wait and token ------------------------------- */
 
 .opd-status{
@@ -6588,6 +6591,871 @@ html::-webkit-scrollbar-track {
 .q-who > span code{ color:var(--muted); }
 
 .q-who em{ font-style:normal; }
+
+/* ==========================================================
+   The queue: two readings of one list
+   (core/appointments/pages/QueuePage.tsx)
+   ========================================================== */
+
+/* Six figures rather than the board's five — the queue is where a no-show is
+   noticed, so it gets a card instead of a footnote. */
+/*
+ * Six across, and compact enough to stay six across.
+ *
+ * At the board's card size they wrapped to 3 + 3 at any normal laptop width,
+ * which turned one glanceable row into two blocks and pushed the list itself
+ * below the fold. The tighter padding and smaller figure are what buy the
+ * sixth column, and the row only breaks on a genuinely narrow screen.
+ */
+.opd-stats.is-queue{
+    grid-template-columns:repeat(6, minmax(0,1fr));
+    gap:10px;
+
+    /* The figures and the list are two things, not one block. Butted together
+       they read as a single slab of chrome above the first patient. */
+    margin-bottom:14px;
+}
+
+.opd-stats.is-queue .opd-stat{ padding:12px 13px; column-gap:9px; }
+.opd-stats.is-queue .opd-stat-icon{ width:34px; height:34px; border-radius:10px; font-size:17px; }
+.opd-stats.is-queue .opd-stat b{ font-size:22px; }
+.opd-stats.is-queue .opd-stat-name{ margin-top:7px; font-size:12px; }
+.opd-stats.is-queue .opd-stat small{ font-size:10.5px; }
+
+@media (max-width:1199.98px){ .opd-stats.is-queue{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
+@media (max-width:767.98px){ .opd-stats.is-queue{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+@media (max-width:439.98px){ .opd-stats.is-queue{ grid-template-columns:minmax(0,1fr); } }
+
+.opd-stat.is-indigo .opd-stat-icon{ background:rgba(99,102,241,.13); color:#4f46e5; }
+
+.q-tools{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+/* The doctor filter, as a control rather than a row of chips — a branch with
+   six doctors made that row wider than the tabs it sat under. */
+.q-doctor-pick{
+    height:34px;
+    max-width:170px;
+    padding:0 10px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:12.5px;
+    color:var(--ink-2);
+    cursor:pointer;
+}
+
+.q-doctor-pick:hover{ border-color:var(--ink-3); }
+
+/* The header's own cluster: which day, then what to do about it. */
+.q-head-acts{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+
+/* The switch between the two. Segmented, because they are one choice with two
+   answers rather than two separate buttons. */
+.q-views{
+    display:inline-flex;
+    align-items:stretch;
+    height:34px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface-2);
+    overflow:hidden;
+}
+
+.q-view{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:0 12px;
+    border:0;
+    background:transparent;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--muted);
+    white-space:nowrap;
+    cursor:pointer;
+    transition:background .14s ease, color .14s ease;
+}
+
+.q-view i{ font-size:15px; }
+.q-view:hover{ color:var(--ink-2); }
+
+.q-view.is-on{
+    background:var(--surface);
+    color:rgb(var(--brand));
+    box-shadow:0 1px 3px rgba(15,23,42,.12);
+}
+
+.q-board{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    height:34px;
+    padding:0 12px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    text-decoration:none;
+    white-space:nowrap;
+}
+
+.q-board:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+/* ==========================================================
+   Choosing several from a list
+   (core/field-settings/MultiSelectField.tsx)
+   ========================================================== */
+
+.ms-box{ position:relative; }
+
+/*
+ * The control grows with what is in it.
+ *
+ * A fixed-height box would either clip the chips or leave a gap when there are
+ * none, and the whole reason for chips is that the answer is readable without
+ * opening anything.
+ */
+.ms-control{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    min-height:42px;
+    padding:6px 11px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+    text-align:left;
+    cursor:pointer;
+}
+
+.ms-control:hover{ border-color:var(--ink-3); }
+.ms-control.is-invalid{ border-color:#c92a3a; }
+.ms-control > i{ margin-left:auto; flex:0 0 auto; font-size:16px; color:var(--muted); }
+
+.ms-placeholder{ font-size:13.5px; color:var(--ink-3); }
+
+.ms-chips{ display:flex; flex-wrap:wrap; gap:5px; min-width:0; }
+
+.ms-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:3px 6px 3px 9px;
+    border-radius:7px;
+    background:rgba(var(--brand), .1);
+    font-size:12px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    white-space:nowrap;
+}
+
+.ms-chip [role='button']{
+    display:grid;
+    place-items:center;
+    width:16px;
+    height:16px;
+    border-radius:5px;
+    font-size:12px;
+    cursor:pointer;
+}
+
+.ms-chip [role='button']:hover{ background:rgba(var(--brand), .2); }
+
+.ms-list{
+    position:absolute;
+    top:calc(100% + 5px);
+    left:0;
+    right:0;
+    z-index:1040;
+    max-height:230px;
+    overflow-y:auto;
+    padding:5px;
+    border:1px solid var(--line);
+    border-radius:11px;
+    background:var(--surface);
+    box-shadow:0 14px 34px rgba(15,23,42,.15);
+}
+
+.ms-option{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    width:100%;
+    padding:8px 10px;
+    border:0;
+    border-radius:8px;
+    background:transparent;
+    font-size:13px;
+    color:var(--ink-2);
+    text-align:left;
+    cursor:pointer;
+}
+
+.ms-option i{ font-size:16px; color:var(--ink-3); }
+.ms-option:hover{ background:var(--surface-2); }
+.ms-option.is-on{ color:rgb(var(--brand)); font-weight:600; }
+.ms-option.is-on i{ color:rgb(var(--brand)); }
+
+.ms-empty{ margin:0; padding:14px 12px; font-size:12.5px; color:var(--muted); text-align:center; }
+
+/* --- the registration panel -------------------------------- */
+
+/*
+ * The dialog as a panel down the right-hand edge.
+ *
+ * Full height, square against the edge it is attached to, and wide enough for
+ * a form without being wide enough to hide the queue behind it — that queue is
+ * what the person filling this in is reading from.
+ */
+.modal-dialog.modal-side{
+    max-width:420px;
+    height:100vh;
+    margin:0 !important;
+}
+
+.modal-dialog.modal-side .modal-content{
+    border-radius:0;
+    height:100vh;
+    box-shadow:-18px 0 44px rgba(15,23,42,.18);
+}
+
+/* Below this the panel is the screen, and an edge-anchored sliver would be
+   narrower than the form inside it. */
+@media (max-width:520px){
+    .modal-dialog.modal-side{ max-width:100%; }
+}
+
+/*
+ * Where you are in the flow, named as well as numbered.
+ *
+ * The Back button used to be the only sign there was more than one screen, so
+ * somebody on the second could not tell whether they were nearly finished or
+ * halfway into something long.
+ */
+.bk-steps{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:0 0 18px;
+    padding:0 0 16px;
+    border-bottom:1px solid var(--line);
+    list-style:none;
+}
+
+.bk-steps li{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--muted);
+}
+
+/* The rule between the two, which is what makes them read as a sequence
+   rather than a pair of labels. */
+.bk-steps li:first-child::after{
+    content:"";
+    width:26px;
+    height:1px;
+    margin-left:4px;
+    background:var(--line-2);
+}
+
+.bk-steps li > span{
+    display:grid;
+    place-items:center;
+    width:23px;
+    height:23px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    font-size:11px;
+    font-weight:700;
+    color:var(--muted);
+}
+
+.bk-steps li.is-on{ color:rgb(var(--brand)); }
+
+.bk-steps li.is-on > span{
+    border-color:transparent;
+    background:rgb(var(--brand));
+    color:#fff;
+}
+
+.bk-steps li.is-done{ color:var(--ink-2); }
+
+.bk-steps li.is-done > span{
+    border-color:transparent;
+    background:rgba(34,197,94,.15);
+    color:#15803d;
+}
+
+/* --- inside the registration panel ------------------------- */
+
+.bk-search{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    height:44px;
+    padding:0 13px;
+    border:1px solid var(--line);
+    border-radius:11px;
+    background:var(--surface-2);
+    transition:border-color .14s ease, background .14s ease;
+}
+
+.bk-search:focus-within{ border-color:rgb(var(--brand)); background:var(--surface); }
+.bk-search > i{ font-size:17px; color:var(--muted); flex:0 0 auto; }
+
+.bk-search input{
+    flex:1 1 auto;
+    min-width:0;
+    border:0;
+    background:transparent;
+    font-size:13.5px;
+    color:var(--ink);
+    outline:none;
+}
+
+.bk-search input::-webkit-search-cancel-button{ display:none; }
+
+/*
+ * Before a search, between searches, and after one that found nobody.
+ *
+ * All three used to be a line of grey text where the results would be, which
+ * reads as a list that has failed to load rather than as an answer. Given a
+ * mark and a heading they read as states of the panel.
+ */
+.bk-prompt{
+    display:grid;
+    justify-items:center;
+    gap:5px;
+    padding:30px 20px;
+    text-align:center;
+}
+
+.bk-prompt > i{ font-size:26px; color:var(--ink-3); }
+.bk-prompt b{ font-size:13.5px; font-weight:600; color:var(--ink-2); }
+.bk-prompt small{ font-size:12px; line-height:1.55; color:var(--muted); max-width:34ch; }
+
+.bk-matches{ display:grid; gap:7px; }
+
+/*
+ * A row per person, with enough on it to be sure.
+ *
+ * Booking somebody else's appointment is the mistake this screen exists to
+ * prevent, and a list of bare names cannot prevent it — two people called
+ * Rahul Sharma look identical until the number, the age and the phone are
+ * beside them.
+ */
+.bk-hit{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    width:100%;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface);
+    text-align:left;
+    cursor:pointer;
+    transition:border-color .14s ease, background .14s ease;
+}
+
+.bk-hit:hover{ border-color:rgb(var(--brand)); background:rgba(var(--brand), .04); }
+.bk-hit > i{ margin-left:auto; flex:0 0 auto; font-size:16px; color:var(--ink-3); }
+.bk-hit:hover > i{ color:rgb(var(--brand)); }
+
+.bk-face{
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    width:38px;
+    height:38px;
+    border-radius:50%;
+    background:rgba(var(--brand), .11);
+    font-size:15px;
+    font-weight:700;
+    color:rgb(var(--brand));
+}
+
+.bk-hit-text{ min-width:0; }
+
+.bk-hit-text b{
+    display:block;
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--ink);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.bk-hit-text small{
+    display:block;
+    margin-top:1px;
+    font-size:11.5px;
+    color:var(--muted);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.bk-hit-phone{ display:flex !important; align-items:center; gap:5px; }
+.bk-hit-phone i{ font-size:12px; }
+
+/* Who the booking is for, once chosen — the same card, tinted so it reads as
+   settled rather than as one more option still on offer. */
+.bk-chosen{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:11px 12px;
+    border:1px solid rgba(var(--brand), .25);
+    border-radius:12px;
+    background:rgba(var(--brand), .05);
+}
+
+.bk-change{
+    margin-left:auto;
+    flex:0 0 auto;
+    padding:6px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--surface);
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+    cursor:pointer;
+}
+
+.bk-change:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+/* --- step two: who is seeing them, and when ---------------- */
+
+.bk-group{ display:grid; gap:9px; }
+
+/*
+ * A section heading, with "required" spelled out.
+ *
+ * The asterisk convention needs a legend somewhere else on the screen to be
+ * read at all, and a panel this narrow has nowhere to put one.
+ */
+.bk-label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:0;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+}
+
+.bk-label em{
+    font-style:normal;
+    padding:2px 7px;
+    border-radius:999px;
+    background:rgba(220,53,69,.09);
+    font-size:9.5px;
+    letter-spacing:.03em;
+    color:#c92a3a;
+}
+
+.bk-docs{ display:grid; gap:7px; }
+
+/*
+ * The doctors as cards.
+ *
+ * Choosing between them is what this step is for, and a dropdown hides every
+ * option behind one line until it is opened — including the speciality, which
+ * is usually what decides the answer.
+ */
+.bk-doc{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    width:100%;
+    padding:9px 12px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface);
+    text-align:left;
+    cursor:pointer;
+    transition:border-color .14s ease, background .14s ease;
+}
+
+.bk-doc:hover{ border-color:var(--ink-3); }
+
+.bk-doc.is-on{
+    border-color:rgb(var(--brand));
+    background:rgba(var(--brand), .06);
+}
+
+.bk-doc > i{
+    margin-left:auto;
+    flex:0 0 auto;
+    font-size:19px;
+    color:rgb(var(--brand));
+}
+
+.bk-doc .bk-face{ width:34px; height:34px; font-size:14px; }
+
+.bk-error{
+    font-style:normal;
+    font-size:11.5px;
+    color:#c92a3a;
+}
+
+/* --- the status filters ----------------------------------- */
+
+/*
+ * Filters on the left, tools on the right, one row.
+ *
+ * They were two stacked rows under a card title — three bands of chrome before
+ * the first patient. This is the row somebody actually works in.
+ */
+.q-bar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:14px;
+}
+
+.q-tabs{ display:flex; flex-wrap:wrap; gap:7px; }
+
+.q-tab{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:7px 13px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    background:var(--surface);
+    font-size:12.5px;
+    font-weight:500;
+    color:var(--ink-2);
+    white-space:nowrap;
+    cursor:pointer;
+    transition:border-color .14s ease, background .14s ease, color .14s ease;
+}
+
+.q-tab em{
+    font-style:normal;
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+    color:var(--muted);
+}
+
+.q-tab:hover{ border-color:var(--ink-3); }
+
+.q-tab.is-on{
+    border-color:transparent;
+    background:rgb(var(--brand));
+    color:#fff;
+    font-weight:600;
+}
+
+.q-tab.is-on em{ color:rgba(255,255,255,.78); }
+
+/* --- the two panels under the list ------------------------- */
+
+.q-panels{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);
+    gap:12px;
+    margin-top:12px;
+    align-items:stretch;
+}
+
+@media (max-width:991.98px){ .q-panels{ grid-template-columns:minmax(0,1fr); } }
+
+.q-panels > .card{ display:flex; flex-direction:column; }
+.q-panels > .card > .card-body{ display:flex; flex-direction:column; flex:1 1 auto; min-height:0; }
+
+/* Whose queue is actually the problem. */
+.q-load{ margin:0; padding:0; list-style:none; display:grid; gap:11px; }
+
+.q-load li{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr) auto;
+    align-items:center;
+    gap:11px;
+}
+
+.q-load-who{ display:flex; align-items:center; gap:9px; min-width:0; }
+
+.q-load-who b{
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+/*
+ * The bar carries its own label inside it.
+ *
+ * A separate column for "8 waiting" would push every bar shorter to make room
+ * for a number the bar is already showing, and on a narrow card there is not
+ * width for both.
+ */
+.q-load-bar{
+    position:relative;
+    display:flex;
+    align-items:center;
+    height:24px;
+    border-radius:7px;
+    background:var(--surface-2);
+    overflow:hidden;
+}
+
+.q-load-fill{
+    position:absolute;
+    left:0;
+    top:0;
+    bottom:0;
+    border-radius:7px;
+    opacity:.85;
+    transition:width .3s ease;
+}
+
+.q-load-bar em{
+    position:relative;
+    padding:0 9px;
+    font-style:normal;
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+}
+
+.q-load-chip{
+    padding:4px 10px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:11.5px;
+    color:var(--ink-2);
+    white-space:nowrap;
+    font-variant-numeric:tabular-nums;
+}
+
+@media (prefers-reduced-motion:reduce){
+    .q-load-fill{ transition:none; }
+}
+
+/* --- the wait-time line ------------------------------------ */
+
+.wt{ display:grid; }
+
+.wt-grid{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr);
+    grid-template-rows:150px auto;
+    column-gap:10px;
+    row-gap:6px;
+}
+
+.wt-axis{
+    grid-column:1;
+    grid-row:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    align-items:flex-end;
+    margin:-6px 0;
+    font-size:10px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+}
+
+.wt-plot{ position:relative; grid-column:2; grid-row:1; height:100%; }
+
+.wt-rules{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    pointer-events:none;
+}
+
+.wt-rules span{ display:block; height:1px; background:var(--line); }
+.wt-rules span:last-child{ background:var(--line-2); }
+
+/*
+ * The threshold, drawn where it falls rather than described in the caption.
+ * Every point is then "over" or "under" without anybody holding the number in
+ * their head.
+ */
+.wt-limit{
+    position:absolute;
+    left:0;
+    right:0;
+    height:0;
+    border-top:1px dashed rgba(220,53,69,.45);
+    pointer-events:none;
+}
+
+.wt-limit em{
+    position:absolute;
+    right:0;
+    top:-14px;
+    font-style:normal;
+    font-size:9.5px;
+    font-weight:700;
+    color:#c92a3a;
+}
+
+.wt-svg{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+
+.wt-area{ fill:rgba(var(--brand), .1); stroke:none; }
+
+/*
+ * vector-effect keeps the stroke 2px however far the viewBox is stretched —
+ * without it a chart twice as wide as it is tall draws a line twice as thick
+ * horizontally as vertically.
+ */
+.wt-line{
+    fill:none;
+    stroke:rgb(var(--brand));
+    stroke-width:2;
+    stroke-linejoin:round;
+    stroke-linecap:round;
+    vector-effect:non-scaling-stroke;
+}
+
+.wt-dot{
+    position:absolute;
+    width:11px;
+    height:11px;
+    margin:-5.5px 0 0 -5.5px;
+    padding:0;
+    border:2px solid var(--surface);
+    border-radius:50%;
+    background:rgb(var(--brand));
+    cursor:pointer;
+}
+
+.wt-dot.is-warn{ background:#d97706; }
+.wt-dot.is-critical{ background:#c92a3a; }
+.wt-dot.is-on{ transform:scale(1.35); }
+
+.wt-dot:focus-visible{ outline:2px solid rgb(var(--brand)); outline-offset:2px; }
+
+.wt-tip{
+    position:absolute;
+    bottom:calc(100% + 8px);
+    left:50%;
+    transform:translateX(-50%);
+    z-index:4;
+    display:grid;
+    gap:1px;
+    padding:7px 11px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+    font-size:11.5px;
+    line-height:1.35;
+    color:var(--ink-2);
+    text-align:left;
+    white-space:nowrap;
+    pointer-events:none;
+    box-shadow:0 10px 26px rgba(15,23,42,.14);
+}
+
+.wt-tip b{ font-size:12px; color:var(--ink); }
+.wt-tip em{ font-style:normal; font-size:10.5px; color:var(--muted); }
+
+.wt-ticks{ grid-column:2; grid-row:2; display:flex; justify-content:space-between; }
+
+.wt-ticks span{
+    font-size:10px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+}
+
+/* --- the table ------------------------------------------- */
+
+.q-table-scroll{ overflow-x:auto; }
+.q-table{ width:100%; border-collapse:collapse; }
+
+.q-table th{
+    padding:10px;
+    text-align:left;
+    font-size:10.5px;
+    font-weight:600;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+    white-space:nowrap;
+    background:var(--surface-2);
+    box-shadow:inset 0 -1px 0 var(--line);
+}
+
+.q-table thead th:first-child{ border-radius:9px 0 0 9px; }
+.q-table thead th:last-child{ border-radius:0 9px 9px 0; }
+
+.q-table td{
+    padding:10px;
+    font-size:13px;
+    vertical-align:middle;
+    border-bottom:1px solid var(--line);
+}
+
+.q-table tbody tr:last-child td{ border-bottom:0; }
+.q-table tbody tr:hover{ background:var(--surface-2); }
+
+.q-th-n{ width:34px; }
+.q-n{ width:34px; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+.q-th-act{ text-align:right; }
+.q-row-act .q-actions{ justify-content:flex-end; }
+.q-dim{ color:var(--muted); white-space:nowrap; }
+
+/*
+ * A letter, not a photograph.
+ *
+ * There is no avatar on a patient record and inventing one would be a
+ * placeholder pretending to be data. The initial does the job an avatar
+ * actually does in a list this length — giving the eye something to land on
+ * before it reads the name.
+ */
+.q-person{ display:flex; align-items:center; gap:9px; min-width:0; }
+
+.q-face{
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    width:32px;
+    height:32px;
+    border-radius:50%;
+    background:rgba(var(--brand), .1);
+    font-size:13px;
+    font-weight:700;
+    color:rgb(var(--brand));
+}
+
+.q-person-text{ min-width:0; }
+.q-person-text b{ display:block; font-weight:600; color:var(--ink); }
+.q-person-text code{ font-size:11px; color:var(--muted); }
+
+/* Standing in for a department until departments exist. */
+.q-dept{
+    display:inline-flex;
+    padding:3px 9px;
+    border-radius:999px;
+    background:var(--surface-2);
+    font-size:11.5px;
+    color:var(--ink-2);
+    white-space:nowrap;
+}
 
 /*
  * The token, in the doctor's own colour.
@@ -7020,15 +7888,6 @@ html::-webkit-scrollbar-track {
     color:var(--muted);
     text-decoration:line-through;
     cursor:not-allowed;
-}
-
-.bk-none{
-    margin:0;
-    padding:11px 12px;
-    border-radius:9px;
-    background:var(--surface-2);
-    font-size:12.5px;
-    color:var(--muted);
 }
 
 /* ---------------------------------------------------------
@@ -7612,6 +8471,10 @@ html::-webkit-scrollbar-track {
 .rp-search{
     position:relative;
     flex:1 1 auto;
+
+    /* Without this the input's placeholder is a floor on how narrow the box
+       can be — the same defect the header search had. */
+    min-width:0;
     max-width:320px;
 }
 

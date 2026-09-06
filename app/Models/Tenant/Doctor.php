@@ -6,6 +6,7 @@ use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -28,9 +29,10 @@ class Doctor extends Model
 
     protected $fillable = [
         'name',
+        'photo',
         'code',
         'specialisation',
-        'qualification',
+        'qualifications',
         'registration_no',
         'phone',
         'email',
@@ -43,6 +45,8 @@ class Doctor extends Model
     protected function casts(): array
     {
         return [
+            // A list, so the column is read and written as one.
+            'qualifications' => 'array',
             'is_active' => 'boolean',
             'default_consultation_fee' => 'decimal:2',
             'custom_fields' => 'array',
@@ -59,6 +63,18 @@ class Doctor extends Model
      * Null is a perfectly ordinary answer — a visiting consultant who never
      * touches the software is exactly why doctors are not just users.
      */
+    /**
+     * Their photograph, when they have one.
+     *
+     * The tenant's `files` table, not the master's — a doctor lives in the
+     * organization's own database and a foreign key across two databases is
+     * not a foreign key.
+     */
+    public function photograph(): BelongsTo
+    {
+        return $this->belongsTo(File::class, 'photo');
+    }
+
     public function user(): MorphOne
     {
         return $this->morphOne(User::class, 'userable');

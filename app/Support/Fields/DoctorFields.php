@@ -25,6 +25,50 @@ class DoctorFields
     /**
      * @return list<array<string, mixed>>
      */
+    /**
+     * A starting set of departments, not a closed one.
+     *
+     * Every organization edits these under Settings; they exist so a clinic
+     * that has just signed up is not asked to invent a taxonomy before it can
+     * add its first doctor.
+     *
+     * @var list<array{value: string, label: string}>
+     */
+    private const DEPARTMENTS = [
+        ['value' => 'General Medicine', 'label' => 'General Medicine'],
+        ['value' => 'General Physician', 'label' => 'General Physician'],
+        ['value' => 'Paediatrics', 'label' => 'Paediatrics'],
+        ['value' => 'Cardiology', 'label' => 'Cardiology'],
+        ['value' => 'Orthopaedics', 'label' => 'Orthopaedics'],
+        ['value' => 'Dermatology', 'label' => 'Dermatology'],
+        ['value' => 'Gynaecology', 'label' => 'Gynaecology'],
+        ['value' => 'ENT', 'label' => 'ENT'],
+        ['value' => 'Ophthalmology', 'label' => 'Ophthalmology'],
+        ['value' => 'Dentistry', 'label' => 'Dentistry'],
+        ['value' => 'Psychiatry', 'label' => 'Psychiatry'],
+    ];
+
+    /**
+     * The qualifications a clinic in this market actually writes down.
+     *
+     * @var list<array{value: string, label: string}>
+     */
+    private const QUALIFICATIONS = [
+        ['value' => 'MBBS', 'label' => 'MBBS'],
+        ['value' => 'MD', 'label' => 'MD'],
+        ['value' => 'MS', 'label' => 'MS'],
+        ['value' => 'DM', 'label' => 'DM'],
+        ['value' => 'MCh', 'label' => 'MCh'],
+        ['value' => 'DNB', 'label' => 'DNB'],
+        ['value' => 'BDS', 'label' => 'BDS'],
+        ['value' => 'MDS', 'label' => 'MDS'],
+        ['value' => 'DCH', 'label' => 'DCH'],
+        ['value' => 'DGO', 'label' => 'DGO'],
+        ['value' => 'DO', 'label' => 'DO'],
+        ['value' => 'BAMS', 'label' => 'BAMS'],
+        ['value' => 'BHMS', 'label' => 'BHMS'],
+    ];
+
     public static function all(): array
     {
         return [
@@ -48,21 +92,38 @@ class DoctorFields
                 'locked' => false,
                 'in_table' => true,
             ],
+            /*
+             * The department, chosen from a list the organization keeps.
+             *
+             * Free text meant "Cardiology", "cardiology" and "Cardio" were
+             * three departments as far as every count and filter was
+             * concerned — and the OPD board groups the day by exactly this
+             * field. The starter list is a default, not a fixture: it is
+             * editable under Settings like any other option list.
+             */
             [
                 'key' => 'specialisation',
-                'label' => 'Specialisation',
-                'placeholder' => 'General Physician',
-                'type' => 'text',
+                'label' => 'Department',
+                'placeholder' => 'Choose a department',
+                'type' => 'select',
+                'options' => self::DEPARTMENTS,
                 'group' => self::GROUP_IDENTITY,
                 'required' => false,
                 'locked' => false,
                 'in_table' => true,
             ],
+
+            /*
+             * Qualifications are a list. A doctor holds MBBS and MD and
+             * sometimes a DM, and joining them into one string was why nobody
+             * could filter on any of them.
+             */
             [
-                'key' => 'qualification',
-                'label' => 'Qualification',
+                'key' => 'qualifications',
+                'label' => 'Qualifications',
                 'placeholder' => 'MBBS, MD',
-                'type' => 'text',
+                'type' => 'multiselect',
+                'options' => self::QUALIFICATIONS,
                 'group' => self::GROUP_IDENTITY,
                 'required' => false,
                 'locked' => false,

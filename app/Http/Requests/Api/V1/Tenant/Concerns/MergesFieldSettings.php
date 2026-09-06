@@ -38,6 +38,24 @@ trait MergesFieldSettings
             array_unshift($rules[$key], 'required');
         }
 
-        return array_merge($rules, $schema->customRules($fields));
+        $rules = array_merge($rules, $schema->customRules($fields));
+
+        /*
+         * A built-in list's options are APPENDED to whatever the request
+         * already declares for that key, never merged over it.
+         *
+         * The first version replaced the rule outright, which quietly undid
+         * the `integer` and `exists()` behind every branch picker — the field
+         * is a select whose options are branch ids, so it matched, and four
+         * suites started refusing valid branches.
+         */
+        foreach ($schema->builtInOptionRules($fields) as $key => $constraint) {
+            $rules[$key] = array_values(array_unique(
+                array_merge($rules[$key] ?? ['nullable'], $constraint),
+                SORT_REGULAR,
+            ));
+        }
+
+        return $rules;
     }
 }

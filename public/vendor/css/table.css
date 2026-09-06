@@ -287,7 +287,22 @@
    Footer
    --------------------------------------------------------- */
 
+/*
+ * The footer carries its own tokens, because it is used without a table.
+ *
+ * These were declared only on .dt, so the shared Pagination — which the queue
+ * and the history timelines use standalone — inherited nothing. The active
+ * page then had `background: var(--dt-primary)` resolve to nothing and fall
+ * back to the surface, while `color` still resolved to white: white text on a
+ * white button.
+ *
+ * Re-declaring them here is harmless inside .dt, where they hold the same
+ * values and would have been inherited anyway.
+ */
 .dt-foot {
+    --dt-primary: rgb(var(--brand));
+    --dt-muted: var(--muted);
+
     display: flex;
     flex-wrap: wrap;
     align-items: center;
