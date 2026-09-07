@@ -6207,6 +6207,17 @@ html::-webkit-scrollbar-track {
 /* --- branch, day, and the filter chips -------------------- */
 
 .opd-bar{
+    /*
+     * One height for everything standing on this line.
+     *
+     * The branch select, the day pill and "Back to today" each carried their
+     * own — 42, 46 and 38 — and three controls in a row at three heights is
+     * the kind of thing that looks broken without anybody being able to say
+     * which one is wrong. Declared once here, so a fourth control added later
+     * lines up by default rather than by somebody remembering a number.
+     */
+    --bar-h:42px;
+
     display:flex;
     flex-wrap:wrap;
     align-items:flex-end;
@@ -6217,6 +6228,10 @@ html::-webkit-scrollbar-track {
     border-radius:12px;
     background:var(--surface);
 }
+
+.opd-bar .form-select,
+.opd-bar-day,
+.opd-bar-today{ height:var(--bar-h); }
 
 /*
  * In the dashboard header the bar loses its own card and its labels: the
@@ -6271,19 +6286,36 @@ html::-webkit-scrollbar-track {
     overflow:hidden;
 }
 
+/*
+ * The arrows are part of the pill, not chips sitting inside it.
+ *
+ * They carried their own border, radius and grey fill, so a control meant to
+ * read as one object read as three — two rounded buttons and a raised white
+ * card between them, each a different height. Inside a shared border the
+ * pieces give up their own: a hairline separates them, nothing else.
+ */
 .opd-bar-step{
-    height:44px;
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
     width:36px;
     border:0;
     border-radius:0;
     background:transparent;
+    font-size:16px;
+    color:var(--ink-2);
+    cursor:pointer;
 }
 
 .opd-bar-step:first-child{ border-right:1px solid var(--line); }
 .opd-bar-step:last-child{ border-left:1px solid var(--line); }
 
+.opd-bar-step:hover:not(:disabled){ background:var(--surface-2); color:rgb(var(--brand)); }
+.opd-bar-step:disabled{ opacity:.4; cursor:default; }
+
 .opd-bar-day .dp-input{
-    min-height:44px;
+    min-height:0;
+    height:100%;
     border:0;
     border-radius:0;
     background:transparent;
@@ -6308,29 +6340,12 @@ html::-webkit-scrollbar-track {
    commonest thing anybody does to this control. */
 .opd-bar-day > :not(.opd-bar-step){ flex:1 1 auto; min-width:0; }
 
-.opd-bar-step{
-    display:grid;
-    place-items:center;
-    flex:0 0 auto;
-    width:34px;
-    border:1px solid var(--line);
-    border-radius:9px;
-    background:var(--surface-2);
-    font-size:16px;
-    color:var(--ink-2);
-    cursor:pointer;
-}
-
-.opd-bar-step:hover:not(:disabled){ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
-.opd-bar-step:disabled{ opacity:.4; cursor:default; }
-
 /* Getting back to now is the commonest move on this screen;
    a date picker makes it three clicks. */
 .opd-bar-today{
     display:inline-flex;
     align-items:center;
     gap:6px;
-    height:38px;
     padding:0 12px;
     border:1px solid var(--line);
     border-radius:9px;
@@ -6701,6 +6716,454 @@ html::-webkit-scrollbar-track {
 }
 
 .q-board:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+/* ==========================================================
+   Doctor availability — the week, and one doctor beside it
+   (core/availability/…)
+   ========================================================== */
+
+.av-bar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:12px;
+    margin-bottom:14px;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface);
+}
+
+.av-field{ display:grid; gap:4px; min-width:170px; }
+
+.av-field > span{
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    color:var(--muted);
+}
+
+/* Three readings of one rota, so one control with three answers. */
+.av-views{
+    display:inline-flex;
+    align-items:stretch;
+    height:38px;
+    align-self:flex-end;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface-2);
+    overflow:hidden;
+}
+
+.av-view{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:0 13px;
+    border:0;
+    background:transparent;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--muted);
+    white-space:nowrap;
+    cursor:pointer;
+}
+
+.av-view i{ font-size:15px; }
+.av-view:hover{ color:var(--ink-2); }
+
+.av-view.is-on{
+    background:var(--surface);
+    color:rgb(var(--brand));
+    box-shadow:0 1px 3px rgba(15,23,42,.12);
+}
+
+.av-when{ display:flex; align-items:center; gap:8px; margin-left:auto; align-self:flex-end; }
+
+.av-step{
+    display:grid;
+    place-items:center;
+    width:34px;
+    height:38px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:16px;
+    color:var(--ink-2);
+    cursor:pointer;
+}
+
+.av-step:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+.av-range{
+    min-width:190px;
+    text-align:center;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.av-today,
+.av-viewall{
+    height:38px;
+    padding:0 13px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    cursor:pointer;
+}
+
+.av-viewall{ height:30px; padding:0 11px; font-size:12px; }
+.av-today:hover, .av-viewall:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+.av-add{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    height:38px;
+    padding:0 16px;
+    border:0;
+    border-radius:10px;
+    background:rgb(var(--brand));
+    font-size:13px;
+    font-weight:600;
+    color:#fff;
+    text-decoration:none;
+    white-space:nowrap;
+}
+
+.av-add:hover{ filter:brightness(1.06); color:#fff; }
+
+/* --- the week grid ----------------------------------------- */
+
+/*
+ * The grid and the panel share the row.
+ *
+ * The panel is what the grid is being read against — the usual pattern beside
+ * the week that departs from it — so putting it on its own screen would mean
+ * remembering one while looking at the other.
+ */
+.av-week{ display:grid; gap:12px; margin-bottom:12px; align-items:start; }
+.av-week.has-panel{ grid-template-columns:minmax(0,1fr) 340px; }
+
+@media (max-width:1199.98px){
+    .av-week.has-panel{ grid-template-columns:minmax(0,1fr); }
+}
+
+.wk-scroll{ overflow-x:auto; }
+.wk{ width:100%; border-collapse:separate; border-spacing:0 4px; }
+
+.wk thead th{
+    padding:8px 6px;
+    font-size:10.5px;
+    font-weight:600;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    color:var(--muted);
+    text-align:center;
+    white-space:nowrap;
+}
+
+.wk thead th span{ display:block; }
+.wk thead th small{ display:block; font-size:10px; font-weight:500; text-transform:none; letter-spacing:0; }
+
+/* Today's column, marked once at the head rather than down every cell. */
+.wk thead th.is-today{ color:rgb(var(--brand)); }
+
+.wk-who{ text-align:left !important; min-width:190px; }
+
+.wk-doc{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    width:100%;
+    padding:6px 8px;
+    border:0;
+    border-radius:9px;
+    background:transparent;
+    text-align:left;
+    cursor:pointer;
+}
+
+.wk-doc:hover{ background:var(--surface-2); }
+.wk tr.is-open .wk-doc{ background:rgba(var(--brand), .08); }
+
+.wk-face{
+    width:34px;
+    height:34px;
+    flex:0 0 auto;
+    border-radius:50%;
+    object-fit:cover;
+}
+
+.wk-face.is-letter{
+    display:grid;
+    place-items:center;
+    background:rgba(var(--brand), .12);
+    font-size:13px;
+    font-weight:700;
+    color:rgb(var(--brand));
+}
+
+.wk-doc-text{ min-width:0; }
+.wk-doc-text b{ display:block; font-size:13px; font-weight:600; color:var(--ink); }
+.wk-doc-text small{ display:block; font-size:11px; color:var(--muted); }
+
+.wk tbody td{ padding:2px 3px; vertical-align:middle; text-align:center; }
+
+.wk-cell{
+    display:grid;
+    gap:1px;
+    padding:7px 8px;
+    border-radius:9px;
+    min-width:98px;
+}
+
+.wk-cell b{ font-size:11.5px; font-weight:600; font-variant-numeric:tabular-nums; }
+.wk-cell small{ font-size:10px; opacity:.85; }
+
+/*
+ * Four states, four fills — and every one of them also says what it is in
+ * words, in the cell or in the legend. A rota read at a glance across a room
+ * is exactly where colour alone fails.
+ */
+.wk-cell.is-ok{ background:rgba(34,197,94,.13); color:#15803d; }
+.wk-cell.is-moved{ background:rgba(59,130,246,.13); color:#1d4ed8; }
+.wk-cell.is-off{ background:rgba(220,53,69,.11); color:#c92a3a; }
+
+.wk-none{ color:var(--ink-3); font-size:14px; }
+
+.wk-session + .wk-session{ margin-top:3px; padding-top:3px; border-top:1px solid currentColor; }
+.wk-session{ display:block; }
+
+.wk-legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:16px;
+    margin:14px 0 0;
+    padding:12px 4px 0;
+    border-top:1px solid var(--line);
+    list-style:none;
+}
+
+.wk-legend li{ display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--muted); }
+.wk-key{ width:11px; height:11px; border-radius:4px; }
+.wk-key.is-ok{ background:rgba(34,197,94,.4); }
+.wk-key.is-moved{ background:rgba(59,130,246,.4); }
+.wk-key.is-off{ background:rgba(220,53,69,.35); }
+.wk-key.is-none{ background:var(--line-2); }
+
+/* --- the doctor panel -------------------------------------- */
+
+.docp{
+    position:sticky;
+    top:78px;
+    padding:16px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:var(--surface);
+}
+
+.docp-head{ display:flex; align-items:flex-start; gap:11px; }
+
+.docp-face{ width:52px; height:52px; flex:0 0 auto; border-radius:50%; object-fit:cover; }
+
+.docp-face.is-letter{
+    display:grid;
+    place-items:center;
+    background:rgba(var(--brand), .12);
+    font-size:20px;
+    font-weight:700;
+    color:rgb(var(--brand));
+}
+
+.docp-who{ min-width:0; flex:1 1 auto; }
+.docp-who b{ display:block; font-size:15px; font-weight:700; color:var(--ink); }
+.docp-who small{ display:block; font-size:12px; color:var(--muted); }
+
+.docp-state{
+    display:inline-flex;
+    margin-top:5px;
+    padding:2px 9px;
+    border-radius:999px;
+    background:rgba(34,197,94,.13);
+    font-size:10.5px;
+    font-weight:600;
+    color:#15803d;
+}
+
+.docp-state.is-off{ background:rgba(220,53,69,.1); color:#c92a3a; }
+
+.docp-close{
+    flex:0 0 auto;
+    display:grid;
+    place-items:center;
+    width:28px;
+    height:28px;
+    border:0;
+    border-radius:8px;
+    background:transparent;
+    font-size:16px;
+    color:var(--muted);
+    cursor:pointer;
+}
+
+.docp-close:hover{ background:var(--surface-2); color:var(--ink-2); }
+
+.docp-tabs{ display:flex; gap:4px; margin:14px 0 12px; border-bottom:1px solid var(--line); }
+
+.docp-tab{
+    padding:8px 11px;
+    border:0;
+    border-bottom:2px solid transparent;
+    background:transparent;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--muted);
+    cursor:pointer;
+}
+
+.docp-tab:hover{ color:var(--ink-2); }
+.docp-tab.is-on{ border-bottom-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+.docp-section + .docp-section{ margin-top:18px; }
+
+.docp-title{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin:0 0 9px;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.docp-title a{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:11.5px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    text-decoration:none;
+}
+
+.docp-week{ width:100%; border-collapse:collapse; }
+.docp-week th{ padding:7px 0; text-align:left; font-size:12px; font-weight:500; color:var(--ink-2); }
+.docp-week td{ padding:7px 0; font-size:12px; text-align:right; }
+.docp-week tr + tr th, .docp-week tr + tr td{ border-top:1px solid var(--line); }
+
+.docp-time{ display:block; font-variant-numeric:tabular-nums; color:var(--ink-2); }
+.docp-kind{ width:74px; color:var(--muted); }
+.docp-quiet{ color:var(--ink-3); }
+
+.docp-changes{ margin:0; padding:0; list-style:none; display:grid; gap:9px; }
+.docp-changes li{ display:flex; gap:9px; }
+.docp-changes i{ flex:0 0 auto; margin-top:2px; font-size:15px; color:var(--muted); }
+.docp-changes b{ font-size:12.5px; color:var(--ink); margin-right:7px; }
+.docp-changes small{ display:block; font-size:11.5px; color:var(--muted); }
+
+.docp-changes em{
+    font-style:normal;
+    padding:2px 8px;
+    border-radius:999px;
+    font-size:10.5px;
+    font-weight:600;
+}
+
+.docp-changes em.is-off{ background:rgba(220,53,69,.1); color:#c92a3a; }
+.docp-changes em.is-moved{ background:rgba(59,130,246,.12); color:#1d4ed8; }
+
+.docp-facts{ margin:0; display:grid; gap:10px; }
+.docp-facts dt{ font-size:11px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--muted); }
+.docp-facts dd{ margin:2px 0 0; font-size:13px; color:var(--ink-2); }
+
+.docp-open{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    margin-top:14px;
+    font-size:12.5px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    text-decoration:none;
+}
+
+/* --- the changes table ------------------------------------- */
+
+.av-table-scroll{ overflow-x:auto; }
+.av-table{ width:100%; border-collapse:collapse; }
+
+.av-table th{
+    padding:9px 10px;
+    text-align:left;
+    font-size:10.5px;
+    font-weight:600;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+    white-space:nowrap;
+    background:var(--surface-2);
+}
+
+.av-table thead th:first-child{ border-radius:9px 0 0 9px; }
+.av-table thead th:last-child{ border-radius:0 9px 9px 0; }
+
+.av-table td{ padding:10px; font-size:13px; border-bottom:1px solid var(--line); }
+.av-table tbody tr:last-child td{ border-bottom:0; }
+.av-date{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+.av-dim{ color:var(--muted); }
+
+.av-tag{
+    display:inline-flex;
+    padding:3px 9px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:600;
+    white-space:nowrap;
+}
+
+.av-tag.is-off{ background:rgba(220,53,69,.1); color:#c92a3a; }
+.av-tag.is-moved{ background:rgba(59,130,246,.12); color:#1d4ed8; font-variant-numeric:tabular-nums; }
+.av-tag.is-extra{ background:rgba(34,197,94,.13); color:#15803d; }
+
+.av-doc{ margin:0 0 10px; }
+.av-doc b{ font-size:14px; font-weight:600; color:var(--ink); }
+.av-doc small{ display:block; font-size:11.5px; color:var(--muted); }
+
+/* --- which branches a doctor covers ------------------------ */
+
+.dr-branches{ display:grid; gap:6px; }
+
+/*
+ * A row per branch, the whole row clickable.
+ *
+ * A bare checkbox column would be a tick target the width of a tick; these
+ * are read down and toggled often, and the name is the thing being aimed at.
+ */
+.dr-branch{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 11px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+    cursor:pointer;
+    transition:border-color .14s ease, background .14s ease;
+}
+
+.dr-branch:hover{ border-color:var(--ink-3); }
+.dr-branch:has(input:checked){ border-color:rgb(var(--brand)); background:rgba(var(--brand), .05); }
+
+.dr-branch input{ flex:0 0 auto; margin:0; }
+.dr-branch b{ display:block; font-size:13px; font-weight:600; color:var(--ink); }
+.dr-branch small{ display:block; font-size:11.5px; color:var(--muted); }
 
 /* ==========================================================
    Choosing several from a list

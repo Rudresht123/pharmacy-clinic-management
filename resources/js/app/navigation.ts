@@ -9,8 +9,15 @@ export interface NavItem {
     label: string;
     to: string;
     icon: string;
-    /** Also highlight the parent when a child route is active. */
-    match?: string;
+    /**
+     * Also highlight the parent when a child route is active.
+     *
+     * Several prefixes where a group's screens do not share one: OPD holds the
+     * board, the queue, the doctors and their availability, and those live at
+     * four unrelated paths. Nesting the routes to make one prefix cover them
+     * would be moving four URLs to fix a menu.
+     */
+    match?: string | string[];
     /**
      * A module that is planned but has not shipped.
      *

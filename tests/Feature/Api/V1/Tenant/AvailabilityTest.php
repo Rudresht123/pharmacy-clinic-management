@@ -406,6 +406,195 @@ class AvailabilityTest extends TenantTestCase
         ])->assertStatus(403);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | The week
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * The week is built from the postings, not from the timetable.
+     *
+     * A doctor covering a branch with no hours agreed yet is exactly who the
+     * screen is for: their row is seven dashes, and seven dashes is the gap
+     * somebody is looking for. Deriving the rows from `doctor_schedules`
+     * instead would hide them.
+     */
+    public function test_the_week_lists_doctors_posted_to_the_branch(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+
+        $this->onTenant($organization, function () use ($doctorId, $branchId) {
+            $doctor = Doctor::on('organization')->findOrFail($doctorId);
+            $doctor->postings()->syncWithoutDetaching([$branchId]);
+
+            // Posted here, no hours anywhere.
+            $spare = Doctor::on('organization')->create([
+                'name' => 'Dr. Bhaskar Rao',
+                'is_active' => true,
+            ]);
+
+            $spare->postings()->syncWithoutDetaching([$branchId]);
+        });
+
+        $week = $this->onTenant($organization, fn () => app(AvailabilityService::class)
+            ->weekAtLocation(Carbon::parse(self::MONDAY), $branchId));
+
+        $this->assertCount(7, $week['days']);
+        $this->assertSame(self::MONDAY, $week['from']);
+        $this->assertSame('2026-09-13', $week['to']);
+
+        $names = array_column($week['doctors'], 'doctor_name');
+        $this->assertSame(['Dr. Anjali Sharma', 'Dr. Bhaskar Rao'], $names);
+
+        // The one with no timetable is present and empty all week.
+        $spare = $week['doctors'][1];
+        $this->assertSame(
+            ['none', 'none', 'none', 'none', 'none', 'none', 'none'],
+            array_column($spare['days'], 'state'),
+        );
+    }
+
+    /** Somebody posted to another branch does not appear in this one's week. */
+    public function test_the_week_leaves_out_doctors_posted_elsewhere(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+
+        $this->onTenant($organization, function () use ($doctorId, $branchId) {
+            Doctor::on('organization')->findOrFail($doctorId)
+                ->postings()->syncWithoutDetaching([$branchId]);
+
+            $delhi = Location::on('organization')->create([
+                'name' => 'Delhi',
+                'code' => 'DEL',
+                'type' => Location::CLINIC,
+                'is_active' => true,
+            ]);
+
+            Doctor::on('organization')->create([
+                'name' => 'Dr. Zoya Khan',
+                'is_active' => true,
+            ])->postings()->syncWithoutDetaching([$delhi->id]);
+        });
+
+        $week = $this->onTenant($organization, fn () => app(AvailabilityService::class)
+            ->weekAtLocation(Carbon::parse(self::MONDAY), $branchId));
+
+        $this->assertSame(['Dr. Anjali Sharma'], array_column($week['doctors'], 'doctor_name'));
+    }
+
+    /**
+     * A day off and a cancelled day are drawn differently, and must be.
+     *
+     * They look identical in a diary and are opposites in practice: one is the
+     * roster working as intended, the other is a doctor who was due in and is
+     * not — the one that needs covering. Collapsing them into a blank cell is
+     * how a cancelled Monday goes unnoticed until the patients arrive.
+     */
+    public function test_a_cancelled_day_reads_differently_from_a_day_off(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+
+        $this->onTenant($organization, function () use ($doctorId, $branchId) {
+            Doctor::on('organization')->findOrFail($doctorId)
+                ->postings()->syncWithoutDetaching([$branchId]);
+
+            DoctorScheduleException::on('organization')->create([
+                'doctor_id' => $doctorId,
+                'date' => self::MONDAY,
+                'type' => DoctorScheduleException::UNAVAILABLE,
+                'reason' => 'On leave',
+            ]);
+        });
+
+        $days = $this->onTenant($organization, fn () => app(AvailabilityService::class)
+            ->weekAtLocation(Carbon::parse(self::MONDAY), $branchId))['doctors'][0]['days'];
+
+        // Monday: rostered, and taken away — with the reason.
+        $this->assertSame('unavailable', $days[0]['state']);
+        $this->assertSame('On leave', $days[0]['reason']);
+
+        // Tuesday: never rostered. An ordinary day off, not a cancellation.
+        $this->assertSame('none', $days[1]['state']);
+        $this->assertNull($days[1]['reason']);
+    }
+
+    /** Changed hours read as changed, because "in, but not when you think" is what gets got wrong. */
+    public function test_changed_hours_mark_the_day_as_changed(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+
+        $this->onTenant($organization, function () use ($doctorId, $branchId) {
+            Doctor::on('organization')->findOrFail($doctorId)
+                ->postings()->syncWithoutDetaching([$branchId]);
+
+            DoctorScheduleException::on('organization')->create([
+                'doctor_id' => $doctorId,
+                'doctor_schedule_id' => DoctorSchedule::on('organization')
+                    ->where('doctor_id', $doctorId)->value('id'),
+                'date' => self::MONDAY,
+                'type' => DoctorScheduleException::CHANGED_HOURS,
+                'starts_at' => '11:00',
+                'ends_at' => '12:00',
+                'reason' => 'Theatre list',
+            ]);
+        });
+
+        $monday = $this->onTenant($organization, fn () => app(AvailabilityService::class)
+            ->weekAtLocation(Carbon::parse(self::MONDAY), $branchId))['doctors'][0]['days'][0];
+
+        $this->assertSame('changed', $monday['state']);
+        $this->assertSame('Theatre list', $monday['reason']);
+        $this->assertSame('11:00', $monday['sessions'][0]['starts_at']);
+    }
+
+    /** Whatever date is asked for, the week starts on its Monday. */
+    public function test_the_week_snaps_back_to_monday(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+
+        $this->onTenant($organization, fn () => Doctor::on('organization')->findOrFail($doctorId)
+            ->postings()->syncWithoutDetaching([$branchId]));
+
+        $this->signInAsOwner($organization);
+
+        // A Thursday.
+        $body = $this->getJson("/api/v1/tenant/availability/week?from=2026-09-10&location_id={$branchId}")
+            ->assertOk()
+            ->json('data');
+
+        $this->assertSame(self::MONDAY, $body['from']);
+        $this->assertSame('2026-09-13', $body['to']);
+    }
+
+    /**
+     * The branch id in the query string is a claim, not a fact.
+     *
+     * Same hole as the day view, one endpoint along — and the reason to assert
+     * it separately is that a new endpoint is exactly where the check gets
+     * left out.
+     */
+    public function test_staff_cannot_read_another_branchs_week(): void
+    {
+        [$organization, , $branchId] = $this->clinic();
+
+        $other = $this->onTenant($organization, fn () => Location::on('organization')->create([
+            'name' => 'Delhi',
+            'code' => 'DEL',
+            'type' => Location::CLINIC,
+            'is_active' => true,
+        ])->id);
+
+        $this->placeStaffAt($organization, $branchId);
+        $this->signInAsStaff($organization);
+
+        $this->getJson("/api/v1/tenant/availability/week?from=".self::MONDAY."&location_id={$branchId}")
+            ->assertOk();
+
+        $this->getJson("/api/v1/tenant/availability/week?from=".self::MONDAY."&location_id={$other}")
+            ->assertStatus(403);
+    }
+
     public function test_availability_is_behind_the_module(): void
     {
         $organization = $this->provisionOrganization();

@@ -26,6 +26,19 @@ class DoctorResource extends JsonResource
              * file id, and sending one would make every avatar a second
              * request to find out where the first one lives.
              */
+            /*
+             * The branches this doctor covers, as ids the form can tick.
+             *
+             * Separate from `locations`, which is the same set as names for
+             * reading. The screen needs both: one to render the list, one to
+             * post back.
+             */
+            'location_ids' => $this->whenLoaded(
+                'postings',
+                fn () => $this->postings->pluck('id')->all(),
+                [],
+            ),
+
             'photo_url' => $this->whenLoaded(
                 'photograph',
                 fn () => $this->photograph?->url,

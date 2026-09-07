@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -92,10 +93,32 @@ class Doctor extends Model
      * relationship exists. A doctor with no schedule works nowhere, which is
      * the truth rather than an omission.
      */
+    /**
+     * The branches this doctor is posted to.
+     *
+     * The posting, not the timetable. A doctor covers a branch from the moment
+     * somebody says so, which is usually before anybody has agreed their
+     * hours — and a doctor with no sittings anywhere used to belong nowhere,
+     * so every branch list answered "not here" when the truth was "not
+     * scheduled yet".
+     */
+    public function postings(): BelongsToMany
+    {
+        return $this->belongsToMany(Location::class, 'doctor_locations', 'doctor_id', 'location_id')
+            ->withPivot('is_active')
+            ->withTimestamps();
+    }
+
+    /**
+     * Where they work, for anything that just wants the names.
+     *
+     * Reads the postings now rather than deriving branches from the weekly
+     * pattern. Same shape as before, so every caller is unchanged.
+     */
     public function locations()
     {
         return Location::on($this->getConnectionName())
-            ->whereIn('id', $this->schedules()->select('location_id'))
+            ->whereIn('id', $this->postings()->select('locations.id'))
             ->orderBy('name');
     }
 

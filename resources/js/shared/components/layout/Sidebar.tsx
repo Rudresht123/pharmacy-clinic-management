@@ -54,7 +54,7 @@ export function Sidebar({
         const inside = navigation
             .flatMap((section) => section.items)
             .filter((item) => item.children?.length)
-            .filter((item) => pathname.startsWith(item.match ?? item.to))
+            .filter((item) => under(pathname, item.match ?? item.to))
             .map((item) => item.to);
 
         if (inside.length > 0) {
@@ -105,7 +105,7 @@ export function Sidebar({
                                 // `match` lets a parent stay active on its child routes,
                                 // e.g. /organizations/3/edit.
                                 const active = item.match
-                                    ? pathname.startsWith(item.match)
+                                    ? under(pathname, item.match)
                                     : pathname === item.to;
 
                                 if (item.soon) {
@@ -244,7 +244,8 @@ export function Sidebar({
                                                                         'app-nav-child',
                                                                         !isAction &&
                                                                             (child.match
-                                                                                ? pathname.startsWith(
+                                                                                ? under(
+                                                                                      pathname,
                                                                                       child.match,
                                                                                   )
                                                                                 : isActive) &&
@@ -288,5 +289,21 @@ export function Sidebar({
                 </div>
             )}
         </aside>
+    );
+}
+
+/**
+ * Whether the current path sits under a menu entry.
+ *
+ * A prefix, or any of several — a group whose screens live at unrelated paths
+ * still has to light up when you are on one of them.
+ *
+ * The prefix is compared at a segment boundary, so /doctors does not claim
+ * /doctors-on-call. Startswith alone is the bug where an unrelated screen
+ * silently highlights somebody else's menu.
+ */
+function under(pathname: string, match: string | string[]): boolean {
+    return (Array.isArray(match) ? match : [match]).some(
+        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     );
 }

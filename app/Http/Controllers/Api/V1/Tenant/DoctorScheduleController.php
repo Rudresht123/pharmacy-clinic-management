@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Http\Requests\Api\V1\Tenant\UpdateDoctorSchedulesRequest;
 use App\Http\Resources\Tenant\DoctorScheduleResource;
 use App\Models\Tenant\Doctor;
+use App\Services\Tenant\DoctorPostings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -53,6 +54,17 @@ class DoctorScheduleController extends BaseApiController
                 $doctor->schedules()->delete();
 
                 foreach ($submitted as $row) {
+                    /*
+                     * A sitting says the doctor works there.
+                     *
+                     * Giving somebody Monday at Gurgaon and then asking a
+                     * person to also remember to post them to Gurgaon is how a
+                     * timetable ends up at a branch the doctor is not assigned
+                     * to — and the branch list, which reads postings, would
+                     * then not show a doctor who visibly sits there.
+                     */
+                    app(DoctorPostings::class)->ensure($doctor, (int) $row['location_id']);
+
                     $doctor->schedules()->create([
                         'location_id' => $row['location_id'],
                         'name' => $row['name'] ?? null,

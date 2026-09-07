@@ -119,6 +119,136 @@ class AvailabilityService
     }
 
     /**
+     * A branch's week: every doctor posted there, against seven dates.
+     *
+     * The day view answers "who is in today". This answers the question a
+     * practice manager actually asks — where are the gaps, who is on leave on
+     * Wednesday, is anybody covering Saturday — and that is a shape, not a
+     * number, so it has to be seen across the week rather than seven times in
+     * a row.
+     *
+     * Built from the same `sessionsFor` the day and the booking dialog use, so
+     * a sitting cancelled by an exception disappears here exactly as it does
+     * everywhere else. Seven calls per doctor is more queries than one day
+     * costs, and it is bounded by the doctors posted to one branch — six or
+     * eight, not the network.
+     *
+     * @return array<string, mixed>
+     */
+    public function weekAtLocation(Carbon $from, int $locationId): array
+    {
+        $start = $from->copy()->startOfDay();
+
+        $dates = collect(range(0, 6))->map(fn (int $offset) => $start->copy()->addDays($offset));
+
+        /*
+         * The doctors POSTED here, not the ones who happen to have a sitting.
+         *
+         * Somebody covering this branch with no hours yet is precisely who a
+         * week view is for: their row is seven dashes, which is the gap being
+         * looked for.
+         */
+        $doctors = Doctor::on('organization')
+            ->where('is_active', true)
+            ->whereHas('postings', fn ($posting) => $posting
+                ->where('locations.id', $locationId)
+                ->where('doctor_locations.is_active', true))
+            ->with('photograph')
+            ->orderBy('name')
+            ->get();
+
+        return [
+            'from' => $start->toDateString(),
+            'to' => $start->copy()->addDays(6)->toDateString(),
+            'location_id' => $locationId,
+
+            'days' => $dates->map(fn (Carbon $date) => [
+                'date' => $date->toDateString(),
+                'weekday' => Weekday::of($date),
+                'label' => $date->format('D'),
+                'day' => $date->format('j M'),
+                'is_today' => $date->isToday(),
+            ])->all(),
+
+            'doctors' => $doctors->map(fn (Doctor $doctor) => [
+                'doctor_id' => $doctor->id,
+                'doctor_name' => $doctor->name,
+                'specialisation' => $doctor->specialisation,
+                'photo_url' => $doctor->photograph?->url,
+                'is_active' => $doctor->is_active,
+
+                'days' => $dates->map(function (Carbon $date) use ($doctor, $locationId) {
+                    $sessions = $this->sessionsFor($doctor, $date, $locationId);
+
+                    /*
+                     * Four states, and the difference between two of them is
+                     * the point of the screen.
+                     *
+                     * "None" means the weekly pattern has them nowhere that
+                     * day — an ordinary day off. "Unavailable" means they WERE
+                     * due in and something took it away, which is the one a
+                     * manager has to react to. Collapsing the two into a blank
+                     * cell is how a cancelled Thursday goes unnoticed.
+                     */
+                    $rostered = $this->isRostered($doctor, $date, $locationId);
+
+                    if ($sessions === []) {
+                        return [
+                            'date' => $date->toDateString(),
+                            'state' => $rostered ? 'unavailable' : 'none',
+                            'reason' => $rostered
+                                ? $this->cancellationReason($doctor, $date, $locationId)
+                                : null,
+                            'sessions' => [],
+                        ];
+                    }
+
+                    return [
+                        'date' => $date->toDateString(),
+
+                        // Changed hours read differently from the usual ones,
+                        // because "she is in, but not when you think" is the
+                        // thing somebody gets wrong.
+                        'state' => collect($sessions)->contains('changed', true)
+                            ? 'changed'
+                            : 'available',
+
+                        'reason' => collect($sessions)->firstWhere('changed', true)['reason'] ?? null,
+
+                        'sessions' => array_map(fn (array $session) => [
+                            'starts_at' => $session['starts_at'],
+                            'ends_at' => $session['ends_at'],
+                            'name' => $session['name'],
+                            'changed' => $session['changed'],
+                        ], $sessions),
+                    ];
+                })->all(),
+            ])->all(),
+        ];
+    }
+
+    /** Whether the weekly pattern puts this doctor here on this date at all. */
+    private function isRostered(Doctor $doctor, Carbon $date, int $locationId): bool
+    {
+        return DoctorSchedule::on('organization')
+            ->where('doctor_id', $doctor->id)
+            ->where('location_id', $locationId)
+            ->where('weekday', Weekday::of($date))
+            ->where('is_active', true)
+            ->exists();
+    }
+
+    /** Why a rostered day has no sittings left on it. */
+    private function cancellationReason(Doctor $doctor, Carbon $date, int $locationId): ?string
+    {
+        return DoctorScheduleException::on('organization')
+            ->where('doctor_id', $doctor->id)
+            ->whereDate('date', $date->toDateString())
+            ->where('type', DoctorScheduleException::UNAVAILABLE)
+            ->value('reason');
+    }
+
+    /**
      * @param  Collection<int, DoctorScheduleException>  $exceptions
      * @return list<array<string, mixed>>
      */

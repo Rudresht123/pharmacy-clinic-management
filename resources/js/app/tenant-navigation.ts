@@ -134,10 +134,16 @@ export function tenantNavigation(
      * OPD asks two questions, not one: the module has to be running here at
      * all, and this person has to be allowed to look at it.
      *
-     * The board comes first and the queue under it, because that is the order
-     * somebody arriving in the morning wants them — what is the state of the
-     * place, then what do I do about it. The queue is a child rather than a
-     * sibling: it is the same subject at a different depth.
+     * All four screens hang off the one entry, in the order somebody works
+     * through them: what is the state of the place, what do I do about it, who
+     * is doing it, and when are they here. They were a parent and two loose
+     * siblings, which read as three unrelated subjects when they are one — and
+     * the loose pair sat below Patients, so the menu put a doctor's timetable
+     * further from the OPD board than the patient list was.
+     *
+     * The paths stay where they are. Nesting the routes under /opd to give the
+     * group one prefix would be moving four URLs, and every link and bookmark
+     * to them, to tidy a menu; `match` takes the four instead.
      */
     const clinical: NavItem[] = [];
 
@@ -146,7 +152,7 @@ export function tenantNavigation(
             label: 'OPD',
             to: '/opd',
             icon: 'ti ti-building-hospital',
-            match: '/opd',
+            match: ['/opd', '/doctors', '/availability'],
             children: [
                 { label: 'Dashboard', to: '/opd', icon: 'ti ti-layout-dashboard' },
                 {
@@ -154,6 +160,18 @@ export function tenantNavigation(
                     to: '/opd/queue',
                     icon: 'ti ti-list-check',
                     match: '/opd/queue',
+                },
+                {
+                    label: 'Doctors',
+                    to: '/doctors',
+                    icon: 'ti ti-stethoscope',
+                    match: '/doctors',
+                },
+                {
+                    label: 'Availability',
+                    to: '/availability',
+                    icon: 'ti ti-calendar-time',
+                    match: '/availability',
                 },
             ],
         });
@@ -166,25 +184,6 @@ export function tenantNavigation(
             icon: 'ti ti-users',
             match: '/customers',
         });
-    }
-
-    /*
-     * Doctors and their timings sit with the work rather than in a section of
-     * their own. They were split off into "Clinical setup" on the grounds that
-     * nobody edits a weekly sitting mid-clinic — true, but it bought a whole
-     * extra heading for two rows, and headings are what the menu had too many
-     * of.
-     */
-    if (hasModule('appointments') && can('appointments.view')) {
-        clinical.push(
-            { label: 'Doctors', to: '/doctors', icon: 'ti ti-stethoscope', match: '/doctors' },
-            {
-                label: 'Availability',
-                to: '/availability',
-                icon: 'ti ti-calendar-time',
-                match: '/availability',
-            },
-        );
     }
 
     if (clinical.length > 0) {

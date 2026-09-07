@@ -10,6 +10,7 @@ use App\Services\Opd\AvailabilityService;
 use App\Services\Tenancy\TenantBranchAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 
 /**
@@ -56,6 +57,39 @@ class AvailabilityController extends BaseApiController
                 $locationId,
             ),
         ]);
+    }
+
+    /**
+     * A branch's week — every doctor posted there, against seven dates.
+     *
+     * The same branch check as the day, for the same reason: a location id
+     * from a client is a number until somebody verifies the person sending it
+     * works there.
+     */
+    public function week(Request $request): JsonResponse
+    {
+        $request->validate([
+            'from' => ['required', 'date'],
+            'location_id' => ['required', 'integer'],
+        ]);
+
+        $locationId = (int) $request->input('location_id');
+
+        if (! $this->branches->currentCanUse($locationId)) {
+            abort(403, 'You can only see the week at the branch you work at.');
+        }
+
+        /*
+         * Snapped to the Monday of whatever date arrives.
+         *
+         * The grid's columns are a week, so a request for a Wednesday has to
+         * mean the week containing it — otherwise stepping forward from a
+         * mid-week date walks seven days at a time out of alignment with
+         * every other week anybody has looked at.
+         */
+        $from = Carbon::parse($request->input('from'))->startOfWeek(CarbonInterface::MONDAY);
+
+        return $this->ok($this->availability->weekAtLocation($from, $locationId));
     }
 
     /** One doctor's day, with the slots each sitting divides into. */

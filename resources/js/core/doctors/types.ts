@@ -35,6 +35,14 @@ export interface Doctor extends Timestamps {
 
     /** Only on the detail endpoint — on a list it would be a query per row. */
     locations?: string[];
+
+    /**
+     * The branches this doctor covers, as ids the form can tick.
+     *
+     * Separate from `locations`, which is the same set as names for reading.
+     * The screen needs both — one to render, one to post back.
+     */
+    location_ids?: number[];
     schedule_count?: number;
 
     custom_fields: Record<string, unknown>;

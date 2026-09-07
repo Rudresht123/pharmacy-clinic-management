@@ -270,6 +270,8 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             Route::middleware('permission:appointments.view')->group(function () {
                 Route::get('availability/day', [AvailabilityController::class, 'day'])
                     ->name('availability.day');
+                Route::get('availability/week', [AvailabilityController::class, 'week'])
+                    ->name('availability.week');
                 Route::get('availability/exceptions', [AvailabilityController::class, 'exceptions'])
                     ->name('availability.exceptions');
                 Route::get('availability/doctors/{doctor}', [AvailabilityController::class, 'forDoctor'])
@@ -347,6 +349,16 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('doctors.update');
                 Route::delete('doctors/{doctor}', [DoctorController::class, 'destroy'])
                     ->name('doctors.destroy');
+
+                /*
+                 * A photograph is part of maintaining who the doctors are, so
+                 * it sits behind the same capability rather than inventing one
+                 * nobody would think to grant.
+                 */
+                Route::post('doctors/{doctor}/photo', [DoctorController::class, 'uploadPhoto'])
+                    ->name('doctors.photo.store');
+                Route::delete('doctors/{doctor}/photo', [DoctorController::class, 'deletePhoto'])
+                    ->name('doctors.photo.destroy');
             });
 
             Route::middleware('permission:appointments.schedule')->group(function () {

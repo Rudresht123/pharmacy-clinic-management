@@ -8,12 +8,14 @@ use App\Http\Requests\Api\V1\Tenant\StoreDoctorRequest;
 use App\Http\Requests\Api\V1\Tenant\UpdateDoctorRequest;
 use App\Http\Resources\Tenant\DoctorResource;
 use App\Models\Tenant\Doctor;
+use App\Models\Tenant\File;
 use App\Models\Tenant\EntityFieldSetting;
 use App\Repositories\Tenant\Contracts\DoctorRepositoryInterface;
 use App\Services\Fields\FieldSchema;
 use App\Services\Permissions\Permission;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DoctorAccountProvisioner;
+use App\Services\Tenant\DoctorPostings;
 use App\Support\Fields\DoctorFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -74,16 +76,18 @@ class DoctorController extends BaseApiController
     {
         // The schedules answer "which branches", which a doctor row cannot;
         // the user says whether the edit form should show a login section.
-        return $this->ok(DoctorResource::make($doctor->load(['schedules.location', 'user'])));
+        return $this->ok(DoctorResource::make($doctor->load(['schedules.location', 'user', 'photograph', 'postings'])));
     }
 
     public function store(
         StoreDoctorRequest $request,
         DoctorAccountProvisioner $accounts,
+        DoctorPostings $postings,
     ): JsonResponse {
         $data = $request->validated();
         $account = $data['account'] ?? null;
-        unset($data['account']);
+        $branches = $data['locations'] ?? null;
+        unset($data['account'], $data['locations']);
 
         /*
          * Both in one transaction. A doctor saved with a half-made login is
@@ -91,8 +95,12 @@ class DoctorController extends BaseApiController
          * fails against an account nobody can see.
          */
         $doctor = DB::connection(TenantConnectionService::CONNECTION)
-            ->transaction(function () use ($data, $account, $request, $accounts) {
+            ->transaction(function () use ($data, $account, $branches, $request, $accounts, $postings) {
                 $doctor = $this->doctors->create($data);
+
+                if ($branches !== null) {
+                    $postings->assign($doctor, $branches);
+                }
 
                 if ($account) {
                     $accounts->open($doctor, $account, $this->modules($request));
@@ -102,7 +110,7 @@ class DoctorController extends BaseApiController
             });
 
         return $this->created(
-            DoctorResource::make($doctor->load('user')),
+            DoctorResource::make($doctor->load(['user', 'photograph', 'postings'])),
             $account ? 'Doctor added, and they can now sign in.' : 'Doctor added',
         );
     }
@@ -111,14 +119,26 @@ class DoctorController extends BaseApiController
         UpdateDoctorRequest $request,
         Doctor $doctor,
         DoctorAccountProvisioner $accounts,
+        DoctorPostings $postings,
     ): JsonResponse {
         $data = $request->validated();
         $account = $data['account'] ?? null;
-        unset($data['account']);
+        $branches = $data['locations'] ?? null;
+        unset($data['account'], $data['locations']);
 
         $updated = DB::connection(TenantConnectionService::CONNECTION)
-            ->transaction(function () use ($doctor, $data, $account, $request, $accounts) {
+            ->transaction(function () use ($doctor, $data, $account, $branches, $request, $accounts, $postings) {
                 $updated = $this->doctors->update($doctor, $data);
+
+                /*
+                 * Null means the client did not send the field at all — an
+                 * older caller, or a partial update — and its branches are
+                 * left alone. An empty array is a deliberate "nowhere", which
+                 * is a thing somebody can mean.
+                 */
+                if ($branches !== null) {
+                    $postings->assign($updated, $branches);
+                }
 
                 if ($account) {
                     $accounts->open($updated, $account, $this->modules($request));
@@ -135,7 +155,68 @@ class DoctorController extends BaseApiController
                 return $updated;
             });
 
-        return $this->ok(DoctorResource::make($updated->load('user')), 'Doctor updated');
+        return $this->ok(DoctorResource::make($updated->load(['user', 'photograph', 'postings'])), 'Doctor updated');
+    }
+
+    /**
+     * Replace a doctor's photograph.
+     *
+     * Its own endpoint rather than a field on the form, because a file is not
+     * a value: it arrives as multipart, it cannot be validated alongside JSON,
+     * and re-sending it every time somebody corrects a phone number would
+     * upload the same image again.
+     */
+    public function uploadPhoto(Request $request, Doctor $doctor): JsonResponse
+    {
+        $request->validate([
+            'photo' => [
+                'required',
+                'image',
+                // The formats a phone or a scanner produces. SVG is excluded
+                // deliberately: it is a document that can carry script, and
+                // nothing here needs a vector portrait.
+                'mimes:jpg,jpeg,png,webp',
+                'max:4096',
+            ],
+        ]);
+
+        $previous = $doctor->photograph;
+
+        $stored = $request->file('photo')->store('doctors', 'public');
+
+        $file = File::create([
+            'file_name' => $request->file('photo')->getClientOriginalName(),
+            'file_path' => $stored,
+            'disk' => 'public',
+            'mime_type' => $request->file('photo')->getClientMimeType(),
+            'file_size' => $request->file('photo')->getSize(),
+            'extension' => $request->file('photo')->getClientOriginalExtension(),
+        ]);
+
+        $doctor->forceFill(['photo' => $file->id])->save();
+
+        // Only once the new one is safely in place — a failure above leaves
+        // the doctor with the photograph they had rather than with none.
+        $previous?->purge();
+
+        return $this->ok(
+            DoctorResource::make($doctor->load('photograph')),
+            'Photo updated',
+        );
+    }
+
+    /** Remove it, leaving the doctor. */
+    public function deletePhoto(Doctor $doctor): JsonResponse
+    {
+        $existing = $doctor->photograph;
+
+        $doctor->forceFill(['photo' => null])->save();
+        $existing?->purge();
+
+        return $this->ok(
+            DoctorResource::make($doctor->load('photograph')),
+            'Photo removed',
+        );
     }
 
     /**

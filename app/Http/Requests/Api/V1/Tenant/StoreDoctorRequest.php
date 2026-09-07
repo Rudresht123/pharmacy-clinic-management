@@ -105,6 +105,16 @@ class StoreDoctorRequest extends FormRequest
                 'string',
                 Password::min(8),
             ],
+
+            /*
+             * The branches this doctor covers.
+             *
+             * Optional: a doctor can be registered before anybody decides
+             * where they will work, which is the whole reason the posting is
+             * separate from the timetable.
+             */
+            'locations' => ['nullable', 'array'],
+            'locations.*' => ['integer'],
         ];
 
         return $this->withFieldSettings(

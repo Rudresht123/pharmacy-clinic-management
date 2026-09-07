@@ -9,6 +9,7 @@ import { ConfigurableForm, type FieldGroup } from '@/core/field-settings/Configu
 import { useEntityLabel } from '@/core/field-settings/api';
 import { RecordHistory } from '@/core/tenant-history/RecordHistory';
 import { ScheduleEditor } from '../components/ScheduleEditor';
+import { locationsHooks } from '@/core/locations/api';
 import { doctorsHooks, useDoctorFields } from '../api';
 
 // A `type`, not an `interface` — only type aliases get the implicit index
@@ -16,6 +17,23 @@ import { doctorsHooks, useDoctorFields } from '../api';
 type DoctorFormValues = Record<string, unknown>;
 
 const GROUPS: FieldGroup[] = [
+    /*
+     * Not a configurable field — a posting is a row of its own, not a column
+     * on the doctor.
+     *
+     * A doctor belongs to the organization and covers as many of its branches
+     * as somebody says. Until this existed the only way to say "he works at
+     * Gurgaon" was to give him a Gurgaon sitting, so a consultant taken on
+     * before anybody agreed his hours could not be recorded as working
+     * anywhere at all.
+     */
+    {
+        key: 'branches',
+        title: 'Branches',
+        icon: 'ti ti-building-store',
+        description: 'Where this doctor works. Their hours are set separately.',
+        rail: true,
+    },
     /*
      * Not a configurable field — none of this is stored on the doctor.
      *
@@ -88,6 +106,16 @@ export default function DoctorFormPage() {
      */
     const [withAccount, setWithAccount] = useState(false);
 
+    /*
+     * Held outside the form because it is a set of ids rather than a field
+     * value, and `register` has no way to express a set of checkboxes that
+     * post back as one array.
+     */
+    const [branches, setBranches] = useState<number[]>([]);
+
+    // Every branch the organization has, to tick against.
+    const { data: allBranches } = locationsHooks.useList({ all: 1 });
+
     const { data: fields, isLoading: fieldsLoading } = useDoctorFields();
     const { data: doctor, isLoading: recordLoading } = doctorsHooks.useDetail(id);
 
@@ -129,6 +157,7 @@ export default function DoctorFormPage() {
         });
 
         setWithAccount(Boolean(doctor.account));
+        setBranches(doctor.location_ids ?? []);
     }, [doctor, reset]);
 
     const onSubmit = handleSubmit(async (values) => {
@@ -142,7 +171,11 @@ export default function DoctorFormPage() {
          * block as "they should not have a login" and closes the one they had,
          * which is exactly what switching it off means.
          */
-        const payload = { ...values, account: withAccount ? values.account : null };
+        const payload = {
+            ...values,
+            account: withAccount ? values.account : null,
+            locations: branches,
+        };
 
         const result = await submit(payload, async () =>
             isEdit && id ? update.mutateAsync({ id, payload }) : create.mutateAsync(payload),
@@ -190,6 +223,58 @@ export default function DoctorFormPage() {
                     errors={errors}
                     control={control}
                     extras={{
+                        branches: (
+                            <>
+                                {(allBranches ?? []).length === 0 ? (
+                                    <p className="form-hint">
+                                        This organization has no branches yet. Add one first and
+                                        the doctor can be posted to it.
+                                    </p>
+                                ) : (
+                                    <div className="dr-branches">
+                                        {(allBranches ?? []).map((branch) => (
+                                            <label className="dr-branch" key={branch.id}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="form-check-input"
+                                                    checked={branches.includes(branch.id)}
+                                                    onChange={(event) =>
+                                                        setBranches((was) =>
+                                                            event.target.checked
+                                                                ? [...was, branch.id]
+                                                                : was.filter(
+                                                                      (id) => id !== branch.id,
+                                                                  ),
+                                                        )
+                                                    }
+                                                />
+
+                                                <span>
+                                                    <b>{branch.name}</b>
+                                                    {branch.city && <small>{branch.city}</small>}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/*
+                                    Says what unticking will actually do, before
+                                    it is done. Removing a branch removes the
+                                    sittings there — leaving them would have the
+                                    timetable offering slots at a branch the
+                                    doctor no longer covers.
+                                */}
+                                {isEdit && (
+                                    <p className="form-hint">
+                                        Removing a branch also removes this doctor&rsquo;s hours
+                                        there. Appointments already booked keep their date, time
+                                        and branch.
+                                    </p>
+                                )}
+                            </>
+                        ),
+
                         account: (
                             <>
                                 <div className="form-check form-switch mb-3">

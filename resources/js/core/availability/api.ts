@@ -3,7 +3,12 @@ import { http } from '@/shared/api/http';
 import { resourceKey } from '@/shared/hooks/useResource';
 import { notify } from '@/shared/utils/notify';
 import type { ApiResponse } from '@/shared/types/api';
-import type { AvailabilityDay, ScheduleException, ScheduleExceptionInput } from './types';
+import type {
+    AvailabilityDay,
+    AvailabilityWeek,
+    ScheduleException,
+    ScheduleExceptionInput,
+} from './types';
 
 const ENDPOINT = 'tenant/availability';
 
@@ -26,6 +31,28 @@ export function useAvailabilityDay(date: string, locationId: number | '') {
             return data.data;
         },
         enabled: Boolean(date && locationId),
+    });
+}
+
+/**
+ * A branch's week — every doctor posted there, against seven dates.
+ *
+ * One request rather than seven days fetched separately: the grid is read
+ * across, and seven responses arriving at seven moments could disagree about
+ * a sitting somebody cancelled while it loaded.
+ */
+export function useAvailabilityWeek(from: string, locationId: number | '') {
+    return useQuery({
+        queryKey: resourceKey(ENDPOINT, 'week', from, locationId),
+        queryFn: async (): Promise<AvailabilityWeek> => {
+            const { data } = await http.get<ApiResponse<AvailabilityWeek>>(
+                '/tenant/availability/week',
+                { params: { from, location_id: locationId } },
+            );
+
+            return data.data;
+        },
+        enabled: Boolean(from && locationId),
     });
 }
 
