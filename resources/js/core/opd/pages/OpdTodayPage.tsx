@@ -713,8 +713,8 @@ export default function OpdTodayPage() {
                                         </p>
                                     </div>
                                 ) : (
-                                    <div className="opd-table-scroll">
-                                        <table className="opd-table">
+                                    <div className="opd-table-scroll tbl-cards-scroll">
+                                        <table className="opd-table tbl-cards">
                                             <thead>
                                                 <tr>
                                                     <th className="opd-th-n">#</th>
@@ -738,15 +738,15 @@ export default function OpdTodayPage() {
 
                                                     return (
                                                         <tr key={row.id}>
-                                                            <td className="opd-n">{index + 1}</td>
+                                                            <td className="opd-n" data-label="">{index + 1}</td>
 
-                                                            <td>
+                                                            <td data-label="Token">
                                                                 <span className="opd-tok">
                                                                     {token(row.token_no)}
                                                                 </span>
                                                             </td>
 
-                                                            <td>
+                                                            <td data-label="Patient">
                                                                 <span className="opd-person">
                                                                     <b>{row.customer_name}</b>
                                                                     {row.customer_code && (
@@ -757,7 +757,7 @@ export default function OpdTodayPage() {
                                                                 </span>
                                                             </td>
 
-                                                            <td className="opd-dim">
+                                                            <td className="opd-dim" data-label="Age / sex">
                                                                 {row.age !== null
                                                                     ? `${row.age}`
                                                                     : '—'}
@@ -766,15 +766,15 @@ export default function OpdTodayPage() {
                                                                     : ''}
                                                             </td>
 
-                                                            <td className="opd-dim">
+                                                            <td className="opd-dim" data-label="Doctor">
                                                                 {row.doctor_name}
                                                             </td>
 
-                                                            <td>
+                                                            <td data-label="Status">
                                                                 <StatusBadge status={row.status} />
                                                             </td>
 
-                                                            <td>
+                                                            <td data-label="Wait time">
                                                                 <WaitBadge
                                                                     minutes={row.waiting_minutes}
                                                                     warn={warn}
@@ -782,7 +782,7 @@ export default function OpdTodayPage() {
                                                                 />
                                                             </td>
 
-                                                            <td className="opd-row-act">
+                                                            <td className="opd-row-act" data-label="">
                                                                 {next ? (
                                                                     <button
                                                                         type="button"

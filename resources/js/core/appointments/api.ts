@@ -81,7 +81,13 @@ export function useMoveAppointment() {
             reason,
         }: {
             id: number;
-            action: 'check-in' | 'start' | 'complete' | 'cancel' | 'no-show';
+            action:
+                | 'check-in'
+                | 'start'
+                | 'complete'
+                | 'reopen'
+                | 'cancel'
+                | 'no-show';
             reason?: string;
         }) => {
             const { data } = await http.post<ApiResponse<Appointment>>(

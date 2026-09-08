@@ -743,8 +743,8 @@ export default function QueuePage() {
                         )}
                     </div>
                 ) : view === 'table' ? (
-                    <div className="q-table-scroll">
-                        <table className="q-table">
+                    <div className="q-table-scroll tbl-cards-scroll">
+                        <table className="q-table tbl-cards">
                             <thead>
                                 <tr>
                                     <th className="q-th-n">#</th>
@@ -766,9 +766,9 @@ export default function QueuePage() {
 
                                     return (
                                         <tr key={row.id}>
-                                            <td className="q-n">{index + 1}</td>
+                                            <td className="q-n" data-label="">{index + 1}</td>
 
-                                            <td>
+                                            <td data-label="Token">
                                                 <span
                                                     className={`q-token${row.token_no === null ? ' is-empty' : ''}`}
                                                     style={
@@ -783,7 +783,7 @@ export default function QueuePage() {
                                                 </span>
                                             </td>
 
-                                            <td>
+                                            <td data-label="Patient">
                                                 <span className="q-person">
                                                     <span className="q-face" aria-hidden="true">
                                                         {(row.customer_name ?? '?').charAt(0)}
@@ -798,16 +798,16 @@ export default function QueuePage() {
                                                 </span>
                                             </td>
 
-                                            <td className="q-dim">
+                                            <td className="q-dim" data-label="Age / sex">
                                                 {age !== null ? age : '—'}
                                                 {row.customer_gender
                                                     ? ` / ${row.customer_gender.charAt(0).toUpperCase()}`
                                                     : ''}
                                             </td>
 
-                                            <td className="q-dim">{row.doctor_name}</td>
+                                            <td className="q-dim" data-label="Doctor">{row.doctor_name}</td>
 
-                                            <td>
+                                            <td data-label="Department">
                                                 {row.doctor_specialisation ? (
                                                     <span className="q-dept">
                                                         {row.doctor_specialisation}
@@ -817,11 +817,11 @@ export default function QueuePage() {
                                                 )}
                                             </td>
 
-                                            <td>
+                                            <td data-label="Status">
                                                 <StatusBadge status={row.status} />
                                             </td>
 
-                                            <td>
+                                            <td data-label="Wait">
                                                 <WaitBadge
                                                     minutes={row.waiting_minutes}
                                                     warn={data?.thresholds.warn ?? 10}
@@ -829,7 +829,7 @@ export default function QueuePage() {
                                                 />
                                             </td>
 
-                                            <td className="q-row-act">
+                                            <td className="q-row-act" data-label="">
                                                 <div className="q-actions">
                                                     {primary && (
                                                         <button

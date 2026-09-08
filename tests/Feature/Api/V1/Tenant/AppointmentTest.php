@@ -426,9 +426,62 @@ class AppointmentTest extends TenantTestCase
         $this->assertSame(Appointment::STATUS_COMPLETED, $done['status']);
         $this->assertNotNull($done['completed_at']);
 
-        // And nothing more happens to a finished consultation.
+        /*
+         * A finished consultation cannot be cancelled — it happened.
+         *
+         * The one thing still open to it is being reopened, and only on the
+         * day it happened. This visit is dated to a fixed Monday in the past,
+         * so the door is shut on it here; the test below opens one from today.
+         */
         $this->postJson("/api/v1/tenant/appointments/{$id}/cancel")->assertStatus(422);
-        $this->assertSame([], $done['next_states']);
+        $this->assertSame([Appointment::STATUS_IN_CONSULTATION], $done['next_states']);
+
+        $this->postJson("/api/v1/tenant/appointments/{$id}/reopen")->assertStatus(422);
+    }
+
+    /**
+     * A visit finished by mistake goes back in the room, today only.
+     *
+     * "Complete" sits one click from "Call", and a doctor who hits it on the
+     * wrong row loses both the patient and the write-up — which is only
+     * reachable while somebody is in consultation. Reopening an older one is
+     * refused: it would move a visit into a day it did not happen in and put
+     * it back on a queue nobody is working.
+     */
+    public function test_todays_finished_visit_can_be_reopened(): void
+    {
+        /*
+         * Today IS the fixture's Monday.
+         *
+         * The clinic in these tests sits on a Monday, and "reopen" only opens
+         * today's visit — so the two have to be the same day or the test is
+         * arranging a walk-in with a doctor who is not in.
+         */
+        $this->travelTo(self::MONDAY.' 11:00:00');
+
+        [, $doctorId, $branchId, $patientId] = $this->clinic();
+
+        $today = now()->toDateString();
+
+        $id = $this->postJson('/api/v1/tenant/appointments', [
+            'customer_id' => $patientId,
+            'doctor_id' => $doctorId,
+            'location_id' => $branchId,
+            'appointment_date' => $today,
+            'type' => 'walk_in',
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson("/api/v1/tenant/appointments/{$id}/start")->assertOk();
+        $this->postJson("/api/v1/tenant/appointments/{$id}/complete")->assertOk();
+
+        $back = $this->postJson("/api/v1/tenant/appointments/{$id}/reopen")
+            ->assertOk()
+            ->json('data');
+
+        $this->assertSame(Appointment::STATUS_IN_CONSULTATION, $back['status']);
+
+        // No longer finished, so the record must not still say it was.
+        $this->assertNull($back['completed_at']);
     }
 
     /** Somebody who checked in was here, whatever happened next. */

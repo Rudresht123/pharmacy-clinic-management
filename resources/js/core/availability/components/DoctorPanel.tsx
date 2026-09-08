@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
+import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
 import { doctorsHooks, useDoctorSchedules } from '@/core/doctors/api';
 import { useScheduleExceptions } from '../api';
 import type { DoctorSchedule } from '@/core/doctors/types';
@@ -84,13 +85,11 @@ export function DoctorPanel({
     return (
         <aside className="docp">
             <header className="docp-head">
-                {doctor.photo_url ? (
-                    <img src={doctor.photo_url} alt="" className="docp-face" />
-                ) : (
-                    <span className="docp-face is-letter" aria-hidden="true">
-                        {doctor.doctor_name.replace(/^Dr\.?\s*/i, '').charAt(0)}
-                    </span>
-                )}
+                <PersonPhoto
+                    src={doctor.photo_url}
+                    name={doctor.doctor_name}
+                    className="docp-face"
+                />
 
                 <div className="docp-who">
                     <b>{doctor.doctor_name}</b>

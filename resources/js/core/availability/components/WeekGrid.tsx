@@ -1,3 +1,4 @@
+import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
 import type { AvailabilityWeek, DayState, WeekDoctor } from '../types';
 
 /** How each state reads, in words as well as colour. */
@@ -74,19 +75,11 @@ export function WeekGrid({
                                         onClick={() => onSelect(doctor)}
                                         aria-pressed={selected === doctor.doctor_id}
                                     >
-                                        {doctor.photo_url ? (
-                                            <img
-                                                src={doctor.photo_url}
-                                                alt=""
-                                                className="wk-face"
-                                            />
-                                        ) : (
-                                            <span className="wk-face is-letter" aria-hidden="true">
-                                                {doctor.doctor_name
-                                                    .replace(/^Dr\.?\s*/i, '')
-                                                    .charAt(0)}
-                                            </span>
-                                        )}
+                                        <PersonPhoto
+                                            src={doctor.photo_url}
+                                            name={doctor.doctor_name}
+                                            className="wk-face"
+                                        />
 
                                         <span className="wk-doc-text">
                                             <b>{doctor.doctor_name}</b>

@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\Tenant\AppointmentController;
 use App\Http\Controllers\Api\V1\Tenant\Auth\AuthController as TenantAuthController;
 use App\Http\Controllers\Api\V1\Tenant\AvailabilityController;
 use App\Http\Controllers\Api\V1\Tenant\BrandingController;
+use App\Http\Controllers\Api\V1\Tenant\ConsultationController;
 use App\Http\Controllers\Api\V1\Tenant\CustomerController;
 use App\Http\Controllers\Api\V1\Tenant\DashboardController;
 use App\Http\Controllers\Api\V1\Tenant\DoctorController;
@@ -308,9 +309,35 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | capability every doctor login is given. The doctor is taken from
             | the session, never the query string.
             */
+            /*
+            | A patient's own record — who they are and what has happened.
+            |
+            | Behind `customers.view`, the same capability as the list it is
+            | opened from: being able to see a patient at all is what makes
+            | their visits readable, and a doctor holds it.
+            */
+            Route::get('customers/{customer}/visits', [CustomerController::class, 'visits'])
+                ->middleware('permission:customers.view')
+                ->name('customers.visits');
+
             Route::get('opd/my-day', [OpdController::class, 'myDay'])
                 ->middleware('permission:appointments.queue')
                 ->name('opd.my-day');
+
+            /*
+            | Writing up a visit.
+            |
+            | Behind the same capability as working the queue — writing up what
+            | happened is part of seeing the patient, not a separate job — and
+            | the controller then checks the visit is this doctor's, which no
+            | route middleware can know.
+            */
+            Route::middleware('permission:appointments.queue')->group(function () {
+                Route::get('appointments/{appointment}/consultation', [ConsultationController::class, 'show'])
+                    ->name('appointments.consultation.show');
+                Route::put('appointments/{appointment}/consultation', [ConsultationController::class, 'save'])
+                    ->name('appointments.consultation.save');
+            });
 
             Route::get('appointments', [AppointmentController::class, 'index'])
                 ->middleware('permission:appointments.view')
@@ -339,6 +366,11 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('appointments.start');
                 Route::post('appointments/{appointment}/complete', [AppointmentController::class, 'complete'])
                     ->name('appointments.complete');
+
+                // Undoing a mis-click, which is the same job as working the
+                // queue rather than a privilege of its own.
+                Route::post('appointments/{appointment}/reopen', [AppointmentController::class, 'reopen'])
+                    ->name('appointments.reopen');
             });
 
             Route::middleware('permission:appointments.cancel')->group(function () {

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="No photograph">
+    <!--
+        A stand-in until real photographs are uploaded.
+
+        Drawn rather than a stock portrait: a photograph of somebody else
+        against a patient's name is worse than no photograph at all, and a
+        silhouette reads immediately as "no picture yet".
+
+        currentColor throughout, so it takes the tint of whatever it sits in
+        and needs no second file for dark mode.
+    -->
+    <circle cx="32" cy="32" r="32" fill="currentColor" opacity="0.12" />
+    <circle cx="32" cy="25" r="10" fill="currentColor" opacity="0.55" />
+    <path
+        d="M32 38c-9.4 0-17 5.6-17 12.6V54a32 32 0 0 0 34 0v-3.4C49 43.6 41.4 38 32 38Z"
+        fill="currentColor"
+        opacity="0.55"
+    />
+</svg>

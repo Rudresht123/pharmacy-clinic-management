@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
 import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { Card } from '@/shared/components/ui/Card';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
@@ -320,7 +321,7 @@ export default function AvailabilityPage() {
                     }
                 >
                     <div className="av-table-scroll">
-                        <table className="av-table">
+                        <table className="av-table tbl-cards">
                             <thead>
                                 <tr>
                                     <th>Date</th>
@@ -335,20 +336,20 @@ export default function AvailabilityPage() {
                             <tbody>
                                 {(upcoming ?? []).slice(0, 6).map((change) => (
                                     <tr key={change.id}>
-                                        <td className="av-date">{spoken(change.date)}</td>
-                                        <td>{change.doctor_name}</td>
+                                        <td className="av-date" data-label="Date">{spoken(change.date)}</td>
+                                        <td data-label="Doctor">{change.doctor_name}</td>
                                         {/*
                                             Leave takes the doctor off
                                             everywhere, so it has no branch —
                                             which is a fact, not a gap. A dash
                                             there reads as missing data.
                                         */}
-                                        <td className="av-dim">
+                                        <td className="av-dim" data-label="Branch">
                                             {change.location_name ??
                                                 (change.whole_day ? 'All branches' : '—')}
                                         </td>
 
-                                        <td>
+                                        <td data-label="Change">
                                             {change.type === 'unavailable' ? (
                                                 <span className="av-tag is-off">Unavailable</span>
                                             ) : change.type === 'changed_hours' ? (
@@ -360,8 +361,8 @@ export default function AvailabilityPage() {
                                             )}
                                         </td>
 
-                                        <td className="av-dim">{change.reason ?? '—'}</td>
-                                        <td className="av-dim">{change.created_by_name ?? '—'}</td>
+                                        <td className="av-dim" data-label="Reason">{change.reason ?? '—'}</td>
+                                        <td className="av-dim" data-label="Recorded by">{change.created_by_name ?? '—'}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -447,9 +448,7 @@ function DoctorDay({
                 sitting on top of the times as a heading.
             */}
             <div className="dl-who">
-                <span className="dl-face" aria-hidden="true">
-                    {doctor.doctor_name.replace(/^Dr\.?\s*/i, '').charAt(0)}
-                </span>
+                <PersonPhoto src={null} name={doctor.doctor_name} className="dl-face" />
 
                 <span className="dl-name">
                     <b>{doctor.doctor_name}</b>

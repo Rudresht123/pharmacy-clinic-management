@@ -33,7 +33,18 @@ class DoctorAccountProvisioner
      * rearrange a morning they cannot see.
      */
     private const WANTED = [
-        'appointments.view',
+        /*
+         * Their own list, and the patients on it. Nothing wider.
+         *
+         * `appointments.queue` is what moves somebody through — check in,
+         * start, complete — and is what `opd/my-day` is behind.
+         *
+         * `appointments.view` is deliberately NOT here. It opens the
+         * department's board, the desk's queue for every doctor, the doctor
+         * registry and the branch rota — a manager's screens. Granting it made
+         * a doctor sign in to five menu entries about running a clinic and one
+         * about seeing patients.
+         */
         'appointments.queue',
         'customers.view',
         'prescriptions.view',
@@ -49,6 +60,18 @@ class DoctorAccountProvisioner
      */
     public function open(Doctor $doctor, array $account, array $modules): User
     {
+        /*
+         * The shared role is brought up to date on every call, not only when
+         * an account is first opened.
+         *
+         * It used to be built inside the create branch alone, so its
+         * capabilities froze at whatever the organization ran on the day the
+         * *first* doctor account was made. Buy the prescriptions module a
+         * month later and no existing doctor ever gained it — the role was
+         * only rebuilt if somebody happened to add a brand-new doctor.
+         */
+        $role = $this->role($modules);
+
         $existing = $doctor->user()->first();
 
         if ($existing) {
@@ -61,6 +84,9 @@ class DoctorAccountProvisioner
                 'name' => $doctor->name,
                 'email' => $account['email'],
                 'is_active' => true,
+
+                // Points at the shared role even if this account predates it.
+                'role_id' => $role->id,
             ]);
 
             if (! empty($account['password'])) {
@@ -89,7 +115,7 @@ class DoctorAccountProvisioner
              * account to one branch would hide the other branches' lists from
              * the one person who has to work them.
              */
-            'role_id' => $this->role($modules)->id,
+            'role_id' => $role->id,
 
             'userable_type' => Doctor::class,
             'userable_id' => $doctor->id,

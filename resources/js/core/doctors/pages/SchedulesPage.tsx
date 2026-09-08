@@ -4,6 +4,7 @@ import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { DatePicker } from '@/shared/components/form/DatePicker';
 import { Card } from '@/shared/components/ui/Card';
+import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
@@ -273,13 +274,11 @@ export default function SchedulesPage() {
             {/* Who, where, from when, and of what sort. */}
             <div className="sc-strip">
                 <div className="sc-who">
-                    {doctor?.photo_url ? (
-                        <img src={doctor.photo_url} alt="" className="sc-face" />
-                    ) : (
-                        <span className="sc-face is-letter" aria-hidden="true">
-                            {(doctor?.name ?? '?').replace(/^Dr\.?\s*/i, '').charAt(0)}
-                        </span>
-                    )}
+                    <PersonPhoto
+                        src={doctor?.photo_url}
+                        name={doctor?.name}
+                        className="sc-face"
+                    />
 
                     <label className="sc-pick">
                         <span>Doctor</span>
@@ -441,8 +440,8 @@ export default function SchedulesPage() {
                         {isLoading ? (
                             <LoadingBlock label="Loading the week…" />
                         ) : (
-                            <div className="sc-scroll">
-                                <table className="sc-week">
+                            <div className="sc-scroll tbl-cards-scroll">
+                                <table className="sc-week tbl-cards">
                                     <thead>
                                         <tr>
                                             <th>Day</th>
@@ -463,7 +462,7 @@ export default function SchedulesPage() {
                                                         {label}
                                                     </th>
 
-                                                    <td className="sc-avail">
+                                                    <td className="sc-avail" data-label="Availability">
                                                         {/*
                                                             The tick is the day, not a row:
                                                             unticking takes the day's
@@ -503,13 +502,13 @@ export default function SchedulesPage() {
                                                     </td>
 
                                                     {sittings.length === 0 ? (
-                                                        <td className="sc-off" colSpan={3}>
+                                                        <td className="sc-off" colSpan={3} data-label="">
                                                             No slots. This doctor is not available
                                                             on {label}.
                                                         </td>
                                                     ) : (
                                                         <>
-                                                            <td className="sc-times">
+                                                            <td className="sc-times" data-label="Time slots">
                                                                 {sittings.map((row, index) => (
                                                                     <div
                                                                         className="sc-span"
@@ -629,7 +628,7 @@ export default function SchedulesPage() {
                                                                 </button>
                                                             </td>
 
-                                                            <td className="sc-kinds">
+                                                            <td className="sc-kinds" data-label="Session type">
                                                                 {sittings.map((row, index) => (
                                                                     <SearchableSelect
                                                                         key={index}
@@ -648,7 +647,7 @@ export default function SchedulesPage() {
                                                                 ))}
                                                             </td>
 
-                                                            <td className="sc-acts">
+                                                            <td className="sc-acts" data-label="">
                                                                 {sittings.map((row, index) => (
                                                                     <button
                                                                         type="button"

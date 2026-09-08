@@ -6,6 +6,7 @@ use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -64,7 +65,18 @@ class Appointment extends Model
         self::STATUS_BOOKED => [self::STATUS_CHECKED_IN, self::STATUS_CANCELLED, self::STATUS_NO_SHOW],
         self::STATUS_CHECKED_IN => [self::STATUS_IN_CONSULTATION, self::STATUS_CANCELLED],
         self::STATUS_IN_CONSULTATION => [self::STATUS_COMPLETED, self::STATUS_CANCELLED],
-        self::STATUS_COMPLETED => [],
+        /*
+         * A finished visit can be reopened, on the day it happened.
+         *
+         * "Complete" is one click beside "Call", and a doctor who hits it on
+         * the wrong row — or who realises the patient is still in the room —
+         * had nowhere to go: the write-up is only reachable while somebody is
+         * in consultation, so a mis-click hid the notes as well as the patient.
+         *
+         * The service holds it to today. A visit completed last week staying
+         * closed is the point of recording it at all.
+         */
+        self::STATUS_COMPLETED => [self::STATUS_IN_CONSULTATION],
         self::STATUS_CANCELLED => [],
         self::STATUS_NO_SHOW => [],
     ];
@@ -129,6 +141,18 @@ class Appointment extends Model
     public function scopeWaiting(Builder $query): Builder
     {
         return $query->whereIn('status', [self::STATUS_CHECKED_IN, self::STATUS_IN_CONSULTATION]);
+    }
+
+    /**
+     * What the doctor wrote up, once they have.
+     *
+     * One per visit — the unique index on `appointment_id` makes a second
+     * impossible, so this is a hasOne rather than a list somebody has to pick
+     * the newest from.
+     */
+    public function consultation(): HasOne
+    {
+        return $this->hasOne(Consultation::class);
     }
 
     /** Cancelled bookings free their slot; nothing else does. */

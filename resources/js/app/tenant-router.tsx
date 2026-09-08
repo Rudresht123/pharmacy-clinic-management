@@ -10,6 +10,7 @@ const TenantLoginPage = lazy(() => import('@/core/tenant-auth/pages/TenantLoginP
 const TenantDashboardPage = lazy(() => import('@/core/tenant-auth/pages/TenantDashboardPage'));
 const CustomerListPage = lazy(() => import('@/core/customers/pages/CustomerListPage'));
 const CustomerFormPage = lazy(() => import('@/core/customers/pages/CustomerFormPage'));
+const PatientPage = lazy(() => import('@/core/customers/pages/PatientPage'));
 const LocationListPage = lazy(() => import('@/core/locations/pages/LocationListPage'));
 const LocationFormPage = lazy(() => import('@/core/locations/pages/LocationFormPage'));
 const TenantUserListPage = lazy(() => import('@/core/tenant-users/pages/TenantUserListPage'));
@@ -20,6 +21,8 @@ const RolesPage = lazy(() => import('@/core/roles/pages/RolesPage'));
 const DoctorListPage = lazy(() => import('@/core/doctors/pages/DoctorListPage'));
 const DoctorFormPage = lazy(() => import('@/core/doctors/pages/DoctorFormPage'));
 const MyDayPage = lazy(() => import('@/core/opd/pages/MyDayPage'));
+const MyQueuePage = lazy(() => import('@/core/opd/pages/MyQueuePage'));
+const MySchedulePage = lazy(() => import('@/core/opd/pages/MySchedulePage'));
 const SchedulesPage = lazy(() => import('@/core/doctors/pages/SchedulesPage'));
 const AvailabilityPage = lazy(() => import('@/core/availability/pages/AvailabilityPage'));
 const QueuePage = lazy(() => import('@/core/appointments/pages/QueuePage'));
@@ -37,15 +40,48 @@ function TenantProtectedRoute() {
     return <Outlet />;
 }
 
+/**
+ * Where a signed-in person belongs.
+ *
+ * A doctor's home is their own list. The dashboard counts branches, staff and
+ * revenue — a manager's reading of the business — and landing a doctor there
+ * shows them somebody else's job before their own. One helper, so login, the
+ * root path and a stale /dashboard bookmark all agree.
+ */
+function useHome(): string {
+    const { doctorId } = useTenantAuth();
+
+    return doctorId ? '/my-day' : '/dashboard';
+}
+
 /** Mirrors app/guards.tsx's GuestRoute, against the tenant auth context. */
 function TenantGuestRoute() {
     const { isAuthenticated } = useTenantAuth();
+    const home = useHome();
 
     if (isAuthenticated) {
-        return <Navigate to="/dashboard" replace />;
+        return <Navigate to={home} replace />;
     }
 
     return <Outlet />;
+}
+
+/** The organization's dashboard, or a doctor's list in its place. */
+function HomeRoute() {
+    const home = useHome();
+
+    return home === '/dashboard' ? <TenantDashboardPage /> : <Navigate to={home} replace />;
+}
+
+/**
+ * The root path, which is only ever a signpost.
+ *
+ * It sits outside the auth guard, so it must never render a screen — a
+ * signed-out visitor landing here has to be handed on to the guarded route and
+ * refused there, not shown the dashboard because nothing said otherwise.
+ */
+function HomeRedirect() {
+    return <Navigate to={useHome()} replace />;
 }
 
 /**
@@ -84,7 +120,7 @@ export function TenantAppRoutes() {
 
                     <Route element={<TenantProtectedRoute />}>
                         <Route element={<TenantShell />}>
-                            <Route path="/dashboard" element={<TenantDashboardPage />} />
+                            <Route path="/dashboard" element={<HomeRoute />} />
 
                             {/*
                                 Every screen below names the capability its own
@@ -113,6 +149,17 @@ export function TenantAppRoutes() {
                                 />
                             </Route>
 
+                            {/*
+                                The record, to read. Declared after the literal
+                                paths above so "create" is never taken for an id,
+                                and behind `customers.view` rather than edit — a
+                                doctor reads a patient without being able to
+                                change them.
+                            */}
+                            <Route element={<RequireCapability capability="customers.view" />}>
+                                <Route path="/customers/:id" element={<PatientPage />} />
+                            </Route>
+
                             <Route element={<RequireCapability capability="branches.view" />}>
                                 <Route path="/locations" element={<LocationListPage />} />
                             </Route>
@@ -132,10 +179,25 @@ export function TenantAppRoutes() {
                                 the server asks them: is the module running
                                 here at all, and may this person use it. */}
                             <Route element={<RequireModule module="appointments" />}>
+                                {/*
+                                    A doctor's own list names `appointments.queue`,
+                                    not `appointments.view` — the wider one opens
+                                    the department's screens, which is not what
+                                    this is.
+                                */}
+                                <Route
+                                    element={
+                                        <RequireCapability capability="appointments.queue" />
+                                    }
+                                >
+                                    <Route path="/my-day" element={<MyDayPage />} />
+                                    <Route path="/my-queue" element={<MyQueuePage />} />
+                                    <Route path="/my-schedule" element={<MySchedulePage />} />
+                                </Route>
+
                                 <Route
                                     element={<RequireCapability capability="appointments.view" />}
                                 >
-                                    <Route path="/my-day" element={<MyDayPage />} />
                                     <Route path="/doctors" element={<DoctorListPage />} />
                                     <Route path="/availability" element={<AvailabilityPage />} />
 
@@ -232,7 +294,7 @@ export function TenantAppRoutes() {
                     {/* Unmatched paths fall to the "*" inside the shell above, so
                         a signed-out visitor is sent to /login rather than shown a
                         404 with no way back — same arrangement as router.tsx. */}
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/" element={<HomeRedirect />} />
                 </Routes>
             </Suspense>
         </>

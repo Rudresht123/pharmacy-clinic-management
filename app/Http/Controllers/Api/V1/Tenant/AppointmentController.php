@@ -156,6 +156,16 @@ class AppointmentController extends BaseApiController
         );
     }
 
+    /** Put a finished visit back in the room — today's only. */
+    public function reopen(Appointment $appointment): JsonResponse
+    {
+        return $this->move(
+            $appointment,
+            fn () => $this->booking->reopen($appointment),
+            fn () => 'Back in the room',
+        );
+    }
+
     public function complete(Appointment $appointment): JsonResponse
     {
         return $this->move(

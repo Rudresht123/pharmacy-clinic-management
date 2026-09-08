@@ -160,3 +160,157 @@ export interface OpdToday {
      */
     thresholds: { warn: number; critical: number };
 }
+
+/** One row of a doctor's own list, shaped the same wherever it appears. */
+export interface MyRow {
+    id: number;
+    token_no: number | null;
+    customer_name: string | null;
+    customer_code: string | null;
+    age: number | null;
+    gender: string | null;
+    status: string;
+    type: string;
+
+    /** Have we seen them before? Not how the appointment was made. */
+    is_new: boolean;
+
+    slot_at: string | null;
+    waiting_minutes: number | null;
+    next_states: string[];
+}
+
+/** One line of a prescription. Free text until a drug catalogue exists. */
+export interface PrescriptionLine {
+    drug: string;
+    dose?: string | null;
+    frequency?: string | null;
+    duration?: string | null;
+    notes?: string | null;
+}
+
+export interface InvestigationLine {
+    test: string;
+    notes?: string | null;
+}
+
+/** What was measured. Every field optional — most visits record two of them. */
+export interface Vitals {
+    bp_systolic?: number | null;
+    bp_diastolic?: number | null;
+    pulse?: number | null;
+    temperature?: number | null;
+    spo2?: number | null;
+    weight?: number | null;
+    height?: number | null;
+}
+
+/**
+ * What happened in the room.
+ *
+ * `id` is null until somebody writes something, so a screen can tell "nothing
+ * recorded" from "recorded as empty".
+ */
+export interface Consultation {
+    id: number | null;
+    chief_complaint: string | null;
+    diagnoses: string[];
+    vitals: Vitals;
+    prescription: PrescriptionLine[];
+    investigations: InvestigationLine[];
+    advice: string | null;
+    notes: string | null;
+    follow_up_days: number | null;
+}
+
+/** A visit this patient had before today. */
+export interface PastConsultation {
+    id: number;
+    on: string | null;
+    doctor_name: string | null;
+    chief_complaint: string | null;
+    diagnoses: string[];
+}
+
+/** Everything a doctor's own screens read, from one request. */
+export interface MyDay {
+    date: string;
+
+    doctor: {
+        id: number;
+        name: string;
+        specialisation: string | null;
+        photo_url: string | null;
+    };
+
+    counts: {
+        total: number;
+        seen: number;
+        waiting: number;
+        expected: number;
+        new: number;
+        returning: number;
+    };
+    queue: MyRow[];
+
+    current:
+        | (MyRow & {
+              customer_id: number;
+              phone: string | null;
+              location_name: string | null;
+              in_room_minutes: number | null;
+
+              /** City and state as one line, or null when neither is set. */
+              where: string | null;
+
+              /** "14:32" — when the consultation began. */
+              started_at: string | null;
+
+              /** Null when this organization does not record allergies at all. */
+              allergies: string | null;
+
+              history: PastConsultation[];
+
+              /** This doctor's own recent wording, most used first. */
+              suggestions: { complaints: string[]; diagnoses: string[] };
+
+              consultation: Consultation;
+          })
+        | null;
+
+    /** What is actually happening today — leave applied, hours moved. */
+    schedule: {
+        starts_at: string;
+        ends_at: string;
+        name: string | null;
+        location_name: string | null;
+        changed: boolean;
+        state: 'now' | 'later' | 'done';
+    }[];
+
+    /**
+     * The usual weekly pattern, wherever they sit.
+     *
+     * A different question from `schedule`, which they resemble: this is "when
+     * am I normally in", that is "what is happening today".
+     */
+    week: {
+        weekday: number;
+        label: string;
+        sittings: {
+            starts_at: string;
+            ends_at: string;
+            name: string | null;
+            location_name: string | null;
+            slot_minutes: number;
+        }[];
+    }[];
+
+    upcoming: {
+        id: number;
+        slot_at: string;
+        customer_name: string | null;
+        type: string;
+        is_new: boolean;
+    }[];
+}

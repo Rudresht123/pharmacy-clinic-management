@@ -6,6 +6,7 @@ use App\Models\Platform\Module;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\ActivityLog;
 use App\Models\Tenant\Doctor;
+use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
 use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\Location;
@@ -509,6 +510,51 @@ class DoctorTest extends TenantTestCase
      * end to end rather than as a row, because a row with the right columns
      * that cannot log in is the exact thing that shipped.
      */
+    /**
+     * The shared role is brought up to date whenever a login is saved.
+     *
+     * It used to be built only when an account was first opened, so its
+     * capabilities froze at whatever the organization ran that day. Buy a
+     * module a month later and no existing doctor ever gained it — the role
+     * was rebuilt only if somebody happened to add a brand-new doctor.
+     */
+    public function test_saving_a_login_refreshes_what_doctors_may_do(): void
+    {
+        $organization = $this->provisionOrganization();
+        $this->grantModule($organization, 'appointments');
+        $this->signInAsOwner($organization);
+
+        $doctor = $this->postJson('/api/v1/tenant/doctors', [
+            'name' => 'Dr. Vikram Rao',
+            'is_active' => true,
+            'account' => ['email' => 'vikram@clinic.test', 'password' => 'doctor-secret-1'],
+        ])->assertCreated()->json('data');
+
+        $held = fn () => $this->onTenant($organization, fn () => Role::on('organization')
+            ->where('slug', 'doctor')
+            ->first()
+            ?->capabilities
+            ->pluck('capability')
+            ->all() ?? []);
+
+        // Customers is a core module, so a doctor may read their patients.
+        $this->assertContains('customers.view', $held());
+        $this->assertNotContains('prescriptions.view', $held());
+
+        // The organization buys prescriptions later.
+        $this->grantModule($organization, 'prescriptions');
+
+        // Saving the same doctor again is enough to pick it up — nobody should
+        // have to add a new doctor to refresh what every doctor may do.
+        $this->putJson("/api/v1/tenant/doctors/{$doctor['id']}", [
+            'name' => 'Dr. Vikram Rao',
+            'is_active' => true,
+            'account' => ['email' => 'vikram@clinic.test', 'password' => ''],
+        ])->assertOk();
+
+        $this->assertContains('prescriptions.view', $held());
+    }
+
     public function test_a_doctor_can_be_given_a_login(): void
     {
         $organization = $this->provisionOrganization();

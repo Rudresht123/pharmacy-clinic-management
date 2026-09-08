@@ -3,7 +3,10 @@
 namespace App\Services\Opd;
 
 use App\Models\Tenant\Appointment;
+use App\Models\Tenant\Consultation;
 use App\Models\Tenant\Doctor;
+use App\Models\Tenant\DoctorSchedule;
+use App\Support\Opd\Weekday;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -24,6 +27,16 @@ class DoctorDay
     /** How many rows of the queue to hand back. A doctor's list is short. */
     private const ROWS = 25;
 
+    /**
+     * Customer ids seen before today, for this request.
+     *
+     * Held on the instance because `row()` is called from three places and
+     * threading it through all of them would say less than this does.
+     *
+     * @var list<int>
+     */
+    private array $returning = [];
+
     public function __construct(
         private readonly AvailabilityService $availability,
     ) {}
@@ -34,6 +47,16 @@ class DoctorDay
     public function for(Doctor $doctor, Carbon $date, ?int $locationId = null): array
     {
         $appointments = $this->dayFor($doctor, $date, $locationId);
+
+        /*
+         * Who has been here before today.
+         *
+         * "New" and "follow-up" are not stored anywhere — an appointment
+         * records a booking, not whether the person is returning — so it is
+         * answered by looking. One query for the whole list rather than one
+         * per row.
+         */
+        $this->returning = $this->returningPatients($appointments, $date);
 
         return [
             'date' => $date->toDateString(),
@@ -49,6 +72,7 @@ class DoctorDay
             'queue' => $this->queue($appointments),
             'current' => $this->current($appointments),
             'schedule' => $this->schedule($doctor, $date, $locationId),
+            'week' => $this->week($doctor),
             'upcoming' => $this->upcoming($appointments),
         ];
     }
@@ -59,7 +83,7 @@ class DoctorDay
     private function dayFor(Doctor $doctor, Carbon $date, ?int $locationId): Collection
     {
         return Appointment::on('organization')
-            ->with(['customer', 'location'])
+            ->with(['customer', 'location', 'consultation'])
             ->where('doctor_id', $doctor->id)
             ->whereDate('appointment_date', $date->toDateString())
             ->when($locationId, fn ($query, $id) => $query->where('location_id', $id))
@@ -86,6 +110,22 @@ class DoctorDay
                 ->count(),
 
             'seen' => $appointments->where('status', Appointment::STATUS_COMPLETED)->count(),
+
+            'new' => $appointments
+                ->reject(fn (Appointment $row) => in_array(
+                    (int) $row->customer_id,
+                    $this->returning,
+                    true,
+                ))
+                ->count(),
+
+            'returning' => $appointments
+                ->filter(fn (Appointment $row) => in_array(
+                    (int) $row->customer_id,
+                    $this->returning,
+                    true,
+                ))
+                ->count(),
 
             'waiting' => $appointments->where('status', Appointment::STATUS_CHECKED_IN)->count(),
 
@@ -146,12 +186,158 @@ class DoctorDay
             'phone' => $row->customer?->phone,
             'location_name' => $row->location?->name,
 
+            // Where they live, as one line — city and state read together or
+            // not at all, and either may be missing.
+            'where' => collect([$row->customer?->city, $row->customer?->state])
+                ->filter()
+                ->implode(', ') ?: null,
+
+            // When the consultation began, so the card can say so rather than
+            // only counting minutes since.
+            'started_at' => $row->started_at?->format('H:i'),
+
+            /*
+             * Allergies, if this clinic records them.
+             *
+             * A patient's allergy belongs to the patient, not to one visit, so
+             * it lives on the customer — as a configurable field, because not
+             * every organization using this is a clinic. Absent rather than
+             * empty when nobody has set the field up: "no allergies recorded"
+             * and "we do not record allergies" are different, and a doctor must
+             * not read the second as the first.
+             */
+            'allergies' => $this->allergiesOf($row),
+
             // How long they have been in, which is the number that tells a
             // doctor they are running late without anybody saying so.
             'in_room_minutes' => $row->started_at
                 ? (int) $row->started_at->diffInMinutes(now())
                 : null,
+
+            /*
+             * What has been written up so far, if anything.
+             *
+             * Sent with the day rather than fetched when the panel opens: the
+             * doctor is already looking at this patient, and a second request
+             * to find out whether their own notes exist is a spinner over the
+             * thing they are mid-sentence in.
+             */
+            /*
+             * What this patient has been seen for before.
+             *
+             * Five, newest first, and not the visit in front of them. A doctor
+             * asking "have I seen this before" wants the last few lines, not a
+             * file — the full record is a click away on the patient.
+             */
+            'history' => $this->historyFor($row),
+
+            /*
+             * What this doctor has written lately.
+             *
+             * A complaint and a diagnosis are typed dozens of times a week and
+             * spelled differently each time, which makes a record nobody can
+             * search later. Their own recent wording is the nearest thing to a
+             * catalogue that needs no catalogue — and it is theirs, so it
+             * matches how they write.
+             */
+            'suggestions' => $this->suggestionsFor($row),
+
+            'consultation' => [
+                'id' => $row->consultation?->id,
+                'chief_complaint' => $row->consultation?->chief_complaint,
+                'diagnoses' => $row->consultation?->diagnoses ?? [],
+                'vitals' => $row->consultation?->vitals ?? [],
+                'prescription' => $row->consultation?->prescription ?? [],
+                'investigations' => $row->consultation?->investigations ?? [],
+                'advice' => $row->consultation?->advice,
+                'notes' => $row->consultation?->notes,
+                'follow_up_days' => $row->consultation?->follow_up_days,
+            ],
         ];
+    }
+
+    /**
+     * This doctor's own recent complaints and diagnoses, most used first.
+     *
+     * @return array{complaints: list<string>, diagnoses: list<string>}
+     */
+    private function suggestionsFor(Appointment $row): array
+    {
+        $recent = Consultation::on('organization')
+            ->where('doctor_id', $row->doctor_id)
+            ->orderByDesc('created_at')
+            ->limit(60)
+            ->get(['chief_complaint', 'diagnoses']);
+
+        $rank = fn (\Illuminate\Support\Collection $values) => $values
+            ->filter()
+            ->map(fn (string $value) => trim($value))
+            ->filter()
+            ->countBy()
+            ->sortDesc()
+            ->keys()
+            ->take(8)
+            ->values()
+            ->all();
+
+        return [
+            'complaints' => $rank($recent->pluck('chief_complaint')),
+            'diagnoses' => $rank($recent->pluck('diagnoses')->flatten()),
+        ];
+    }
+
+    /**
+     * Whatever this organization records as an allergy, if anything.
+     *
+     * Read from the configurable fields rather than a column: a clinic adds
+     * "Allergies" in Settings and it appears here, and an organization that is
+     * not a clinic never sees a field it has no use for.
+     */
+    private function allergiesOf(Appointment $row): ?string
+    {
+        $fields = $row->customer?->custom_fields ?? [];
+
+        foreach (['allergies', 'allergy', 'known_allergies'] as $key) {
+            $value = $fields[$key] ?? null;
+
+            if (is_array($value)) {
+                $value = implode(', ', $value);
+            }
+
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * This patient's last few consultations, excluding the one being written.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function historyFor(Appointment $row): array
+    {
+        if (! $row->customer_id) {
+            return [];
+        }
+
+        return Consultation::on('organization')
+            ->with('doctor')
+            ->where('customer_id', $row->customer_id)
+            ->where('appointment_id', '!=', $row->id)
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get()
+            ->map(fn (Consultation $past) => [
+                'id' => $past->id,
+                'on' => $past->created_at?->toDateString(),
+                'doctor_name' => $past->doctor?->name,
+                'chief_complaint' => $past->chief_complaint,
+                'diagnoses' => $past->diagnoses ?? [],
+            ])
+            ->all();
     }
 
     /** One row of the list, shaped the same wherever it appears. */
@@ -170,6 +356,10 @@ class DoctorDay
 
             'status' => $row->status,
             'type' => $row->type,
+
+            // What the desk means by "new" or "follow-up": have we seen them
+            // before, not how the appointment was made.
+            'is_new' => ! in_array((int) $row->customer_id, $this->returning, true),
             'slot_at' => $row->slot_at ? substr((string) $row->slot_at, 0, 5) : null,
 
             'waiting_minutes' => $row->status === Appointment::STATUS_CHECKED_IN
@@ -221,6 +411,70 @@ class DoctorDay
                     : ($now->lt($starts) ? 'later' : 'done'),
             ];
         }, $this->availability->sessionsFor($doctor, $date, $locationId));
+    }
+
+    /**
+     * Who on this list has been here before today.
+     *
+     * @param  Collection<int, Appointment>  $appointments
+     * @return list<int>
+     */
+    private function returningPatients(Collection $appointments, Carbon $date): array
+    {
+        $ids = $appointments->pluck('customer_id')->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return Appointment::on('organization')
+            ->whereIn('customer_id', $ids)
+            ->whereDate('appointment_date', '<', $date->toDateString())
+            ->distinct()
+            ->pluck('customer_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
+     * Their usual week, wherever they sit.
+     *
+     * The weekly pattern rather than seven derived days: this answers "when am
+     * I normally in", which is a question about the rota itself. What actually
+     * happens on a date — leave applied, hours moved — is `schedule`, and the
+     * two are different questions that look alike.
+     *
+     * Not scoped to a branch. A doctor covering three sites wants their week,
+     * not the third of it that happens to be here.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function week(Doctor $doctor): array
+    {
+        $sittings = $doctor->schedules()
+            ->with('location')
+            ->where('is_active', true)
+            ->orderBy('weekday')
+            ->orderBy('starts_at')
+            ->get()
+            ->groupBy('weekday');
+
+        return collect(Weekday::all())
+            ->map(fn (int $weekday) => [
+                'weekday' => $weekday,
+                'label' => Weekday::label($weekday),
+                'sittings' => $sittings->get($weekday, collect())
+                    ->map(fn (DoctorSchedule $row) => [
+                        'starts_at' => substr((string) $row->starts_at, 0, 5),
+                        'ends_at' => substr((string) $row->ends_at, 0, 5),
+                        'name' => $row->name,
+                        'location_name' => $row->location?->name,
+                        'slot_minutes' => $row->slot_minutes,
+                    ])
+                    ->values()
+                    ->all(),
+            ])
+            ->all();
     }
 
     /**

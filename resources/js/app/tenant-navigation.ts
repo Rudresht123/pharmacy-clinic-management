@@ -67,7 +67,18 @@ export function tenantNavigation(
      */
     sections.push({
         title: '',
-        items: [{ label: 'Dashboard', to: '/dashboard', icon: 'ti ti-layout-dashboard' }],
+        items: [
+            /*
+             * A doctor lands on their own list, not the organization's.
+             *
+             * The dashboard counts branches, staff and revenue — a manager's
+             * reading of the business. A doctor opening it is being shown
+             * somebody else's job before their own.
+             */
+            isDoctor
+                ? { label: 'My day', to: '/my-day', icon: 'ti ti-stethoscope', match: '/my-day' }
+                : { label: 'Dashboard', to: '/dashboard', icon: 'ti ti-layout-dashboard' },
+        ],
     });
 
     /*
@@ -158,6 +169,66 @@ export function tenantNavigation(
         });
     }
 
+    /* --- a doctor's own section ------------------------------------------ */
+
+    /*
+     * A doctor's menu is their work, not the department's.
+     *
+     * They hold `appointments.queue` and `customers.view` and nothing wider, so
+     * the OPD group below — the board, the desk's queue, the doctor registry,
+     * the branch rota — never renders for them. What is left would be two rows,
+     * which is why the rest of their day is named here even where it is not
+     * built: a doctor should be able to see the shape of their own screen.
+     *
+     * The unbuilt ones are marked and unclickable rather than linking to a 404.
+     * Each needs a table that does not exist — consultations, prescriptions,
+     * investigations and documents are all later phases.
+     */
+    if (isDoctor) {
+        const mine: NavItem[] = [
+            { label: 'My queue', to: '/my-queue', icon: 'ti ti-list-numbers', match: '/my-queue' },
+            {
+                label: 'Consultations',
+                to: '/consultations',
+                icon: 'ti ti-clipboard-text',
+                soon: true,
+            },
+        ];
+
+        if (can('customers.view')) {
+            mine.push({
+                label: labels?.customer ?? 'Patients',
+                to: '/customers',
+                icon: 'ti ti-users',
+                match: '/customers',
+            });
+        }
+
+        mine.push(
+            { label: 'Appointments', to: '/appointments', icon: 'ti ti-calendar', soon: true },
+            { label: 'Prescriptions', to: '/prescriptions', icon: 'ti ti-file-text', soon: true },
+            { label: 'Investigations', to: '/investigations', icon: 'ti ti-microscope', soon: true },
+            { label: 'Follow-ups', to: '/follow-ups', icon: 'ti ti-calendar-repeat', soon: true },
+            {
+                label: 'My schedule',
+                to: '/my-schedule',
+                icon: 'ti ti-clock-hour-4',
+                match: '/my-schedule',
+            },
+            { label: 'Documents', to: '/documents', icon: 'ti ti-folder', soon: true },
+        );
+
+        sections.push({ title: 'My work', items: mine });
+
+        /*
+         * And nothing else. A doctor has no branches to run, no staff to
+         * administer and no field settings to change — returning here rather
+         * than falling through means none of those sections can appear by
+         * accident as capabilities move around.
+         */
+        return sections;
+    }
+
     /* --- the work -------------------------------------------------------- */
 
     /*
@@ -176,22 +247,6 @@ export function tenantNavigation(
      * to them, to tidy a menu; `match` takes the four instead.
      */
     const clinical: NavItem[] = [];
-
-    /*
-     * A doctor's own list, above the department's.
-     *
-     * Only for somebody who IS a doctor — the screen is scoped to the signed-in
-     * doctor and the endpoint refuses anybody else, so showing it to the desk
-     * would be offering a link that answers 403.
-     */
-    if (hasModule('appointments') && isDoctor && can('appointments.queue')) {
-        clinical.push({
-            label: 'My day',
-            to: '/my-day',
-            icon: 'ti ti-stethoscope',
-            match: '/my-day',
-        });
-    }
 
     if (hasModule('appointments') && can('appointments.view')) {
         clinical.push({

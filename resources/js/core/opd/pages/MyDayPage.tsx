@@ -1,74 +1,29 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/shared/components/ui/Card';
+import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
-import { http } from '@/shared/api/http';
-import type { ApiResponse } from '@/shared/types/api';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { useMoveAppointment } from '@/core/appointments/api';
+import { useMyDay } from '../api';
+import { ConsultationPanel, type ConsultationTab } from '../components/ConsultationPanel';
+import { PatientAside } from '../components/PatientAside';
+import type { MyDay } from '../types';
 
 /** Morning, afternoon or evening — as the person reading it would say it. */
 function partOfDay(): string {
     const hour = new Date().getHours();
 
-    return hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+    return hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
 }
 
-interface Row {
-    id: number;
-    token_no: number | null;
-    customer_name: string | null;
-    customer_code: string | null;
-    age: number | null;
-    gender: string | null;
-    status: string;
-    type: string;
-    slot_at: string | null;
-    waiting_minutes: number | null;
-    next_states: string[];
-}
+/** "09:00" → "9:00 AM", for reading rather than editing. */
+function spoken(value: string): string {
+    const [hours, minutes] = value.split(':').map(Number);
 
-interface MyDay {
-    date: string;
-    doctor: {
-        id: number;
-        name: string;
-        specialisation: string | null;
-        photo_url: string | null;
-    };
-    counts: { total: number; seen: number; waiting: number; expected: number };
-    queue: Row[];
-    current: (Row & {
-        customer_id: number;
-        phone: string | null;
-        location_name: string | null;
-        in_room_minutes: number | null;
-    }) | null;
-    schedule: {
-        starts_at: string;
-        ends_at: string;
-        name: string | null;
-        location_name: string | null;
-        changed: boolean;
-        state: 'now' | 'later' | 'done';
-    }[];
-    upcoming: { id: number; slot_at: string; customer_name: string | null; type: string }[];
-}
-
-function useMyDay(locationId: number | null) {
-    return useQuery({
-        queryKey: ['tenant', 'opd', 'my-day', locationId],
-        queryFn: async (): Promise<MyDay> => {
-            const { data } = await http.get<ApiResponse<MyDay>>('/tenant/opd/my-day', {
-                params: locationId ? { location_id: locationId } : {},
-            });
-
-            return data.data;
-        },
-        // A queue read between patients is stale the moment it lands.
-        refetchInterval: 30_000,
-    });
+    return `${hours % 12 === 0 ? 12 : hours % 12}:${String(minutes).padStart(2, '0')} ${
+        hours < 12 ? 'AM' : 'PM'
+    }`;
 }
 
 /**
@@ -80,10 +35,10 @@ function useMyDay(locationId: number | null) {
  * and who is next. A doctor signing in and landing on the board would be
  * reading somebody else's job.
  *
- * Nothing clinical is here yet, and nothing pretends to be. Chief complaint,
- * diagnosis, prescriptions and investigations all belong to tables that do not
- * exist — the consultation arrives in a later phase — so the current-patient
- * card carries who is in the room and the actions that are real today.
+ * The write-up beside the patient rather than behind a button: a doctor types
+ * the complaint while the person is still saying it, and a consultation that
+ * opened on its own screen would be a screen nobody fills in until afterwards,
+ * from memory.
  */
 export default function MyDayPage() {
     const { activeBranch } = useTenantAuth();
@@ -91,13 +46,13 @@ export default function MyDayPage() {
     const { data, isLoading, isError, refetch } = useMyDay(activeBranch);
     const move = useMoveAppointment();
 
-    const [filter, setFilter] = useState<'all' | 'waiting' | 'expected'>('all');
+    const [filter, setFilter] = useState<'all' | 'new' | 'returning'>('all');
     const [term, setTerm] = useState('');
 
     const shown = useMemo(() => {
         const rows = (data?.queue ?? []).filter((row) => {
-            if (filter === 'waiting') return row.status === 'checked_in';
-            if (filter === 'expected') return row.status === 'booked';
+            if (filter === 'new') return row.is_new;
+            if (filter === 'returning') return !row.is_new;
 
             return true;
         });
@@ -124,17 +79,12 @@ export default function MyDayPage() {
             {/* Who, and how the day stands — one line before any of the work. */}
             <div className="md-hero">
                 <div className="md-who">
-                    {doctor.photo_url ? (
-                        <img src={doctor.photo_url} alt="" className="md-face" />
-                    ) : (
-                        <span className="md-face is-letter" aria-hidden="true">
-                            {doctor.name.replace(/^Dr\.?\s*/i, '').charAt(0)}
-                        </span>
-                    )}
+                    <PersonPhoto src={doctor.photo_url} name={doctor.name} className="md-face" />
 
                     <div>
                         <h1>
-                            Good {partOfDay().toLowerCase()}, {doctor.name}
+                            Good {partOfDay()}, {doctor.name}
+                            <span aria-hidden="true"> 👋</span>
                         </h1>
                         <p>{doctor.specialisation ?? 'General'}</p>
                     </div>
@@ -143,9 +93,9 @@ export default function MyDayPage() {
                 <div className="md-stats">
                     {(
                         [
-                            ['Today', counts.total, 'ti ti-calendar-event', 'blue'],
-                            ['Seen', counts.seen, 'ti ti-checks', 'green'],
-                            ['Waiting', counts.waiting, 'ti ti-users', 'amber'],
+                            ["Today's appointments", counts.total, 'ti ti-calendar-event', 'blue'],
+                            ['Patients seen', counts.seen, 'ti ti-checks', 'green'],
+                            ['In queue', counts.waiting, 'ti ti-users', 'amber'],
                             /*
                                 "Yet to arrive", not "follow-ups due".
                                 Nothing records that a follow-up was asked for,
@@ -173,8 +123,10 @@ export default function MyDayPage() {
                     <Card
                         title={
                             <span className="opd-card-title">
-                                <i className="ti ti-list-numbers" aria-hidden="true" />
-                                My queue
+                                Today&rsquo;s queue
+                                {counts.waiting > 0 && (
+                                    <em className="md-waiting">{counts.waiting} waiting</em>
+                                )}
                             </span>
                         }
                         actions={
@@ -183,8 +135,8 @@ export default function MyDayPage() {
                                     {(
                                         [
                                             ['all', `All (${data.queue.length})`],
-                                            ['waiting', `Waiting (${counts.waiting})`],
-                                            ['expected', `Expected (${counts.expected})`],
+                                            ['new', `New (${counts.new})`],
+                                            ['returning', `Follow-up (${counts.returning})`],
                                         ] as const
                                     ).map(([key, label]) => (
                                         <button
@@ -204,7 +156,7 @@ export default function MyDayPage() {
                                     <input
                                         type="text"
                                         value={term}
-                                        placeholder="Search this queue…"
+                                        placeholder="Search in queue…"
                                         aria-label="Search this queue"
                                         onChange={(event) => setTerm(event.target.value)}
                                     />
@@ -223,21 +175,22 @@ export default function MyDayPage() {
                                 </p>
                             </div>
                         ) : (
-                            <div className="md-scroll">
-                                <table className="md-queue">
+                            <div className="md-scroll tbl-cards-scroll">
+                                <table className="md-queue tbl-cards">
                                     <thead>
                                         <tr>
+                                            <th className="md-no">#</th>
                                             <th>Token</th>
-                                            <th>Patient</th>
-                                            <th>Age / sex</th>
-                                            <th>Visit</th>
-                                            <th>Waiting</th>
+                                            <th>Patient name</th>
+                                            <th>Age / gender</th>
+                                            <th>Visit type</th>
+                                            <th>Wait time</th>
                                             <th aria-label="Action" />
                                         </tr>
                                     </thead>
 
                                     <tbody>
-                                        {shown.map((row) => (
+                                        {shown.map((row, index) => (
                                             <tr
                                                 key={row.id}
                                                 className={
@@ -246,39 +199,47 @@ export default function MyDayPage() {
                                                         : undefined
                                                 }
                                             >
-                                                <td>
+                                                <td className="md-no md-dim" data-label="">{index + 1}</td>
+
+                                                <td data-label="Token">
                                                     <span className="md-token">
                                                         {row.token_no ?? row.slot_at ?? '—'}
                                                     </span>
                                                 </td>
 
-                                                <td>
+                                                <td data-label="Patient">
                                                     <b>{row.customer_name ?? 'Unnamed'}</b>
                                                     {row.customer_code && (
                                                         <small>{row.customer_code}</small>
                                                     )}
                                                 </td>
 
-                                                <td className="md-dim">
+                                                <td className="md-dim" data-label="Age / gender">
                                                     {row.age !== null ? `${row.age}` : '—'}
                                                     {row.gender
                                                         ? ` / ${row.gender.charAt(0).toUpperCase()}`
                                                         : ''}
                                                 </td>
 
-                                                <td>
+                                                <td data-label="Visit type">
+                                                    {/*
+                                                        New or returning, worked out
+                                                        from whether this patient has
+                                                        been seen before — not from how
+                                                        the appointment was made, which
+                                                        is a different question nobody
+                                                        asks in a queue.
+                                                    */}
                                                     <span
                                                         className={`md-tag is-${
-                                                            row.type === 'walk_in' ? 'walk' : 'book'
+                                                            row.is_new ? 'new' : 'again'
                                                         }`}
                                                     >
-                                                        {row.type === 'walk_in'
-                                                            ? 'Walk-in'
-                                                            : 'Booked'}
+                                                        {row.is_new ? 'New' : 'Follow-up'}
                                                     </span>
                                                 </td>
 
-                                                <td className="md-dim">
+                                                <td className="md-dim" data-label="Wait time">
                                                     {row.waiting_minutes !== null
                                                         ? `${row.waiting_minutes} min`
                                                         : row.status === 'in_consultation'
@@ -286,30 +247,62 @@ export default function MyDayPage() {
                                                           : '—'}
                                                 </td>
 
-                                                <td className="md-act">
+                                                <td className="md-act" data-label="">
                                                     {/*
-                                                        One button, and only the
-                                                        move that is actually
-                                                        legal from here — the
-                                                        server owns the
+                                                        Only the moves the
+                                                        server says are legal
+                                                        from here — it owns the
                                                         transitions and hands
                                                         back what is next.
+
+                                                        A patient who has not
+                                                        arrived is checked in
+                                                        first; one who is
+                                                        waiting is called; a
+                                                        finished visit can be
+                                                        put back in the room on
+                                                        the day it happened.
                                                     */}
+                                                    {row.next_states.includes('checked_in') && (
+                                                        <button
+                                                            type="button"
+                                                            className="md-done"
+                                                            disabled={move.isPending}
+                                                            onClick={() =>
+                                                                move.mutate({
+                                                                    id: row.id,
+                                                                    action: 'check-in',
+                                                                })
+                                                            }
+                                                        >
+                                                            Arrived
+                                                        </button>
+                                                    )}
+
                                                     {row.next_states.includes(
                                                         'in_consultation',
                                                     ) && (
                                                         <button
                                                             type="button"
-                                                            className="md-call"
+                                                            className={
+                                                                row.status === 'completed'
+                                                                    ? 'md-done'
+                                                                    : 'md-call'
+                                                            }
                                                             disabled={move.isPending}
                                                             onClick={() =>
                                                                 move.mutate({
                                                                     id: row.id,
-                                                                    action: 'start',
+                                                                    action:
+                                                                        row.status === 'completed'
+                                                                            ? 'reopen'
+                                                                            : 'start',
                                                                 })
                                                             }
                                                         >
-                                                            Call in
+                                                            {row.status === 'completed'
+                                                                ? 'Reopen'
+                                                                : 'Call'}
                                                         </button>
                                                     )}
 
@@ -348,13 +341,12 @@ export default function MyDayPage() {
                     <Card
                         title={
                             <span className="opd-card-title">
-                                <i className="ti ti-clock-hour-4" aria-hidden="true" />
                                 My schedule today
                             </span>
                         }
                         actions={
-                            <Link className="md-viewall" to="/availability">
-                                Full schedule
+                            <Link className="md-viewall" to="/my-schedule">
+                                View full schedule
                             </Link>
                         }
                     >
@@ -368,7 +360,8 @@ export default function MyDayPage() {
 
                                         <span>
                                             <b>
-                                                {session.starts_at} – {session.ends_at}
+                                                {spoken(session.starts_at)} –{' '}
+                                                {spoken(session.ends_at)}
                                             </b>
                                             <small>
                                                 {session.name ?? 'OPD'}
@@ -379,7 +372,7 @@ export default function MyDayPage() {
                                         </span>
 
                                         {session.state === 'now' && (
-                                            <em className="md-now">Now</em>
+                                            <em className="md-now">Ongoing</em>
                                         )}
                                     </li>
                                 ))}
@@ -390,9 +383,13 @@ export default function MyDayPage() {
                     <Card
                         title={
                             <span className="opd-card-title">
-                                <i className="ti ti-calendar-time" aria-hidden="true" />
-                                Later today
+                                Upcoming appointments
                             </span>
+                        }
+                        actions={
+                            <Link className="md-viewall" to="/my-queue">
+                                View all
+                            </Link>
                         }
                     >
                         {data.upcoming.length === 0 ? (
@@ -401,8 +398,18 @@ export default function MyDayPage() {
                             <ul className="md-later">
                                 {data.upcoming.map((row) => (
                                     <li key={row.id}>
-                                        <b>{row.slot_at}</b>
-                                        <span>{row.customer_name ?? 'Unnamed'}</span>
+                                        <b>{spoken(row.slot_at)}</b>
+
+                                        <span>
+                                            <i className="ti ti-user" aria-hidden="true" />
+                                            {row.customer_name ?? 'Unnamed'}
+                                        </span>
+
+                                        <em
+                                            className={`md-tag is-${row.is_new ? 'new' : 'again'}`}
+                                        >
+                                            {row.is_new ? 'New' : 'Follow-up'}
+                                        </em>
                                     </li>
                                 ))}
                             </ul>
@@ -412,7 +419,6 @@ export default function MyDayPage() {
                     <Card
                         title={
                             <span className="opd-card-title">
-                                <i className="ti ti-bolt" aria-hidden="true" />
                                 Quick actions
                             </span>
                         }
@@ -420,13 +426,15 @@ export default function MyDayPage() {
                         <div className="md-quick">
                             {(
                                 [
-                                    ['/customers', 'ti ti-users', 'Patients'],
-                                    ['/opd/queue', 'ti ti-list-check', 'Full queue'],
-                                    ['/availability', 'ti ti-calendar-time', 'Availability'],
-                                    ['/opd', 'ti ti-building-hospital', 'OPD board'],
+                                    ['/customers/create', 'ti ti-user-plus', 'New patient', 'blue'],
+                                    ['/customers', 'ti ti-users', 'View patients', 'violet'],
+                                    ['/my-queue', 'ti ti-list-numbers', 'My queue', 'green'],
+                                    ['/my-schedule', 'ti ti-clock-hour-4', 'My schedule', 'amber'],
+                                    ['/opd/queue', 'ti ti-clipboard-list', 'Department queue', 'blue'],
+                                    ['/availability', 'ti ti-calendar-time', 'Availability', 'violet'],
                                 ] as const
-                            ).map(([to, icon, label]) => (
-                                <Link className="md-quick-one" to={to} key={to}>
+                            ).map(([to, icon, label, tone]) => (
+                                <Link className={`md-quick-one is-${tone}`} to={to} key={to}>
                                     <i className={icon} aria-hidden="true" />
                                     {label}
                                 </Link>
@@ -457,20 +465,65 @@ function CurrentPatient({
     advancing: boolean;
     onDone: (id: number) => void;
 }) {
+    /*
+     * Which tab, held here rather than in the panel.
+     *
+     * "Previous visits" in the patient column and the History tab in the panel
+     * are the same thing said twice; the button opens the tab instead of
+     * opening a second screen showing the same five rows.
+     */
+    const [tab, setTab] = useState<ConsultationTab>('clinical');
+
     return (
         <Card
+            className="md-room"
             title={
-                <span className="opd-card-title">
-                    <i className="ti ti-stethoscope" aria-hidden="true" />
-                    In the room
+                <span className="cp-title">
+                    <i className="cp-mark ti ti-user" aria-hidden="true" />
+
+                    <span>
+                        <b>
+                            Current patient
+                            {current && <em className="md-inroom">In consultation</em>}
+                        </b>
+
+                        <small>
+                            {current?.started_at
+                                ? `Consultation started at ${spoken(current.started_at)}`
+                                : 'Nobody is with you at the moment'}
+                        </small>
+                    </span>
                 </span>
             }
             actions={
-                current?.in_room_minutes !== null && current ? (
-                    <span className="md-elapsed">
-                        <i className="ti ti-clock" aria-hidden="true" />
-                        {current.in_room_minutes} min
-                    </span>
+                current ? (
+                    <div className="cp-acts">
+                        {current.in_room_minutes !== null && (
+                            <span className="cp-elapsed">
+                                <i className="ti ti-clock" aria-hidden="true" />
+                                <span>
+                                    <small>Time elapsed</small>
+                                    <b>{current.in_room_minutes} min</b>
+                                </span>
+                            </span>
+                        )}
+
+                        {/*
+                            Ending without writing up is a real thing a doctor
+                            does — the patient walked out, or was sent
+                            elsewhere — so it is offered, in red, away from the
+                            two buttons at the foot of the write-up.
+                        */}
+                        <button
+                            type="button"
+                            className="cp-end"
+                            disabled={advancing}
+                            onClick={() => onDone(current.id)}
+                        >
+                            <i className="ti ti-circle-x" aria-hidden="true" />
+                            End consultation
+                        </button>
+                    </div>
                 ) : undefined
             }
         >
@@ -482,55 +535,24 @@ function CurrentPatient({
                 </div>
             ) : (
                 <div className="md-current">
-                    <div className="md-patient">
-                        <span className="md-face is-letter" aria-hidden="true">
-                            {(current.customer_name ?? '?').charAt(0)}
-                        </span>
-
-                        <div>
-                            <b>{current.customer_name ?? 'Unnamed'}</b>
-                            <small>
-                                {current.customer_code ?? '—'}
-                                {current.age !== null ? ` · ${current.age} years` : ''}
-                                {current.gender ? ` · ${current.gender}` : ''}
-                            </small>
-
-                            {current.phone && (
-                                <small>
-                                    <i className="ti ti-phone" aria-hidden="true" /> {current.phone}
-                                </small>
-                            )}
-                        </div>
-                    </div>
+                    <PatientAside current={current} onHistory={() => setTab('history')} />
 
                     {/*
-                        Said plainly rather than mocked up. A panel of empty
-                        clinical fields that saved nowhere would be worse than
-                        an honest gap — somebody would type into it.
+                        Keyed on the appointment, so moving to the next patient
+                        starts a clean write-up rather than inheriting the last
+                        one's half-typed complaint.
                     */}
-                    <p className="md-soon">
-                        <i className="ti ti-info-circle" aria-hidden="true" />
-                        Notes, diagnosis and prescriptions arrive with the consultation module.
-                        For now the visit is recorded here and the patient&rsquo;s own record
-                        holds their history.
-                    </p>
-
-                    <div className="md-current-acts">
-                        <Link className="md-open" to={`/customers/${current.customer_id}/edit`}>
-                            Open the patient record
-                            <i className="ti ti-arrow-right" aria-hidden="true" />
-                        </Link>
-
-                        <button
-                            type="button"
-                            className="md-done is-wide"
-                            disabled={advancing}
-                            onClick={() => onDone(current.id)}
-                        >
-                            <i className="ti ti-check" aria-hidden="true" />
-                            Finish consultation
-                        </button>
-                    </div>
+                    <ConsultationPanel
+                        key={current.id}
+                        appointmentId={current.id}
+                        saved={current.consultation}
+                        history={current.history}
+                        suggestions={current.suggestions}
+                        completing={advancing}
+                        onComplete={() => onDone(current.id)}
+                        tab={tab}
+                        onTab={setTab}
+                    />
                 </div>
             )}
         </Card>

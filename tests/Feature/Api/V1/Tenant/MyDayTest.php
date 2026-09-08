@@ -242,12 +242,19 @@ class MyDayTest extends TenantTestCase
 
         $this->signInAsDoctor($organization, 'anjali@clinic.test');
 
-        // Posted here by their Monday sitting.
-        $this->getJson('/api/v1/tenant/availability/day?date='.self::MONDAY."&location_id={$branchId}")
+        /*
+         * Asserted through their own day rather than the branch day view.
+         *
+         * A doctor holds `appointments.queue` and not `appointments.view` —
+         * the wider one opens the department's screens — so the availability
+         * endpoint would refuse them for a reason that has nothing to do with
+         * which branch they work at, and prove nothing about this rule.
+         */
+        $this->getJson('/api/v1/tenant/opd/my-day?date='.self::MONDAY."&location_id={$branchId}")
             ->assertOk();
 
         // Never posted there.
-        $this->getJson('/api/v1/tenant/availability/day?date='.self::MONDAY."&location_id={$elsewhere}")
+        $this->getJson('/api/v1/tenant/opd/my-day?date='.self::MONDAY."&location_id={$elsewhere}")
             ->assertStatus(403);
     }
 }

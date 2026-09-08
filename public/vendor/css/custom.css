@@ -6636,6 +6636,1540 @@ html::-webkit-scrollbar-track {
 
 .q-board:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
 
+/*
+ * A person's photograph, or the stand-in for one.
+ *
+ * The colour is inherited, and the placeholder is drawn in `currentColor`, so
+ * one file serves every size and both themes.
+ */
+.pp{
+    flex:0 0 auto;
+    border-radius:50%;
+    object-fit:cover;
+    background:var(--surface-2);
+    color:rgb(var(--brand));
+}
+
+/* --- the room: header, and who is in it ---------------------- */
+
+/* The header wraps rather than squeezing the elapsed pill into the title. */
+.md-room > .card-header{ flex-wrap:wrap; gap:12px; }
+
+@media (max-width:767.98px){
+    .cp-acts{ width:100%; }
+    .cp-end{ flex:1 1 auto; justify-content:center; }
+    .md-current{ gap:14px; }
+    .md-main > .card:last-child{ min-height:0; }
+}
+
+.cp-title{ display:flex; align-items:center; gap:11px; }
+
+.cp-mark{
+    display:grid;
+    place-items:center;
+    width:38px;
+    height:38px;
+    flex:0 0 auto;
+    border-radius:11px;
+    background:rgba(var(--brand), .1);
+    font-size:19px;
+    color:rgb(var(--brand));
+}
+
+.cp-title b{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    font-size:15px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.cp-title small{ display:block; margin-top:1px; font-size:11.5px; color:var(--muted); }
+
+.cp-acts{ display:flex; align-items:center; gap:9px; }
+
+.cp-elapsed{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:5px 12px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface-2);
+}
+
+.cp-elapsed > i{ font-size:16px; color:var(--muted); }
+.cp-elapsed small{ display:block; font-size:10px; color:var(--muted); }
+
+.cp-elapsed b{
+    display:block;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+/* Ending without writing up, kept away from the two buttons at the foot. */
+.cp-end{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    height:36px;
+    padding:0 14px;
+    border:1px solid #f3c6cd;
+    border-radius:9px;
+    background:#fdeaec;
+    font-size:12.5px;
+    font-weight:600;
+    color:#c92a3a;
+    white-space:nowrap;
+    cursor:pointer;
+}
+
+.cp-end:hover:not(:disabled){ background:#fbdde1; }
+.cp-end:disabled{ opacity:.6; cursor:default; }
+
+/* ==========================================================
+   One patient's record, read rather than edited
+   (core/customers/pages/PatientPage.tsx)
+   ========================================================== */
+
+/* --- who they are, before any tab --------------------------- */
+
+.pr-hero{
+    position:relative;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    margin-bottom:14px;
+    padding:20px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:var(--surface);
+}
+
+.pr-who{ display:flex; align-items:center; gap:16px; min-width:0; }
+.pr-face{ width:92px; height:92px; }
+
+.pr-id{ min-width:0; }
+
+.pr-id h1{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:0;
+    font-size:21px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.pr-id h1 em{
+    padding:3px 10px;
+    border-radius:999px;
+    background:#e7f7ed;
+    font-size:11px;
+    font-style:normal;
+    font-weight:600;
+    color:#15803d;
+}
+
+.pr-id h1 em.is-off{ background:var(--surface-2); color:var(--muted); }
+.pr-id > small{ display:block; margin-top:3px; font-size:12px; color:var(--muted); }
+
+.pr-facts{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px 16px;
+    margin:10px 0 0;
+    padding:0;
+    list-style:none;
+}
+
+.pr-facts li{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12.5px;
+    color:var(--ink-2);
+}
+
+.pr-facts i{ font-size:15px; color:var(--muted); }
+.pr-facts a{ color:inherit; text-decoration:none; }
+.pr-facts a:hover{ color:rgb(var(--brand)); }
+
+/* What the record adds up to, read as three facts rather than a paragraph. */
+.pr-tally{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    padding:12px;
+    border-radius:12px;
+    background:var(--surface-2);
+}
+
+.pr-tally > div{ display:flex; align-items:center; gap:10px; min-width:150px; }
+
+.pr-tally i{
+    display:grid;
+    place-items:center;
+    width:34px;
+    height:34px;
+    flex:0 0 auto;
+    border-radius:10px;
+    background:var(--surface);
+    font-size:16px;
+    color:rgb(var(--brand));
+}
+
+.pr-tally small{ display:block; font-size:10.5px; color:var(--muted); }
+.pr-tally b{ display:block; font-size:13.5px; font-weight:700; color:var(--ink); }
+.pr-tally em{ display:block; font-size:11px; font-style:normal; color:var(--muted); }
+
+.pr-edit{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    height:38px;
+    padding:0 16px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-2);
+    text-decoration:none;
+}
+
+.pr-edit:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+/* --- the tabs ----------------------------------------------- */
+
+.pr-tabs{
+    display:flex;
+    gap:2px;
+    margin-bottom:14px;
+    border-bottom:1px solid var(--line);
+}
+
+.pr-tab{
+    padding:10px 16px;
+    border:0;
+    border-bottom:2px solid transparent;
+    background:transparent;
+    font-size:13px;
+    font-weight:500;
+    color:var(--muted);
+    white-space:nowrap;
+    cursor:pointer;
+}
+
+.pr-tab:hover{ color:var(--ink-2); }
+.pr-tab.is-on{ border-bottom-color:rgb(var(--brand)); font-weight:600; color:rgb(var(--brand)); }
+
+@media (max-width:767.98px){
+    /* Three tabs with counts will not fit; the strip scrolls rather than wraps
+       into two rows that each look like a heading. */
+    .pr-tabs{ overflow-x:auto; }
+    .pr-tab{ flex:0 0 auto; padding:10px 13px; }
+
+    .pr-hero{ padding:16px; }
+    .pr-who{ gap:12px; }
+    .pr-face{ width:64px; height:64px; }
+    .pr-id h1{ font-size:18px; }
+    .pr-tally{ width:100%; }
+    .pr-tally > div{ flex:1 1 140px; min-width:0; }
+    .pr-edit{ width:100%; justify-content:center; }
+}
+
+/* --- the overview ------------------------------------------- */
+
+.pr-grid{
+    display:grid;
+    gap:14px;
+    align-items:start;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) 300px;
+}
+
+@media (max-width:1399.98px){
+    .pr-grid{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+    .pr-side{ grid-column:1 / -1; }
+}
+
+@media (max-width:899.98px){
+    .pr-grid{ grid-template-columns:minmax(0,1fr); }
+    .pr-side{ grid-column:auto; }
+}
+
+.pr-mid{ display:grid; gap:14px; }
+.pr-side{ display:grid; gap:14px; }
+
+.pr-rows{ margin:0; display:grid; gap:1px; }
+
+.pr-rows > div{
+    display:grid;
+    grid-template-columns:132px minmax(0,1fr);
+    gap:12px;
+    padding:8px 0;
+    font-size:12.5px;
+}
+
+.pr-rows dt{ color:var(--muted); }
+.pr-rows dd{ margin:0; color:var(--ink); word-break:break-word; }
+
+.pr-med{ margin:0; display:grid; gap:14px; }
+.pr-med dt{ margin-bottom:6px; font-size:11.5px; font-weight:600; color:var(--muted); }
+.pr-med dd{ margin:0; font-size:12.5px; }
+.pr-med dd small{ display:block; margin-top:5px; font-size:11px; color:var(--muted); }
+
+.pr-drugs{ display:flex; flex-wrap:wrap; gap:5px; }
+
+.pr-drugs em{
+    padding:3px 9px;
+    border-radius:7px;
+    background:#e7f7ed;
+    font-size:11.5px;
+    font-style:normal;
+    font-weight:600;
+    color:#15803d;
+}
+
+.pr-when{ font-size:11.5px; color:var(--muted); }
+
+/* --- vitals, as tiles --------------------------------------- */
+
+.pr-vitals{ display:grid; grid-template-columns:repeat(auto-fill, minmax(132px, 1fr)); gap:9px; }
+
+.pr-vital{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:11px;
+    border:1px solid var(--line);
+    border-radius:11px;
+}
+
+.pr-vital i{
+    display:grid;
+    place-items:center;
+    width:32px;
+    height:32px;
+    flex:0 0 auto;
+    border-radius:9px;
+    font-size:16px;
+}
+
+.pr-vital.is-rose i{ background:#fdeaec; color:#c92a3a; }
+.pr-vital.is-violet i{ background:rgba(var(--brand), .1); color:rgb(var(--brand)); }
+.pr-vital.is-amber i{ background:#fdf0e0; color:#b45309; }
+.pr-vital.is-blue i{ background:#e8f0fe; color:#1d4ed8; }
+.pr-vital.is-green i{ background:#e7f7ed; color:#15803d; }
+.pr-vital.is-teal i{ background:#e0f5f3; color:#0f766e; }
+
+.pr-vital small{ display:block; font-size:10.5px; color:var(--muted); }
+
+.pr-vital b{
+    font-size:15px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.pr-vital em{ margin-left:3px; font-size:10.5px; font-style:normal; color:var(--muted); }
+
+/* --- what is next, and what has been ------------------------ */
+
+.pr-next{ display:flex; align-items:center; gap:11px; }
+
+.pr-next i{
+    display:grid;
+    place-items:center;
+    width:38px;
+    height:38px;
+    flex:0 0 auto;
+    border-radius:11px;
+    background:#e8f0fe;
+    font-size:18px;
+    color:#1d4ed8;
+}
+
+.pr-next b{ display:block; font-size:13px; font-weight:700; color:var(--ink); }
+.pr-next small{ display:block; font-size:11.5px; color:var(--muted); }
+
+.pr-recent{ margin:0; padding:0; list-style:none; display:grid; gap:2px; }
+
+.pr-recent li{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 10px;
+    border-radius:8px;
+}
+
+.pr-recent li:nth-child(odd){ background:var(--surface-2); }
+
+.pr-recent > li > i{
+    flex:0 0 auto;
+    font-size:16px;
+    color:var(--muted);
+}
+
+.pr-recent span{ flex:1 1 auto; min-width:0; }
+.pr-recent b{ display:block; font-size:12.5px; font-weight:600; color:var(--ink); }
+
+.pr-recent small{
+    display:block;
+    font-size:11px;
+    color:var(--muted);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+
+.pt-split{ display:grid; gap:14px; align-items:start; grid-template-columns:320px minmax(0,1fr); }
+.pt-side{ display:grid; gap:14px; }
+
+@media (max-width:1099.98px){
+    .pt-split{ grid-template-columns:minmax(0,1fr); }
+}
+
+.pt-glance{ margin:0; display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.pt-glance dt{ font-size:11px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--muted); }
+.pt-glance dd{ margin:3px 0 0; font-size:15px; font-weight:700; color:var(--ink); }
+
+/*
+ * A visit and what was written at it, on one row.
+ *
+ * They are read as one thing — "what happened on the 12th" — so splitting them
+ * into two lists would mean joining them back up by date on the way in.
+ */
+.pt-visits{ margin:0; padding:0; list-style:none; display:grid; gap:2px; }
+
+.pt-visits li{
+    display:grid;
+    grid-template-columns:180px minmax(0,1fr);
+    gap:16px;
+    padding:13px 12px;
+    border-radius:9px;
+}
+
+.pt-visits li:nth-child(odd){ background:var(--surface-2); }
+
+@media (max-width:767.98px){
+    .pt-visits li{ grid-template-columns:minmax(0,1fr); gap:8px; }
+}
+
+.pt-when b{ display:block; font-size:13px; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums; }
+.pt-when small{ display:block; margin-top:2px; font-size:11.5px; color:var(--muted); }
+
+.pt-state{
+    display:inline-flex;
+    margin-top:6px;
+    padding:2px 9px;
+    border-radius:999px;
+    background:var(--surface-2);
+    font-size:10.5px;
+    font-style:normal;
+    font-weight:600;
+    color:var(--ink-2);
+}
+
+.pt-visits li:nth-child(odd) .pt-state{ background:var(--surface); }
+.pt-state.is-completed{ background:#e7f7ed !important; color:#15803d; }
+.pt-state.is-cancelled,
+.pt-state.is-no_show{ background:#fdeaec !important; color:#c92a3a; }
+.pt-state.is-in_consultation{ background:#e8f0fe !important; color:#1d4ed8; }
+
+.pt-what{ min-width:0; font-size:12.5px; }
+.pt-what > p{ margin:0 0 6px; color:var(--ink-2); }
+
+.pt-vitals{ display:flex; flex-wrap:wrap; gap:8px; margin-top:7px; }
+
+.pt-vitals > span{
+    display:inline-flex;
+    align-items:baseline;
+    gap:4px;
+    padding:3px 9px;
+    border-radius:7px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.pt-vitals small{ font-size:10px; font-weight:500; color:var(--muted); }
+.pt-vitals i{ font-size:9.5px; font-style:normal; color:var(--muted); }
+
+.pt-counts{ display:flex; flex-wrap:wrap; gap:12px; margin-top:8px; }
+
+.pt-counts > span{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.pt-counts i{ font-size:14px; }
+
+/* --- the patient column ------------------------------------- */
+
+.pa{ display:grid; gap:13px; align-content:start; min-width:0; }
+
+/* Photo beside the name: stacked, the identity took four rows of a narrow
+   column before a single fact about the visit appeared. */
+.pa-head{ display:flex; align-items:flex-start; gap:12px; min-width:0; }
+.pa-face{ width:64px; height:64px; }
+
+.pa-id{ min-width:0; }
+.pa-id b{ display:block; font-size:15.5px; font-weight:700; line-height:1.25; color:var(--ink); }
+.pa-id small{ display:block; margin-top:2px; font-size:11.5px; color:var(--muted); }
+
+.pa-chips{ display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+
+.pa-chips span{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    padding:3px 9px;
+    border-radius:999px;
+    background:var(--surface-2);
+    font-size:10.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    text-transform:capitalize;
+    white-space:nowrap;
+}
+
+.pa-chips i{ font-size:12px; color:var(--muted); }
+
+.pa-facts{ margin:0; padding:0; list-style:none; display:grid; gap:8px; }
+
+.pa-facts li{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    min-width:0;
+    font-size:12.5px;
+    color:var(--ink-2);
+}
+
+/* A colour each, so three facts read as three kinds of thing. */
+.pa-facts i{ flex:0 0 auto; font-size:16px; color:var(--muted); }
+.pa-facts i.is-green{ color:#15803d; }
+.pa-facts i.is-rose{ color:#c92a3a; }
+.pa-facts i.is-blue{ color:#1d4ed8; }
+.pa-facts a{ color:inherit; text-decoration:none; }
+.pa-facts a:hover{ color:rgb(var(--brand)); }
+
+/*
+ * Allergies say one of two things, and both are worth the space.
+ *
+ * A recorded allergy is the line that stops a prescription; "none recorded" is
+ * calm but present, because a doctor needs to know somebody looked rather than
+ * that nobody asked.
+ */
+.pa-allergy{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:11px 12px;
+    border-radius:11px;
+    background:rgba(var(--brand), .07);
+    text-decoration:none;
+}
+
+.pa-allergy > i:first-child{
+    display:grid;
+    place-items:center;
+    width:32px;
+    height:32px;
+    flex:0 0 auto;
+    border-radius:9px;
+    background:var(--surface);
+    font-size:16px;
+    color:rgb(var(--brand));
+}
+
+.pa-allergy > span{ flex:1 1 auto; min-width:0; }
+.pa-allergy b{ display:block; font-size:12px; font-weight:600; color:rgb(var(--brand)); }
+.pa-allergy small{ display:block; font-size:11.5px; color:var(--muted); }
+.pa-allergy > i:last-child{ flex:0 0 auto; font-size:15px; color:var(--ink-3); }
+
+.pa-allergy.is-known{ background:#fdeaec; }
+.pa-allergy.is-known > i:first-child{ color:#c92a3a; }
+.pa-allergy.is-known b{ color:#c92a3a; }
+.pa-allergy.is-known small{ color:#a81f31; font-weight:600; }
+.pa-allergy.is-known > i:last-child{ color:#c92a3a; }
+
+.pa-heading{ margin:2px 0 -4px; font-size:12.5px; font-weight:700; color:var(--ink); }
+
+.pa-quick{ display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+
+.pa-tile{
+    display:grid;
+    place-items:center;
+    gap:7px;
+    padding:13px 6px;
+    border:1px solid var(--line);
+    border-radius:11px;
+    background:var(--surface);
+    font-size:11px;
+    font-weight:600;
+    line-height:1.3;
+    color:var(--ink-2);
+    text-align:center;
+    text-decoration:none;
+    cursor:pointer;
+}
+
+.pa-tile i{
+    display:grid;
+    place-items:center;
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    background:rgba(var(--brand), .09);
+    font-size:17px;
+    color:rgb(var(--brand));
+}
+
+/*
+ * A colour each, so four tiles read as four things rather than as a block.
+ * The tones match the rows they relate to in the write-up, so the two halves
+ * of the card agree with each other.
+ */
+.pa-tile.is-blue i{ background:#e8f0fe; color:#1d4ed8; }
+.pa-tile.is-violet i{ background:rgba(var(--brand), .1); color:rgb(var(--brand)); }
+.pa-tile.is-amber i{ background:#fdf0e0; color:#b45309; }
+.pa-tile.is-teal i{ background:#e0f5f3; color:#0f766e; }
+
+.pa-tile:hover:not(:disabled){ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+/* Named but not ready: legible, obviously inert, and it says so on hover. */
+.pa-tile:disabled{ opacity:.55; cursor:not-allowed; }
+.pa-tile:disabled i{ background:var(--surface-2); color:var(--ink-3); }
+
+.pa-last{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:11px 12px;
+    border:0;
+    border-radius:11px;
+    background:#e7f7ed;
+    text-align:left;
+    cursor:pointer;
+}
+
+.pa-last > i:first-child{
+    display:grid;
+    place-items:center;
+    width:32px;
+    height:32px;
+    flex:0 0 auto;
+    border-radius:9px;
+    background:#fff;
+    font-size:16px;
+    color:#15803d;
+}
+
+.pa-last > span{ flex:1 1 auto; min-width:0; }
+.pa-last b{ display:block; font-size:12px; font-weight:600; color:#15803d; }
+.pa-last small{ display:block; font-size:11.5px; color:#166534; }
+.pa-last > i:last-child{ flex:0 0 auto; font-size:15px; color:#15803d; }
+
+/* --- writing up the visit ----------------------------------- */
+
+/*
+ * The write-up scrolls; the tabs and the buttons do not.
+ *
+ * A consultation with both list editors open is taller than the card, and
+ * letting it push the page down puts Save somewhere a doctor has to go looking
+ * for it. The middle moves, the two ends stay where they were.
+ */
+.cn{ display:flex; flex-direction:column; min-width:0; min-height:0; }
+
+.cn-rows,
+.cn-body{
+    flex:1 1 auto;
+    min-height:0;
+    overflow-y:auto;
+
+    /* Room for the scrollbar, so it never sits on top of an input's edge. */
+    padding-right:4px;
+}
+
+.cn-body{ display:grid; align-content:start; }
+
+/*
+ * One strip sitting on the content, not four underlined words.
+ *
+ * The tabs are above a form and have to read as a control rather than as a
+ * heading — otherwise the first row of the write-up looks like it belongs to
+ * whichever word is above it.
+ */
+.cn-tabs{
+    position:relative;
+    display:flex;
+    margin-bottom:14px;
+    border:1px solid var(--line);
+    border-radius:10px 10px 0 0;
+    border-bottom-color:var(--line);
+    background:var(--surface-2);
+}
+
+.cn-tab{
+    position:relative;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    flex:1 1 0;
+    min-width:0;
+    padding:11px 12px;
+    border:0;
+    border-right:1px solid var(--line);
+    border-radius:10px 10px 0 0;
+    background:transparent;
+    font-size:12.5px;
+    font-weight:500;
+    color:var(--muted);
+    white-space:nowrap;
+    cursor:pointer;
+    transition:background .18s ease, color .18s ease;
+}
+
+.cn-tab:first-child{ border-top-left-radius:9px; }
+.cn-tab:last-child{ border-right:0; border-top-right-radius:9px; }
+.cn-tab i{ font-size:15px; transition:color .18s ease; }
+.cn-tab:hover{ color:var(--ink-2); }
+
+/* Lifted out of the strip: white, and the bar below marks it. */
+.cn-tab.is-on{ background:var(--surface); font-weight:600; color:rgb(var(--brand)); }
+
+/*
+ * One bar that slides, rather than a border appearing under each tab.
+ *
+ * Positioned from the active button's own box, because the tabs are different
+ * widths — "History (5)" is not "Vitals" — so anything derived from an index
+ * would sit under the wrong one as soon as a count appeared.
+ */
+.cn-ink{
+    position:absolute;
+    bottom:-1px;
+    height:3px;
+    border-radius:3px 3px 0 0;
+    background:rgb(var(--brand));
+    transition:left .24s cubic-bezier(.4, 0, .2, 1), width .24s cubic-bezier(.4, 0, .2, 1);
+    pointer-events:none;
+}
+
+/* What the tab reveals, arriving rather than appearing. */
+.cn-swap{
+    display:flex;
+    flex-direction:column;
+    flex:1 1 auto;
+    min-height:0;
+    animation:cn-in .22s ease both;
+}
+
+@keyframes cn-in{
+    from{ opacity:0; transform:translateY(4px); }
+    to{ opacity:1; transform:none; }
+}
+
+@media (prefers-reduced-motion:reduce){
+    .cn-ink{ transition:none; }
+    .cn-swap{ animation:none; }
+    .cn-tab{ transition:none; }
+}
+
+@media (max-width:767.98px){
+    /* Four labels with icons will not fit; the strip scrolls instead. */
+    .cn-tabs{ overflow-x:auto; }
+    .cn-tab{ flex:0 0 auto; }
+}
+
+.cn-body{ display:grid; gap:12px; }
+
+/*
+ * Label on the left, the thing itself on the right.
+ *
+ * Five short facts read down far better as rows than as five stacked
+ * label-over-input blocks, which is twice the height for the same content and
+ * pushes the buttons off the card.
+ */
+.cn-rows{ display:grid; gap:2px; }
+
+/*
+ * Icon, label, the thing itself, and whatever helps with it.
+ *
+ * Four columns rather than two: the icon makes a row findable at a glance in a
+ * stack of six, and the last column is where "Common", "Add prescription" and
+ * the follow-up date live — all of them optional, so the column is often empty
+ * and must not collapse the ones before it.
+ */
+.cn-row{
+    display:grid;
+    grid-template-columns:34px 132px minmax(0,1fr) auto;
+    align-items:center;
+    gap:11px;
+    padding:5px 0;
+}
+
+.cn-row-notes{ align-items:start; }
+
+.cn-icon{
+    display:grid;
+    place-items:center;
+    width:34px;
+    height:34px;
+    border-radius:9px;
+    font-size:16px;
+}
+
+.cn-icon.is-rose{ background:#fdeaec; color:#c92a3a; }
+.cn-icon.is-violet{ background:rgba(var(--brand), .1); color:rgb(var(--brand)); }
+.cn-icon.is-green{ background:#e7f7ed; color:#15803d; }
+.cn-icon.is-amber{ background:#fdf0e0; color:#b45309; }
+.cn-icon.is-blue{ background:#e8f0fe; color:#1d4ed8; }
+.cn-icon.is-teal{ background:#e0f5f3; color:#0f766e; }
+.cn-icon.is-slate{ background:var(--surface-2); color:var(--ink-2); }
+
+@media (max-width:767.98px){
+    .cn-row{ grid-template-columns:34px minmax(0,1fr); gap:8px 10px; }
+    .cn-label{ grid-column:2; }
+    .cn-value{ grid-column:2; }
+    .cn-row > .cn-sug,
+    .cn-row > .cn-plus,
+    .cn-row > .cn-on{ grid-column:2; justify-self:start; }
+}
+
+.cn-label{ font-size:12px; font-weight:500; color:var(--ink-2); }
+.cn-value{ min-width:0; }
+.cn-value > .form-control{ height:34px; font-size:12.5px; }
+.cn-value em{ display:block; margin-top:4px; font-size:11.5px; font-style:normal; color:#c92a3a; }
+
+/* A count and a way in, until somebody is actually changing the list. */
+/* A filled strip, so "nothing yet" reads as a field rather than a gap. */
+.cn-summary{
+    display:flex;
+    align-items:center;
+    min-height:34px;
+    padding:0 11px;
+    border-radius:8px;
+    background:var(--surface-2);
+    font-size:12.5px;
+    color:var(--muted);
+}
+
+.cn-plus{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    flex:0 0 auto;
+    height:34px;
+    padding:0 13px;
+    border:1px solid rgba(var(--brand), .3);
+    border-radius:8px;
+    background:rgba(var(--brand), .07);
+    font-size:12px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    white-space:nowrap;
+    cursor:pointer;
+}
+
+.cn-plus:hover{ background:rgba(var(--brand), .12); }
+
+/* The date the advice lands on, beside the number of days. */
+.cn-on{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    height:34px;
+    padding:0 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--surface);
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+}
+
+.cn-on i{ font-size:14px; color:var(--muted); }
+
+/* --- their own recent wording ------------------------------- */
+
+.cn-sug{ position:relative; flex:0 0 auto; }
+
+.cn-sug-open{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    height:34px;
+    padding:0 11px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--surface);
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+    cursor:pointer;
+}
+
+.cn-sug-open:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+.cn-sug-open i:first-child{ font-size:14px; color:#b45309; }
+.cn-sug-open i:last-child{ font-size:13px; color:var(--muted); }
+
+/* A full-screen catcher, so a click anywhere dismisses without a listener. */
+.cn-sug-veil{
+    position:fixed;
+    inset:0;
+    z-index:20;
+    border:0;
+    background:transparent;
+    cursor:default;
+}
+
+.cn-sug-list{
+    position:absolute;
+    top:calc(100% + 4px);
+    right:0;
+    z-index:21;
+    margin:0;
+    padding:5px;
+    min-width:210px;
+    max-height:240px;
+    overflow-y:auto;
+    list-style:none;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+    box-shadow:0 14px 34px rgba(17, 22, 51, .16);
+}
+
+.cn-sug-list button{
+    display:block;
+    width:100%;
+    padding:7px 10px;
+    border:0;
+    border-radius:7px;
+    background:transparent;
+    font-size:12.5px;
+    color:var(--ink-2);
+    text-align:left;
+    cursor:pointer;
+}
+
+.cn-sug-list button:hover{ background:var(--surface-2); color:var(--ink); }
+
+/* The editor, folded out under the row it belongs to. */
+.cn-open{
+    display:grid;
+    gap:9px;
+    margin:2px 0 8px;
+    padding:12px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface-2);
+}
+
+.cn-quiet{ margin:0; font-size:12.5px; line-height:1.55; color:var(--ink-3); }
+
+/*
+ * An empty tab, said properly.
+ *
+ * A single grey sentence reads as something that failed to load. An icon, a
+ * heading and a line saying what happens next reads as an answer — and here
+ * the answer is useful: what the doctor types now becomes the first entry.
+ */
+.cn-none-yet{
+    display:grid;
+    justify-items:center;
+    align-content:center;
+    gap:8px;
+    flex:1 1 auto;
+    min-height:180px;
+    padding:24px 20px;
+    text-align:center;
+}
+
+.cn-none-yet > i{
+    display:grid;
+    place-items:center;
+    width:46px;
+    height:46px;
+    border-radius:14px;
+    background:var(--surface-2);
+    font-size:22px;
+    color:var(--ink-3);
+}
+
+.cn-none-yet b{ font-size:13.5px; font-weight:600; color:var(--ink-2); }
+.cn-none-yet p{ margin:0; max-width:38ch; font-size:12px; line-height:1.55; color:var(--muted); }
+
+/* --- documents, as a preview -------------------------------- */
+
+.cn-preview{
+    display:flex;
+    align-items:flex-start;
+    gap:9px;
+    margin:0 0 12px;
+    padding:10px 12px;
+    border-radius:10px;
+    background:#fdf0e0;
+    font-size:11.5px;
+    line-height:1.5;
+    color:#8a4c08;
+}
+
+.cn-preview i{ flex:0 0 auto; margin-top:1px; font-size:15px; color:#b45309; }
+
+.cn-docs{ margin:0 0 12px; padding:0; list-style:none; display:grid; gap:8px; }
+
+.cn-docs li{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+}
+
+.cn-doc-kind{
+    display:grid;
+    place-items:center;
+    width:36px;
+    height:36px;
+    flex:0 0 auto;
+    border-radius:9px;
+    font-size:17px;
+}
+
+.cn-doc-kind.is-rose{ background:#fdeaec; color:#c92a3a; }
+.cn-doc-kind.is-blue{ background:#e8f0fe; color:#1d4ed8; }
+.cn-doc-kind.is-amber{ background:#fdf0e0; color:#b45309; }
+
+.cn-doc-what{ flex:1 1 auto; min-width:0; }
+.cn-doc-what b{ display:block; font-size:12.5px; font-weight:600; color:var(--ink); }
+.cn-doc-what small{ display:block; font-size:11px; color:var(--muted); }
+
+/* Marked on every row, not only at the top — a list of medical documents is
+   exactly what somebody acts on without reading the heading. */
+.cn-doc-tag{
+    flex:0 0 auto;
+    padding:2px 8px;
+    border-radius:999px;
+    background:var(--surface-2);
+    font-size:10px;
+    font-style:normal;
+    font-weight:600;
+    color:var(--muted);
+}
+
+.cn-doc-acts{ display:flex; gap:5px; flex:0 0 auto; }
+
+.cn-doc-acts button{
+    display:grid;
+    place-items:center;
+    width:30px;
+    height:30px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--surface);
+    font-size:14px;
+    color:var(--ink-3);
+}
+
+.cn-doc-acts button:disabled{ opacity:.5; cursor:not-allowed; }
+
+/* Named apart from .cn-drop, which is the trash button on a table row. */
+.cn-attach{
+    display:grid;
+    justify-items:center;
+    gap:5px;
+    padding:20px;
+    border:1px dashed var(--line-2);
+    border-radius:11px;
+    background:var(--surface-2);
+    text-align:center;
+}
+
+.cn-attach i{ font-size:24px; color:var(--ink-3); }
+.cn-attach b{ font-size:12.5px; font-weight:600; color:var(--ink-2); }
+.cn-attach small{ font-size:11.5px; color:var(--muted); }
+
+/* --- what this patient came in for before ------------------- */
+
+.cn-history{ margin:0; padding:0; list-style:none; display:grid; gap:2px; }
+
+.cn-history li{
+    display:grid;
+    grid-template-columns:132px minmax(0,1fr);
+    gap:12px;
+    padding:10px;
+    border-radius:8px;
+    font-size:12.5px;
+}
+
+.cn-history li:nth-child(odd){ background:var(--surface-2); }
+
+.cn-when b{ display:block; color:var(--ink); font-variant-numeric:tabular-nums; }
+.cn-when small{ display:block; font-size:11px; color:var(--muted); }
+
+.cn-what p{ margin:0; color:var(--ink-2); }
+.cn-dx{ display:flex; flex-wrap:wrap; gap:5px; margin-top:5px; }
+
+.cn-dx em{
+    padding:2px 8px;
+    border-radius:999px;
+    background:rgba(var(--brand), .1);
+    font-size:11px;
+    font-style:normal;
+    font-weight:600;
+    color:rgb(var(--brand));
+}
+
+.cn-field{ display:grid; gap:5px; }
+.cn-field > span{ font-size:11.5px; font-weight:500; color:var(--muted); }
+.cn-field em{ font-size:11.5px; font-style:normal; color:#c92a3a; }
+.cn-field textarea{ font-size:13px; resize:vertical; }
+.cn-thin{ max-width:220px; }
+
+.cn-follow{ display:flex; align-items:center; gap:8px; }
+.cn-follow .form-control{ width:84px; height:36px; font-size:12.5px; }
+.cn-follow > span{ font-size:12.5px; color:var(--muted); }
+
+/*
+ * Diagnoses as chips.
+ *
+ * It is usually more than one, and each is a whole thing rather than a phrase
+ * in a sentence — a comma-separated line reads as one diagnosis with commas in
+ * it, which is how "diabetes, hypertension" becomes a single meaningless
+ * string in a record somebody has to search later.
+ */
+.cn-chips{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    min-height:36px;
+    padding:4px 8px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+}
+
+.cn-chips:focus-within{ border-color:rgb(var(--brand)); }
+
+.cn-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:3px 4px 3px 10px;
+    border-radius:999px;
+    background:rgba(var(--brand), .1);
+    font-size:12px;
+    font-weight:500;
+    color:rgb(var(--brand));
+}
+
+.cn-chip button{
+    display:grid;
+    place-items:center;
+    width:18px;
+    height:18px;
+    border:0;
+    border-radius:50%;
+    background:transparent;
+    font-size:12px;
+    color:inherit;
+    cursor:pointer;
+}
+
+.cn-chip button:hover{ background:rgba(var(--brand), .18); }
+
+.cn-add{
+    flex:1 1 130px;
+    min-width:110px;
+    border:0;
+    background:transparent;
+    font-size:13px;
+    color:var(--ink);
+}
+
+.cn-add:focus{ outline:0; }
+
+/* --- vitals ------------------------------------------------- */
+
+.cn-vitals{ grid-template-columns:repeat(auto-fill, minmax(132px, 1fr)); }
+.cn-vital{ display:grid; gap:5px; }
+.cn-vital > span{ font-size:11.5px; font-weight:500; color:var(--muted); }
+.cn-vital b{ font-size:11px; font-weight:500; color:#c92a3a; }
+
+.cn-unit{ position:relative; }
+.cn-unit .form-control{ padding-right:44px; font-size:13px; }
+
+.cn-unit em{
+    position:absolute;
+    top:50%;
+    right:11px;
+    transform:translateY(-50%);
+    font-size:11px;
+    font-style:normal;
+    color:var(--muted);
+    pointer-events:none;
+}
+
+/* --- what was given, and what was ordered ------------------- */
+
+.cn-lines{ width:100%; border-collapse:collapse; }
+
+.cn-lines th{
+    padding:0 6px 7px;
+    text-align:left;
+    font-size:11px;
+    font-weight:600;
+    color:var(--muted);
+    white-space:nowrap;
+}
+
+.cn-lines td{ padding:3px 6px 3px 0; }
+.cn-lines td:last-child{ width:36px; padding-right:0; }
+.cn-lines .form-control{ height:34px; padding:0 9px; font-size:12.5px; }
+
+.cn-none{
+    padding:14px 0 !important;
+    font-size:12.5px;
+    color:var(--ink-3);
+    text-align:center;
+}
+
+.cn-drop{
+    display:grid;
+    place-items:center;
+    width:32px;
+    height:34px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--surface);
+    font-size:14px;
+    color:#c92a3a;
+    cursor:pointer;
+}
+
+.cn-drop:hover{ border-color:#c92a3a; background:#fdeaec; }
+
+.cn-more{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    justify-self:start;
+    padding:0;
+    border:0;
+    background:transparent;
+    font-size:12.5px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    cursor:pointer;
+}
+
+.cn-more:hover{ text-decoration:underline; }
+
+.cn-foot{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    gap:10px;
+    margin-top:14px;
+    padding-top:12px;
+    border-top:1px solid var(--line);
+}
+
+@media (max-width:767.98px){
+    /* Two buttons side by side is 300px they do not have. */
+    .cn-acts{ width:100%; margin-left:0; }
+    .cn-save,
+    .cn-finish{ flex:1 1 0; justify-content:center; }
+    .cn-clear{ width:100%; justify-content:center; }
+    .cn-note{ flex:1 1 100%; }
+}
+
+.cn-note{ display:grid; gap:5px; flex:1 1 220px; min-width:0; }
+.cn-note > span{ font-size:11.5px; font-weight:500; color:var(--muted); }
+.cn-note .form-control{ height:36px; font-size:12.5px; }
+
+.cn-save{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    height:36px;
+    padding:0 16px;
+    border:0;
+    border-radius:9px;
+    background:rgb(var(--brand));
+    font-size:13px;
+    font-weight:600;
+    color:#fff;
+    cursor:pointer;
+}
+
+.cn-save:hover:not(:disabled){ filter:brightness(1.06); }
+.cn-save:disabled{ opacity:.6; cursor:default; }
+
+.cn-acts{ display:flex; align-items:center; gap:9px; flex:0 0 auto; margin-left:auto; }
+
+.cn-clear{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    height:36px;
+    padding:0 13px;
+    border:1px solid transparent;
+    border-radius:9px;
+    background:transparent;
+    font-size:12.5px;
+    font-weight:600;
+    color:#c92a3a;
+    cursor:pointer;
+}
+
+.cn-clear:hover{ border-color:#f3c6cd; background:#fdeaec; }
+
+/*
+ * Ending the visit is the quieter of the two.
+ *
+ * Completing does not write the notes up, so the button that discards a
+ * half-typed consultation must not be the brighter one sitting nearest the
+ * thumb.
+ */
+.cn-finish{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    height:36px;
+    padding:0 16px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+    cursor:pointer;
+}
+
+.cn-finish:hover:not(:disabled){ border-color:#15803d; color:#15803d; }
+.cn-finish:disabled{ opacity:.6; cursor:default; }
+
+/* --- a doctor's schedule ------------------------------------ */
+
+.ms-split{ display:grid; gap:14px; align-items:start; grid-template-columns:minmax(0,1fr) 340px; }
+
+@media (max-width:1199.98px){
+    .ms-split{ grid-template-columns:minmax(0,1fr); }
+}
+
+.msc-week{
+    margin:0;
+    padding:0;
+    list-style:none;
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+}
+
+.msc-week li{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:16px;
+    padding:11px 13px;
+    font-size:12.5px;
+}
+
+.msc-week li:nth-child(odd){ background:var(--surface-2); }
+.msc-day{ flex:0 0 96px; font-weight:600; color:var(--ink); }
+.msc-week li.is-off .msc-day{ font-weight:500; color:var(--muted); }
+
+.msc-list{ display:grid; gap:6px; text-align:right; }
+.msc-one b{ display:block; color:var(--ink); font-variant-numeric:tabular-nums; }
+.msc-one small{ display:block; font-size:11px; color:var(--muted); }
+
+.msc-changed{
+    flex:0 0 auto;
+    padding:2px 9px;
+    border-radius:999px;
+    background:#e8f0fe;
+    font-size:10.5px;
+    font-style:normal;
+    font-weight:600;
+    color:#1d4ed8;
+}
+
+/* ==========================================================
+   Any hand-rolled table, as cards on a phone
+   ========================================================== */
+
+/*
+ * The same trick DataTable uses, available to the tables written by hand.
+ *
+ * A table that scrolls sideways on a phone hides most of itself, and the
+ * columns somebody actually needs are rarely the first two. Below 768px each
+ * row becomes a card of label/value pairs, read from the `data-label` the
+ * markup puts on every cell — so the labels live once, in the header, and the
+ * cards cannot drift out of step with the columns.
+ *
+ * Opt-in by class rather than applied to every table: the week grid is a grid,
+ * and turning its seven columns into seven rows would destroy the one thing it
+ * exists to show.
+ */
+@media (max-width:767.98px){
+    .tbl-cards,
+    .tbl-cards tbody,
+    .tbl-cards tr,
+    .tbl-cards td,
+    .tbl-cards tbody th{
+        display:block;
+        width:100%;
+    }
+
+    /*
+     * A row header becomes the card's title.
+     *
+     * The schedules table names each row with a `<th scope="row">` — the day —
+     * and left as a cell it would read as one more label/value pair rather
+     * than as the thing the card is about.
+     */
+    .tbl-cards tbody th{
+        padding:10px 14px 6px;
+        border-bottom:1px solid var(--line);
+        background:var(--surface-2);
+        font-size:13px;
+        font-weight:700;
+        color:var(--ink);
+        text-align:left;
+    }
+
+    .tbl-cards thead{ display:none; }
+
+    .tbl-cards tbody tr{
+        margin-bottom:10px;
+        padding:4px 0;
+        border:1px solid var(--line);
+        border-radius:12px;
+        background:var(--surface);
+        overflow:hidden;
+    }
+
+    .tbl-cards tbody tr:last-child{ margin-bottom:0; }
+
+    .tbl-cards tbody td{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:14px;
+        padding:9px 14px;
+        border-bottom:0;
+        text-align:right;
+        font-size:13px;
+    }
+
+    /* The label, taken from the column it came from. */
+    .tbl-cards tbody td::before{
+        content:attr(data-label);
+        flex-shrink:0;
+        text-align:left;
+        font-size:12px;
+        font-weight:600;
+        color:var(--muted);
+    }
+
+    /* Cells with no header — a serial, a row of buttons — span the card. */
+    .tbl-cards tbody td[data-label='']::before{ content:none; }
+    .tbl-cards tbody td[data-label='']{ justify-content:flex-end; }
+
+    /* Controls stack rather than being squeezed against their label. */
+    .tbl-cards tbody td.sc-times,
+    .tbl-cards tbody td.sc-kinds{
+        display:grid;
+        gap:7px;
+        justify-items:stretch;
+        text-align:left;
+    }
+
+    .tbl-cards tbody td.sc-times::before,
+    .tbl-cards tbody td.sc-kinds::before{ text-align:left; }
+    .tbl-cards tbody td.sc-times .sc-range{ width:100%; }
+    .tbl-cards tbody td.sc-acts{ padding-top:0; }
+
+    /*
+     * A row's action buttons, once the row is a card.
+     *
+     * They were laid out to sit at the end of a wide row; in a card they get
+     * the full width and stop being a 30px target at the far right.
+     */
+    .tbl-cards tbody td.q-row-act,
+    .tbl-cards tbody td.opd-row-act{
+        padding-top:4px;
+        border-top:1px solid var(--line);
+    }
+
+    .tbl-cards tbody td.q-row-act .q-actions,
+    .tbl-cards tbody td.opd-row-act .opd-actions{ width:100%; justify-content:flex-end; }
+
+    /* The serial reads as a quiet strip at the top of the card. */
+    .tbl-cards tbody td.q-n,
+    .tbl-cards tbody td.opd-n,
+    .tbl-cards tbody td.md-no{
+        justify-content:flex-start;
+        padding:8px 14px 2px;
+        font-size:11.5px;
+        font-weight:600;
+        color:var(--muted);
+    }
+
+    /* The prescription editor stacks; four inputs in a row is not a phone. */
+    .cn-lines,
+    .cn-lines tbody,
+    .cn-lines tr,
+    .cn-lines td{ display:block; width:100%; }
+
+    .cn-lines thead{ display:none; }
+
+    .cn-lines tbody tr{
+        display:grid;
+        gap:6px;
+        margin-bottom:9px;
+        padding:10px;
+        border:1px solid var(--line);
+        border-radius:10px;
+        background:var(--surface);
+    }
+
+    .cn-lines td{ padding:0; }
+    .cn-lines td:last-child{ width:100%; justify-self:end; }
+    .cn-lines .cn-drop{ width:100%; }
+
+    /* The scroll box has nothing left to scroll. */
+    .tbl-cards-scroll{
+        max-height:none !important;
+        overflow:visible !important;
+        border:0 !important;
+        border-radius:0 !important;
+    }
+}
+
 /* ==========================================================
    A doctor's own day
    (core/opd/pages/MyDayPage.tsx)
@@ -6656,18 +8190,10 @@ html::-webkit-scrollbar-track {
 
 .md-who{ display:flex; align-items:center; gap:13px; min-width:0; }
 
-.md-face{ width:50px; height:50px; flex:0 0 auto; border-radius:50%; object-fit:cover; }
-
-.md-face.is-letter{
-    display:grid;
-    place-items:center;
-    background:rgba(var(--brand), .12);
-    font-size:20px;
-    font-weight:700;
-    color:rgb(var(--brand));
-}
+.md-face{ width:48px; height:48px; }
 
 .md-who h1{ margin:0; font-size:19px; font-weight:700; color:var(--ink); }
+.md-who h1 span{ font-size:17px; }
 .md-who p{ margin:2px 0 0; font-size:12.5px; color:var(--muted); }
 
 .md-stats{ display:flex; flex-wrap:wrap; gap:10px; }
@@ -6681,6 +8207,24 @@ html::-webkit-scrollbar-track {
     border:1px solid var(--line);
     border-radius:11px;
     background:var(--surface);
+}
+
+/*
+ * Two across on a phone, not four cards of four different widths.
+ *
+ * Wrapped, each one shrank to fit its own label — "Today's appointments" is
+ * twice the width of "In queue" — so the four stacked into a ragged staircase
+ * down the screen.
+ */
+@media (max-width:767.98px){
+    .md-hero{ flex-direction:column; align-items:stretch; gap:14px; }
+    .md-stats{ display:grid; grid-template-columns:1fr 1fr; }
+    .md-stat{ min-width:0; }
+    .md-who h1{ font-size:17px; }
+}
+
+@media (max-width:479.98px){
+    .md-stats{ grid-template-columns:1fr; }
 }
 
 .md-stat i{
@@ -6708,18 +8252,62 @@ html::-webkit-scrollbar-track {
 .md-stat b{ display:block; font-size:19px; font-weight:700; color:var(--ink); line-height:1.1; }
 .md-stat small{ display:block; font-size:11.5px; color:var(--muted); }
 
-/* The work on the left, the day's shape on the right. */
-.md-split{ display:grid; gap:14px; align-items:start; grid-template-columns:minmax(0,1fr) 320px; }
-.md-main{ display:grid; gap:14px; min-width:0; }
-.md-side{ display:grid; gap:14px; }
+/*
+ * The work on the left, the day's shape on the right — ending level.
+ *
+ * `align-items:start` let each column stop wherever its last card happened to
+ * end, so the page finished on a ragged step. Stretched, both columns are as
+ * tall as the taller one, and the last card in each takes up the slack: the
+ * queue is capped and scrolls, so it cannot be the one that grows.
+ */
+.md-split{
+    display:grid;
+    gap:14px;
+    align-items:stretch;
+    grid-template-columns:minmax(0,1fr) 320px;
+}
+
+.md-main{ display:grid; gap:14px; min-width:0; grid-template-rows:auto 1fr; }
+
+/*
+ * The three cards share the extra room; the last one does not swallow it.
+ *
+ * `auto auto 1fr` gave every spare pixel to whatever came last, so a short
+ * schedule and two appointments left Quick actions three times the height of
+ * either. `minmax(min-content, 1fr)` gives each row an equal share of what is
+ * spare while never shrinking one below what is in it.
+ */
+.md-side{ display:grid; gap:14px; grid-auto-rows:minmax(min-content, 1fr); }
+
+/* Grid items stretch; the card inside has to be told to follow. */
+.md-main > *,
+.md-side > *{ min-height:0; }
+.md-main > .card,
+.md-side > .card{ height:100%; }
 
 @media (max-width:1299.98px){
+    /*
+     * Stacked, there is no second column to match, and a card stretched to
+     * fill a row that is only as tall as itself is just a card.
+     */
     .md-split{ grid-template-columns:minmax(0,1fr); }
+    .md-main{ grid-template-rows:none; }
+    .md-side{ grid-auto-rows:auto; }
+    .md-main > .card,
+    .md-side > .card{ height:auto; }
 }
 
 /* --- the queue ---------------------------------------------- */
 
 .md-tools{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+
+@media (max-width:767.98px){
+    .md-tools{ width:100%; }
+    .md-tabs{ width:100%; }
+    .md-tab{ flex:1 1 0; }
+    .md-search{ width:100%; }
+    .md-search input{ width:100%; }
+}
 
 .md-tabs{
     display:inline-flex;
@@ -6766,10 +8354,27 @@ html::-webkit-scrollbar-track {
 
 .md-search input:focus{ outline:0; }
 
-.md-scroll{ overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+/*
+ * The list scrolls; the card does not grow with it.
+ *
+ * A busy morning is twenty-odd rows, and letting them all through pushed the
+ * patient in the room — the thing the doctor is actually working on — a screen
+ * and a half down the page. Six or seven rows is what "who is next" needs.
+ */
+.md-scroll{
+    max-height:352px;
+    overflow-y:auto;
+    overflow-x:auto;
+    border:1px solid var(--line);
+    border-radius:10px;
+}
+
 .md-queue{ width:100%; border-collapse:collapse; }
 
 .md-queue thead th{
+    position:sticky;
+    top:0;
+    z-index:1;
     padding:9px 10px;
     border-bottom:1px solid var(--line);
     background:var(--surface-2);
@@ -6799,12 +8404,12 @@ html::-webkit-scrollbar-track {
 
 .md-token{
     display:inline-flex;
-    padding:3px 9px;
+    padding:3px 10px;
     border-radius:7px;
-    background:var(--surface-2);
+    background:#eef2ff;
     font-size:12px;
     font-weight:700;
-    color:var(--ink-2);
+    color:#4338ca;
     font-variant-numeric:tabular-nums;
 }
 
@@ -6820,7 +8425,42 @@ html::-webkit-scrollbar-track {
 .md-tag.is-walk{ background:#fdf0e0; color:#b45309; }
 .md-tag.is-book{ background:#e8f0fe; color:#1d4ed8; }
 
+/* First visit against a returning one — the split the desk actually names. */
+.md-tag.is-new{ background:#e8f0fe; color:#1d4ed8; }
+.md-tag.is-again{ background:#e7f7ed; color:#15803d; }
+
+.md-no{ width:38px; }
+
+/* The count beside the heading, where it answers "how bad is it" at a glance. */
+.md-waiting{
+    padding:2px 10px;
+    border-radius:999px;
+    background:#e7f7ed;
+    font-size:11px;
+    font-style:normal;
+    font-weight:600;
+    color:#15803d;
+}
+
+.md-inroom{
+    padding:2px 10px;
+    border-radius:999px;
+    background:#e8f0fe;
+    font-size:11px;
+    font-style:normal;
+    font-weight:600;
+    color:#1d4ed8;
+}
+
+.md-hint{ flex:1 1 220px; font-size:11.5px; color:var(--muted); }
+
 .md-act{ text-align:right; white-space:nowrap; }
+
+@media (max-width:767.98px){
+    .md-act{ display:flex; gap:8px; justify-content:flex-end; }
+    .md-call,
+    .md-done{ flex:1 1 auto; justify-content:center; }
+}
 
 .md-call,
 .md-done{
@@ -6862,10 +8502,83 @@ html::-webkit-scrollbar-track {
     font-variant-numeric:tabular-nums;
 }
 
-.md-current{ display:grid; gap:14px; }
-.md-patient{ display:flex; align-items:center; gap:12px; }
-.md-patient b{ display:block; font-size:15px; font-weight:700; color:var(--ink); }
-.md-patient small{ display:block; font-size:12px; color:var(--muted); }
+/*
+ * Who on the left, the write-up on the right.
+ *
+ * A doctor checks the name and the age against the person in front of them
+ * while typing, so the two have to be on screen together — a header scrolled
+ * past cannot be checked against anything.
+ */
+.md-current{
+    display:grid;
+    gap:20px;
+    grid-template-columns:236px minmax(0,1fr);
+    align-items:stretch;
+
+    /* Fills the card and hands the overflow to the panel inside it. */
+    flex:1 1 auto;
+    min-height:0;
+}
+
+/* A floor, so a quiet right-hand column cannot squash it to nothing. */
+.md-main > .card:last-child{ min-height:520px; }
+
+/* A rule between the two halves, so the write-up reads as its own thing. */
+@media (min-width:992px){
+    .md-current > .cn{
+        padding-left:20px;
+        border-left:1px solid var(--line);
+    }
+}
+
+/* The card body fills the card, so an empty state can sit in the middle of it. */
+/*
+ * min-height:0 or nothing inside can shrink.
+ *
+ * A flex item defaults to min-height:auto and refuses to go below its content,
+ * so without this the body grows to fit the whole write-up and the scroll it
+ * was given never has anything to scroll.
+ */
+.md-main > .card > .card-body,
+.md-side > .card > .card-body{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+}
+.md-main > .card > .card-body > .org-pending,
+.md-side > .card > .card-body > .org-pending{ margin:auto 0; }
+
+@media (max-width:991.98px){
+    .md-current{ grid-template-columns:minmax(0,1fr); }
+}
+
+
+.md-patient small{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    margin-top:2px;
+    font-size:12px;
+    color:var(--muted);
+}
+
+.md-patient small i{ font-size:13px; }
+
+/* Loud on purpose: this is the line that stops a prescription. */
+.md-allergy{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin-top:9px;
+    padding:7px 10px;
+    border-radius:8px;
+    background:#fdeaec;
+    font-size:11.5px;
+    font-weight:600;
+    color:#c92a3a;
+}
+
+.md-allergy i{ flex:0 0 auto; font-size:14px; }
 .md-patient small i{ font-size:13px; }
 
 /*
@@ -6889,7 +8602,14 @@ html::-webkit-scrollbar-track {
 
 .md-soon i{ flex:0 0 auto; margin-top:1px; font-size:15px; color:rgb(var(--brand)); }
 
-.md-current-acts{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; }
+/*
+ * Finishing lives with saving, at the end of the write-up.
+ *
+ * It used to sit in a row of its own under the card, which put two buttons in
+ * the same corner doing different things — and the one that discards work was
+ * the easier to reach.
+ */
+.md-current-acts{ display:none; }
 
 .md-open{
     display:inline-flex;
@@ -6973,35 +8693,73 @@ html::-webkit-scrollbar-track {
 
 .md-later li{
     display:flex;
-    align-items:baseline;
-    gap:12px;
+    align-items:center;
+    gap:10px;
     padding:8px 10px;
     border-radius:7px;
     font-size:12.5px;
 }
 
 .md-later li:nth-child(odd){ background:var(--surface-2); }
-.md-later b{ flex:0 0 58px; color:var(--ink); font-variant-numeric:tabular-nums; }
-.md-later span{ min-width:0; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; }
+.md-later b{ flex:0 0 68px; color:var(--ink); font-variant-numeric:tabular-nums; }
 
-.md-quick{ display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+.md-later span{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex:1 1 auto;
+    min-width:0;
+    color:var(--ink-2);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.md-later span i{ flex:0 0 auto; font-size:14px; color:var(--muted); }
+.md-later em{ flex:0 0 auto; font-style:normal; }
+
+.md-quick{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0,1fr));
+    gap:9px;
+
+    /* Grows with the card, so a taller row is six taller tiles rather than
+       six small ones and a gap. */
+    flex:1 1 auto;
+    align-content:stretch;
+}
 
 .md-quick-one{
     display:grid;
     place-items:center;
-    gap:7px;
-    padding:14px 8px;
+    gap:8px;
+    padding:13px 6px;
     border:1px solid var(--line);
-    border-radius:10px;
+    border-radius:11px;
     background:var(--surface);
-    font-size:11.5px;
+    font-size:11px;
     font-weight:600;
+    line-height:1.3;
     color:var(--ink-2);
     text-align:center;
     text-decoration:none;
 }
 
-.md-quick-one i{ font-size:20px; color:rgb(var(--brand)); }
+/* The icon on a tinted disc, so six tiles read as six things. */
+.md-quick-one i{
+    display:grid;
+    place-items:center;
+    width:38px;
+    height:38px;
+    border-radius:11px;
+    font-size:19px;
+}
+
+.md-quick-one.is-blue i{ background:#e8f0fe; color:#1d4ed8; }
+.md-quick-one.is-green i{ background:#e7f7ed; color:#15803d; }
+.md-quick-one.is-amber i{ background:#fdf0e0; color:#b45309; }
+.md-quick-one.is-violet i{ background:rgba(var(--brand), .1); color:rgb(var(--brand)); }
+
 .md-quick-one:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
 
 /* ==========================================================
@@ -7046,16 +8804,7 @@ html::-webkit-scrollbar-track {
 
 .sc-who{ display:flex; align-items:flex-end; gap:12px; }
 
-.sc-face{ width:52px; height:52px; flex:0 0 auto; border-radius:50%; object-fit:cover; }
-
-.sc-face.is-letter{
-    display:grid;
-    place-items:center;
-    background:rgba(var(--brand), .12);
-    font-size:20px;
-    font-weight:700;
-    color:rgb(var(--brand));
-}
+.sc-face{ width:48px; height:48px; }
 
 .sc-pick{ display:grid; gap:5px; min-width:210px; }
 
@@ -7737,22 +9486,7 @@ html::-webkit-scrollbar-track {
 /* The tint lives on the button, which sits above the sticky cell's fill. */
 .wk tr.is-open .wk-who{ background:var(--surface); }
 
-.wk-face{
-    width:36px;
-    height:36px;
-    flex:0 0 auto;
-    border-radius:50%;
-    object-fit:cover;
-}
-
-.wk-face.is-letter{
-    display:grid;
-    place-items:center;
-    background:rgba(var(--brand), .12);
-    font-size:14px;
-    font-weight:700;
-    color:rgb(var(--brand));
-}
+.wk-face{ width:36px; height:36px; }
 
 .wk-doc-text{ min-width:0; }
 .wk-doc-text b{ display:block; font-size:13px; font-weight:600; color:var(--ink); }
@@ -7868,16 +9602,7 @@ html::-webkit-scrollbar-track {
 
 .docp-head{ display:flex; align-items:flex-start; gap:11px; }
 
-.docp-face{ width:54px; height:54px; flex:0 0 auto; border-radius:50%; object-fit:cover; }
-
-.docp-face.is-letter{
-    display:grid;
-    place-items:center;
-    background:rgba(var(--brand), .12);
-    font-size:21px;
-    font-weight:700;
-    color:rgb(var(--brand));
-}
+.docp-face{ width:52px; height:52px; }
 
 .docp-who{ min-width:0; flex:1 1 auto; }
 .docp-who b{ display:block; font-size:15px; font-weight:700; color:var(--ink); }
@@ -8125,18 +9850,7 @@ html::-webkit-scrollbar-track {
 
 .dl-who{ display:flex; align-items:flex-start; gap:10px; min-width:0; }
 
-.dl-face{
-    display:grid;
-    place-items:center;
-    width:36px;
-    height:36px;
-    flex:0 0 auto;
-    border-radius:50%;
-    background:rgba(var(--brand), .12);
-    font-size:14px;
-    font-weight:700;
-    color:rgb(var(--brand));
-}
+.dl-face{ width:36px; height:36px; }
 
 .dl-name{ min-width:0; }
 .dl-name b{ display:block; font-size:13.5px; font-weight:600; color:var(--ink); }

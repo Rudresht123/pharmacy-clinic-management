@@ -246,6 +246,37 @@ class BookingService
     }
 
     /**
+     * Put a finished visit back in the room.
+     *
+     * Only today's. Reopening an older one would move a visit into a day it
+     * did not happen in, put it back on a queue nobody is working, and let
+     * somebody rewrite a record the day has already closed on.
+     *
+     * `completed_at` is cleared because it is no longer true, and `started_at`
+     * is reset because the only thing reading it is the "in the room for N
+     * minutes" clock — a timer counting from this morning helps nobody. When
+     * the visit was first written up survives on the consultation itself.
+     */
+    public function reopen(Appointment $appointment): Appointment
+    {
+        $this->assertCanMoveTo($appointment, Appointment::STATUS_IN_CONSULTATION);
+
+        if (! $appointment->appointment_date?->isToday()) {
+            throw new RuntimeException(
+                'Only a visit from today can be reopened.'
+            );
+        }
+
+        $appointment->update([
+            'status' => Appointment::STATUS_IN_CONSULTATION,
+            'started_at' => now(),
+            'completed_at' => null,
+        ]);
+
+        return $appointment;
+    }
+
+    /**
      * Cancel.
      *
      * The token, if one was issued, is deliberately **not** returned to the
