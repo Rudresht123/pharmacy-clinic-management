@@ -62,6 +62,7 @@ export default function OrganizationFormPage() {
 
     const {
         register,
+        control,
         handleSubmit,
         reset,
         submit,
@@ -172,7 +173,7 @@ export default function OrganizationFormPage() {
                                         name="organization_type_id"
                                         label="Organization Type"
                                         required
-                                        register={register}
+                                        control={control}
                                         errors={errors}
                                         loading={typesLoading}
                                         placeholder="Choose a type…"

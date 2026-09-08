@@ -19,6 +19,8 @@ const TenantHistoryPage = lazy(() => import('@/core/tenant-history/pages/TenantH
 const RolesPage = lazy(() => import('@/core/roles/pages/RolesPage'));
 const DoctorListPage = lazy(() => import('@/core/doctors/pages/DoctorListPage'));
 const DoctorFormPage = lazy(() => import('@/core/doctors/pages/DoctorFormPage'));
+const MyDayPage = lazy(() => import('@/core/opd/pages/MyDayPage'));
+const SchedulesPage = lazy(() => import('@/core/doctors/pages/SchedulesPage'));
 const AvailabilityPage = lazy(() => import('@/core/availability/pages/AvailabilityPage'));
 const QueuePage = lazy(() => import('@/core/appointments/pages/QueuePage'));
 const OpdTodayPage = lazy(() => import('@/core/opd/pages/OpdTodayPage'));
@@ -133,6 +135,7 @@ export function TenantAppRoutes() {
                                 <Route
                                     element={<RequireCapability capability="appointments.view" />}
                                 >
+                                    <Route path="/my-day" element={<MyDayPage />} />
                                     <Route path="/doctors" element={<DoctorListPage />} />
                                     <Route path="/availability" element={<AvailabilityPage />} />
 
@@ -161,6 +164,21 @@ export function TenantAppRoutes() {
                                         path="/doctors/:id/edit"
                                         element={<DoctorFormPage />}
                                     />
+                                </Route>
+
+                                {/*
+                                    The screen names the capability its endpoint
+                                    demands. Writing a week is `appointments.schedule`,
+                                    not `appointments.doctors` — gating it on the
+                                    latter would show the Save button to somebody
+                                    the API then refuses.
+                                */}
+                                <Route
+                                    element={
+                                        <RequireCapability capability="appointments.schedule" />
+                                    }
+                                >
+                                    <Route path="/schedules" element={<SchedulesPage />} />
                                 </Route>
                             </Route>
 

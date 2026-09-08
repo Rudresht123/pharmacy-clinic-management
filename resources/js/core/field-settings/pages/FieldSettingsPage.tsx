@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { Tabs } from '@/shared/components/ui/Tabs';
@@ -557,12 +558,13 @@ export default function FieldSettingsPage() {
 
                                                         <label>
                                                             Type
-                                                            <select
-                                                                className="form-select form-select-sm"
+                                                            <SearchableSelect
+                                                                compact
+                                                                ariaLabel="Field type"
                                                                 value={row.data_type ?? 'text'}
-                                                                onChange={(event) => {
-                                                                    const next = event.target
-                                                                        .value as FieldDataType;
+                                                                onChange={(value) => {
+                                                                    const next =
+                                                                        value as FieldDataType;
 
                                                                     patch(index, {
                                                                         data_type: next,
@@ -574,19 +576,15 @@ export default function FieldSettingsPage() {
                                                                                 : null,
                                                                     });
                                                                 }}
-                                                            >
-                                                                {(data?.custom_types ?? []).map(
-                                                                    (value) => (
-                                                                        <option
-                                                                            key={value}
-                                                                            value={value}
-                                                                        >
-                                                                            {TYPES[value]?.label ??
-                                                                                value}
-                                                                        </option>
-                                                                    ),
-                                                                )}
-                                                            </select>
+                                                                options={(
+                                                                    data?.custom_types ?? []
+                                                                ).map((value) => ({
+                                                                    value,
+                                                                    label:
+                                                                        TYPES[value]?.label ??
+                                                                        value,
+                                                                }))}
+                                                            />
                                                         </label>
 
                                                         <label>

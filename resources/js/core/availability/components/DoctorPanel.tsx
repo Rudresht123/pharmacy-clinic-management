@@ -114,7 +114,7 @@ export function DoctorPanel({
                 {(
                     [
                         ['schedule', 'Schedule'],
-                        ['exceptions', `Changes${upcoming.length ? ` (${upcoming.length})` : ''}`],
+                        ['exceptions', `Exceptions${upcoming.length ? ` (${upcoming.length})` : ''}`],
                         ['details', 'Details'],
                     ] as [Tab, string][]
                 ).map(([key, label]) => (
@@ -131,6 +131,15 @@ export function DoctorPanel({
                 ))}
             </nav>
 
+            {/*
+                The tabs stay put; what they show scrolls.
+
+                The panel is pinned to the grid's height so the two columns end
+                together, and a doctor with a full week plus a list of changes
+                is taller than that — so the overflow goes here rather than
+                pushing the card past the thing it sits beside.
+            */}
+            <div className="docp-body">
             {isLoading ? (
                 <LoadingBlock label="Loading…" />
             ) : tab === 'schedule' ? (
@@ -144,37 +153,60 @@ export function DoctorPanel({
                             </Link>
                         </p>
 
-                        <table className="docp-week">
-                            <tbody>
-                                {week.map((day) => (
-                                    <tr key={day.label}>
-                                        <th scope="row">{day.label}</th>
+                        {/*
+                            A list, not a table.
+                            Three columns forced the session name into a strip
+                            too narrow to hold it, so "Morning OPD" wrapped
+                            onto two lines on every row. The name belongs with
+                            the time it names, under it.
+                        */}
+                        <ul className="docp-days">
+                            {week.map((day) => (
+                                <li
+                                    key={day.label}
+                                    className={day.sittings.length === 0 ? 'is-off' : undefined}
+                                >
+                                    <span className="docp-dayname">{day.label}</span>
 
-                                        <td>
-                                            {day.sittings.length === 0 ? (
-                                                <span className="docp-quiet">Not available</span>
-                                            ) : (
-                                                day.sittings.map((sitting: DoctorSchedule) => (
-                                                    <span className="docp-time" key={sitting.id}>
+                                    {day.sittings.length === 0 ? (
+                                        <span className="docp-quiet">Not available</span>
+                                    ) : (
+                                        <span className="docp-slots">
+                                            {/*
+                                                Each sitting carries its own
+                                                name. Reading the first one
+                                                against every time said a
+                                                doctor's evening follow-up
+                                                clinic was another morning OPD.
+                                            */}
+                                            {day.sittings.map((sitting: DoctorSchedule) => (
+                                                <span className="docp-slot" key={sitting.id}>
+                                                    <b>
                                                         {clock(sitting.starts_at)} –{' '}
                                                         {clock(sitting.ends_at)}
-                                                    </span>
-                                                ))
-                                            )}
-                                        </td>
-
-                                        <td className="docp-kind">
-                                            {day.sittings[0]?.name ?? (day.sittings.length ? 'OPD' : '')}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                                    </b>
+                                                    {sitting.name && <em>{sitting.name}</em>}
+                                                </span>
+                                            ))}
+                                        </span>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
                     </div>
 
                     {upcoming.length > 0 && (
                         <div className="docp-section">
-                            <p className="docp-title">Upcoming changes</p>
+                            <p className="docp-title">
+                                Upcoming changes
+                                <button
+                                    type="button"
+                                    className="docp-viewall"
+                                    onClick={() => setTab('exceptions')}
+                                >
+                                    View all
+                                </button>
+                            </p>
 
                             <ul className="docp-changes">
                                 {upcoming.slice(0, 4).map((change) => (
@@ -205,7 +237,9 @@ export function DoctorPanel({
                                                 </small>
                                             )}
 
-                                            {change.reason && <small>{change.reason}</small>}
+                                            {change.reason && (
+                                                <small>Reason: {change.reason}</small>
+                                            )}
                                         </span>
                                     </li>
                                 ))}
@@ -270,6 +304,7 @@ export function DoctorPanel({
                     </Link>
                 </div>
             )}
+            </div>
         </aside>
     );
 }

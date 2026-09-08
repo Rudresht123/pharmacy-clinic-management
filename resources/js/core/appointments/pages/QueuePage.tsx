@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
@@ -632,23 +633,19 @@ export default function QueuePage() {
                             empty queue that reads as a fault.
                         */}
                         {(data?.doctors ?? []).length > 1 && (
-                            <select
+                            <SearchableSelect
+                                compact
                                 className="q-doctor-pick"
-                                value={doctorId}
-                                onChange={(event) =>
-                                    setDoctorId(
-                                        event.target.value === '' ? '' : Number(event.target.value),
-                                    )
-                                }
-                                aria-label="Filter by doctor"
-                            >
-                                <option value="">All doctors</option>
-                                {(data?.doctors ?? []).map((doctor) => (
-                                    <option key={doctor.id} value={doctor.id}>
-                                        {doctor.name}
-                                    </option>
-                                ))}
-                            </select>
+                                value={String(doctorId)}
+                                ariaLabel="Filter by doctor"
+                                placeholder="All doctors"
+                                clearable
+                                onChange={(next) => setDoctorId(next === '' ? '' : Number(next))}
+                                options={(data?.doctors ?? []).map((doctor) => ({
+                                    value: String(doctor.id),
+                                    label: doctor.name ?? 'Unnamed',
+                                }))}
+                            />
                         )}
 
                         <label className="opd-find">

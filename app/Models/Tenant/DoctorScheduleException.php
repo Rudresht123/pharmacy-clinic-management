@@ -41,6 +41,7 @@ class DoctorScheduleException extends Model
         'slot_minutes',
         'max_walkins',
         'reason',
+        'created_by',
     ];
 
     protected function casts(): array
@@ -65,6 +66,18 @@ class DoctorScheduleException extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
+    }
+
+    /**
+     * Who recorded it.
+     *
+     * Null for anything written before the column existed, and null again if
+     * they leave — a staff member walking out must not take their
+     * cancellations with them.
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /** Whether this takes the doctor off for the entire day. */

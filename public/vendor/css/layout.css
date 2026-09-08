@@ -190,6 +190,18 @@ body {
 
 .app-nav {
     flex: 1;
+
+    /*
+     * Without this the menu never scrolls.
+     *
+     * A flex item defaults to min-height:auto, which refuses to shrink below
+     * its own content — so a long menu pushed the column past the bottom of
+     * the fixed sidebar and took the workspace card and help row off-screen
+     * with it, while `overflow-y:auto` sat there looking like it was handling
+     * the problem. The rail is a fixed-height box; only this list scrolls.
+     */
+    min-height: 0;
+
     overflow-y: auto;
     overflow-x: hidden;
     padding: 14px 12px 20px;

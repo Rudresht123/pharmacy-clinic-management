@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 
 export interface FilterOption {
     value: string;
@@ -132,20 +133,18 @@ export function FilterPanel({
                         <label htmlFor={field.name}>{field.label}</label>
 
                         {field.kind === 'select' ? (
-                            <select
+                            <SearchableSelect
+                                compact
                                 id={field.name}
-                                className="form-select form-select-sm"
                                 value={field.value}
-                                onChange={(event) => onChange(field.name, event.target.value)}
-                            >
-                                <option value="">{field.anyLabel ?? 'All'}</option>
-
-                                {field.options.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
+                                placeholder={field.anyLabel ?? 'All'}
+                                clearable
+                                onChange={(next) => onChange(field.name, next)}
+                                options={field.options.map((option) => ({
+                                    value: String(option.value),
+                                    label: option.label,
+                                }))}
+                            />
                         ) : (
                             <DebouncedText field={field} onCommit={commit(field.name)} />
                         )}

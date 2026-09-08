@@ -12,8 +12,20 @@ import type { TenantUserRole } from '@/core/tenant-auth/api';
  * Hiding is a courtesy, never the enforcement. Typing the URL still reaches
  * the route, and the route still refuses it — nothing here is load-bearing.
  *
- * Two sections, matching how a clinic thinks about itself: ORGANIZATION is
- * the business — its branches, its people, its rules; CLINICAL is the work.
+ * Grouped by SCOPE, because that is the question somebody actually has when
+ * they look at this menu: is this about my branch, or about the whole
+ * organisation?
+ *
+ *   THE WORK       what happens at a branch — the OPD, its queue, its patients
+ *   THIS BRANCH    who works here and what they may do
+ *   ORGANISATION   things that mean nothing at one branch: the network's list
+ *                  of sites, what every branch calls a patient, the audit log
+ *
+ * That last section is the important one. `settings.manage` changes what every
+ * branch calls a patient; there is no version of it that applies to Lucknow
+ * and not Delhi. `customers.view` is the opposite — it means "here". The
+ * capability registry already records this as a `scope`, and the role screen
+ * filters by it; this menu is the same distinction made visible.
  *
  * Every `to` has to be a real route in tenant-router.tsx, unless the entry is
  * marked `soon`, which renders as an unclickable row.
@@ -32,8 +44,13 @@ export function tenantNavigation(
     modules: string[] = [],
     /** What this person's role holds — level three, already resolved. */
     capabilities: string[] = [],
+    /** Set when this login belongs to a doctor, from the session. */
+    doctorId?: number | null,
 ): NavSection[] {
     const isOwner = role === 'owner';
+
+    /* A doctor login is a user whose record points at a doctor. */
+    const isDoctor = Boolean(doctorId);
     const hasModule = (module: string) => modules.includes(module);
     const can = (capability: string) => capabilities.includes(capability);
 
@@ -53,20 +70,17 @@ export function tenantNavigation(
         items: [{ label: 'Dashboard', to: '/dashboard', icon: 'ti ti-layout-dashboard' }],
     });
 
-    const organization: NavItem[] = [];
-
-    if (can('branches.view')) {
-        organization.push({
-            label: labels?.location ?? 'Branches',
-            to: '/locations',
-            icon: 'ti ti-building-store',
-            // Keeps the parent highlighted on /locations/create and /:id/edit.
-            match: '/locations',
-        });
-    }
+    /*
+     * Who works here, and what they may do.
+     *
+     * Branch-scoped both: a branch manager administers their own people and
+     * writes their own branch's roles, and the server holds them to that
+     * whatever this menu shows.
+     */
+    const here: NavItem[] = [];
 
     if (can('people.view')) {
-        organization.push({
+        here.push({
             label: labels?.user ?? 'Staff',
             to: '/people',
             icon: 'ti ti-users-group',
@@ -81,11 +95,31 @@ export function tenantNavigation(
      * branch's.
      */
     if (can('people.view')) {
-        organization.push({
+        here.push({
             label: 'Roles & Permissions',
             to: '/roles',
             icon: 'ti ti-shield-lock',
             match: '/roles',
+        });
+    }
+
+    /*
+     * The network, not a branch.
+     *
+     * Everything here means nothing said of one site: the list of sites
+     * itself, what every branch calls a patient, and the log of what happened
+     * across all of them. A branch manager holds none of it, so for them the
+     * heading does not appear at all rather than appearing empty.
+     */
+    const organization: NavItem[] = [];
+
+    if (can('branches.view')) {
+        organization.push({
+            label: labels?.location ?? 'Branches',
+            to: '/locations',
+            icon: 'ti ti-building-store',
+            // Keeps the parent highlighted on /locations/create and /:id/edit.
+            match: '/locations',
         });
     }
 
@@ -124,10 +158,6 @@ export function tenantNavigation(
         });
     }
 
-    if (organization.length > 0) {
-        sections.push({ title: 'Organization', items: organization });
-    }
-
     /* --- the work -------------------------------------------------------- */
 
     /*
@@ -147,12 +177,28 @@ export function tenantNavigation(
      */
     const clinical: NavItem[] = [];
 
+    /*
+     * A doctor's own list, above the department's.
+     *
+     * Only for somebody who IS a doctor — the screen is scoped to the signed-in
+     * doctor and the endpoint refuses anybody else, so showing it to the desk
+     * would be offering a link that answers 403.
+     */
+    if (hasModule('appointments') && isDoctor && can('appointments.queue')) {
+        clinical.push({
+            label: 'My day',
+            to: '/my-day',
+            icon: 'ti ti-stethoscope',
+            match: '/my-day',
+        });
+    }
+
     if (hasModule('appointments') && can('appointments.view')) {
         clinical.push({
             label: 'OPD',
             to: '/opd',
             icon: 'ti ti-building-hospital',
-            match: ['/opd', '/doctors', '/availability'],
+            match: ['/opd', '/doctors', '/schedules', '/availability'],
             children: [
                 { label: 'Dashboard', to: '/opd', icon: 'ti ti-layout-dashboard' },
                 {
@@ -167,6 +213,22 @@ export function tenantNavigation(
                     icon: 'ti ti-stethoscope',
                     match: '/doctors',
                 },
+                /*
+                 * Directly under Doctors, because it is the same subject one
+                 * step on: who they are, then when they sit. Its own capability
+                 * too — a receptionist who may look at the roster is not
+                 * necessarily somebody who may rewrite it.
+                 */
+                ...(can('appointments.schedule')
+                    ? [
+                          {
+                              label: 'Schedules',
+                              to: '/schedules',
+                              icon: 'ti ti-calendar-cog',
+                              match: '/schedules',
+                          },
+                      ]
+                    : []),
                 {
                     label: 'Availability',
                     to: '/availability',
@@ -186,8 +248,23 @@ export function tenantNavigation(
         });
     }
 
+    /*
+     * The work comes first.
+     *
+     * Everybody who signs in does it; the two sections under it are the
+     * settings behind it, which most people open once a month. A menu ordered
+     * by how often a row is pressed beats one ordered by hierarchy.
+     */
     if (clinical.length > 0) {
         sections.push({ title: 'Clinical', items: clinical });
+    }
+
+    if (here.length > 0) {
+        sections.push({ title: 'This branch', items: here });
+    }
+
+    if (organization.length > 0) {
+        sections.push({ title: 'Organisation', items: organization });
     }
 
     /* --- what is coming -------------------------------------------------- */

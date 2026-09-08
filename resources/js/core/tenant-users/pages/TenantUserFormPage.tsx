@@ -5,7 +5,9 @@ import { Button } from '@/shared/components/ui/Button';
 import { RecordHistory } from '@/core/tenant-history/RecordHistory';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { FormError, TextField } from '@/shared/components/form/Fields';
+import { Controller } from 'react-hook-form';
 import { useApiForm } from '@/shared/components/form/useApiForm';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { ConfigurableForm, type FieldGroup } from '@/core/field-settings/ConfigurableForm';
 import { rolesHooks } from '@/core/roles/api';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
@@ -161,18 +163,23 @@ export default function TenantUserFormPage() {
                     Role <span className="req">*</span>
                 </label>
 
-                <select
-                    id="role_id"
-                    className={`form-select${errors.role_id ? ' is-invalid' : ''}`}
-                    {...register('role_id')}
-                >
-                    <option value="">Choose a role…</option>
-                    {(roles ?? []).map((role) => (
-                        <option key={role.id} value={role.id}>
-                            {role.name}
-                        </option>
-                    ))}
-                </select>
+                <Controller
+                    name="role_id"
+                    control={control}
+                    render={({ field }) => (
+                        <SearchableSelect
+                            id="role_id"
+                            value={field.value == null ? '' : String(field.value)}
+                            onChange={field.onChange}
+                            invalid={Boolean(errors.role_id)}
+                            placeholder="Choose a role…"
+                            options={(roles ?? []).map((role) => ({
+                                value: String(role.id),
+                                label: role.name,
+                            }))}
+                        />
+                    )}
+                />
 
                 {errors.role_id ? (
                     <p className="invalid-feedback d-block">

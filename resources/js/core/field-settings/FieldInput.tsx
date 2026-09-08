@@ -21,8 +21,14 @@ interface FieldInputProps<T extends FieldValues> {
     field: ConfigurableField;
     register: UseFormRegister<T>;
     errors: FieldErrors<T>;
-    /** Only needed when the schema can contain a date. */
-    control?: Control<T>;
+    /**
+     * Required, not optional.
+     *
+     * Selects, multi-selects and dates are all controlled now, which between
+     * them is most of a schema — an optional `control` meant every one of them
+     * carried a fallback for a case that never happens.
+     */
+    control: Control<T>;
 }
 
 /**
@@ -65,19 +71,16 @@ export function FieldInput<T extends FieldValues>({
             return (
                 <SelectField
                     {...shared}
+                    control={control}
                     placeholder={field.placeholder ?? 'Choose one…'}
                     options={field.options ?? []}
                 />
             );
 
         case 'multiselect':
-            /*
-             * Controlled, because the value is an array. Without a `control`
-             * there is no honest way to render one, so it falls back to the
-             * single select rather than to a text box that would let somebody
-             * type a value the server will refuse.
-             */
-            return control ? (
+            // Controlled, because the value is an array — which `register`
+            // cannot express.
+            return (
                 <MultiSelectField
                     name={name}
                     label={field.label}
@@ -87,19 +90,13 @@ export function FieldInput<T extends FieldValues>({
                     placeholder={field.placeholder ?? 'Choose…'}
                     error={errors?.[field.key]?.message as string | undefined}
                 />
-            ) : (
-                <SelectField
-                    {...shared}
-                    placeholder={field.placeholder ?? 'Choose one…'}
-                    options={field.options ?? []}
-                />
             );
 
         case 'date':
             // Our own calendar rather than <input type="date">, which cannot
             // be styled and shows dd/mm/yyyy where a placeholder belongs. It
             // is controlled, so it needs `control` rather than `register`.
-            return control ? (
+            return (
                 <DateField
                     name={name}
                     label={field.label}
@@ -108,8 +105,6 @@ export function FieldInput<T extends FieldValues>({
                     errors={errors}
                     placeholder={field.placeholder ?? 'Select a date'}
                 />
-            ) : (
-                <TextField {...shared} type="date" />
             );
 
         case 'email':

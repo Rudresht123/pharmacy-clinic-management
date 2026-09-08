@@ -2,6 +2,7 @@
 
 namespace App\Services\Tenancy;
 
+use App\Models\Tenant\Doctor;
 use App\Models\Tenant\User;
 use Illuminate\Support\Facades\Auth;
 
@@ -23,6 +24,13 @@ use Illuminate\Support\Facades\Auth;
  *   owner  — every branch. They run the whole network and have no branch of
  *            their own, which is why they hold no memberships.
  *   staff  — the branches they are a member of, and no others.
+ *   doctor — the branches they are POSTED to. A doctor's account is given an
+ *            organization-wide role rather than a membership, deliberately:
+ *            they sit wherever their timings put them, and pinning the login
+ *            to one branch would hide the other branches' lists from the one
+ *            person who has to work them. Read through memberships alone that
+ *            left a doctor able to act on nothing at all — signed in, posted
+ *            to Noida, and refused at Noida.
  *
  * Reads memberships rather than the old `users.location_id`, so a doctor
  * sitting at three clinics may act at all three. Somebody with no memberships
@@ -55,7 +63,7 @@ class TenantBranchAccess
             return true;
         }
 
-        return $user->membershipAt($locationId) !== null;
+        return in_array($locationId, $this->allowed($user) ?? [], true);
     }
 
     /** The same question about whoever is signed in on the tenant guard. */
@@ -79,12 +87,30 @@ class TenantBranchAccess
             return null;
         }
 
-        // Every branch they are a member of. An empty list is a real answer —
-        // head office holds no memberships and acts on no branch's day.
-        return $user->memberships
+        $mine = $user->memberships
             ->pluck('location_id')
             ->map(fn ($id) => (int) $id)
-            ->values()
             ->all();
+
+        /*
+         * A doctor's postings count as well as their memberships.
+         *
+         * `doctor_locations` is where a doctor works; `branch_users` is where
+         * an account has been given a seat. For a doctor they are the same
+         * question asked of two tables, and only the first is ever filled in —
+         * the account provisioner gives an organization-wide role on purpose.
+         */
+        if ($user->userable_type === Doctor::class && $user->userable_id) {
+            $mine = array_merge($mine, Doctor::on($user->getConnectionName())
+                ->find($user->userable_id)
+                ?->postings()
+                ->pluck('locations.id')
+                ->map(fn ($id) => (int) $id)
+                ->all() ?? []);
+        }
+
+        // An empty list is a real answer — head office holds neither, and acts
+        // on no branch's day.
+        return array_values(array_unique($mine));
     }
 }

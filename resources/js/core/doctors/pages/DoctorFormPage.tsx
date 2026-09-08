@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { FormError, TextField } from '@/shared/components/form/Fields';
@@ -8,7 +9,6 @@ import { useApiForm } from '@/shared/components/form/useApiForm';
 import { ConfigurableForm, type FieldGroup } from '@/core/field-settings/ConfigurableForm';
 import { useEntityLabel } from '@/core/field-settings/api';
 import { RecordHistory } from '@/core/tenant-history/RecordHistory';
-import { ScheduleEditor } from '../components/ScheduleEditor';
 import { locationsHooks } from '@/core/locations/api';
 import { doctorsHooks, useDoctorFields } from '../api';
 
@@ -88,10 +88,9 @@ const GROUPS: FieldGroup[] = [
 /**
  * Adding or editing a doctor.
  *
- * Timings appear only once the doctor exists: a sitting belongs to somebody,
- * and there is nobody to belong to until the record is saved. That is also
- * why the two are saved separately — the week is replaced whole, on its own
- * endpoint, because overlap can only be judged across a whole day.
+ * The person only. Their week is set under Schedules, on its own endpoint,
+ * because the week is replaced whole — overlap can only be judged across a
+ * whole day, so no per-field save on this form could check it.
  */
 export default function DoctorFormPage() {
     const { id } = useParams();
@@ -183,11 +182,13 @@ export default function DoctorFormPage() {
 
         if (result) {
             /*
-             * A new doctor lands on their own edit screen rather than back on
-             * the list, because the next thing anybody wants is their
-             * timings — and those cannot be set until the doctor exists.
+             * A new doctor lands on their timings rather than back on the
+             * list: a doctor with no week is in the system and in nobody's
+             * clinic, and setting it is the next thing anybody wants. It could
+             * not be the first thing — a sitting belongs to a doctor, and
+             * there was nobody to belong to until this save.
              */
-            navigate(isEdit ? '/doctors' : `/doctors/${result.id}/edit`);
+            navigate(isEdit ? '/doctors' : `/schedules?doctor=${result.id}`);
         }
     });
 
@@ -362,11 +363,32 @@ export default function DoctorFormPage() {
             </form>
 
             {/*
-             * Outside the form, and saved by its own button: a sitting has
-             * to belong to a doctor who already exists, and the week is
-             * replaced whole rather than submitted alongside these fields.
+             * The week lives on its own screen, not here.
+             *
+             * This form is about a person; a rota is about time, and the two
+             * were being edited in two places with two save buttons on one
+             * page. A pointer, so somebody who came here looking for the
+             * timings knows where they went.
              */}
-            {isEdit && doctor && <ScheduleEditor doctorId={doctor.id} />}
+            {isEdit && doctor && (
+                <Card>
+                    <div className="dr-elsewhere">
+                        <i className="ti ti-calendar-cog" aria-hidden="true" />
+
+                        <div>
+                            <b>Timings are set under Schedules</b>
+                            <small>
+                                When and where {doctor.name} sits, a week at a time.
+                            </small>
+                        </div>
+
+                        <Link className="dr-elsewhere-go" to={`/schedules?doctor=${doctor.id}`}>
+                            Open schedules
+                            <i className="ti ti-arrow-right" aria-hidden="true" />
+                        </Link>
+                    </div>
+                </Card>
+            )}
         </>
     );
 }

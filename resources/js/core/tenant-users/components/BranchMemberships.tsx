@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { locationsHooks } from '@/core/locations/api';
@@ -149,55 +150,55 @@ export function BranchMemberships({
                         <li key={`${row.location_id}-${index}`}>
                             <label className="bm-cell">
                                 <span>Branch</span>
-                                <select
-                                    className={`form-select${
-                                        errors[`branches.${index}.location_id`] ? ' is-invalid' : ''
-                                    }`}
+                                <SearchableSelect
+                                    invalid={Boolean(errors[`branches.${index}.location_id`])}
                                     disabled={!canAssign}
-                                    value={row.location_id}
-                                    onChange={(event) =>
-                                        patch(index, { location_id: Number(event.target.value) })
+                                    ariaLabel="Branch"
+                                    value={String(row.location_id)}
+                                    onChange={(next) =>
+                                        patch(index, { location_id: Number(next) })
                                     }
-                                >
-                                    {(branches ?? []).map((branch) => (
-                                        <option
-                                            key={branch.id}
-                                            value={branch.id}
-                                            disabled={rows.some(
-                                                (other, position) =>
-                                                    position !== index &&
-                                                    other.location_id === branch.id,
-                                            )}
-                                        >
-                                            {branch.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    /*
+                                        Branches already spoken for are left
+                                        out rather than shown greyed: a row
+                                        nobody can pick is noise in a list you
+                                        are searching, and somebody may hold
+                                        one membership per branch.
+                                    */
+                                    options={(branches ?? [])
+                                        .filter(
+                                            (branch) =>
+                                                branch.id === row.location_id ||
+                                                !rows.some(
+                                                    (other, position) =>
+                                                        position !== index &&
+                                                        other.location_id === branch.id,
+                                                ),
+                                        )
+                                        .map((branch) => ({
+                                            value: String(branch.id),
+                                            label: branch.name,
+                                        }))}
+                                />
                             </label>
 
                             <label className="bm-cell">
                                 <span>Role here</span>
-                                <select
-                                    className={`form-select${
-                                        errors[`branches.${index}.role_id`] ? ' is-invalid' : ''
-                                    }`}
+                                <SearchableSelect
+                                    invalid={Boolean(errors[`branches.${index}.role_id`])}
                                     disabled={!canAssign}
-                                    value={row.role_id ?? ''}
-                                    onChange={(event) =>
-                                        patch(index, {
-                                            role_id: event.target.value
-                                                ? Number(event.target.value)
-                                                : null,
-                                        })
+                                    ariaLabel="Role at this branch"
+                                    value={row.role_id == null ? '' : String(row.role_id)}
+                                    placeholder="Nothing yet"
+                                    clearable
+                                    onChange={(next) =>
+                                        patch(index, { role_id: next ? Number(next) : null })
                                     }
-                                >
-                                    <option value="">Nothing yet</option>
-                                    {branchRoles.map((role) => (
-                                        <option key={role.id} value={role.id}>
-                                            {role.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    options={branchRoles.map((role) => ({
+                                        value: String(role.id),
+                                        label: role.name,
+                                    }))}
+                                />
                             </label>
 
                             <button

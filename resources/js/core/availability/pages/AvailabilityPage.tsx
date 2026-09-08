@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { Card } from '@/shared/components/ui/Card';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
 import { locationsHooks } from '@/core/locations/api';
@@ -49,6 +50,15 @@ export default function AvailabilityPage() {
 
     const [selected, setSelected] = useState<WeekDoctor | null>(null);
 
+    /*
+     * Which speciality, if any.
+     *
+     * Not in the URL with the rest: branch and week say which rota you are
+     * looking at, and a department is a squint at it. Somebody sending a
+     * colleague a link means the week, not the fact that they had ENT ticked.
+     */
+    const [department, setDepartment] = useState('');
+
     const week = useAvailabilityWeek(from, branchId);
     const day = useAvailabilityDay(from, branchId);
 
@@ -58,6 +68,15 @@ export default function AvailabilityPage() {
 
     // Whichever branch is being looked at, by name.
     const branch = (branches ?? []).find((entry) => entry.id === branchId);
+
+    /* The departments actually represented here, not a fixed list. */
+    const departments = Array.from(
+        new Set((week.data?.doctors ?? []).map((doctor) => doctor.specialisation).filter(Boolean)),
+    ).sort() as string[];
+
+    const shown = department
+        ? (week.data?.doctors ?? []).filter((doctor) => doctor.specialisation === department)
+        : (week.data?.doctors ?? []);
 
     return (
         <>
@@ -70,78 +89,108 @@ export default function AvailabilityPage() {
                 actions={
                     <Link className="av-add" to="/doctors">
                         <i className="ti ti-plus" aria-hidden="true" />
-                        Set a doctor&rsquo;s hours
+                        Add schedule
                     </Link>
                 }
             />
 
             <div className="av-bar">
-                <label className="av-field">
+                <label className="av-pick">
                     <span>Branch</span>
-                    <select
-                        className="form-select"
-                        value={branchId}
-                        onChange={(event) => set({ branch: event.target.value })}
-                    >
-                        {(branches ?? []).map((entry) => (
-                            <option key={entry.id} value={entry.id}>
-                                {entry.name}
-                            </option>
-                        ))}
-                    </select>
+                    <SearchableSelect
+                        value={String(branchId)}
+                        onChange={(next) => set({ branch: next })}
+                        ariaLabel="Branch"
+                        options={(branches ?? []).map((entry) => ({
+                            value: String(entry.id),
+                            label: entry.name,
+                        }))}
+                    />
                 </label>
+
+                {/*
+                    Only when there is more than one to choose between. A
+                    filter whose every setting shows the same six people is a
+                    control that can only waste a click.
+                */}
+                {departments.length > 1 && (
+                    <label className="av-pick">
+                        <span>Department</span>
+                        <SearchableSelect
+                            value={department}
+                            onChange={setDepartment}
+                            ariaLabel="Department"
+                            placeholder="All departments"
+                            clearable
+                            options={departments.map((name) => ({
+                                value: name,
+                                label: name,
+                            }))}
+                        />
+                    </label>
+                )}
 
                 {/*
                     Three readings of the same rota, not three screens. The
                     week is the shape, the day is the detail behind one column
-                    of it, and the changes are the reasons the two differ.
+                    of it, and the exceptions are the reasons the two differ.
                 */}
-                <div className="av-views" role="group" aria-label="How to show availability">
-                    {(
-                        [
-                            ['week', 'Week', 'ti ti-layout-grid'],
-                            ['doctors', 'Day', 'ti ti-clock-hour-4'],
-                            ['exceptions', 'Changes', 'ti ti-calendar-exclamation'],
-                        ] as const
-                    ).map(([key, label, icon]) => (
-                        <button
-                            type="button"
-                            key={key}
-                            className={`av-view${view === key ? ' is-on' : ''}`}
-                            aria-pressed={view === key}
-                            onClick={() => set({ view: key })}
-                        >
-                            <i className={icon} aria-hidden="true" />
-                            {label}
-                        </button>
-                    ))}
+                <div className="av-pick">
+                    <span>View</span>
+
+                    <div className="av-views" role="group" aria-label="How to show availability">
+                        {(
+                            [
+                                ['week', 'Week'],
+                                ['doctors', 'Doctors'],
+                                ['exceptions', 'Exceptions'],
+                            ] as const
+                        ).map(([key, label]) => (
+                            <button
+                                type="button"
+                                key={key}
+                                className={`av-view${view === key ? ' is-on' : ''}`}
+                                aria-pressed={view === key}
+                                onClick={() => set({ view: key })}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {view !== 'exceptions' && (
                     <div className="av-when">
-                        <button
-                            type="button"
-                            className="av-step"
-                            aria-label="The week before"
-                            onClick={() => set({ from: shift(from, -7) })}
-                        >
-                            <i className="ti ti-chevron-left" aria-hidden="true" />
-                        </button>
+                        {/*
+                            The arrows and the range are one control, inside
+                            one border. Three separately bordered pieces in a
+                            row read as three decisions when they are one
+                            decision seen three ways.
+                        */}
+                        <div className="av-range-group">
+                            <button
+                                type="button"
+                                className="av-step"
+                                aria-label="The week before"
+                                onClick={() => set({ from: shift(from, -7) })}
+                            >
+                                <i className="ti ti-chevron-left" aria-hidden="true" />
+                            </button>
 
-                        <span className="av-range">
-                            {view === 'week'
-                                ? `${spoken(from)} – ${spoken(shift(from, 6))}`
-                                : spoken(from)}
-                        </span>
+                            <span className="av-range">
+                                <i className="ti ti-calendar" aria-hidden="true" />
+                                {view === 'week' ? spanned(from) : spoken(from)}
+                            </span>
 
-                        <button
-                            type="button"
-                            className="av-step"
-                            aria-label="The week after"
-                            onClick={() => set({ from: shift(from, 7) })}
-                        >
-                            <i className="ti ti-chevron-right" aria-hidden="true" />
-                        </button>
+                            <button
+                                type="button"
+                                className="av-step"
+                                aria-label="The week after"
+                                onClick={() => set({ from: shift(from, 7) })}
+                            >
+                                <i className="ti ti-chevron-right" aria-hidden="true" />
+                            </button>
+                        </div>
 
                         <button
                             type="button"
@@ -172,34 +221,44 @@ export default function AvailabilityPage() {
                             </p>
                         </div>
                     ) : (
-                        <div className="row g-3">
+                        <ul className="dl">
+                            {/*
+                                One list, full width — not a grid of cards.
+
+                                Two-up, a doctor with sixteen slots sat beside
+                                one with three and the shorter card padded
+                                itself out to match; an odd number left the
+                                last one stranded next to a gap. Neither is a
+                                layout that survives a clinic adding its
+                                seventh doctor.
+                            */}
                             {(day.data?.doctors ?? []).map((doctor) => (
-                                <div className="col-12 col-xl-6" key={doctor.doctor_id}>
-                                    <DoctorDay doctor={doctor} />
-                                </div>
+                                <DoctorDay doctor={doctor} key={doctor.doctor_id} />
                             ))}
-                        </div>
+                        </ul>
                     )}
                 </Card>
             ) : (
-                <div className={`av-week${selected ? ' has-panel' : ''}`}>
+                <div className="av-week has-panel">
                     <Card>
                         {week.isLoading ? (
                             <LoadingBlock label="Loading the week…" />
                         ) : week.isError ? (
                             <ErrorState onRetry={() => week.refetch()} />
-                        ) : (week.data?.doctors ?? []).length === 0 ? (
+                        ) : shown.length === 0 ? (
                             <div className="org-pending">
                                 <i className="ti ti-user-off" />
                                 <h6>No doctors here yet</h6>
                                 <p>
-                                    Nobody is posted to {branch?.name ?? 'this branch'}. Assign a
-                                    doctor to it from their own record and their week appears here.
+                                    {department
+                                        ? `Nobody in ${department} is posted to ${branch?.name ?? 'this branch'}.`
+                                        : `Nobody is posted to ${branch?.name ?? 'this branch'}. Assign a doctor to it from their own record and their week appears here.`}
                                 </p>
                             </div>
                         ) : (
                             <WeekGrid
                                 week={week.data!}
+                                doctors={shown}
                                 selected={selected?.doctor_id ?? null}
                                 onSelect={(doctor) =>
                                     setSelected((was) =>
@@ -210,12 +269,28 @@ export default function AvailabilityPage() {
                         )}
                     </Card>
 
-                    {selected && (
+                    {/*
+                        The panel's place is held whether or not one is open.
+                        Letting the grid stretch across the full width and then
+                        snap back to two thirds the moment somebody clicks a
+                        name re-flows every column under the cursor — the week
+                        they were reading moves while they are reading it.
+                    */}
+                    {selected ? (
                         <DoctorPanel
                             doctor={selected}
                             branchId={branchId}
                             onClose={() => setSelected(null)}
                         />
+                    ) : (
+                        <aside className="docp docp-empty">
+                            <i className="ti ti-user-square-rounded" aria-hidden="true" />
+                            <b>No doctor selected</b>
+                            <p>
+                                Pick a name from the grid to see their weekly hours, what is
+                                changing, and how to reach them.
+                            </p>
+                        </aside>
                     )}
                 </div>
             )}
@@ -231,7 +306,7 @@ export default function AvailabilityPage() {
                     title={
                         <span className="opd-card-title">
                             <i className="ti ti-calendar-exclamation" aria-hidden="true" />
-                            Upcoming changes
+                            Upcoming exceptions
                         </span>
                     }
                     actions={
@@ -253,6 +328,7 @@ export default function AvailabilityPage() {
                                     <th>Branch</th>
                                     <th>Change</th>
                                     <th>Reason</th>
+                                    <th>Recorded by</th>
                                 </tr>
                             </thead>
 
@@ -261,7 +337,16 @@ export default function AvailabilityPage() {
                                     <tr key={change.id}>
                                         <td className="av-date">{spoken(change.date)}</td>
                                         <td>{change.doctor_name}</td>
-                                        <td className="av-dim">{change.location_name ?? '—'}</td>
+                                        {/*
+                                            Leave takes the doctor off
+                                            everywhere, so it has no branch —
+                                            which is a fact, not a gap. A dash
+                                            there reads as missing data.
+                                        */}
+                                        <td className="av-dim">
+                                            {change.location_name ??
+                                                (change.whole_day ? 'All branches' : '—')}
+                                        </td>
 
                                         <td>
                                             {change.type === 'unavailable' ? (
@@ -276,6 +361,7 @@ export default function AvailabilityPage() {
                                         </td>
 
                                         <td className="av-dim">{change.reason ?? '—'}</td>
+                                        <td className="av-dim">{change.created_by_name ?? '—'}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -311,6 +397,24 @@ function iso(date: Date): string {
     return `${date.getFullYear()}-${month}-${day}`;
 }
 
+/**
+ * "7 – 13 Sep 2026", and "28 Sep – 4 Oct 2026" when the week crosses a month.
+ *
+ * Naming September twice in a range that never leaves it is the sort of
+ * padding that makes a header wrap on a laptop for no information at all.
+ */
+function spanned(monday: string): string {
+    const sunday = shift(monday, 6);
+    const [, aMonth] = monday.split('-').map(Number);
+    const [, bMonth] = sunday.split('-').map(Number);
+
+    if (aMonth === bMonth) {
+        return `${Number(monday.split('-')[2])} – ${spoken(sunday)}`;
+    }
+
+    return `${spoken(monday).replace(/ \d{4}$/, '')} – ${spoken(sunday)}`;
+}
+
 /** "7 Sep 2026" — the date as somebody would say it. */
 function spoken(date: string): string {
     const [year, month, day] = date.split('-').map(Number);
@@ -336,50 +440,81 @@ function DoctorDay({
     doctor: { doctor_id: number; doctor_name: string; specialisation: string | null; sessions: AvailabilitySession[] };
 }) {
     return (
-        <Card className="av-card">
-            <p className="av-doc">
-                <b>{doctor.doctor_name}</b>
-                {doctor.specialisation && <small>{doctor.specialisation}</small>}
-            </p>
+        <li className="dl-row">
+            {/*
+                Who, held to one side. The name is what the eye comes back to
+                when scanning down, so it keeps a column of its own rather than
+                sitting on top of the times as a heading.
+            */}
+            <div className="dl-who">
+                <span className="dl-face" aria-hidden="true">
+                    {doctor.doctor_name.replace(/^Dr\.?\s*/i, '').charAt(0)}
+                </span>
 
-            {doctor.sessions.map((session, index) => (
-                <Session session={session} key={index} />
-            ))}
-        </Card>
+                <span className="dl-name">
+                    <b>{doctor.doctor_name}</b>
+                    {doctor.specialisation && <small>{doctor.specialisation}</small>}
+                </span>
+            </div>
+
+            <div className="dl-sessions">
+                {doctor.sessions.map((session, index) => (
+                    <Session session={session} key={index} />
+                ))}
+            </div>
+        </li>
     );
 }
 
 function Session({ session }: { session: AvailabilitySession }) {
     return (
-        <div className={`av-session${session.changed ? ' is-changed' : ''}`}>
-            <div className="av-session-head">
+        <div className={`dl-session${session.changed ? ' is-changed' : ''}`}>
+            <div className="dl-session-head">
                 <b>
                     {session.starts_at} – {session.ends_at}
                 </b>
 
-                {session.name && <span className="av-session-name">{session.name}</span>}
+                {session.name && <span className="dl-tag">{session.name}</span>}
 
                 {/* Says why today looks different from the usual week. */}
                 {session.changed && (
-                    <span className="av-changed">
-                        <i className="ti ti-alert-circle" />
+                    <span className="dl-changed">
+                        <i className="ti ti-alert-circle" aria-hidden="true" />
                         {session.reason || 'Changed for this date'}
                     </span>
                 )}
 
-                <span className="av-session-meta">
-                    every {session.slot_minutes} min
-                    {session.max_walkins !== null && ` · ${session.max_walkins} walk-ins`}
-                </span>
+                {session.max_walkins !== null && (
+                    <span className="dl-meta">{session.max_walkins} walk-ins</span>
+                )}
             </div>
 
-            <div className="av-slots">
-                {session.slots.map((slot) => (
-                    <span className="av-slot" key={slot}>
-                        {slot}
-                    </span>
-                ))}
-            </div>
+            {/*
+                The slot times, folded away.
+
+                Sixteen chips per doctor is most of the screen spent on numbers
+                that are entirely predictable from "09:00 – 13:00, every 15
+                min" — and the row that matters, who is in and how long they
+                have, was buried under them. The count and the interval answer
+                the question; the times are there for whoever is booking.
+
+                A native disclosure, so it needs no state and opens on the
+                keyboard for nothing.
+            */}
+            <details className="dl-more">
+                <summary>
+                    <i className="ti ti-chevron-right" aria-hidden="true" />
+                    {session.slots.length} slots · every {session.slot_minutes} min
+                </summary>
+
+                <div className="dl-slots">
+                    {session.slots.map((slot) => (
+                        <span className="dl-slot" key={slot}>
+                            {slot}
+                        </span>
+                    ))}
+                </div>
+            </details>
         </div>
     );
 }

@@ -4,6 +4,7 @@ namespace Tests\Feature\Api\V1\Tenant;
 
 use App\Models\Platform\Module;
 use App\Models\Platform\Organization;
+use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\DoctorSchedule;
 use App\Models\Tenant\DoctorScheduleException;
@@ -593,6 +594,206 @@ class AvailabilityTest extends TenantTestCase
 
         $this->getJson("/api/v1/tenant/availability/week?from=".self::MONDAY."&location_id={$other}")
             ->assertStatus(403);
+    }
+
+    /**
+     * Who cancelled the clinic is taken from the session, never the payload.
+     *
+     * A doctor's Wednesday disappearing is the kind of thing a practice argues
+     * about a fortnight later, and a "recorded by" the client can set is worth
+     * nothing at all in that argument.
+     */
+    public function test_an_exception_records_who_wrote_it(): void
+    {
+        [$organization, $doctorId] = $this->clinic();
+        $this->signInAsOwner($organization);
+
+        $this->postJson('/api/v1/tenant/availability/exceptions', [
+            'doctor_id' => $doctorId,
+            'date' => self::MONDAY,
+            'type' => DoctorScheduleException::UNAVAILABLE,
+            'reason' => 'On leave',
+
+            // Claiming to be somebody else, which must be ignored.
+            'created_by' => 9999,
+        ])->assertCreated();
+
+        // From that Monday, not from today: the window defaults to what is
+        // coming, and this fixture's dates are already behind us.
+        $row = $this->getJson('/api/v1/tenant/availability/exceptions?from='.self::MONDAY)
+            ->assertOk()
+            ->json('data.0');
+
+        $signedIn = $this->onTenant(
+            $organization,
+            fn () => User::on('organization')->where('role', 'owner')->value('name'),
+        );
+
+        $this->assertSame($signedIn, $row['created_by_name']);
+    }
+
+    /**
+     * A branch's list is that branch's, plus the leave that has no branch.
+     *
+     * The doctor panel had been sending `location_id` all along and it was
+     * dropped on the floor, so a panel opened from the Gurgaon week listed
+     * Delhi's cancellations too. Leave takes the doctor off everywhere, so it
+     * has no branch of its own and belongs in both.
+     */
+    public function test_exceptions_can_be_scoped_to_a_branch(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+
+        $other = $this->onTenant($organization, fn () => Location::on('organization')->create([
+            'name' => 'Delhi',
+            'code' => 'DEL',
+            'type' => Location::CLINIC,
+            'is_active' => true,
+        ])->id);
+
+        $this->onTenant($organization, function () use ($doctorId, $branchId, $other) {
+            // An extra clinic at each branch, and one day of leave for both.
+            foreach ([$branchId => 'Gurgaon camp', $other => 'Delhi camp'] as $where => $why) {
+                DoctorScheduleException::on('organization')->create([
+                    'doctor_id' => $doctorId,
+                    'location_id' => $where,
+                    'date' => self::MONDAY,
+                    'type' => DoctorScheduleException::EXTRA_SESSION,
+                    'starts_at' => '09:00',
+                    'ends_at' => '11:00',
+                    'reason' => $why,
+                ]);
+            }
+
+            DoctorScheduleException::on('organization')->create([
+                'doctor_id' => $doctorId,
+                'date' => '2026-09-14',
+                'type' => DoctorScheduleException::UNAVAILABLE,
+                'reason' => 'On leave',
+            ]);
+        });
+
+        $this->signInAsOwner($organization);
+
+        $reasons = collect(
+            $this->getJson("/api/v1/tenant/availability/exceptions?location_id={$branchId}&from=".self::MONDAY)
+                ->assertOk()
+                ->json('data')
+        )->pluck('reason')->all();
+
+        $this->assertContains('Gurgaon camp', $reasons);
+        $this->assertContains('On leave', $reasons);
+        $this->assertNotContains('Delhi camp', $reasons);
+    }
+
+    /**
+     * Every exception that has a branch reports one, however it knows it.
+     *
+     * Only an extra clinic carries a `location_id` of its own — it is not in
+     * the weekly pattern, so nothing else could say where it is. Changed hours
+     * and a cancelled sitting point at the sitting instead, and theirs is the
+     * sitting's branch. Reading only the column showed a dash against every
+     * one of those, which reads as missing data rather than as a rule.
+     *
+     * Whole-day leave is the one that genuinely has none: it takes the doctor
+     * off everywhere.
+     */
+    public function test_an_exception_reports_the_branch_it_belongs_to(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+
+        $scheduleId = $this->onTenant($organization, fn () => DoctorSchedule::on('organization')
+            ->where('doctor_id', $doctorId)->value('id'));
+
+        $this->onTenant($organization, function () use ($doctorId, $branchId, $scheduleId) {
+            // Knows its branch through the sitting it changes.
+            DoctorScheduleException::on('organization')->create([
+                'doctor_id' => $doctorId,
+                'doctor_schedule_id' => $scheduleId,
+                'date' => self::MONDAY,
+                'type' => DoctorScheduleException::CHANGED_HOURS,
+                'starts_at' => '11:00',
+                'ends_at' => '12:00',
+                'reason' => 'Theatre list',
+            ]);
+
+            // Carries its own.
+            DoctorScheduleException::on('organization')->create([
+                'doctor_id' => $doctorId,
+                'location_id' => $branchId,
+                'date' => self::MONDAY,
+                'type' => DoctorScheduleException::EXTRA_SESSION,
+                'starts_at' => '09:00',
+                'ends_at' => '11:00',
+                'reason' => 'Vaccination camp',
+            ]);
+
+            // Has none, and should not pretend to.
+            DoctorScheduleException::on('organization')->create([
+                'doctor_id' => $doctorId,
+                'date' => self::MONDAY,
+                'type' => DoctorScheduleException::UNAVAILABLE,
+                'reason' => 'On leave',
+            ]);
+        });
+
+        $this->signInAsOwner($organization);
+
+        $rows = collect(
+            $this->getJson('/api/v1/tenant/availability/exceptions?from='.self::MONDAY)
+                ->assertOk()
+                ->json('data')
+        )->keyBy('reason');
+
+        $this->assertSame('Gurgaon', $rows['Theatre list']['location_name']);
+        $this->assertSame('Gurgaon', $rows['Vaccination camp']['location_name']);
+
+        $this->assertNull($rows['On leave']['location_name']);
+        $this->assertTrue($rows['On leave']['whole_day']);
+    }
+
+    /**
+     * The day says what is left, not only what is offered.
+     *
+     * The desk picks a doctor before it sees a single slot, and "sitting
+     * 10–1" says nothing about whether 10–1 is spoken for — a full list and an
+     * empty one look identical without a count.
+     */
+    public function test_the_day_reports_how_many_slots_are_still_open(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+
+        $this->signInAsOwner($organization);
+
+        // 10:00–13:00 at 15 minutes is twelve, none of them taken yet.
+        $before = $this->getJson('/api/v1/tenant/availability/day?date='.self::MONDAY."&location_id={$branchId}")
+            ->assertOk()
+            ->json('data.doctors.0');
+
+        $this->assertSame(12, $before['total_slots']);
+        $this->assertSame(12, $before['open_slots']);
+
+        $customerId = $this->onTenant($organization, fn () => Customer::on('organization')->create([
+            'name' => 'Asha Rane',
+            'phone' => '9810000001',
+        ])->id);
+
+        $this->postJson('/api/v1/tenant/appointments', [
+            'customer_id' => $customerId,
+            'doctor_id' => $doctorId,
+            'location_id' => $branchId,
+            'appointment_date' => self::MONDAY,
+            'type' => 'booked',
+            'slot_at' => '10:00',
+        ])->assertCreated();
+
+        $after = $this->getJson('/api/v1/tenant/availability/day?date='.self::MONDAY."&location_id={$branchId}")
+            ->assertOk()
+            ->json('data.doctors.0');
+
+        // The window has not changed; what is left of it has.
+        $this->assertSame(12, $after['total_slots']);
+        $this->assertSame(11, $after['open_slots']);
     }
 
     public function test_availability_is_behind_the_module(): void

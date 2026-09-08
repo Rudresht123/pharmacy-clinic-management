@@ -535,6 +535,30 @@ export function BookDialog({
                                                 </small>
                                             </span>
 
+                                            {/*
+                                                How much of their day is left.
+
+                                                The hours alone say a doctor sits
+                                                9–1, which is not the question —
+                                                the desk is choosing somebody who
+                                                can take this patient, and a full
+                                                list and an empty one look
+                                                identical without a count.
+                                            */}
+                                            <span
+                                                className={`bk-free${
+                                                    doctor.open_slots === 0 ? ' is-full' : ''
+                                                }`}
+                                            >
+                                                {doctor.open_slots === 0 ? (
+                                                    'Full'
+                                                ) : (
+                                                    <>
+                                                        <b>{doctor.open_slots}</b> free
+                                                    </>
+                                                )}
+                                            </span>
+
                                             {doctorId === doctor.doctor_id && (
                                                 <i className="ti ti-circle-check-filled" aria-hidden="true" />
                                             )}

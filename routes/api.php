@@ -300,6 +300,18 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('opd.today');
             });
 
+            /*
+            | A doctor's own list.
+            |
+            | Behind `appointments.queue` rather than `appointments.view`: this
+            | is the screen somebody works the queue from, and it is the
+            | capability every doctor login is given. The doctor is taken from
+            | the session, never the query string.
+            */
+            Route::get('opd/my-day', [OpdController::class, 'myDay'])
+                ->middleware('permission:appointments.queue')
+                ->name('opd.my-day');
+
             Route::get('appointments', [AppointmentController::class, 'index'])
                 ->middleware('permission:appointments.view')
                 ->name('appointments.index');

@@ -55,6 +55,16 @@ class UpdateDoctorSchedulesRequest extends FormRequest
             'schedules.*.slot_minutes' => ['required', 'integer', 'min:1', 'max:240'],
             'schedules.*.max_walkins' => ['nullable', 'integer', 'min:0', 'max:999'],
             'schedules.*.is_active' => ['sometimes', 'boolean'],
+
+            /*
+             * When the pattern starts applying.
+             *
+             * The column and the availability service have honoured this from
+             * the beginning — a sitting outside its window produces nothing —
+             * but nothing could set it, so a rota agreed in September and
+             * starting in October had to be typed on the first of October.
+             */
+            'schedules.*.effective_from' => ['nullable', 'date_format:Y-m-d'],
         ];
     }
 

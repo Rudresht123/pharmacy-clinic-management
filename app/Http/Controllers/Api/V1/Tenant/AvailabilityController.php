@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\Tenant\StoreScheduleExceptionRequest;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\DoctorScheduleException;
 use App\Services\Opd\AvailabilityService;
+use App\Services\Opd\BookingService;
 use App\Services\Tenancy\TenantBranchAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class AvailabilityController extends BaseApiController
 {
     public function __construct(
         private readonly AvailabilityService $availability,
+        private readonly BookingService $booking,
         private readonly TenantBranchAccess $branches,
     ) {}
 
@@ -49,13 +51,28 @@ class AvailabilityController extends BaseApiController
             abort(403, 'You can only see the day at the branch you work at.');
         }
 
+        $doctors = $this->availability->dayAtLocation(
+            Carbon::parse($request->input('date')),
+            $locationId,
+        );
+
+        /*
+         * How much of each day is already spoken for.
+         *
+         * Availability is what the rota offers; this is what is left of it.
+         * The booking dialog picks a doctor before it shows a single slot, and
+         * without a count against the name there is nothing to pick on.
+         */
+        $load = $this->booking->loadFor($doctors, Carbon::parse($request->input('date')));
+
         return $this->ok([
             'date' => $request->date('date')->toDateString(),
             'location_id' => $locationId,
-            'doctors' => $this->availability->dayAtLocation(
-                Carbon::parse($request->input('date')),
-                $locationId,
-            ),
+            'doctors' => array_map(fn (array $doctor) => [
+                ...$doctor,
+                'open_slots' => $load[$doctor['doctor_id']]['open'] ?? 0,
+                'total_slots' => $load[$doctor['doctor_id']]['total'] ?? 0,
+            ], $doctors),
         ]);
     }
 
@@ -138,10 +155,11 @@ class AvailabilityController extends BaseApiController
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'doctor_id' => ['nullable', 'integer'],
+            'location_id' => ['nullable', 'integer'],
         ]);
 
         $rows = DoctorScheduleException::on('organization')
-            ->with(['doctor', 'location', 'schedule'])
+            ->with(['doctor', 'location', 'schedule.location', 'creator'])
             // Default window: today onwards, because the question is almost
             // always "what is coming", not "what has been".
             ->whereDate('date', '>=', $request->input('from', Carbon::today()->toDateString()))
@@ -153,6 +171,21 @@ class AvailabilityController extends BaseApiController
                 $request->filled('doctor_id'),
                 fn ($query) => $query->where('doctor_id', $request->integer('doctor_id'))
             )
+            /*
+             * Scoped to a branch when asked.
+             *
+             * The doctor panel has been sending this all along and it was
+             * being dropped on the floor: a panel opened from the Gurgaon week
+             * listed Delhi's cancellations too, answering a question nobody
+             * asked. Leave takes the doctor off everywhere, so it has no
+             * branch of its own and belongs in every branch's list.
+             */
+            ->when(
+                $request->filled('location_id'),
+                fn ($query) => $query->where(fn ($scope) => $scope
+                    ->where('location_id', $request->integer('location_id'))
+                    ->orWhereNull('location_id'))
+            )
             ->orderBy('date')
             ->get();
 
@@ -161,8 +194,22 @@ class AvailabilityController extends BaseApiController
             'doctor_id' => $row->doctor_id,
             'doctor_name' => $row->doctor?->name,
             'doctor_schedule_id' => $row->doctor_schedule_id,
-            'location_id' => $row->location_id,
-            'location_name' => $row->location?->name,
+            'location_id' => $row->location_id ?? $row->schedule?->location_id,
+
+            /*
+             * The branch, however this exception happens to know it.
+             *
+             * Only an extra clinic carries one of its own — it is not in the
+             * weekly pattern, so nothing else could say where it is. Changed
+             * hours and a cancelled sitting point at the sitting instead, and
+             * theirs is the sitting's branch; reading only the column left the
+             * list showing a dash for every one of them.
+             *
+             * Whole-day leave really has no branch: it takes the doctor off
+             * everywhere. That stays null, and the screen says so in words
+             * rather than pretending a branch is missing.
+             */
+            'location_name' => $row->location?->name ?? $row->schedule?->location?->name,
             'date' => $row->date?->toDateString(),
             'type' => $row->type,
             'starts_at' => $row->starts_at ? substr($row->starts_at, 0, 5) : null,
@@ -171,12 +218,19 @@ class AvailabilityController extends BaseApiController
             'max_walkins' => $row->max_walkins,
             'reason' => $row->reason,
             'whole_day' => $row->isWholeDayOff(),
+            'created_by_name' => $row->creator?->name,
         ]));
     }
 
     public function storeException(StoreScheduleExceptionRequest $request): JsonResponse
     {
-        $exception = DoctorScheduleException::on('organization')->create($request->validated());
+        $exception = DoctorScheduleException::on('organization')->create([
+            ...$request->validated(),
+
+            // From the session, never the payload: "who cancelled this" is
+            // worthless if the client can say who it was.
+            'created_by' => $request->user()?->getKey(),
+        ]);
 
         return $this->created(['id' => $exception->id], 'Saved');
     }

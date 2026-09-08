@@ -12,6 +12,7 @@ import {
 import { LoadingBlock, EmptyState, ErrorState, NoResultsState } from './Feedback';
 import type { Tone } from './tones';
 import { cn } from '@/shared/utils/cn';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 
 /**
  * Lets a column supply its own mobile label when its header is JSX rather
@@ -224,10 +225,12 @@ export function DataTable<TRow>({
                 <label className="dt-length">
                     <span>Show</span>
 
-                    <select
-                        value={currentPageSize}
-                        onChange={(event) => {
-                            const size = Number(event.target.value);
+                    <SearchableSelect
+                        compact
+                        value={String(currentPageSize)}
+                        ariaLabel="Rows per page"
+                        onChange={(next) => {
+                            const size = Number(next);
 
                             if (isServer) {
                                 server.setPageSize(size);
@@ -235,14 +238,11 @@ export function DataTable<TRow>({
                                 table.setPageSize(size);
                             }
                         }}
-                        aria-label="Rows per page"
-                    >
-                        {PAGE_SIZES.map((size) => (
-                            <option key={size} value={size}>
-                                {size}
-                            </option>
-                        ))}
-                    </select>
+                        options={PAGE_SIZES.map((size) => ({
+                            value: String(size),
+                            label: String(size),
+                        }))}
+                    />
 
                     <span>Entries</span>
                 </label>

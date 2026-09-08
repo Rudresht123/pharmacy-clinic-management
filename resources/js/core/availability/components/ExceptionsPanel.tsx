@@ -4,6 +4,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { DatePicker } from '@/shared/components/form/DatePicker';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { formatDate } from '@/shared/utils/format';
@@ -251,23 +252,22 @@ export function ExceptionsPanel({ branches }: { branches: Branch[] }) {
                 <div className="av-form">
                     <label className="av-field">
                         <span>Doctor</span>
-                        <select
-                            className="form-select"
-                            value={draft.doctor_id}
-                            onChange={(event) =>
+                        <SearchableSelect
+                            value={String(draft.doctor_id ?? '')}
+                            ariaLabel="Doctor"
+                            placeholder="Choose a doctor…"
+                            onChange={(next) =>
                                 patch({
-                                    doctor_id: Number(event.target.value),
+                                    doctor_id: Number(next),
                                     doctor_schedule_id: null,
                                 })
                             }
-                        >
-                            <option value="">Choose a doctor…</option>
-                            {(doctors ?? []).map((doctor) => (
-                                <option key={doctor.id} value={doctor.id}>
-                                    {doctor.name}
-                                </option>
-                            ))}
-                        </select>
+                            options={(doctors ?? []).map((doctor) => ({
+                                value: String(doctor.id),
+                                label: doctor.name,
+                                hint: doctor.specialisation ?? undefined,
+                            }))}
+                        />
                         {errors.doctor_id && <em>{errors.doctor_id}</em>}
                     </label>
 
@@ -309,27 +309,24 @@ export function ExceptionsPanel({ branches }: { branches: Branch[] }) {
                                     ? 'Which sitting (leave blank for the whole day)'
                                     : 'Which sitting'}
                             </span>
-                            <select
-                                className="form-select"
-                                value={draft.doctor_schedule_id ?? ''}
-                                onChange={(event) =>
+                            <SearchableSelect
+                                value={String(draft.doctor_schedule_id ?? '')}
+                                ariaLabel="Which sitting"
+                                placeholder={
+                                    draft.type === 'unavailable' ? 'The whole day' : 'Choose…'
+                                }
+                                clearable
+                                onChange={(next) =>
                                     patch({
-                                        doctor_schedule_id: event.target.value
-                                            ? Number(event.target.value)
-                                            : null,
+                                        doctor_schedule_id: next ? Number(next) : null,
                                     })
                                 }
-                            >
-                                <option value="">
-                                    {draft.type === 'unavailable' ? 'The whole day' : 'Choose…'}
-                                </option>
-                                {(schedules ?? []).map((schedule) => (
-                                    <option key={schedule.id} value={schedule.id}>
-                                        {schedule.weekday_label} · {schedule.starts_at}–
-                                        {schedule.ends_at} · {schedule.location_name}
-                                    </option>
-                                ))}
-                            </select>
+                                options={(schedules ?? []).map((schedule) => ({
+                                    value: String(schedule.id),
+                                    label: `${schedule.weekday_label} · ${schedule.starts_at}–${schedule.ends_at}`,
+                                    hint: schedule.location_name ?? undefined,
+                                }))}
+                            />
                             {errors.doctor_schedule_id && <em>{errors.doctor_schedule_id}</em>}
                         </label>
                     )}
@@ -337,20 +334,16 @@ export function ExceptionsPanel({ branches }: { branches: Branch[] }) {
                     {draft.type === 'extra_session' && (
                         <label className="av-field av-field--wide">
                             <span>Branch</span>
-                            <select
-                                className="form-select"
-                                value={draft.location_id ?? ''}
-                                onChange={(event) =>
-                                    patch({ location_id: Number(event.target.value) })
-                                }
-                            >
-                                <option value="">Choose a branch…</option>
-                                {branches.map((branch) => (
-                                    <option key={branch.id} value={branch.id}>
-                                        {branch.name}
-                                    </option>
-                                ))}
-                            </select>
+                            <SearchableSelect
+                                value={String(draft.location_id ?? '')}
+                                ariaLabel="Branch"
+                                placeholder="Choose a branch…"
+                                onChange={(next) => patch({ location_id: Number(next) })}
+                                options={branches.map((branch) => ({
+                                    value: String(branch.id),
+                                    label: branch.name,
+                                }))}
+                            />
                             {errors.location_id && <em>{errors.location_id}</em>}
                         </label>
                     )}

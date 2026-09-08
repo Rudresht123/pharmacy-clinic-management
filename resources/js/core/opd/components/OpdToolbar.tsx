@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { DatePicker } from '@/shared/components/form/DatePicker';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { today, type OpdContext } from '../useOpdContext';
 
 /**
@@ -52,17 +53,15 @@ export function OpdToolbar({
             {branches.length > 1 && (
                 <label className="opd-bar-field">
                     <span>Branch</span>
-                    <select
-                        className="form-select"
-                        value={branchId}
-                        onChange={(event) => setBranch(Number(event.target.value))}
-                    >
-                        {branches.map((branch) => (
-                            <option key={branch.id} value={branch.id}>
-                                {branch.name}
-                            </option>
-                        ))}
-                    </select>
+                    <SearchableSelect
+                        value={String(branchId)}
+                        onChange={(next) => setBranch(Number(next))}
+                        ariaLabel="Branch"
+                        options={branches.map((branch) => ({
+                            value: String(branch.id),
+                            label: branch.name,
+                        }))}
+                    />
                 </label>
             )}
 

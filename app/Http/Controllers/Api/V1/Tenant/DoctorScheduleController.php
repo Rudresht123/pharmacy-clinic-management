@@ -74,6 +74,7 @@ class DoctorScheduleController extends BaseApiController
                         'slot_minutes' => $row['slot_minutes'],
                         'max_walkins' => $row['max_walkins'] ?? null,
                         'is_active' => $row['is_active'] ?? true,
+                        'effective_from' => $row['effective_from'] ?? null,
                     ]);
                 }
             }

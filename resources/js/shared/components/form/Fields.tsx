@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
-import type { FieldErrors, FieldValues, Path, UseFormRegister } from 'react-hook-form';
+import { useController, type Control, type FieldErrors, type FieldValues, type Path, type UseFormRegister } from 'react-hook-form';
+import { SearchableSelect } from './SearchableSelect';
 import { PreviewableImage } from '@/shared/components/ui/PreviewableImage';
 import { formatBytes } from '@/shared/utils/format';
 import { cn } from '@/shared/utils/cn';
@@ -139,10 +140,18 @@ export interface Option {
     label: string;
 }
 
+/**
+ * One from a list, searchable.
+ *
+ * Controlled rather than registered: the control is a button and a panel, not
+ * a native `<select>`, so there is no element for `register` to bind a value
+ * to. That is also why it needs `control` — the same reason MultiSelectField
+ * does.
+ */
 export function SelectField<T extends FieldValues>({
     name,
     label,
-    register,
+    control,
     errors,
     required,
     hint,
@@ -150,8 +159,14 @@ export function SelectField<T extends FieldValues>({
     options,
     placeholder = 'Select…',
     loading = false,
-}: BaseFieldProps<T> & { options: Option[]; placeholder?: string; loading?: boolean }) {
+}: Omit<BaseFieldProps<T>, 'register'> & {
+    control: Control<T>;
+    options: Option[];
+    placeholder?: string;
+    loading?: boolean;
+}) {
     const error = messageFor(errors, name);
+    const { field } = useController({ name, control });
 
     return (
         <FieldShell
@@ -162,20 +177,19 @@ export function SelectField<T extends FieldValues>({
             error={error}
             className={className}
         >
-            <select
+            <SearchableSelect
                 id={name}
-                className={cn('form-select', error && 'is-invalid')}
+                value={field.value === undefined || field.value === null ? '' : String(field.value)}
+                onChange={field.onChange}
+                options={options.map((option) => ({
+                    value: String(option.value),
+                    label: option.label,
+                }))}
+                placeholder={loading ? 'Loading…' : placeholder}
                 disabled={loading}
-                {...register(name)}
-            >
-                <option value="">{loading ? 'Loading…' : placeholder}</option>
-
-                {options.map((option) => (
-                    <option key={option.value} value={option.value}>
-                        {option.label}
-                    </option>
-                ))}
-            </select>
+                invalid={Boolean(error)}
+                clearable={!required}
+            />
         </FieldShell>
     );
 }

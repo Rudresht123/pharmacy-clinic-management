@@ -31,6 +31,9 @@ class DoctorScheduleResource extends JsonResource
             'slot_minutes' => $this->slot_minutes,
             'max_walkins' => $this->max_walkins,
             'is_active' => (bool) $this->is_active,
+
+            // When the pattern starts applying; null means "already".
+            'effective_from' => $this->effective_from?->toDateString(),
         ];
     }
 }

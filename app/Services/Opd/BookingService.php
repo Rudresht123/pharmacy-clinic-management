@@ -52,6 +52,62 @@ class BookingService
     }
 
     /**
+     * How full each doctor's day already is.
+     *
+     * The desk picks a doctor before it sees a single slot, and "sitting
+     * 9–1" says nothing about whether 9–1 is spoken for. A count against the
+     * name is the difference between choosing a doctor and choosing one who
+     * can actually take the patient.
+     *
+     * One query for every doctor on the list rather than one each: the caller
+     * is rendering a whole branch's day, and the alternative is a query per
+     * row of a list that exists to be scanned.
+     *
+     * @param  list<array<string, mixed>>  $doctors  as `dayAtLocation` returns them
+     * @return array<int, array{open: int, total: int}>
+     */
+    public function loadFor(array $doctors, Carbon $date): array
+    {
+        $ids = array_column($doctors, 'doctor_id');
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $taken = Appointment::on('organization')
+            ->whereIn('doctor_id', $ids)
+            ->whereDate('appointment_date', $date->toDateString())
+            ->holdingASlot()
+            ->get(['doctor_id', 'slot_at'])
+            ->groupBy('doctor_id')
+            ->map(fn ($rows) => $rows
+                ->map(fn ($row) => substr((string) $row->slot_at, 0, 5))
+                ->all())
+            ->all();
+
+        $load = [];
+
+        foreach ($doctors as $doctor) {
+            $slots = [];
+
+            // Derived from the sessions already on the payload, so this costs
+            // arithmetic rather than another read of the timetable.
+            foreach ($doctor['sessions'] as $session) {
+                $slots = array_merge($slots, $this->availability->slotsFor($session));
+            }
+
+            $mine = $taken[$doctor['doctor_id']] ?? [];
+
+            $load[$doctor['doctor_id']] = [
+                'total' => count($slots),
+                'open' => count(array_diff($slots, $mine)),
+            ];
+        }
+
+        return $load;
+    }
+
+    /**
      * Book a named time.
      *
      * The slot is checked against derived availability rather than against

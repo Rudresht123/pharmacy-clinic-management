@@ -24,6 +24,15 @@ export interface AvailabilityDoctor {
     doctor_name: string;
     specialisation: string | null;
     sessions: AvailabilitySession[];
+
+    /**
+     * What is left of the day, and what it started as.
+     *
+     * The rota says a doctor sits 9–1; these say whether 9–1 is still going
+     * spare. Booked slots subtracted, cancellations given back.
+     */
+    open_slots: number;
+    total_slots: number;
 }
 
 export interface AvailabilityDay {
@@ -54,6 +63,9 @@ export interface ScheduleException {
 
     /** Leave that takes the day rather than one sitting. */
     whole_day: boolean;
+
+    /** Who recorded it. Null for anything written before it was captured. */
+    created_by_name: string | null;
 }
 
 export interface ScheduleExceptionInput {

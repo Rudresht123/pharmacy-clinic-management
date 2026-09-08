@@ -16,7 +16,8 @@ import { useConfigurableEntities } from '@/core/field-settings/api';
  * control that goes nowhere.
  */
 export function TenantShell() {
-    const { user, logout, modules, capabilities, organization } = useTenantAuth();
+    const { user, logout, modules, capabilities, organization, branches, activeBranch, doctorId } =
+        useTenantAuth();
 
     // The sidebar says whatever this organization calls its records.
     const { data: entities } = useConfigurableEntities();
@@ -30,9 +31,22 @@ export function TenantShell() {
     );
 
     const navigation = useMemo(
-        () => tenantNavigation(user?.role, labels, modules, capabilities),
-        [user?.role, labels, modules, capabilities],
+        () => tenantNavigation(user?.role, labels, modules, capabilities, doctorId),
+        [user?.role, labels, modules, capabilities, doctorId],
     );
+
+    /*
+     * Where this person actually works.
+     *
+     * An owner works across the network, so the organization is their scope
+     * and the card says so. Everybody else works at a branch, and the card was
+     * telling them the name of a thing they cannot act on — while the branch
+     * switcher, which is the only other place a branch name appears, hides
+     * itself for anybody with just the one. So a receptionist at Lucknow had
+     * nowhere on screen that said Lucknow.
+     */
+    const here = branches.find((branch) => branch.id === activeBranch) ?? branches[0];
+    const atOneBranch = user?.role !== 'owner' && Boolean(here);
 
     return (
         <AppShell
@@ -43,7 +57,9 @@ export function TenantShell() {
                 organization && (
                     <div className="app-org">
                         <span className="app-org-mark">
-                            {organization.has_logo ? (
+                            {atOneBranch ? (
+                                <i className="ti ti-building-store" />
+                            ) : organization.has_logo ? (
                                 <img src={organization.logo_url} alt="" />
                             ) : (
                                 <i className="ti ti-building" />
@@ -51,10 +67,28 @@ export function TenantShell() {
                         </span>
 
                         <span className="app-org-text">
-                            <b>{organization.name}</b>
+                            <b>{atOneBranch ? (here.name ?? 'This branch') : organization.name}</b>
+
+                            {/*
+                                The organisation stays on the second line for a
+                                branch person: it is context, not their scope.
+                                Their role there is the more useful half — it
+                                is the answer to "why can I not see that", and
+                                it is otherwise only on a screen they may not
+                                be able to open.
+                            */}
                             <small>
-                                Organization · {modules.length} module
-                                {modules.length === 1 ? '' : 's'}
+                                {atOneBranch ? (
+                                    <>
+                                        {organization.name}
+                                        {here.role ? ` · ${here.role}` : ''}
+                                    </>
+                                ) : (
+                                    <>
+                                        Organisation · {modules.length} module
+                                        {modules.length === 1 ? '' : 's'}
+                                    </>
+                                )}
                             </small>
                         </span>
                     </div>

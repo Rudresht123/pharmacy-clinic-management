@@ -458,4 +458,53 @@ class LocationTest extends TenantTestCase
             $this->assertLessThan($permission, $guard, "Permission check runs before the guard: {$order}");
         }
     }
+
+    /**
+     * A branch person sees their own branch, not the network's.
+     *
+     * `branches.view` is a branch-scoped capability — it means "here", not
+     * "everywhere" — and the listing was honouring the capability without
+     * honouring its scope. Every branch picker in the product is populated
+     * from this list, so an unscoped one both showed a receptionist sites they
+     * have nothing to do with and offered them as things to aim a request at.
+     */
+    public function test_staff_only_see_the_branches_they_work_at(): void
+    {
+        $organization = $this->provisionOrganization();
+
+        [$mine, $theirs] = $this->onTenant($organization, fn () => [
+            Location::on('organization')->create([
+                'name' => 'Lucknow',
+                'code' => 'LKO',
+                'type' => Location::CLINIC,
+                'is_active' => true,
+            ])->id,
+            Location::on('organization')->create([
+                'name' => 'Delhi',
+                'code' => 'DEL',
+                'type' => Location::CLINIC,
+                'is_active' => true,
+            ])->id,
+        ]);
+
+        $this->placeStaffAt($organization, $mine);
+        $this->signInAsStaff($organization);
+
+        $names = collect(
+            $this->getJson('/api/v1/tenant/locations?all=1')->assertOk()->json('data')
+        )->pluck('name');
+
+        $this->assertContains('Lucknow', $names);
+        $this->assertNotContains('Delhi', $names);
+
+        // The owner works across the network, so nothing is hidden from them.
+        $this->signInAsOwner($organization);
+
+        $all = collect(
+            $this->getJson('/api/v1/tenant/locations?all=1')->assertOk()->json('data')
+        )->pluck('name');
+
+        $this->assertContains('Lucknow', $all);
+        $this->assertContains('Delhi', $all);
+    }
 }

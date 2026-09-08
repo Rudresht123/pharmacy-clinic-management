@@ -24,6 +24,9 @@ export interface Doctor extends Timestamps {
     is_active: boolean;
     notes: string | null;
 
+    /** Absent rather than null when the photograph relation was not loaded. */
+    photo_url?: string | null;
+
     /**
      * Their login, when they have one.
      *
@@ -68,6 +71,9 @@ export interface DoctorSchedule {
     slot_minutes: number;
     max_walkins: number | null;
     is_active: boolean;
+
+    /** When the pattern starts applying; null means it already does. */
+    effective_from?: string | null;
 }
 
 /** One sitting as the editor submits it; new rows have no id yet. */
@@ -80,4 +86,7 @@ export interface DoctorScheduleInput {
     slot_minutes: number;
     max_walkins: number | null;
     is_active: boolean;
+
+    /** When the pattern starts applying; null means it already does. */
+    effective_from?: string | null;
 }
