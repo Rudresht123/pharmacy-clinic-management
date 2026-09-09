@@ -6,6 +6,7 @@ use App\Models\Tenant\Doctor;
 use App\Models\Tenant\DoctorSchedule;
 use App\Models\Tenant\DoctorScheduleException;
 use App\Support\Opd\Weekday;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -50,7 +51,11 @@ class AvailabilityService
             return [];
         }
 
-        $sessions = $this->weeklySessions($doctor, $date, $locationId, $exceptions);
+        $sessions = $this->weeklySessions(
+            $date,
+            $this->schedulesOn($doctor, Weekday::of($date), $locationId),
+            $exceptions,
+        );
 
         foreach ($this->extraSessions($exceptions, $locationId) as $extra) {
             $sessions[] = $extra;
@@ -253,9 +258,8 @@ class AvailabilityService
      * @return list<array<string, mixed>>
      */
     private function weeklySessions(
-        Doctor $doctor,
         Carbon $date,
-        ?int $locationId,
+        Collection $schedules,
         Collection $exceptions,
     ): array {
         $cancelled = $exceptions
@@ -267,15 +271,6 @@ class AvailabilityService
         $changed = $exceptions
             ->where('type', DoctorScheduleException::CHANGED_HOURS)
             ->keyBy('doctor_schedule_id');
-
-        $schedules = DoctorSchedule::on('organization')
-            ->with('location')
-            ->where('doctor_id', $doctor->id)
-            ->where('weekday', Weekday::of($date))
-            ->where('is_active', true)
-            ->when($locationId !== null, fn ($query) => $query->where('location_id', $locationId))
-            ->orderBy('starts_at')
-            ->get();
 
         $sessions = [];
 
@@ -303,6 +298,133 @@ class AvailabilityService
         }
 
         return $sessions;
+    }
+
+    /**
+     * The weekly rows for one weekday.
+     *
+     * Split out of `weeklySessions` so a caller with a month to build can load
+     * every weekday once and hand them in, rather than asking the same
+     * question thirty times.
+     *
+     * @return Collection<int, DoctorSchedule>
+     */
+    private function schedulesOn(Doctor $doctor, int $weekday, ?int $locationId): Collection
+    {
+        return DoctorSchedule::on('organization')
+            ->with('location')
+            ->where('doctor_id', $doctor->id)
+            ->where('weekday', $weekday)
+            ->where('is_active', true)
+            ->when($locationId !== null, fn ($query) => $query->where('location_id', $locationId))
+            ->orderBy('starts_at')
+            ->get();
+    }
+
+    /**
+     * One doctor's month, as a calendar shows it.
+     *
+     * Whole weeks: the grid runs from the Monday on or before the 1st to the
+     * Sunday on or after the last, so the trailing days of the months either
+     * side are present and marked rather than left as holes.
+     *
+     * Two queries for the whole month. The per-date path is right for a day or
+     * a week; asked thirty times over it would be ninety round trips for one
+     * screen, so the rows are loaded once and the same composition applied in
+     * memory.
+     *
+     * @return array<string, mixed>
+     */
+    public function monthFor(Doctor $doctor, Carbon $from, ?int $locationId = null): array
+    {
+        $month = $from->copy()->startOfMonth();
+
+        $start = $month->copy()->startOfWeek(CarbonInterface::MONDAY);
+        $end = $month->copy()->endOfMonth()->endOfWeek(CarbonInterface::SUNDAY);
+
+        $weekly = DoctorSchedule::on('organization')
+            ->with('location')
+            ->where('doctor_id', $doctor->id)
+            ->where('is_active', true)
+            ->when($locationId !== null, fn ($query) => $query->where('location_id', $locationId))
+            ->orderBy('starts_at')
+            ->get()
+            ->groupBy('weekday');
+
+        $exceptions = DoctorScheduleException::on('organization')
+            ->with('location')
+            ->where('doctor_id', $doctor->id)
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->get()
+            ->groupBy(fn (DoctorScheduleException $row) => $row->date->toDateString());
+
+        $days = [];
+
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            $onThisDate = $exceptions->get($date->toDateString(), collect());
+
+            /*
+             * Away for the whole day: nothing else needs deciding, and the
+             * reason is the useful part.
+             */
+            $wholeDay = $onThisDate->first(
+                fn (DoctorScheduleException $row) => $row->isWholeDayOff()
+            );
+
+            $rostered = $weekly->get(Weekday::of($date), collect())
+                ->filter(fn (DoctorSchedule $row) => $row->appliesOn($date));
+
+            if ($wholeDay) {
+                $sessions = [];
+            } else {
+                $sessions = [
+                    ...$this->weeklySessions($date, $rostered, $onThisDate),
+                    ...$this->extraSessions($onThisDate, $locationId),
+                ];
+
+                usort($sessions, fn ($a, $b) => $a['starts_at'] <=> $b['starts_at']);
+            }
+
+            $days[] = [
+                'date' => $date->toDateString(),
+                'day' => $date->day,
+                'in_month' => $date->month === $month->month,
+                'is_today' => $date->isToday(),
+
+                /*
+                 * Four states, and the difference between two of them is the
+                 * point of the screen: "none" is an ordinary day off, "off" is
+                 * a day they were due in and something took away.
+                 */
+                'state' => match (true) {
+                    $wholeDay !== null => 'off',
+                    $sessions === [] => $rostered->isEmpty() ? 'none' : 'off',
+                    (bool) collect($sessions)->contains('changed', true) => 'changed',
+                    default => 'on',
+                },
+
+                'reason' => $wholeDay?->reason
+                    ?? collect($sessions)->firstWhere('changed', true)['reason']
+                    ?? null,
+
+                'sessions' => array_map(fn (array $session) => [
+                    'starts_at' => $session['starts_at'],
+                    'ends_at' => $session['ends_at'],
+                    'name' => $session['name'],
+                    'location_name' => $session['location_name'],
+                    'slot_minutes' => $session['slot_minutes'],
+                    'changed' => $session['changed'],
+                ], $sessions),
+            ];
+        }
+
+        return [
+            'month' => $month->format('Y-m'),
+            'label' => $month->format('F Y'),
+            'from' => $start->toDateString(),
+            'to' => $end->toDateString(),
+            'days' => $days,
+        ];
     }
 
     /**

@@ -7972,40 +7972,394 @@ html::-webkit-scrollbar-track {
 .cn-finish:hover:not(:disabled){ border-color:#15803d; color:#15803d; }
 .cn-finish:disabled{ opacity:.6; cursor:default; }
 
-/* --- a doctor's schedule ------------------------------------ */
+/* --- today's consultations, worked through ------------------- */
 
-.ms-split{ display:grid; gap:14px; align-items:start; grid-template-columns:minmax(0,1fr) 340px; }
-
-@media (max-width:1199.98px){
-    .ms-split{ grid-template-columns:minmax(0,1fr); }
-}
-
-.msc-week{
-    margin:0;
-    padding:0;
-    list-style:none;
-    border:1px solid var(--line);
-    border-radius:10px;
-    overflow:hidden;
-}
-
-.msc-week li{
+.cs-hero{
     display:flex;
-    align-items:baseline;
+    flex-wrap:wrap;
+    align-items:center;
     justify-content:space-between;
-    gap:16px;
-    padding:11px 13px;
+    gap:14px;
+    margin-bottom:14px;
+}
+
+.cs-hero h1{ margin:0; font-size:20px; font-weight:700; color:var(--ink); }
+.cs-hero p{ margin:2px 0 0; font-size:12.5px; color:var(--muted); }
+
+/* A live consultation is the one state worth announcing on the header. */
+.cs-live{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:7px 14px;
+    border-radius:999px;
+    background:#e7f7ed;
+    font-size:12.5px;
+    font-weight:600;
+    color:#15803d;
+}
+
+.cs-live i{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#15803d;
+    animation:cs-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes cs-pulse{
+    0%, 100%{ opacity:1; }
+    50%{ opacity:.35; }
+}
+
+@media (prefers-reduced-motion:reduce){
+    .cs-live i{ animation:none; }
+}
+
+.cs-stats{ margin-bottom:14px; }
+.cs-stats .md-stat{ flex:1 1 160px; }
+
+/*
+ * The list and the write-up side by side.
+ *
+ * That is the actual loop — finish somebody, glance at who is next, start
+ * writing. Split across two screens it becomes navigate, write, navigate back,
+ * and the queue's position is lost every round.
+ */
+.cs-split{ display:grid; gap:14px; align-items:start; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); }
+
+@media (max-width:1399.98px){
+    .cs-split{ grid-template-columns:minmax(0,1fr); }
+}
+
+.cs-tabs{ display:flex; flex-wrap:wrap; gap:2px; margin-bottom:12px; border-bottom:1px solid var(--line); }
+
+.cs-tab{
+    padding:9px 13px;
+    border:0;
+    border-bottom:2px solid transparent;
+    background:transparent;
+    font-size:12.5px;
+    font-weight:500;
+    color:var(--muted);
+    white-space:nowrap;
+    cursor:pointer;
+}
+
+.cs-tab:hover{ color:var(--ink-2); }
+.cs-tab.is-on{ border-bottom-color:rgb(var(--brand)); font-weight:600; color:rgb(var(--brand)); }
+
+.cs-search{ width:100%; margin-bottom:12px; }
+.cs-search input{ width:100%; }
+
+.cs-open{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:5px 11px;
+    border-radius:8px;
+    background:rgba(var(--brand), .09);
+    font-size:12px;
+    font-weight:600;
+    color:rgb(var(--brand));
+    white-space:nowrap;
+}
+
+.cs-work{ min-height:520px; }
+
+.cs-head{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:14px;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--line);
+}
+
+.cs-who{ flex:1 1 auto; min-width:0; }
+
+.cs-who b{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    font-size:15.5px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.cs-who small{ display:block; margin-top:2px; font-size:12px; color:var(--muted); }
+
+/* --- a doctor's own records, read five ways ------------------ */
+
+/*
+ * A list page grows; it does not scroll inside a box.
+ *
+ * `.md-scroll` caps its height at 352px, which is right on the dashboard where
+ * the queue sits above the patient in the room. On a page whose whole job is
+ * the list, it made a window onto twenty rows with no way to tell how many
+ * were behind it — pagination is what says that.
+ */
+.rec-scroll{ overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+
+.rec-tools{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; }
+
+/*
+ * How many rows to a page.
+ *
+ * The DataTable screens have had this since the beginning; the tables written
+ * by hand were paged at a fixed twenty, which is right for scanning and wrong
+ * for the afternoon somebody wants the whole month on one screen.
+ */
+.rec-len{ display:grid; gap:4px; }
+.rec-len > span{ font-size:11px; font-weight:500; color:var(--muted); }
+.rec-len .ss{ min-height:38px; width:96px; }
+.rec-when{ display:grid; gap:4px; min-width:150px; }
+.rec-when > span{ font-size:11px; font-weight:500; color:var(--muted); }
+
+/* Overdue is the reason somebody opens a follow-up list. */
+.rec-overdue{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    margin:0 0 14px;
+    padding:10px 12px;
+    border-radius:10px;
+    background:#fdeaec;
+    font-size:12.5px;
+    font-weight:600;
+    color:#c92a3a;
+}
+
+.rec-overdue i{ flex:0 0 auto; font-size:16px; }
+
+/* A row that has a write-up behind it opens on click. */
+.rec-scroll + .dt-foot{ margin-top:14px; }
+
+.rec-row{ cursor:pointer; }
+.rec-row:hover{ background:var(--surface-2); }
+.rec-row.is-open{ background:rgba(var(--brand), .05); }
+
+.rec-open{ display:inline-flex; align-items:center; gap:7px; }
+.rec-open i{ font-size:14px; color:var(--muted); }
+
+.rec-detail > td{ padding:0 !important; background:var(--surface-2); }
+
+/*
+ * What was written at the visit, opened out under its row.
+ *
+ * Everything the doctor recorded rather than a summary: leaving the
+ * prescription out would send somebody to a second screen for the one thing
+ * they opened the row to see.
+ */
+.rec-up{ display:grid; gap:11px; padding:14px 16px; }
+
+.rec-up-row{
+    display:grid;
+    grid-template-columns:112px minmax(0,1fr);
+    gap:12px;
+    align-items:start;
     font-size:12.5px;
 }
 
-.msc-week li:nth-child(odd){ background:var(--surface-2); }
-.msc-day{ flex:0 0 96px; font-weight:600; color:var(--ink); }
-.msc-week li.is-off .msc-day{ font-weight:500; color:var(--muted); }
+.rec-up-row > span{ font-size:11.5px; font-weight:600; color:var(--muted); }
+.rec-up-row > p{ margin:0; color:var(--ink-2); }
 
-.msc-list{ display:grid; gap:6px; text-align:right; }
-.msc-one b{ display:block; color:var(--ink); font-variant-numeric:tabular-nums; }
-.msc-one small{ display:block; font-size:11px; color:var(--muted); }
+.rec-vitals{ display:flex; flex-wrap:wrap; gap:6px; }
 
+.rec-vitals em{
+    padding:2px 9px;
+    border-radius:7px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    font-size:11px;
+    font-style:normal;
+    font-weight:600;
+    color:var(--ink-2);
+    text-transform:capitalize;
+}
+
+.rec-lines{ margin:0; padding:0; list-style:none; display:grid; gap:6px; }
+
+.rec-lines li{
+    padding:8px 11px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface);
+}
+
+.rec-lines b{ display:block; font-size:12.5px; font-weight:600; color:var(--ink); }
+.rec-lines small{ display:block; margin-top:2px; font-size:11px; color:var(--muted); }
+
+@media (max-width:767.98px){
+    /* Stacked as a card, the detail row is the card's own footer. */
+    .rec-up-row{ grid-template-columns:minmax(0,1fr); gap:4px; }
+    .rec-detail > td{ border-radius:0 0 12px 12px; }
+}
+
+.rec-who{ display:block; text-decoration:none; }
+.rec-who b{ display:block; font-size:13px; font-weight:600; color:var(--ink); }
+.rec-who small{ display:block; font-size:11px; color:var(--muted); }
+.rec-who:hover b{ color:rgb(var(--brand)); }
+
+/*
+ * Days, not only a date.
+ *
+ * "Eleven days late" is the fact somebody acts on; counting it off a calendar
+ * at the end of a clinic is where a follow-up gets missed.
+ */
+.rec-due{
+    display:inline-flex;
+    margin-top:3px;
+    padding:2px 8px;
+    border-radius:999px;
+    background:var(--surface-2);
+    font-size:10.5px;
+    font-weight:600;
+    color:var(--muted);
+    white-space:nowrap;
+}
+
+.rec-due.is-soon{ background:#fdf0e0; color:#b45309; }
+.rec-due.is-late{ background:#fdeaec; color:#c92a3a; }
+
+/* --- a doctor's schedule, as a calendar ---------------------- */
+
+.cal-split{ display:grid; gap:14px; align-items:start; grid-template-columns:minmax(0,1fr) 320px; }
+.cal-side{ display:grid; gap:14px; }
+
+@media (max-width:1199.98px){
+    .cal-split{ grid-template-columns:minmax(0,1fr); }
+}
+
+.cal-bar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:14px;
+}
+
+.cal-when{ display:flex; align-items:center; gap:10px; }
+.cal-when b{ min-width:158px; text-align:center; font-size:15px; font-weight:700; color:var(--ink); }
+
+.cal-step{
+    display:grid;
+    place-items:center;
+    width:34px;
+    height:34px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:16px;
+    color:var(--ink-2);
+    cursor:pointer;
+}
+
+.cal-step:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+.cal-tools{ display:flex; align-items:center; gap:10px; }
+.cal-count{ font-size:12px; color:var(--muted); }
+
+.cal-today{
+    height:34px;
+    padding:0 14px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface);
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    cursor:pointer;
+}
+
+.cal-today:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+/*
+ * Seven columns, whole weeks.
+ *
+ * A rota is a shape before it is a list — "am I in on the 18th", "how much of
+ * next week am I covering", "when is my next day off" are all answered by
+ * looking rather than by reading down seven rows and counting.
+ */
+.cal{
+    display:grid;
+    grid-template-columns:repeat(7, minmax(0, 1fr));
+    gap:6px;
+}
+
+.cal-head{
+    padding:4px 2px 8px;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--muted);
+    text-align:center;
+}
+
+.cal-day{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:4px;
+    min-height:78px;
+    padding:8px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+    text-align:left;
+    cursor:pointer;
+    transition:border-color .14s ease, background .14s ease;
+}
+
+.cal-day > b{
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+}
+
+.cal-times{ display:grid; gap:2px; width:100%; }
+
+.cal-times em{
+    display:block;
+    font-size:10px;
+    font-style:normal;
+    font-weight:600;
+    line-height:1.35;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+/*
+ * Four states, each also named in the legend and in the cell's label.
+ *
+ * "None" is an ordinary day off; "off" is a day they were due in and something
+ * took away. They look identical in a diary and are opposites in practice, so
+ * they are never the same colour.
+ */
+.cal-day.is-on{ border-color:#cfead9; background:#f2fbf6; }
+.cal-day.is-on > b{ color:#166534; }
+.cal-day.is-on .cal-times em{ color:#15803d; }
+
+.cal-day.is-changed{ border-color:#c9dcfd; background:#f3f7ff; }
+.cal-day.is-changed > b{ color:#1e40af; }
+.cal-day.is-changed .cal-times em{ color:#1d4ed8; }
+
+.cal-day.is-off{ border-color:#f3c6cd; background:#fef5f6; }
+.cal-day.is-off > b{ color:#a81f31; }
+.cal-day.is-off .cal-times em{ color:#c92a3a; }
+
+/* The days either side of the month are present but plainly not part of it. */
+.cal-day.is-out{ opacity:.45; }
+
+.cal-day.is-today{ box-shadow:inset 0 0 0 2px rgb(var(--brand)); }
+.cal-day.is-open{ border-color:rgb(var(--brand)); }
+.cal-day:hover{ border-color:var(--ink-3); }
+
+/* A sitting whose hours were moved for that date. */
 .msc-changed{
     flex:0 0 auto;
     padding:2px 9px;
@@ -8017,157 +8371,30 @@ html::-webkit-scrollbar-track {
     color:#1d4ed8;
 }
 
-/* ==========================================================
-   Any hand-rolled table, as cards on a phone
-   ========================================================== */
+.cal-legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 18px;
+    margin:16px 0 0;
+    padding:13px 2px 0;
+    border-top:1px solid var(--line);
+    list-style:none;
+}
 
-/*
- * The same trick DataTable uses, available to the tables written by hand.
- *
- * A table that scrolls sideways on a phone hides most of itself, and the
- * columns somebody actually needs are rarely the first two. Below 768px each
- * row becomes a card of label/value pairs, read from the `data-label` the
- * markup puts on every cell — so the labels live once, in the header, and the
- * cards cannot drift out of step with the columns.
- *
- * Opt-in by class rather than applied to every table: the week grid is a grid,
- * and turning its seven columns into seven rows would destroy the one thing it
- * exists to show.
- */
-@media (max-width:767.98px){
-    .tbl-cards,
-    .tbl-cards tbody,
-    .tbl-cards tr,
-    .tbl-cards td,
-    .tbl-cards tbody th{
-        display:block;
-        width:100%;
-    }
+.cal-legend li{ display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--ink-2); }
+.cal-key{ width:11px; height:11px; flex:0 0 auto; border-radius:4px; border:1px solid transparent; }
+.cal-key.is-on{ border-color:#cfead9; background:#d8f2e4; }
+.cal-key.is-changed{ border-color:#c9dcfd; background:#dbe8ff; }
+.cal-key.is-off{ border-color:#f3c6cd; background:#fbdde1; }
+.cal-key.is-none{ border-color:var(--line); background:var(--surface); }
 
-    /*
-     * A row header becomes the card's title.
-     *
-     * The schedules table names each row with a `<th scope="row">` — the day —
-     * and left as a cell it would read as one more label/value pair rather
-     * than as the thing the card is about.
-     */
-    .tbl-cards tbody th{
-        padding:10px 14px 6px;
-        border-bottom:1px solid var(--line);
-        background:var(--surface-2);
-        font-size:13px;
-        font-weight:700;
-        color:var(--ink);
-        text-align:left;
-    }
-
-    .tbl-cards thead{ display:none; }
-
-    .tbl-cards tbody tr{
-        margin-bottom:10px;
-        padding:4px 0;
-        border:1px solid var(--line);
-        border-radius:12px;
-        background:var(--surface);
-        overflow:hidden;
-    }
-
-    .tbl-cards tbody tr:last-child{ margin-bottom:0; }
-
-    .tbl-cards tbody td{
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:14px;
-        padding:9px 14px;
-        border-bottom:0;
-        text-align:right;
-        font-size:13px;
-    }
-
-    /* The label, taken from the column it came from. */
-    .tbl-cards tbody td::before{
-        content:attr(data-label);
-        flex-shrink:0;
-        text-align:left;
-        font-size:12px;
-        font-weight:600;
-        color:var(--muted);
-    }
-
-    /* Cells with no header — a serial, a row of buttons — span the card. */
-    .tbl-cards tbody td[data-label='']::before{ content:none; }
-    .tbl-cards tbody td[data-label='']{ justify-content:flex-end; }
-
-    /* Controls stack rather than being squeezed against their label. */
-    .tbl-cards tbody td.sc-times,
-    .tbl-cards tbody td.sc-kinds{
-        display:grid;
-        gap:7px;
-        justify-items:stretch;
-        text-align:left;
-    }
-
-    .tbl-cards tbody td.sc-times::before,
-    .tbl-cards tbody td.sc-kinds::before{ text-align:left; }
-    .tbl-cards tbody td.sc-times .sc-range{ width:100%; }
-    .tbl-cards tbody td.sc-acts{ padding-top:0; }
-
-    /*
-     * A row's action buttons, once the row is a card.
-     *
-     * They were laid out to sit at the end of a wide row; in a card they get
-     * the full width and stop being a 30px target at the far right.
-     */
-    .tbl-cards tbody td.q-row-act,
-    .tbl-cards tbody td.opd-row-act{
-        padding-top:4px;
-        border-top:1px solid var(--line);
-    }
-
-    .tbl-cards tbody td.q-row-act .q-actions,
-    .tbl-cards tbody td.opd-row-act .opd-actions{ width:100%; justify-content:flex-end; }
-
-    /* The serial reads as a quiet strip at the top of the card. */
-    .tbl-cards tbody td.q-n,
-    .tbl-cards tbody td.opd-n,
-    .tbl-cards tbody td.md-no{
-        justify-content:flex-start;
-        padding:8px 14px 2px;
-        font-size:11.5px;
-        font-weight:600;
-        color:var(--muted);
-    }
-
-    /* The prescription editor stacks; four inputs in a row is not a phone. */
-    .cn-lines,
-    .cn-lines tbody,
-    .cn-lines tr,
-    .cn-lines td{ display:block; width:100%; }
-
-    .cn-lines thead{ display:none; }
-
-    .cn-lines tbody tr{
-        display:grid;
-        gap:6px;
-        margin-bottom:9px;
-        padding:10px;
-        border:1px solid var(--line);
-        border-radius:10px;
-        background:var(--surface);
-    }
-
-    .cn-lines td{ padding:0; }
-    .cn-lines td:last-child{ width:100%; justify-self:end; }
-    .cn-lines .cn-drop{ width:100%; }
-
-    /* The scroll box has nothing left to scroll. */
-    .tbl-cards-scroll{
-        max-height:none !important;
-        overflow:visible !important;
-        border:0 !important;
-        border-radius:0 !important;
-    }
+@media (max-width:575.98px){
+    /* Numbers and marks only; the times go to the panel below. */
+    .cal{ gap:4px; }
+    .cal-day{ min-height:52px; padding:6px 4px; align-items:center; }
+    .cal-times{ display:none; }
+    .cal-when b{ min-width:0; flex:1 1 auto; }
+    .cal-bar{ gap:8px; }
 }
 
 /* ==========================================================

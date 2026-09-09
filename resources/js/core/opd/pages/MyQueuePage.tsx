@@ -1,10 +1,14 @@
 import { useMemo, useState } from 'react';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { Pagination } from '@/shared/components/ui/Pagination';
 import { Card } from '@/shared/components/ui/Card';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { useMoveAppointment } from '@/core/appointments/api';
 import { useMyDay } from '../api';
+
+/** The same page length as the other lists, so nobody relearns it. */
+const PER_PAGE = 20;
 
 /** The statuses, in the order somebody moves through them. */
 const TABS = [
@@ -43,6 +47,7 @@ export default function MyQueuePage() {
 
     const [tab, setTab] = useState<string>('all');
     const [term, setTerm] = useState('');
+    const [page, setPage] = useState(1);
 
     const rows = data?.queue ?? [];
 
@@ -70,6 +75,16 @@ export default function MyQueuePage() {
             );
     }, [rows, tab, term]);
 
+    /*
+     * Clamped rather than reset.
+     *
+     * Narrowing a filter from four pages to one used to leave somebody on page
+     * three looking at an empty table.
+     */
+    const pageCount = Math.max(1, Math.ceil(shown.length / PER_PAGE));
+    const current = Math.min(page, pageCount);
+    const paged = shown.slice((current - 1) * PER_PAGE, current * PER_PAGE);
+
     if (isLoading) return <LoadingBlock label="Loading your queue…" />;
     if (isError || !data) return <ErrorState onRetry={() => refetch()} />;
 
@@ -93,7 +108,10 @@ export default function MyQueuePage() {
                                     key={key}
                                     className={`md-tab${tab === key ? ' is-on' : ''}`}
                                     aria-pressed={tab === key}
-                                    onClick={() => setTab(key)}
+                                    onClick={() => {
+                                        setTab(key);
+                                        setPage(1);
+                                    }}
                                 >
                                     {label}
                                     {key !== 'all' && counted[key] ? ` (${counted[key]})` : ''}
@@ -109,7 +127,10 @@ export default function MyQueuePage() {
                                 value={term}
                                 placeholder="Name, code or token…"
                                 aria-label="Search this queue"
-                                onChange={(event) => setTerm(event.target.value)}
+                                onChange={(event) => {
+                                    setTerm(event.target.value);
+                                    setPage(1);
+                                }}
                             />
                         </label>
                     </div>
@@ -126,7 +147,7 @@ export default function MyQueuePage() {
                         </p>
                     </div>
                 ) : (
-                    <div className="md-scroll tbl-cards-scroll">
+                    <div className="rec-scroll tbl-cards-scroll">
                         <table className="md-queue tbl-cards">
                             <thead>
                                 <tr>
@@ -141,7 +162,7 @@ export default function MyQueuePage() {
                             </thead>
 
                             <tbody>
-                                {shown.map((row) => (
+                                {paged.map((row) => (
                                     <tr
                                         key={row.id}
                                         className={
@@ -251,6 +272,16 @@ export default function MyQueuePage() {
                             </tbody>
                         </table>
                     </div>
+                )}
+
+                {shown.length > 0 && (
+                    <Pagination
+                        page={current}
+                        pageCount={pageCount}
+                        total={shown.length}
+                        perPage={PER_PAGE}
+                        onChange={setPage}
+                    />
                 )}
             </Card>
         </>

@@ -297,4 +297,85 @@ class ConsultationTest extends TenantTestCase
         $this->assertSame('Asha Rane', $current['customer_name']);
         $this->assertSame('Chest pain since 2 days', $current['consultation']['chief_complaint']);
     }
+
+    /**
+     * A doctor's own records are theirs, in every reading.
+     *
+     * Five screens hang off one endpoint, and the check that matters is the
+     * same for all of them: the doctor comes from the session. An id in the
+     * query string would let one doctor read another's patients under a
+     * capability every doctor login holds.
+     */
+    public function test_the_records_screens_are_scoped_to_the_signed_in_doctor(): void
+    {
+        [$organization, $ids, $branchId, $appointmentId] = $this->clinic();
+
+        $this->signInAsDoctor($organization, 'anjali@clinic.test');
+
+        $this->putJson("/api/v1/tenant/appointments/{$appointmentId}/consultation", [
+            'chief_complaint' => 'Chest pain since 2 days',
+            'diagnoses' => ['Hypertension'],
+            'prescription' => [['drug' => 'Amlodipine 5mg', 'dose' => '1 tablet']],
+            'investigations' => [['test' => 'ECG']],
+            'follow_up_days' => 7,
+        ])->assertOk();
+
+        foreach (['consultations', 'prescriptions', 'investigations', 'follow-ups'] as $view) {
+            $rows = $this->getJson("/api/v1/tenant/opd/my-records?view={$view}")
+                ->assertOk()
+                ->json('data');
+
+            $this->assertCount(1, $rows, "The {$view} view did not return the doctor's own row.");
+            $this->assertSame('Asha Rane', $rows[0]['customer_name']);
+        }
+
+        // The other doctor wrote none of it, so none of it is theirs.
+        $this->signInAsDoctor($organization, 'vikram@clinic.test');
+
+        foreach (['consultations', 'prescriptions', 'investigations', 'follow-ups'] as $view) {
+            $this->assertSame(
+                [],
+                $this->getJson("/api/v1/tenant/opd/my-records?view={$view}")->assertOk()->json('data'),
+                "The {$view} view leaked another doctor's rows.",
+            );
+        }
+    }
+
+    /**
+     * A follow-up date is worked out, never stored.
+     *
+     * It is advice written at a visit — "come back in seven days" — so the date
+     * it lands on is the visit's date plus those days. A stored due date would
+     * be storing something already known, and it would go stale the moment the
+     * visit itself was corrected.
+     */
+    public function test_a_follow_up_is_due_the_stated_days_after_the_visit(): void
+    {
+        [$organization, , , $appointmentId] = $this->clinic();
+
+        $this->signInAsDoctor($organization, 'anjali@clinic.test');
+
+        $this->putJson("/api/v1/tenant/appointments/{$appointmentId}/consultation", [
+            'follow_up_days' => 7,
+        ])->assertOk();
+
+        $row = $this->getJson('/api/v1/tenant/opd/my-records?view=follow-ups')
+            ->assertOk()
+            ->json('data.0');
+
+        $this->assertSame(self::MONDAY, $row['seen_on']);
+        $this->assertSame('2026-09-14', $row['due_on']);
+        $this->assertSame(7, $row['days']);
+    }
+
+    /** The desk may work a queue; it has no records of its own. */
+    public function test_somebody_who_is_not_a_doctor_has_no_records(): void
+    {
+        [$organization] = $this->clinic();
+
+        $this->signInAsOwner($organization);
+
+        $this->getJson('/api/v1/tenant/opd/my-records?view=consultations')
+            ->assertStatus(403);
+    }
 }

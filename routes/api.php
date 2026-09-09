@@ -324,6 +324,14 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 ->middleware('permission:appointments.queue')
                 ->name('opd.my-day');
 
+            Route::get('opd/my-month', [OpdController::class, 'myMonth'])
+                ->middleware('permission:appointments.queue')
+                ->name('opd.my-month');
+
+            Route::get('opd/my-records', [OpdController::class, 'myRecords'])
+                ->middleware('permission:appointments.queue')
+                ->name('opd.my-records');
+
             /*
             | Writing up a visit.
             |

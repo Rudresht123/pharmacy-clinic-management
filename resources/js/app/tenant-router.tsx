@@ -23,6 +23,8 @@ const DoctorFormPage = lazy(() => import('@/core/doctors/pages/DoctorFormPage'))
 const MyDayPage = lazy(() => import('@/core/opd/pages/MyDayPage'));
 const MyQueuePage = lazy(() => import('@/core/opd/pages/MyQueuePage'));
 const MySchedulePage = lazy(() => import('@/core/opd/pages/MySchedulePage'));
+const MyRecordsPage = lazy(() => import('@/core/opd/pages/MyRecordsPage'));
+const MyConsultationsPage = lazy(() => import('@/core/opd/pages/MyConsultationsPage'));
 const SchedulesPage = lazy(() => import('@/core/doctors/pages/SchedulesPage'));
 const AvailabilityPage = lazy(() => import('@/core/availability/pages/AvailabilityPage'));
 const QueuePage = lazy(() => import('@/core/appointments/pages/QueuePage'));
@@ -193,6 +195,37 @@ export function TenantAppRoutes() {
                                     <Route path="/my-day" element={<MyDayPage />} />
                                     <Route path="/my-queue" element={<MyQueuePage />} />
                                     <Route path="/my-schedule" element={<MySchedulePage />} />
+
+                                    {/*
+                                        Five readings of the same rows, so one
+                                        component with a prop rather than five
+                                        near-identical files.
+                                    */}
+                                    <Route
+                                        path="/my-appointments"
+                                        element={<MyRecordsPage view="appointments" />}
+                                    />
+                                    {/*
+                                        Consultations are worked, not read: the
+                                        list and the write-up on one screen,
+                                        because that is the actual loop.
+                                    */}
+                                    <Route
+                                        path="/my-consultations"
+                                        element={<MyConsultationsPage />}
+                                    />
+                                    <Route
+                                        path="/my-prescriptions"
+                                        element={<MyRecordsPage view="prescriptions" />}
+                                    />
+                                    <Route
+                                        path="/my-investigations"
+                                        element={<MyRecordsPage view="investigations" />}
+                                    />
+                                    <Route
+                                        path="/my-follow-ups"
+                                        element={<MyRecordsPage view="follow-ups" />}
+                                    />
                                 </Route>
 
                                 <Route

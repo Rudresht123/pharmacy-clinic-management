@@ -250,6 +250,8 @@ export interface MyDay {
         expected: number;
         new: number;
         returning: number;
+        follow_ups: number;
+        no_show: number;
     };
     queue: MyRow[];
 

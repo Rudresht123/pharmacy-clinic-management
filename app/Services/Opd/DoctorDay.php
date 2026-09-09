@@ -131,6 +131,14 @@ class DoctorDay
 
             // Booked, and nobody has checked them in yet.
             'expected' => $appointments->where('status', Appointment::STATUS_BOOKED)->count(),
+
+            // Written up today with a return asked for. Counted off the
+            // consultations already loaded, so it costs nothing.
+            'follow_ups' => $appointments
+                ->filter(fn (Appointment $row) => $row->consultation?->follow_up_days !== null)
+                ->count(),
+
+            'no_show' => $appointments->where('status', Appointment::STATUS_NO_SHOW)->count(),
         ];
     }
 

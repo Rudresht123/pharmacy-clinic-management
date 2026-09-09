@@ -176,22 +176,20 @@ export function tenantNavigation(
      *
      * They hold `appointments.queue` and `customers.view` and nothing wider, so
      * the OPD group below — the board, the desk's queue, the doctor registry,
-     * the branch rota — never renders for them. What is left would be two rows,
-     * which is why the rest of their day is named here even where it is not
-     * built: a doctor should be able to see the shape of their own screen.
+     * the branch rota — never renders for them.
      *
-     * The unbuilt ones are marked and unclickable rather than linking to a 404.
-     * Each needs a table that does not exist — consultations, prescriptions,
-     * investigations and documents are all later phases.
+     * Every entry here is scoped to the signed-in doctor by its endpoint. The
+     * department's versions of the same screens exist already, behind
+     * capabilities a doctor does not hold.
      */
     if (isDoctor) {
         const mine: NavItem[] = [
             { label: 'My queue', to: '/my-queue', icon: 'ti ti-list-numbers', match: '/my-queue' },
             {
                 label: 'Consultations',
-                to: '/consultations',
+                to: '/my-consultations',
                 icon: 'ti ti-clipboard-text',
-                soon: true,
+                match: '/my-consultations',
             },
         ];
 
@@ -205,16 +203,42 @@ export function tenantNavigation(
         }
 
         mine.push(
-            { label: 'Appointments', to: '/appointments', icon: 'ti ti-calendar', soon: true },
-            { label: 'Prescriptions', to: '/prescriptions', icon: 'ti ti-file-text', soon: true },
-            { label: 'Investigations', to: '/investigations', icon: 'ti ti-microscope', soon: true },
-            { label: 'Follow-ups', to: '/follow-ups', icon: 'ti ti-calendar-repeat', soon: true },
+            {
+                label: 'Appointments',
+                to: '/my-appointments',
+                icon: 'ti ti-calendar',
+                match: '/my-appointments',
+            },
+            {
+                label: 'Prescriptions',
+                to: '/my-prescriptions',
+                icon: 'ti ti-file-text',
+                match: '/my-prescriptions',
+            },
+            {
+                label: 'Investigations',
+                to: '/my-investigations',
+                icon: 'ti ti-microscope',
+                match: '/my-investigations',
+            },
+            {
+                label: 'Follow-ups',
+                to: '/my-follow-ups',
+                icon: 'ti ti-calendar-repeat',
+                match: '/my-follow-ups',
+            },
             {
                 label: 'My schedule',
                 to: '/my-schedule',
                 icon: 'ti ti-clock-hour-4',
                 match: '/my-schedule',
             },
+
+            /*
+             * The last one still to build. Attaching scans and reports needs a
+             * file store wired to a visit, which is its own piece of work — and
+             * a row that answered 404 would be worse than one that says so.
+             */
             { label: 'Documents', to: '/documents', icon: 'ti ti-folder', soon: true },
         );
 
