@@ -9,6 +9,7 @@ use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Support\Platform\OrganizationCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -96,6 +97,24 @@ class TenantsMigrateCommandTest extends TestCase
         $state = $organization->migrationState()->sole();
         $this->assertSame(0, $state->attempts);
         $this->assertSame('in_sync', $state->status);
+    }
+
+    /**
+     * A dry run is dry for the master database too.
+     *
+     * The master paths were once migrated without --pretend, so a preview
+     * applied every pending master migration for real.
+     */
+    public function test_pretend_leaves_pending_master_migrations_pending(): void
+    {
+        $pending = '2026_09_20_000100_shift_timestamps_to_asia_kolkata';
+
+        // Make one master migration pending again, as on a server behind.
+        DB::table('migrations')->where('migration', $pending)->delete();
+
+        $this->artisan('tenants:migrate', ['--pretend' => true, '--force' => true])->assertExitCode(0);
+
+        $this->assertFalse(DB::table('migrations')->where('migration', $pending)->exists());
     }
 
     public function test_unknown_org_uuid_fails_cleanly(): void

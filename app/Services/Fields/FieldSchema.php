@@ -79,7 +79,9 @@ class FieldSchema
          * silently empty the list.
          */
         if (! empty($override->options)) {
-            $field['options'] = $override->options;
+            $field['options'] = empty($field['fixed_options'])
+                ? $override->options
+                : $this->relabel($field['options'] ?? [], $override->options);
         }
 
         /*
@@ -98,6 +100,30 @@ class FieldSchema
         $field['required'] = $override->is_required;
 
         return $field;
+    }
+
+    /**
+     * A fixed list with the organization's labels laid over it.
+     *
+     * For `fixed_options` fields, whose values mirror a CHECK constraint:
+     * the values always come from the code, so a stored row can rename
+     * "Tablet" but can never add a value the database would refuse.
+     *
+     * @param  list<array{value: string, label: string}>  $fixed
+     * @param  array<int, array{value?: string, label?: string}>  $stored
+     * @return list<array{value: string, label: string}>
+     */
+    private function relabel(array $fixed, array $stored): array
+    {
+        $labels = array_column($stored, 'label', 'value');
+
+        return array_map(
+            fn (array $option) => [
+                'value' => $option['value'],
+                'label' => $labels[$option['value']] ?? $option['label'],
+            ],
+            $fixed,
+        );
     }
 
     /**

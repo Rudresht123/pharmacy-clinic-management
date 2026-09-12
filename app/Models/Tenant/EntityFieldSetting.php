@@ -24,12 +24,15 @@ class EntityFieldSetting extends Model
 
     public const ENTITY_DOCTOR = 'doctor';
 
+    public const ENTITY_MEDICINE = 'medicine';
+
     /** Entities that can be configured. Mirrors the database CHECK. */
     public const ENTITIES = [
         self::ENTITY_LOCATION,
         self::ENTITY_USER,
         self::ENTITY_CUSTOMER,
         self::ENTITY_DOCTOR,
+        self::ENTITY_MEDICINE,
     ];
 
     public const TYPE_TEXT = 'text';

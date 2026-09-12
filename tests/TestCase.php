@@ -3,9 +3,34 @@
 namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Tests\Support\TestDatabaseGuard;
 
 abstract class TestCase extends BaseTestCase
 {
+    /**
+     * Check the database before anything can wipe it.
+     *
+     * Here rather than in setUp(): setUp() runs RefreshDatabase before any
+     * code of ours, so a check placed there would fire after the tables were
+     * already gone.
+     */
+    public function createApplication()
+    {
+        $app = parent::createApplication();
+
+        $config = $app->make('config');
+        $connection = $config->get('database.connections.'.$config->get('database.default'), []);
+
+        // A DB_URL, when set, wins over DB_DATABASE — so it is what gets checked.
+        $database = ! empty($connection['url'])
+            ? ltrim((string) parse_url($connection['url'], PHP_URL_PATH), '/')
+            : ($connection['database'] ?? null);
+
+        TestDatabaseGuard::assertSafe((string) $config->get('app.env'), $database);
+
+        return $app;
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

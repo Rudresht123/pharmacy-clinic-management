@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\Tenant\FieldSettingController;
 use App\Http\Controllers\Api\V1\Tenant\HistoryController;
 use App\Http\Controllers\Api\V1\Tenant\LocationController;
 use App\Http\Controllers\Api\V1\Tenant\LocationModuleController;
+use App\Http\Controllers\Api\V1\Tenant\MedicineController;
 use App\Http\Controllers\Api\V1\Tenant\OpdController;
 use App\Http\Controllers\Api\V1\Tenant\PincodeController;
 use App\Http\Controllers\Api\V1\Tenant\RoleController;
@@ -302,6 +303,46 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])
             ->middleware('permission:customers.delete')
             ->name('customers.destroy');
+
+        /*
+        | The medicine master — behind its own module, which prescriptions and
+        | pharmacy both require.
+        |
+        | Reading is branch-scoped (a doctor searching); writing is the
+        | organization's, because the catalogue is shared by every branch.
+        | Restoring a removed medicine is `pharmacy.restore`, the capability
+        | that restores every removed pharmacy record. Literal paths before
+        | {medicine}.
+        */
+        Route::middleware('module:medicines')->group(function () {
+            Route::middleware('permission:medicines.view')->group(function () {
+                Route::get('medicines/fields', [MedicineController::class, 'fields'])
+                    ->name('medicines.fields');
+                Route::get('medicines', [MedicineController::class, 'index'])
+                    ->name('medicines.index');
+            });
+
+            Route::middleware('permission:pharmacy.restore')->group(function () {
+                Route::get('medicines/removed', [MedicineController::class, 'removed'])
+                    ->name('medicines.removed');
+                Route::post('medicines/{medicine}/restore', [MedicineController::class, 'restore'])
+                    ->withTrashed()
+                    ->name('medicines.restore');
+            });
+
+            Route::get('medicines/{medicine}', [MedicineController::class, 'show'])
+                ->middleware('permission:medicines.view')
+                ->name('medicines.show');
+
+            Route::middleware('permission:medicines.manage')->group(function () {
+                Route::post('medicines', [MedicineController::class, 'store'])
+                    ->name('medicines.store');
+                Route::put('medicines/{medicine}', [MedicineController::class, 'update'])
+                    ->name('medicines.update');
+                Route::delete('medicines/{medicine}', [MedicineController::class, 'destroy'])
+                    ->name('medicines.destroy');
+            });
+        });
 
         /*
         | OPD — behind the module the organization has to have been sold.

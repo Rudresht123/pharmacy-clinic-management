@@ -10,6 +10,7 @@ use App\Support\Modules\ModuleRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Which of the organization's modules a branch runs — level two of the flow.
@@ -87,6 +88,18 @@ class LocationModuleController extends BaseApiController
 
         $on = $validated['modules'];
         $off = array_values(array_diff($switchable, $on));
+
+        /*
+         * The same rule the platform binding applies, one level down: a
+         * branch cannot run prescriptions with medicines switched off there.
+         */
+        $unmet = ModuleRegistry::unmetRequirements($on);
+
+        if ($unmet !== []) {
+            throw ValidationException::withMessages([
+                'modules' => ModuleRegistry::describeUnmet($unmet),
+            ]);
+        }
 
         DB::connection('organization')->transaction(function () use ($location, $on, $off) {
             /*

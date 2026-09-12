@@ -34,6 +34,11 @@ export interface ConfigurableField {
     is_custom: boolean;
     sort_order: number;
     options?: { value: string; label: string }[];
+    /**
+     * The list mirrors a database constraint: its labels may be renamed,
+     * its values never added to or removed.
+     */
+    fixed_options?: boolean;
     /** Declared by the server on a field that looks something up and fills its neighbours. */
     lookup?: FieldLookup | null;
 }
@@ -79,7 +84,7 @@ export interface FieldSettingInput {
 }
 
 /** Entity keys are singular and match the server's EntityFieldSetting constants. */
-export type ConfigurableEntity = 'location' | 'user' | 'customer' | 'doctor';
+export type ConfigurableEntity = 'location' | 'user' | 'customer' | 'doctor' | 'medicine';
 
 /** What one organization calls a record — pharmacies say customer, clinics patient. */
 export interface EntityLabel {

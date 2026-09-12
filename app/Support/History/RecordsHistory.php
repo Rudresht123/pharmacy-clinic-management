@@ -51,11 +51,32 @@ trait RecordsHistory
         'created_at',
         'updated_at',
         'deleted_at',
+        // Deletion metadata, like deleted_at: the reason is written into the
+        // deleted / restored entry itself (see withHistoryNote).
+        'deleted_by',
+        'deletion_reason',
         'created_by',
         'updated_by',
         'last_login_at',
         'remember_token',
     ];
+
+    /**
+     * Why the next delete or restore is happening, if the caller said.
+     *
+     * Transient: never an attribute, never saved to the row. It is written
+     * into that one log entry and cleared, so a reason cannot leak onto a
+     * later event.
+     */
+    protected ?string $historyNote = null;
+
+    /** Attach a reason to the next deleted / restored entry. */
+    public function withHistoryNote(?string $note): static
+    {
+        $this->historyNote = $note;
+
+        return $this;
+    }
 
     public static function bootRecordsHistory(): void
     {
@@ -140,6 +161,11 @@ trait RecordsHistory
             'ip_address' => Request::ip(),
         ];
 
+        // Used once. The next delete or restore says its own reason.
+        if ($event === 'deleted' || $event === 'restored') {
+            $this->historyNote = null;
+        }
+
         /*
          * A tenant model writes to the tenant's own database. Deciding by
          * connection rather than by namespace means a model that is moved
@@ -196,8 +222,12 @@ trait RecordsHistory
              * No field diff: the event is the whole story, and copying the
              * row into the log on the way out would preserve exactly the
              * data a deletion was meant to remove.
+             *
+             * The reason is the exception: it is about the event rather than
+             * the record, and a restore months later has to be able to show
+             * why the record went away.
              */
-            return [[], []];
+            return [[], $this->historyNote !== null ? ['reason' => $this->historyNote] : []];
         }
 
         $changes = array_diff_key($this->getChanges(), array_flip($skip));

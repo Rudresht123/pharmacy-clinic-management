@@ -103,10 +103,18 @@ class TenantsMigrateCommand extends Command
         $this->info('Master migrations');
 
         foreach (['database/migrations/masterdb', 'database/migrations/masterdb/after-seed'] as $path) {
-            Artisan::call('migrate', ['--path' => $path, '--force' => true]);
-        }
+            // --pretend has to reach the master database too, or a dry run
+            // quietly applies every pending master migration for real.
+            Artisan::call('migrate', [
+                '--path' => $path,
+                '--force' => true,
+                '--pretend' => (bool) $this->option('pretend'),
+            ]);
 
-        $this->line(Artisan::output());
+            // Each path's own output: printed once after the loop, only the
+            // after-seed path's "Nothing to migrate" was ever shown.
+            $this->line(Artisan::output());
+        }
     }
 
     /** The newest migration name found on disk — what the codebase defines as current. */
@@ -227,8 +235,9 @@ class TenantsMigrateCommand extends Command
                     '--path' => $path,
                     '--force' => true,
                 ]);
+
+                $this->line(Artisan::output());
             }
-            $this->line(Artisan::output());
 
             $after = $this->currentVersion();
 

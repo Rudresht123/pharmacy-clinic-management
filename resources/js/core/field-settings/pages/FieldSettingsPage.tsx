@@ -38,6 +38,12 @@ const GROUP_TITLES: Record<string, string> = {
     compliance: 'Compliance',
     person: 'Person',
     access: 'Access',
+    contact: 'Contact',
+    practice: 'Practice',
+    clinical: 'Prescribing',
+    stock: 'Stock unit',
+    supply: 'Supply',
+    other: 'Other',
     custom: 'Your Own Fields',
 };
 
@@ -48,6 +54,8 @@ interface Row extends FieldSettingInput {
     group: string;
     locked: boolean;
     resolvedType: FieldDataType;
+    /** A list whose values the database fixes; not offered for editing. */
+    fixedOptions: boolean;
 }
 
 /**
@@ -61,6 +69,12 @@ interface Row extends FieldSettingInput {
  * is deliberately null for a built-in.
  */
 function hasOptions(row: Row): boolean {
+    // A fixed list (a medicine's dosage form) mirrors a CHECK constraint, so
+    // its editor stays shut: a value added here is one the database refuses.
+    if (row.fixedOptions) {
+        return false;
+    }
+
     return row.resolvedType === 'select' || row.resolvedType === 'multiselect';
 }
 
@@ -88,6 +102,7 @@ function toRow(field: ConfigurableField): Row {
         group: field.group,
         locked: field.locked,
         resolvedType: field.type,
+        fixedOptions: Boolean(field.fixed_options),
     };
 }
 
@@ -106,6 +121,7 @@ function newCustomRow(sortOrder: number): Row {
         group: 'custom',
         locked: false,
         resolvedType: 'text',
+        fixedOptions: false,
     };
 }
 
@@ -296,10 +312,24 @@ export default function FieldSettingsPage() {
             buckets.set(row.group, bucket);
         });
 
-        return GROUP_ORDER.filter((group) => buckets.has(group)).map((group) => ({
-            group,
-            items: buckets.get(group)!,
-        }));
+        /*
+         * The known groups in their fixed order, then any others in the order
+         * they first appear, and the organization's own fields last. Keeping
+         * only the known ones hid every field in a group this list had not
+         * heard of — the doctor's contact and practice details, and all of a
+         * medicine's but its identity.
+         */
+        const known = GROUP_ORDER.filter((group) => group !== 'custom' && buckets.has(group));
+        const others = [...buckets.keys()].filter(
+            (group) => group !== 'custom' && !GROUP_ORDER.includes(group),
+        );
+
+        return [...known, ...others, ...(buckets.has('custom') ? ['custom'] : [])].map(
+            (group) => ({
+                group,
+                items: buckets.get(group)!,
+            }),
+        );
     }, [rows]);
 
     if (isLoading) {

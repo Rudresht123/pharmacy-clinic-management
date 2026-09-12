@@ -29,6 +29,8 @@ const SchedulesPage = lazy(() => import('@/core/doctors/pages/SchedulesPage'));
 const AvailabilityPage = lazy(() => import('@/core/availability/pages/AvailabilityPage'));
 const QueuePage = lazy(() => import('@/core/appointments/pages/QueuePage'));
 const OpdTodayPage = lazy(() => import('@/core/opd/pages/OpdTodayPage'));
+const MedicineListPage = lazy(() => import('@/core/medicines/pages/MedicineListPage'));
+const MedicineFormPage = lazy(() => import('@/core/medicines/pages/MedicineFormPage'));
 
 /** Mirrors app/guards.tsx's ProtectedRoute, against the tenant auth context. */
 function TenantProtectedRoute() {
@@ -274,6 +276,31 @@ export function TenantAppRoutes() {
                                     }
                                 >
                                     <Route path="/schedules" element={<SchedulesPage />} />
+                                </Route>
+                            </Route>
+
+                            {/* The medicine master: its module, then the
+                                capability — reading at a branch, writing for
+                                the whole organization. */}
+                            <Route element={<RequireModule module="medicines" />}>
+                                <Route
+                                    element={<RequireCapability capability="medicines.view" />}
+                                >
+                                    <Route path="/medicines" element={<MedicineListPage />} />
+                                </Route>
+
+                                {/* Literal before the :id pattern, as with doctors. */}
+                                <Route
+                                    element={<RequireCapability capability="medicines.manage" />}
+                                >
+                                    <Route
+                                        path="/medicines/create"
+                                        element={<MedicineFormPage />}
+                                    />
+                                    <Route
+                                        path="/medicines/:id/edit"
+                                        element={<MedicineFormPage />}
+                                    />
                                 </Route>
                             </Route>
 

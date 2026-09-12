@@ -68,6 +68,7 @@ class ModuleRegistry
      *     icon: string,
      *     group: string,
      *     is_core: bool,
+     *     requires?: list<string>,
      *     capabilities: list<array{key: string, name: string}>,
      * }>
      */
@@ -223,12 +224,119 @@ class ModuleRegistry
                 'icon' => 'ti ti-stethoscope',
                 'group' => self::GROUP_CLINICAL,
                 'is_core' => false,
+                /*
+                 * A prescription line names a medicine from the master, so
+                 * there is nothing to prescribe from without it.
+                 */
+                'requires' => ['medicines'],
                 'capabilities' => [
                     ['key' => 'prescriptions.view', 'name' => 'Read prescriptions', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'prescriptions.write', 'name' => 'Write prescriptions', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'prescriptions.cancel', 'name' => 'Cancel prescriptions', 'scope' => self::SCOPE_BRANCH],
+                ],
+            ],
+            [
+                'key' => 'medicines',
+                'name' => 'Medicines',
+                'description' => 'The medicine master every prescription and stock record points at.',
+                'icon' => 'ti ti-pill',
+                'group' => self::GROUP_PHARMACY,
+                'is_core' => false,
+                /*
+                 * Reading the list is what a doctor or counter does at their
+                 * branch. Changing it changes what every branch prescribes and
+                 * sells, so it is an organization decision.
+                 */
+                'capabilities' => [
+                    ['key' => 'medicines.view', 'name' => 'View medicines', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'medicines.manage', 'name' => 'Add, edit and remove medicines', 'scope' => self::SCOPE_ORGANIZATION],
+                ],
+            ],
+            [
+                'key' => 'pharmacy',
+                'name' => 'Pharmacy',
+                'description' => 'Stores, batches, stock movements and dispensing.',
+                'icon' => 'ti ti-building-hospital',
+                'group' => self::GROUP_PHARMACY,
+                'is_core' => false,
+                'requires' => ['medicines'],
+                /*
+                 * Receiving, adjusting and moving stock are separate because
+                 * each changes the ledger in a different way, and a counter
+                 * that dispenses all day has no business writing stock off.
+                 * Which stores exist, and bringing back a removed record, are
+                 * organization decisions.
+                 */
+                'capabilities' => [
+                    ['key' => 'pharmacy.view', 'name' => 'View stock and the dispensing queue', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.dispense', 'name' => 'Dispense prescriptions', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.inward', 'name' => 'Receive stock (GRN)', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.adjust', 'name' => 'Adjust stock', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.transfer', 'name' => 'Transfer stock between stores', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.batches', 'name' => 'Manage batches', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.reverse', 'name' => 'Reverse a dispensing', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.stores', 'name' => 'Set up stores', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'pharmacy.restore', 'name' => 'Restore removed pharmacy records', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
         ];
+    }
+
+    /**
+     * The modules this one cannot run without.
+     *
+     * @return list<string>
+     */
+    public static function requires(string $key): array
+    {
+        return self::find($key)['requires'] ?? [];
+    }
+
+    /**
+     * For a set of switched-on modules, which of them are missing something
+     * they need — keyed by module, listing what is missing.
+     *
+     * Empty when the set is consistent. Both levels that switch modules on
+     * (the platform binding and the branch screen) ask this, so neither can
+     * produce a prescriptions module with no medicines behind it.
+     *
+     * @param  list<string>  $enabledKeys
+     * @return array<string, list<string>>
+     */
+    public static function unmetRequirements(array $enabledKeys): array
+    {
+        $unmet = [];
+
+        foreach ($enabledKeys as $key) {
+            $missing = array_values(array_diff(self::requires($key), $enabledKeys));
+
+            if ($missing !== []) {
+                $unmet[$key] = $missing;
+            }
+        }
+
+        return $unmet;
+    }
+
+    /**
+     * "Prescriptions needs Medicines." — one sentence per module, for a 422.
+     *
+     * @param  array<string, list<string>>  $unmet
+     */
+    public static function describeUnmet(array $unmet): string
+    {
+        $name = fn (string $key) => self::find($key)['name'] ?? $key;
+
+        return implode(' ', array_map(
+            fn (string $key, array $missing) => sprintf(
+                '%s needs %s. Enable %s too.',
+                $name($key),
+                implode(' and ', array_map($name, $missing)),
+                count($missing) === 1 ? 'it' : 'them',
+            ),
+            array_keys($unmet),
+            $unmet,
+        ));
     }
 
     /** @return list<string> */

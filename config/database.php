@@ -99,6 +99,9 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Timestamps are stored without a zone, so the session has to
+            // agree with the application about which zone they are in.
+            'timezone' => env('DB_TIMEZONE', 'Asia/Kolkata'),
         ],
 
         'sqlsrv' => [
@@ -127,6 +130,7 @@ return [
             'prefix' => '',
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'timezone' => env('DB_TIMEZONE', 'Asia/Kolkata'),
         ],
 
         /*
@@ -149,6 +153,7 @@ return [
             'prefix' => '',
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'timezone' => env('DB_TIMEZONE', 'Asia/Kolkata'),
         ],
     ],
 

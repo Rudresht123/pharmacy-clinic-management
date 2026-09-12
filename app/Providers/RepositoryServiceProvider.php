@@ -37,10 +37,12 @@ use App\Repositories\Platform\TenantProvisionEventRepository;
 use App\Repositories\Tenant\Contracts\CustomerRepositoryInterface;
 use App\Repositories\Tenant\Contracts\DoctorRepositoryInterface;
 use App\Repositories\Tenant\Contracts\LocationRepositoryInterface;
+use App\Repositories\Tenant\Contracts\MedicineRepositoryInterface;
 use App\Repositories\Tenant\Contracts\TenantUserRepositoryInterface;
 use App\Repositories\Tenant\CustomerRepository;
 use App\Repositories\Tenant\DoctorRepository;
 use App\Repositories\Tenant\LocationRepository;
+use App\Repositories\Tenant\MedicineRepository;
 use App\Repositories\Tenant\TenantUserRepository;
 use Illuminate\Support\ServiceProvider;
 
@@ -84,6 +86,7 @@ class RepositoryServiceProvider extends ServiceProvider
         DoctorRepositoryInterface::class => DoctorRepository::class,
         CustomerRepositoryInterface::class => CustomerRepository::class,
         TenantUserRepositoryInterface::class => TenantUserRepository::class,
+        MedicineRepositoryInterface::class => MedicineRepository::class,
     ];
 
     public function register(): void

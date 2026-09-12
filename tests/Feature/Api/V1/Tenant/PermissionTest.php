@@ -557,6 +557,42 @@ class PermissionTest extends TenantTestCase
     }
 
     /**
+     * A branch cannot run a module without the one it depends on: switching
+     * medicines off while prescriptions stays on is refused, and nothing is
+     * written.
+     */
+    public function test_a_branch_cannot_switch_off_what_another_module_needs(): void
+    {
+        // The migration seeds a frozen catalogue; the pharmacy modules arrive
+        // the way a deploy adds them.
+        $this->artisan('modules:sync');
+
+        [$organization, $here] = $this->network();
+
+        $this->grantModule($organization, 'medicines');
+        $this->grantModule($organization, 'prescriptions');
+        $this->signInAsOwner($organization);
+
+        $this->putJson("/api/v1/tenant/locations/{$here}/modules", [
+            'modules' => ['prescriptions'],
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('modules')
+            ->assertJsonPath('errors.modules.0', 'Prescriptions needs Medicines. Enable it too.');
+
+        $this->assertSame(
+            0,
+            $this->onTenant($organization, fn () => LocationModule::on('organization')->count()),
+        );
+
+        // Both off, or both on, are consistent.
+        $this->putJson("/api/v1/tenant/locations/{$here}/modules", ['modules' => []])->assertOk();
+        $this->putJson("/api/v1/tenant/locations/{$here}/modules", [
+            'modules' => ['medicines', 'prescriptions'],
+        ])->assertOk();
+    }
+
+    /**
      * Level two stays the owner's; level three no longer does.
      *
      * Which modules run at a branch is not delegatable at all — a branch that

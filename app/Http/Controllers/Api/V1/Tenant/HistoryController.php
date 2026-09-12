@@ -48,7 +48,7 @@ class HistoryController extends BaseApiController
             )
             ->when(
                 $request->filled('since'),
-                fn (Builder $q) => $q->where('created_at', '>=', $request->date('since'))
+                fn (Builder $q) => $q->where('created_at', '>=', $request->date('since')->setTimezone(config('app.timezone')))
             );
 
         return $this->paginated(

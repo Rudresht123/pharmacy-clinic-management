@@ -3,8 +3,10 @@
 namespace App\Http\Requests\Api\V1\Platform;
 
 use App\Models\Platform\Module;
+use App\Support\Modules\ModuleRegistry;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * The whole set of an organization's bindings, submitted at once.
@@ -56,6 +58,35 @@ class UpdateOrganizationModulesRequest extends FormRequest
             'modules.*.expires_at' => ['nullable', 'date', 'after_or_equal:modules.*.starts_at'],
 
             'modules.*.note' => ['nullable', 'string', 'max:255'],
+        ];
+    }
+
+    /**
+     * A module switched on without what it runs on is refused, rather than
+     * bound and left unusable — prescriptions with no medicine master has
+     * nothing to prescribe from.
+     *
+     * A module being switched off needs nothing, so only the enabled ones are
+     * checked.
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                $enabled = collect($this->input('modules', []))
+                    ->filter(fn ($binding) => is_array($binding)
+                        && is_string($binding['key'] ?? null)
+                        && filter_var($binding['is_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN))
+                    ->pluck('key')
+                    ->values()
+                    ->all();
+
+                $unmet = ModuleRegistry::unmetRequirements($enabled);
+
+                if ($unmet !== []) {
+                    $validator->errors()->add('modules', ModuleRegistry::describeUnmet($unmet));
+                }
+            },
         ];
     }
 

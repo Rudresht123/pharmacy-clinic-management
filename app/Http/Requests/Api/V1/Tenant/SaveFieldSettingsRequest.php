@@ -80,6 +80,17 @@ class SaveFieldSettingsRequest extends FormRequest
             $builtInKeys = array_column($registry, 'key');
             $seen = [];
 
+            // key => its sorted values, for the lists the code fixes.
+            $fixed = [];
+
+            foreach ($registry as $definition) {
+                if (! empty($definition['fixed_options'])) {
+                    $values = array_column($definition['options'] ?? [], 'value');
+                    sort($values);
+                    $fixed[$definition['key']] = $values;
+                }
+            }
+
             foreach ((array) $this->input('fields', []) as $index => $field) {
                 $key = $field['field_key'] ?? null;
 
@@ -153,6 +164,21 @@ class SaveFieldSettingsRequest extends FormRequest
                         "fields.{$index}.field_key",
                         'There is no built-in field with this name.'
                     );
+                } elseif (isset($fixed[$key]) && ! empty($field['options'])) {
+                    /*
+                     * A fixed list mirrors a CHECK constraint. Its labels
+                     * may change; adding or removing a value would offer
+                     * something the database refuses.
+                     */
+                    $values = array_column((array) $field['options'], 'value');
+                    sort($values);
+
+                    if ($values !== $fixed[$key]) {
+                        $validator->errors()->add(
+                            "fields.{$index}.options",
+                            'This list is fixed by the system. Its labels can change, its values cannot.'
+                        );
+                    }
                 }
             }
         });

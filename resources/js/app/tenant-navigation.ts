@@ -328,6 +328,20 @@ export function tenantNavigation(
     }
 
     /*
+     * The medicine master. Its own module, because a clinic with no pharmacy
+     * still needs doctors to find medicines — so it sits with the clinical
+     * work, not under a pharmacy heading that clinic would never have.
+     */
+    if (hasModule('medicines') && can('medicines.view')) {
+        clinical.push({
+            label: labels?.medicine ?? 'Medicines',
+            to: '/medicines',
+            icon: 'ti ti-pill',
+            match: '/medicines',
+        });
+    }
+
+    /*
      * The work comes first.
      *
      * Everybody who signs in does it; the two sections under it are the

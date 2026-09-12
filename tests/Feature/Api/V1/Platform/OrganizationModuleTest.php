@@ -119,8 +119,10 @@ class OrganizationModuleTest extends TestCase
     {
         $organization = $this->organization();
 
+        // Prescriptions needs medicines, so both go in and both come out.
         $this->bind($organization, [
             ['key' => 'appointments', 'is_enabled' => true],
+            ['key' => 'medicines', 'is_enabled' => true],
             ['key' => 'prescriptions', 'is_enabled' => true],
         ]);
 
@@ -254,11 +256,60 @@ class OrganizationModuleTest extends TestCase
         $organization = $this->organization();
         $access = app(ModuleAccess::class);
 
-        $this->bind($organization, [['key' => 'prescriptions', 'is_enabled' => true]]);
+        $this->bind($organization, [
+            ['key' => 'medicines', 'is_enabled' => true],
+            ['key' => 'prescriptions', 'is_enabled' => true],
+        ]);
         $this->assertContains('prescriptions.write', $access->capabilities($organization->fresh()));
 
-        $this->bind($organization, [['key' => 'prescriptions', 'is_enabled' => false]]);
+        // Switching off the dependent module needs nothing; medicines stays.
+        $this->bind($organization, [
+            ['key' => 'medicines', 'is_enabled' => true],
+            ['key' => 'prescriptions', 'is_enabled' => false],
+        ]);
         $this->assertNotContains('prescriptions.write', $access->capabilities($organization->fresh()));
+        $this->assertContains('medicines.view', $access->capabilities($organization->fresh()));
+    }
+
+    /**
+     * A module cannot be sold without the one it runs on. Refused whole:
+     * nothing from the submission is bound.
+     */
+    public function test_a_module_cannot_be_bound_without_what_it_requires(): void
+    {
+        $organization = $this->organization();
+
+        foreach (['prescriptions' => 'Prescriptions', 'pharmacy' => 'Pharmacy'] as $key => $name) {
+            $this->actingAsAdmin()
+                ->putJson("/api/v1/admin/organizations/{$organization->uuid}/modules", [
+                    'modules' => [
+                        ['key' => 'appointments', 'is_enabled' => true],
+                        ['key' => $key, 'is_enabled' => true],
+                    ],
+                ])
+                ->assertStatus(422)
+                ->assertJsonPath('errors.modules.0', "{$name} needs Medicines. Enable it too.");
+        }
+
+        $this->assertDatabaseMissing('organization_modules', ['organization_id' => $organization->id]);
+    }
+
+    public function test_a_module_binds_once_what_it_requires_is_bound_with_it(): void
+    {
+        $organization = $this->organization();
+        $access = app(ModuleAccess::class);
+
+        $this->bind($organization, [
+            ['key' => 'medicines', 'is_enabled' => true],
+            ['key' => 'prescriptions', 'is_enabled' => true],
+            ['key' => 'pharmacy', 'is_enabled' => true],
+        ]);
+
+        $capabilities = $access->capabilities($organization->fresh());
+
+        foreach (['medicines.manage', 'prescriptions.cancel', 'pharmacy.dispense'] as $capability) {
+            $this->assertContains($capability, $capabilities);
+        }
     }
 
     public function test_an_end_date_before_the_start_date_is_rejected(): void
@@ -324,17 +375,23 @@ class OrganizationModuleTest extends TestCase
         $soon = $this->organization();
         $later = $this->organization();
 
-        $this->bind($soon, [[
-            'key' => 'prescriptions',
-            'is_enabled' => true,
-            'expires_at' => now()->addDays(10)->toDateString(),
-        ]]);
+        $this->bind($soon, [
+            ['key' => 'medicines', 'is_enabled' => true],
+            [
+                'key' => 'prescriptions',
+                'is_enabled' => true,
+                'expires_at' => now()->addDays(10)->toDateString(),
+            ],
+        ]);
 
-        $this->bind($later, [[
-            'key' => 'prescriptions',
-            'is_enabled' => true,
-            'expires_at' => now()->addMonths(6)->toDateString(),
-        ]]);
+        $this->bind($later, [
+            ['key' => 'medicines', 'is_enabled' => true],
+            [
+                'key' => 'prescriptions',
+                'is_enabled' => true,
+                'expires_at' => now()->addMonths(6)->toDateString(),
+            ],
+        ]);
 
         $modules = collect(
             $this->actingAsAdmin()->getJson('/api/v1/admin/modules')->assertOk()->json('data.modules')
