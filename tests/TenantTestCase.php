@@ -14,6 +14,7 @@ use App\Models\Tenant\Role;
 use App\Models\Tenant\User as TenantUser;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
+use App\Support\Platform\OrganizationCode;
 
 /**
  * Base class for anything exercising a real tenant database.
@@ -61,7 +62,7 @@ abstract class TenantTestCase extends TestCase
         $created = $this->actingAs($admin, 'platform')
             ->postJson('/api/v1/admin/organizations', [
                 'organization_name' => "{$prefix} Test {$unique}",
-                'organization_code' => strtoupper(substr($prefix, 0, 2)).$unique,
+                'organization_code' => OrganizationCode::generate(),
                 'organization_type_id' => $type->id,
                 'subdomain' => strtolower($prefix).'-'.$unique,
                 'email' => "owner-{$unique}@example.com",

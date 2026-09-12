@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\Platform;
 
+use App\Support\Platform\OrganizationCode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -20,7 +21,12 @@ class UpdateOrganizationRequest extends FormRequest
             'organization_name' => ['required', 'string', 'max:191'],
 
             'organization_code' => [
-                'required', 'string', 'max:191',
+                'required', 'string', 'size:6',
+                // Three letters then three digits, like NMG001. Typed by hand
+                // from a printed sheet, so the shape is what keeps it
+                // readable -- position says whether a character is a letter
+                // or a digit, so O and 0 can never be confused.
+                'regex:'.OrganizationCode::PATTERN,
                 Rule::unique('organizations', 'organization_code')
                     ->ignore($organizationId)
                     ->whereNull('deleted_at'),
@@ -85,6 +91,12 @@ class UpdateOrganizationRequest extends FormRequest
         $this->merge(array_filter([
             'is_active' => $this->boolean('is_active'),
             'subdomain' => strtolower(trim((string) $this->subdomain)),
+
+            // Stored upper case, matched without regard to case -- see the
+            // note on the store request.
+            'organization_code' => $this->organization_code
+                ? OrganizationCode::normalise((string) $this->organization_code)
+                : null,
             'currency' => $this->currency ? strtoupper(trim((string) $this->currency)) : null,
             'country' => $this->country ? strtoupper(trim((string) $this->country)) : null,
         ], fn ($value) => ! is_null($value)));

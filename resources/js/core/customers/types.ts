@@ -47,8 +47,11 @@ export interface Customer {
     gender: 'male' | 'female' | 'other' | null;
 
     address: string | null;
+    /** The area or locality, often picked from the PIN code's post offices. */
     city: string | null;
+    district: string | null;
     state: string | null;
+    country: string | null;
     pincode: string | null;
 
     notes: string | null;

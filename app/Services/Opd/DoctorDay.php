@@ -74,6 +74,11 @@ class DoctorDay
             'schedule' => $this->schedule($doctor, $date, $locationId),
             'week' => $this->week($doctor),
             'upcoming' => $this->upcoming($appointments),
+
+            // What the dashboard draws: this day by the hour, and the
+            // fortnight leading up to it.
+            'by_hour' => $this->byHour($appointments),
+            'trend' => $this->trend($doctor, $date, $locationId),
         ];
     }
 
@@ -482,6 +487,80 @@ class DoctorDay
                     ->values()
                     ->all(),
             ])
+            ->all();
+    }
+
+    /** How many days the trend covers, ending on the day asked about. */
+    private const TREND_DAYS = 14;
+
+    /**
+     * How the day's bookings fall across the hours.
+     *
+     * By booked time only. A walk-in has no booked time, and the moment they
+     * arrived is stored as a timestamp in the application's timezone rather
+     * than as the clinic's wall-clock time a slot is written in, so placing
+     * them in an hour here would put them in the wrong one. They are counted
+     * separately instead, and the chart says so.
+     *
+     * Cancelled bookings are not load.
+     *
+     * @param  Collection<int, Appointment>  $appointments
+     * @return array{hours: list<array{hour: int, total: int}>, walk_ins: int}
+     */
+    private function byHour(Collection $appointments): array
+    {
+        $live = $appointments->reject(
+            fn (Appointment $row) => $row->status === Appointment::STATUS_CANCELLED
+        );
+
+        $booked = $live->filter(fn (Appointment $row) => $row->slot_at !== null);
+
+        return [
+            'hours' => $booked
+                ->countBy(fn (Appointment $row) => (int) substr((string) $row->slot_at, 0, 2))
+                ->sortKeys()
+                ->map(fn (int $total, int $hour) => ['hour' => $hour, 'total' => $total])
+                ->values()
+                ->all(),
+
+            'walk_ins' => $live->count() - $booked->count(),
+        ];
+    }
+
+    /**
+     * The last fortnight, a day at a time, ending on the day asked about.
+     *
+     * One query, grouped in memory: a doctor's list is short. A day with
+     * nothing booked is sent as zero rather than left out, so the days are
+     * evenly spaced and a day off reads as a day off, not as a gap somebody
+     * has to notice.
+     *
+     * @return list<array{date: string, total: int, seen: int}>
+     */
+    private function trend(Doctor $doctor, Carbon $date, ?int $locationId): array
+    {
+        $from = $date->copy()->subDays(self::TREND_DAYS - 1)->startOfDay();
+
+        $byDate = Appointment::on('organization')
+            ->where('doctor_id', $doctor->id)
+            ->whereDate('appointment_date', '>=', $from->toDateString())
+            ->whereDate('appointment_date', '<=', $date->toDateString())
+            ->where('status', '!=', Appointment::STATUS_CANCELLED)
+            ->when($locationId, fn ($query, $id) => $query->where('location_id', $id))
+            ->get(['appointment_date', 'status'])
+            ->groupBy(fn (Appointment $row) => substr((string) $row->appointment_date, 0, 10));
+
+        return collect(range(0, self::TREND_DAYS - 1))
+            ->map(function (int $offset) use ($from, $byDate) {
+                $day = $from->copy()->addDays($offset)->toDateString();
+                $rows = $byDate->get($day, collect());
+
+                return [
+                    'date' => $day,
+                    'total' => $rows->count(),
+                    'seen' => $rows->where('status', Appointment::STATUS_COMPLETED)->count(),
+                ];
+            })
             ->all();
     }
 

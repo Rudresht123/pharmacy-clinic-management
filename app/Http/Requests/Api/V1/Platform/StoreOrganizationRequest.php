@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Platform;
 
 use App\Models\Platform\Organization;
+use App\Support\Platform\OrganizationCode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,7 +20,12 @@ class StoreOrganizationRequest extends FormRequest
             'organization_name' => ['required', 'string', 'max:191'],
 
             'organization_code' => [
-                'required', 'string', 'max:191',
+                'required', 'string', 'size:6',
+                // Three letters then three digits, like NMG001. Typed by hand
+                // from a printed sheet, so the shape is what keeps it
+                // readable -- position says whether a character is a letter
+                // or a digit, so O and 0 can never be confused.
+                'regex:'.OrganizationCode::PATTERN,
                 Rule::unique('organizations', 'organization_code')->whereNull('deleted_at'),
             ],
 
@@ -45,6 +51,8 @@ class StoreOrganizationRequest extends FormRequest
             'organization_name.required' => 'Please enter the organization name.',
             'organization_code.required' => 'Please enter the organization code.',
             'organization_code.unique' => 'This organization code is already in use.',
+            'organization_code.size' => 'The organization code must be exactly 6 characters.',
+            'organization_code.regex' => 'The organization code is three letters then three numbers, like NMG001.',
             'organization_type_id.required' => 'Please select an organization type.',
             'organization_type_id.exists' => 'The selected organization type is invalid.',
             'subdomain.required' => 'Please enter a subdomain.',
@@ -73,6 +81,16 @@ class StoreOrganizationRequest extends FormRequest
         $this->merge([
             'is_active' => $this->boolean('is_active'),
             'subdomain' => strtolower(trim((string) $this->subdomain)),
+
+            /*
+             * Codes are stored upper case and matched without regard to case.
+             *
+             * A phone keyboard capitalises the first letter by itself, and a
+             * printed sheet shows codes in capitals. Normalising on the way in
+             * means the same code typed three ways is one code rather than
+             * three failed sign-ins.
+             */
+            'organization_code' => OrganizationCode::normalise((string) $this->organization_code),
         ]);
     }
 

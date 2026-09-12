@@ -35,4 +35,18 @@ return [
         ],
     ],
 
+    /*
+    | India Post's public PIN code API. See App\Services\Geo\PincodeLookup.
+    |
+    | No key: it is free and open, but slow (twenty seconds and more is
+    | normal), and its firewall refuses requests that call themselves
+    | "GuzzleHttp", which is why the user agent is set. Each code is fetched
+    | once and then cached, so only the first lookup waits.
+    */
+    'india_post' => [
+        'url' => env('INDIA_POST_URL', 'https://api.postalpincode.in'),
+        'timeout' => (int) env('INDIA_POST_TIMEOUT', 25),
+        'user_agent' => env('INDIA_POST_USER_AGENT', 'HMS-Care/1.0 (clinic management; PIN code lookup)'),
+    ],
+
 ];

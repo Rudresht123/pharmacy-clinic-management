@@ -23,7 +23,7 @@ class OrganizationFactory extends Factory
             'organization_name' => $name,
             'slug' => $slug,
             'tenant_key' => Str::slug($slug, '_'),
-            'organization_code' => strtoupper(Str::random(3)).fake()->unique()->numberBetween(1000, 9999),
+            'organization_code' => fake()->unique()->regexify('[A-Z]{3}[0-9]{3}'),
             'subdomain' => $slug,
 
             // Never actually created by the factory — provisioning owns that.

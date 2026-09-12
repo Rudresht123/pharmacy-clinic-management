@@ -11,7 +11,6 @@ use App\Models\Tenant\Doctor;
 use App\Models\Tenant\DoctorSchedule;
 use App\Models\Tenant\DoctorScheduleException;
 use App\Models\Tenant\Location;
-use App\Models\Tenant\User;
 use App\Support\Opd\Weekday;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TenantTestCase;

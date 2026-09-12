@@ -27,6 +27,17 @@ class ResolveTenantFromSession
 
     public function handle(Request $request, Closure $next): Response
     {
+        /*
+         * A phone signs in with a token and never starts a session. Its
+         * organization arrives in X-Organization instead and is resolved by
+         * ResolveTenantFromHeader. Asking a request that has no session for
+         * one throws, and that answered every authenticated request from the
+         * mobile app with a 500.
+         */
+        if (! $request->hasSession()) {
+            return $next($request);
+        }
+
         $uuid = $request->session()->get('tenant_organization_uuid');
 
         if ($uuid) {

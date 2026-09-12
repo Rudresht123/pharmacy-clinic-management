@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Tenant\PersonalAccessToken;
 use App\Services\Permissions\Permission;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -56,6 +58,23 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Schema::defaultStringLength(191);
+
+        /*
+         * Sanctum reads tokens from the tenant database, not the master one.
+         *
+         * A token belongs to one organization's user, so it lives inside that
+         * organization's database like everything else about them. The model
+         * below is pinned to the `organization` connection, which
+         * ResolveTenantFromHeader has already pointed at the right database by
+         * the time the guard runs.
+         *
+         * Registering it globally is safe only because nothing else issues
+         * Sanctum tokens: the platform panel authenticates over a session, and
+         * its `personal_access_tokens` table is Laravel's default migration,
+         * unused. The day the platform issues a token, this line is what has to
+         * change first.
+         */
+        Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
 
         /*
          * Point reset links at the SPA rather than the Blade route.

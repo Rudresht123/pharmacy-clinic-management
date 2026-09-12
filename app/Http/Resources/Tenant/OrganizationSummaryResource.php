@@ -23,6 +23,22 @@ class OrganizationSummaryResource extends JsonResource
             'subdomain' => $this->subdomain,
             'logo_url' => getFileUrl($this->profile_image),
             'has_logo' => $this->profile_image !== null,
+
+            /*
+             * What kind of organization it is, and where it lives.
+             *
+             * Both go out before anyone has signed in, so both were weighed:
+             * a clinic's type and its own web address are what it puts on its
+             * front door, and seeing them is how somebody typing a code knows
+             * they reached the right place. Nothing here is operational --
+             * no contact details, no counts, no `database_name`.
+             */
+            'type' => $this->whenLoaded(
+                'organizationType',
+                fn () => $this->organizationType?->name,
+                $this->organizationType?->name,
+            ),
+            'address' => $this->subdomain.'.'.config('organization.main_domain'),
         ];
     }
 }

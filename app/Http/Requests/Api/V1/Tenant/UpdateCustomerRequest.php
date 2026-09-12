@@ -58,7 +58,9 @@ class UpdateCustomerRequest extends FormRequest
 
             'address' => ['nullable', 'string', 'max:1000'],
             'city' => ['nullable', 'string', 'max:100'],
+            'district' => ['nullable', 'string', 'max:100'],
             'state' => ['nullable', 'string', 'max:100'],
+            'country' => ['nullable', 'string', 'max:100'],
             'pincode' => ['nullable', 'string', 'max:10'],
 
             'notes' => ['nullable', 'string', 'max:2000'],

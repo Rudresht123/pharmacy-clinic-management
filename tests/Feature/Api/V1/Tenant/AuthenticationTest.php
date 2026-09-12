@@ -11,6 +11,7 @@ use App\Models\Tenant\User as TenantUser;
 use App\Repositories\Platform\Contracts\OrganizationRepositoryInterface;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
+use App\Support\Platform\OrganizationCode;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Contracts\Auth\Guard;
@@ -57,7 +58,7 @@ class AuthenticationTest extends TestCase
         $organization = $this->actingAs($admin, 'platform')
             ->postJson('/api/v1/admin/organizations', [
                 'organization_name' => 'Tenant Auth Test '.$unique,
-                'organization_code' => 'TA'.$unique,
+                'organization_code' => OrganizationCode::generate(),
                 'organization_type_id' => $type->id,
                 'subdomain' => 'tenant-auth-'.$unique,
                 'email' => "owner-{$unique}@example.com",

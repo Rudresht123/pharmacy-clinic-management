@@ -1,122 +1,39 @@
-import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Card } from '@/shared/components/ui/Card';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
 import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
+import { StatTiles, type StatTile } from '@/shared/components/ui/StatTiles';
+import { Tabs } from '@/shared/components/ui/Tabs';
+import { Button } from '@/shared/components/ui/Button';
+import { RecordHistory } from '@/core/tenant-history/RecordHistory';
 import { http } from '@/shared/api/http';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
-import { useCustomerFields } from '../api';
-import { customersHooks } from '../api';
+import { cn } from '@/shared/utils/cn';
+import { customersHooks, useCustomerFields } from '../api';
 import type { ApiResponse } from '@/shared/types/api';
-
-interface Visit {
-    id: number;
-    date: string | null;
-    status: string;
-    type: string;
-    slot_at: string | null;
-    token_no: number | null;
-    doctor_name: string | null;
-    location_name: string | null;
-
-    consultation: {
-        chief_complaint: string | null;
-        diagnoses: string[];
-        advice: string | null;
-        notes: string | null;
-        follow_up_days: number | null;
-        vitals: Vitals;
-        prescription: {
-            drug: string;
-            dose?: string | null;
-            frequency?: string | null;
-            duration?: string | null;
-        }[];
-        investigations: { test: string; notes?: string | null }[];
-    } | null;
-}
-
-interface PatientRecord {
-    summary: {
-        total_visits: number;
-        seen_count: number;
-        member_since: string | null;
-        last_visit: { on: string | null; doctor_name: string | null } | null;
-        next_visit: { on: string | null; at: string | null; doctor_name: string | null } | null;
-        vitals: { on: string | null; values: Vitals } | null;
-        medications: {
-            on: string | null;
-            lines: { drug: string; dose?: string | null; frequency?: string | null }[];
-        } | null;
-        diagnoses: string[];
-    };
-    visits: Visit[];
-}
-
-/** Whatever was measured. Every key optional; most visits record two. */
-type Vitals = { [key: string]: number | null };
-
-const STATUS: { [key: string]: string } = {
-    booked: 'Expected',
-    checked_in: 'Waiting',
-    in_consultation: 'In the room',
-    completed: 'Seen',
-    cancelled: 'Cancelled',
-    no_show: 'Did not come',
-};
-
-/** "12 Aug 2026" */
-function longDate(value: string | null | undefined): string {
-    if (!value) return '—';
-
-    const [year, month, day] = value.split('-').map(Number);
-
-    return new Date(year, month - 1, day).toLocaleDateString(undefined, {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    });
-}
-
-/** The vitals worth a tile, in the order a chart would list them. */
-const VITALS: [string, string, string, string][] = [
-    ['bp', 'BP', 'mmHg', 'is-rose'],
-    ['pulse', 'Pulse', 'bpm', 'is-violet'],
-    ['temperature', 'Temperature', '°C', 'is-amber'],
-    ['weight', 'Weight', 'kg', 'is-blue'],
-    ['height', 'Height', 'cm', 'is-green'],
-    ['bmi', 'BMI', '', 'is-teal'],
-];
-
-/**
- * Read a vital, including the two that are worked out rather than measured.
- *
- * Blood pressure is one reading written as two numbers, and BMI is arithmetic
- * on weight and height — storing either would be storing something already
- * known, and a stored BMI goes stale the moment a weight is corrected.
- */
-function vitalOf(values: Vitals, key: string): string | null {
-    if (key === 'bp') {
-        const top = values.bp_systolic;
-        const bottom = values.bp_diastolic;
-
-        return top && bottom ? `${top}/${bottom}` : null;
-    }
-
-    if (key === 'bmi') {
-        const weight = values.weight;
-        const height = values.height;
-
-        if (!weight || !height) return null;
-
-        return (weight / (height / 100) ** 2).toFixed(1);
-    }
-
-    const value = values[key];
-
-    return value == null ? null : String(value);
-}
+import {
+    SECTIONS,
+    isSection,
+    longDate,
+    readFile,
+    type PatientRecord,
+    type Section,
+} from '../components/patientFile';
+import {
+    AllergiesPanel,
+    BillingPanel,
+    DocumentsPanel,
+    LabsTable,
+    NotesPanel,
+    Overview,
+    PrescriptionsTable,
+    RecordPanel,
+    ServicesPanel,
+    VisitsTable,
+    VitalsHistory,
+    VitalsLatest,
+} from '../components/PatientFileSections';
 
 function useRecord(id: string | undefined) {
     return useQuery({
@@ -132,533 +49,299 @@ function useRecord(id: string | undefined) {
     });
 }
 
-type Tab = 'overview' | 'visits' | 'vitals';
-
 /**
- * A patient's record, to read rather than to edit.
+ * A patient's file: who they are, and everything that has happened to them.
  *
- * "Full record" used to open the edit form, which is the wrong thing twice
- * over: it is a form when somebody wants an answer, and it puts every field in
- * a state where a stray keystroke changes the record of a person's health.
+ * To read rather than to edit. "Full record" used to open the edit form,
+ * which is the wrong thing twice over: a form when somebody wants an answer,
+ * and every field one stray keystroke from changing the record of a person's
+ * health. Editing is a button away, behind its own capability; this screen
+ * needs only `customers.view`, which is what a doctor holds.
  *
- * Editing is still a click away, behind its own capability — this screen needs
- * only `customers.view`, which is what a doctor holds.
+ * Every section of the file exists now, including the ones with nothing
+ * behind them yet (billing, documents). They say plainly why they are empty,
+ * and fill in as their modules arrive, without this page being redrawn.
+ *
+ * The section lives in the URL (?section=visits), so a link to a patient's
+ * prescriptions opens on their prescriptions, and Back returns to the
+ * section somebody came from.
  */
 export default function PatientPage() {
     const { id } = useParams();
     const { capabilities } = useTenantAuth();
+    const [params, setParams] = useSearchParams();
 
-    const [tab, setTab] = useState<Tab>('overview');
+    const asked = params.get('section');
+    const section: Section = isSection(asked) ? asked : 'overview';
+
+    const go = (next: Section) => {
+        const updated = new URLSearchParams(params);
+
+        if (next === 'overview') {
+            updated.delete('section');
+        } else {
+            updated.set('section', next);
+        }
+
+        setParams(updated);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const [copied, setCopied] = useState(false);
 
     const { data: patient, isLoading, isError, refetch } = customersHooks.useDetail(id);
     const { data: record } = useRecord(id);
     const { data: fields } = useCustomerFields();
 
+    const visits = useMemo(() => record?.visits ?? [], [record]);
+    const file = useMemo(() => readFile(visits), [visits]);
+
     if (isLoading) return <LoadingBlock label="Loading the record…" />;
     if (isError || !patient) return <ErrorState onRetry={() => refetch()} />;
 
-    const summary = record?.summary;
-    const visits = record?.visits ?? [];
+    const canEdit = capabilities.includes('customers.edit');
+    // The same capability the booking route checks (appointments.store).
+    const canBook = capabilities.includes('appointments.book');
 
-    /*
-     * Whatever this organization has chosen to record about a patient.
-     *
-     * Read from the field settings rather than a fixed list: a clinic that
-     * added "Blood group" or "Aadhaar" sees them here without anybody
-     * touching this screen, and one that did not is never shown an empty row
-     * for a thing it does not collect.
-     */
-    const extra = (fields ?? [])
-        .filter((field) => field.is_custom)
-        .map((field) => ({
-            label: field.label,
-            value: (patient.custom_fields ?? {})[field.key],
-        }))
-        .filter((row) => row.value !== undefined && row.value !== null && row.value !== '');
+    const summary = record?.summary;
+    const lastRx = file.prescriptions[0]?.date ?? null;
+    const lastLab = file.labs[0]?.date ?? null;
+
+    const tiles: StatTile[] = [
+        {
+            label: 'Total Visits',
+            value: summary?.total_visits ?? 0,
+            icon: 'ti ti-calendar-event',
+            tone: 'indigo',
+            hint: summary?.last_visit ? `Last visit: ${longDate(summary.last_visit.on)}` : 'No visits yet',
+            onClick: () => go('visits'),
+        },
+        {
+            label: 'Consultations',
+            value: summary?.seen_count ?? 0,
+            icon: 'ti ti-stethoscope',
+            tone: 'emerald',
+            hint: file.doctorCount === 1 ? '1 doctor' : `${file.doctorCount} different doctors`,
+            onClick: () => go('visits'),
+        },
+        {
+            label: 'Prescriptions',
+            value: file.prescriptions.length,
+            icon: 'ti ti-prescription',
+            tone: 'rose',
+            hint: lastRx ? `Last: ${longDate(lastRx)}` : 'None yet',
+            onClick: () => go('prescriptions'),
+        },
+        {
+            label: 'Lab Tests',
+            value: file.labs.length,
+            icon: 'ti ti-flask',
+            tone: 'teal',
+            hint: lastLab ? `Last: ${longDate(lastLab)}` : 'None ordered',
+            onClick: () => go('labs'),
+        },
+        {
+            label: 'Total Bills',
+            // A dash, not ₹0: nothing has been billed because billing is not
+            // on yet, which is different from a patient who owes nothing.
+            value: '—',
+            icon: 'ti ti-receipt',
+            tone: 'violet',
+            hint: 'Billing not set up yet',
+            onClick: () => go('billing'),
+        },
+        {
+            label: 'Files / Documents',
+            value: 0,
+            icon: 'ti ti-files',
+            tone: 'sky',
+            hint: 'None uploaded',
+            onClick: () => go('documents'),
+        },
+    ];
+
+    const history = <RecordHistory entity="Customer" id={patient.id} label={patient.name} />;
+
+    const copyCode = async () => {
+        if (!patient.code) return;
+
+        try {
+            await navigator.clipboard.writeText(patient.code);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+        } catch {
+            // Clipboard refused (an insecure origin, say). The code is on screen.
+        }
+    };
+
+    const place = [patient.city, patient.state].filter(Boolean).join(', ');
 
     return (
-        <>
-            {/* Who they are, and what the record adds up to — before any tab. */}
-            <div className="pr-hero">
-                <div className="pr-who">
-                    <PersonPhoto src={null} name={patient.name} className="pr-face" />
+        <div className="pf">
+            <div className="pf-top">
+                <Link className="pf-back" to="/customers">
+                    <i className="ti ti-arrow-left" aria-hidden="true" />
+                    Back to patients
+                </Link>
 
-                    <div className="pr-id">
-                        <h1>
-                            {patient.name}
-                            <em className={patient.is_active === false ? 'is-off' : undefined}>
-                                {patient.is_active === false ? 'Inactive' : 'Active'}
-                            </em>
-                        </h1>
-
-                        <small>Patient ID: {patient.code ?? '—'}</small>
-
-                        <ul className="pr-facts">
-                            {patient.age != null && (
-                                <li>
-                                    <i className="ti ti-cake" aria-hidden="true" />
-                                    {patient.age} years
-                                </li>
-                            )}
-
-                            {patient.gender && (
-                                <li>
-                                    <i className="ti ti-user" aria-hidden="true" />
-                                    {patient.gender}
-                                </li>
-                            )}
-
-                            {patient.phone && (
-                                <li>
-                                    <i className="ti ti-phone" aria-hidden="true" />
-                                    <a href={`tel:${patient.phone}`}>{patient.phone}</a>
-                                </li>
-                            )}
-
-                            {(patient.city || patient.state) && (
-                                <li>
-                                    <i className="ti ti-map-pin" aria-hidden="true" />
-                                    {[patient.address, patient.city, patient.state]
-                                        .filter(Boolean)
-                                        .join(', ')}
-                                </li>
-                            )}
-                        </ul>
-                    </div>
-                </div>
-
-                <div className="pr-tally">
-                    <div>
-                        <i className="ti ti-history" aria-hidden="true" />
-                        <span>
-                            <small>Last visit</small>
-                            <b>{longDate(summary?.last_visit?.on)}</b>
-                            <em>{summary?.last_visit?.doctor_name ?? 'Not seen yet'}</em>
-                        </span>
-                    </div>
-
-                    <div>
-                        <i className="ti ti-repeat" aria-hidden="true" />
-                        <span>
-                            <small>Total visits</small>
-                            <b>{String(summary?.total_visits ?? 0).padStart(2, '0')}</b>
-                            <em>{summary?.seen_count ?? 0} seen</em>
-                        </span>
-                    </div>
-
-                    <div>
-                        <i className="ti ti-user-check" aria-hidden="true" />
-                        <span>
-                            <small>Registered</small>
-                            <b>{longDate(summary?.member_since)}</b>
-                            <em>{patient.registered_location?.name ?? 'This organisation'}</em>
-                        </span>
-                    </div>
-                </div>
-
-                {capabilities.includes('customers.edit') && (
-                    <Link className="pr-edit" to={`/customers/${patient.id}/edit`}>
-                        <i className="ti ti-pencil" aria-hidden="true" />
-                        Edit
-                    </Link>
-                )}
+                <Button variant="light" icon="ti ti-printer" onClick={() => window.print()}>
+                    Print
+                </Button>
             </div>
 
-            <nav className="pr-tabs" role="tablist">
-                {(
-                    [
-                        ['overview', 'Overview'],
-                        ['visits', `Visit history${visits.length ? ` (${visits.length})` : ''}`],
-                        ['vitals', 'Vitals'],
-                    ] as [Tab, string][]
-                ).map(([key, label]) => (
-                    <button
-                        type="button"
-                        key={key}
-                        role="tab"
-                        aria-selected={tab === key}
-                        className={`pr-tab${tab === key ? ' is-on' : ''}`}
-                        onClick={() => setTab(key)}
-                    >
-                        {label}
-                    </button>
-                ))}
-            </nav>
+            {/* Who they are, before anything else. */}
+            <header className="pf-head">
+                <PersonPhoto src={null} name={patient.name} className="pf-face" />
 
-            {tab === 'overview' && (
-                <div className="pr-grid">
-                    <Card title={<span className="opd-card-title">Personal information</span>}>
-                        <dl className="pr-rows">
-                            {(
-                                [
-                                    ['Full name', patient.name],
-                                    ['Date of birth', patient.date_of_birth
-                                        ? `${longDate(patient.date_of_birth)}${patient.age != null ? ` (${patient.age} years)` : ''}`
-                                        : null],
-                                    ['Gender', patient.gender],
-                                    ['Phone', patient.phone],
-                                    ['Email', patient.email],
-                                    ['Address', [patient.address, patient.city, patient.state, patient.pincode]
-                                        .filter(Boolean)
-                                        .join(', ')],
-                                ] as [string, string | null | undefined][]
-                            ).map(([label, value]) => (
-                                <div key={label}>
-                                    <dt>{label}</dt>
-                                    <dd>{value || <span className="cn-quiet">Not recorded</span>}</dd>
-                                </div>
-                            ))}
+                <div className="pf-id">
+                    <h1 className="pf-name">
+                        {patient.name}
+                        <em className={cn('pf-status', patient.is_active === false && 'is-off')}>
+                            {patient.is_active === false ? 'Inactive' : 'Active'}
+                        </em>
+                    </h1>
 
-                            {/* Whatever this clinic chose to collect as well. */}
-                            {extra.map((row) => (
-                                <div key={row.label}>
-                                    <dt>{row.label}</dt>
-                                    <dd>{String(row.value)}</dd>
-                                </div>
-                            ))}
-                        </dl>
-                    </Card>
-
-                    <div className="pr-mid">
-                        <Card title={<span className="opd-card-title">Medical summary</span>}>
-                            <dl className="pr-med">
-                                <div>
-                                    <dt>Recorded diagnoses</dt>
-                                    <dd>
-                                        {summary?.diagnoses.length ? (
-                                            <span className="cn-dx">
-                                                {summary.diagnoses.map((entry) => (
-                                                    <em key={entry}>{entry}</em>
-                                                ))}
-                                            </span>
-                                        ) : (
-                                            <span className="cn-quiet">
-                                                Nothing diagnosed at a visit yet
-                                            </span>
-                                        )}
-                                    </dd>
-                                </div>
-
-                                <div>
-                                    <dt>Last prescribed</dt>
-                                    <dd>
-                                        {summary?.medications ? (
-                                            <>
-                                                <span className="pr-drugs">
-                                                    {summary.medications.lines.map((row, index) => (
-                                                        <em key={index}>
-                                                            {row.drug}
-                                                            {row.dose ? ` · ${row.dose}` : ''}
-                                                        </em>
-                                                    ))}
-                                                </span>
-                                                <small>
-                                                    on {longDate(summary.medications.on)}
-                                                </small>
-                                            </>
-                                        ) : (
-                                            <span className="cn-quiet">Nothing prescribed yet</span>
-                                        )}
-                                    </dd>
-                                </div>
-                            </dl>
-
-                            {/*
-                                Said plainly: allergies, chronic conditions,
-                                family and social history each need a field of
-                                their own on the patient. A clinic can add them
-                                in Settings today and they appear above; until
-                                somebody does, an empty heading would read as
-                                "none", which for an allergy is dangerous.
-                            */}
-                            <p className="md-soon">
-                                <i className="ti ti-info-circle" aria-hidden="true" />
-                                Allergies, long-term conditions and family history are recorded as
-                                patient fields. Add them under Settings &rarr; Fields and they show
-                                here.
-                            </p>
-                        </Card>
-
-                        <Card
-                            title={<span className="opd-card-title">Recent vitals</span>}
-                            actions={
-                                summary?.vitals ? (
-                                    <span className="pr-when">
-                                        {longDate(summary.vitals.on)}
-                                    </span>
-                                ) : undefined
-                            }
-                        >
-                            {!summary?.vitals ? (
-                                <div className="cn-none-yet">
-                                    <i className="ti ti-activity" aria-hidden="true" />
-                                    <b>No vitals recorded</b>
-                                    <p>They are taken during a consultation and appear here.</p>
-                                </div>
-                            ) : (
-                                <div className="pr-vitals">
-                                    {VITALS.map(([key, label, unit, tone]) => {
-                                        const value = vitalOf(summary.vitals!.values, key);
-
-                                        return value === null ? null : (
-                                            <div className={`pr-vital ${tone}`} key={key}>
-                                                <i className="ti ti-activity" aria-hidden="true" />
-                                                <span>
-                                                    <small>{label}</small>
-                                                    <b>{value}</b>
-                                                    {unit && <em>{unit}</em>}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </Card>
+                    <div className="pf-code">
+                        Patient ID: {patient.code ?? '—'}
+                        {patient.code && (
+                            <button
+                                type="button"
+                                onClick={copyCode}
+                                title="Copy patient ID"
+                                aria-label="Copy patient ID"
+                            >
+                                <i className={copied ? 'ti ti-check' : 'ti ti-copy'} aria-hidden="true" />
+                            </button>
+                        )}
                     </div>
 
-                    <div className="pr-side">
-                        <Card title={<span className="opd-card-title">Quick actions</span>}>
-                            <div className="md-quick">
-                                <Link className="md-quick-one is-blue" to="/opd">
-                                    <i className="ti ti-calendar-plus" aria-hidden="true" />
-                                    Book
-                                </Link>
-
-                                {capabilities.includes('customers.edit') && (
-                                    <Link
-                                        className="md-quick-one is-violet"
-                                        to={`/customers/${patient.id}/edit`}
-                                    >
-                                        <i className="ti ti-pencil" aria-hidden="true" />
-                                        Edit details
-                                    </Link>
-                                )}
-
-                                <button
-                                    type="button"
-                                    className="md-quick-one is-green"
-                                    onClick={() => setTab('visits')}
-                                >
-                                    <i className="ti ti-history" aria-hidden="true" />
-                                    Visit history
-                                </button>
-                            </div>
-                        </Card>
-
-                        {summary?.next_visit && (
-                            <Card title={<span className="opd-card-title">Next appointment</span>}>
-                                <div className="pr-next">
-                                    <i className="ti ti-calendar-event" aria-hidden="true" />
-                                    <span>
-                                        <b>{longDate(summary.next_visit.on)}</b>
-                                        <small>
-                                            {summary.next_visit.at ?? 'Time not set'}
-                                            {summary.next_visit.doctor_name
-                                                ? ` · ${summary.next_visit.doctor_name}`
-                                                : ''}
-                                        </small>
-                                    </span>
-                                </div>
-                            </Card>
+                    <ul className="pf-facts">
+                        {patient.age != null && (
+                            <li>
+                                <i className="ti ti-cake" aria-hidden="true" />
+                                {patient.age} years
+                                {patient.date_of_birth ? ` (${longDate(patient.date_of_birth)})` : ''}
+                            </li>
                         )}
 
-                        <Card
-                            title={<span className="opd-card-title">Recent visits</span>}
-                            actions={
-                                visits.length > 3 ? (
-                                    <button
-                                        type="button"
-                                        className="md-viewall"
-                                        onClick={() => setTab('visits')}
-                                    >
-                                        View all
-                                    </button>
-                                ) : undefined
-                            }
-                        >
-                            {visits.length === 0 ? (
-                                <p className="cn-quiet">No visits yet.</p>
-                            ) : (
-                                <ul className="pr-recent">
-                                    {visits.slice(0, 4).map((visit) => (
-                                        <li key={visit.id}>
-                                            <i className="ti ti-file-text" aria-hidden="true" />
+                        {patient.gender && (
+                            <li>
+                                <i className="ti ti-user" aria-hidden="true" />
+                                {patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1)}
+                            </li>
+                        )}
 
-                                            <span>
-                                                <b>{longDate(visit.date)}</b>
-                                                <small>
-                                                    {visit.doctor_name ?? 'Unknown doctor'}
-                                                    {visit.consultation?.chief_complaint
-                                                        ? ` · ${visit.consultation.chief_complaint}`
-                                                        : ''}
-                                                </small>
-                                            </span>
+                        {patient.phone && (
+                            <li>
+                                <i className="ti ti-phone" aria-hidden="true" />
+                                <a href={`tel:${patient.phone}`}>{patient.phone}</a>
+                            </li>
+                        )}
 
-                                            <em className={`pt-state is-${visit.status}`}>
-                                                {STATUS[visit.status] ?? visit.status}
-                                            </em>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </Card>
-                    </div>
+                        {place && (
+                            <li>
+                                <i className="ti ti-map-pin" aria-hidden="true" />
+                                {place}
+                            </li>
+                        )}
+                    </ul>
                 </div>
-            )}
 
-            {tab === 'visits' && (
-                <Card title={<span className="opd-card-title">Visit history</span>}>
-                    {visits.length === 0 ? (
-                        <div className="cn-none-yet">
-                            <i className="ti ti-calendar-off" aria-hidden="true" />
-                            <b>No visits yet</b>
-                            <p>This patient has not been booked in or seen at any branch.</p>
-                        </div>
-                    ) : (
-                        <ol className="pt-visits">
-                            {visits.map((visit) => (
-                                <li key={visit.id}>
-                                    <div className="pt-when">
-                                        <b>{longDate(visit.date)}</b>
-                                        <small>
-                                            {visit.doctor_name ?? 'Unknown doctor'}
-                                            {visit.location_name ? ` · ${visit.location_name}` : ''}
-                                        </small>
-                                        <em className={`pt-state is-${visit.status}`}>
-                                            {STATUS[visit.status] ?? visit.status}
-                                        </em>
-                                    </div>
-
-                                    <div className="pt-what">
-                                        {!visit.consultation ? (
-                                            <p className="cn-quiet">
-                                                {visit.status === 'completed'
-                                                    ? 'Seen, but nothing was written up.'
-                                                    : 'Nothing written up.'}
-                                            </p>
-                                        ) : (
-                                            <>
-                                                {visit.consultation.chief_complaint && (
-                                                    <p>{visit.consultation.chief_complaint}</p>
-                                                )}
-
-                                                {visit.consultation.diagnoses.length > 0 && (
-                                                    <span className="cn-dx">
-                                                        {visit.consultation.diagnoses.map(
-                                                            (entry) => (
-                                                                <em key={entry}>{entry}</em>
-                                                            ),
-                                                        )}
-                                                    </span>
-                                                )}
-
-                                                <span className="pt-counts">
-                                                    {visit.consultation.prescription.length > 0 && (
-                                                        <span>
-                                                            <i
-                                                                className="ti ti-pill"
-                                                                aria-hidden="true"
-                                                            />
-                                                            {visit.consultation.prescription.length}{' '}
-                                                            prescribed
-                                                        </span>
-                                                    )}
-
-                                                    {visit.consultation.investigations.length >
-                                                        0 && (
-                                                        <span>
-                                                            <i
-                                                                className="ti ti-flask"
-                                                                aria-hidden="true"
-                                                            />
-                                                            {
-                                                                visit.consultation.investigations
-                                                                    .length
-                                                            }{' '}
-                                                            ordered
-                                                        </span>
-                                                    )}
-
-                                                    {visit.consultation.follow_up_days && (
-                                                        <span>
-                                                            <i
-                                                                className="ti ti-calendar-repeat"
-                                                                aria-hidden="true"
-                                                            />
-                                                            Follow-up in{' '}
-                                                            {visit.consultation.follow_up_days} days
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            </>
-                                        )}
-                                    </div>
-                                </li>
-                            ))}
-                        </ol>
+                <div className="pf-actions">
+                    {canBook && (
+                        // Opens the OPD desk's booking dialog with this patient
+                        // already chosen: OpdTodayPage reads ?patient=.
+                        <Link className="btn btn-primary" to={`/opd?patient=${patient.id}`}>
+                            <i className="ti ti-plus me-1" aria-hidden="true" />
+                            New Visit
+                        </Link>
                     )}
-                </Card>
-            )}
 
-            {tab === 'vitals' && (
-                <Card title={<span className="opd-card-title">Vitals over time</span>}>
-                    {visits.filter((visit) => visit.consultation?.vitals
-                        && Object.keys(visit.consultation.vitals).length > 0).length === 0 ? (
-                        <div className="cn-none-yet">
-                            <i className="ti ti-activity" aria-hidden="true" />
-                            <b>No vitals recorded</b>
-                            <p>They are taken during a consultation and appear here.</p>
-                        </div>
-                    ) : (
-                        <div className="av-table-scroll">
-                            <table className="av-table tbl-cards">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        {VITALS.map(([, label, unit]) => (
-                                            <th key={label}>
-                                                {label}
-                                                {unit ? ` (${unit})` : ''}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
+                    {canEdit && (
+                        <Link className="btn btn-outline-primary" to={`/customers/${patient.id}/edit`}>
+                            <i className="ti ti-pencil me-1" aria-hidden="true" />
+                            Edit Patient
+                        </Link>
+                    )}
 
-                                <tbody>
-                                    {visits
-                                        .filter(
-                                            (visit) =>
-                                                visit.consultation?.vitals &&
-                                                Object.keys(visit.consultation.vitals).length > 0,
-                                        )
-                                        .map((visit) => (
-                                            <tr key={visit.id}>
-                                                <td className="av-date" data-label="Date">
-                                                    {longDate(visit.date)}
-                                                </td>
+                    {history}
+                </div>
+            </header>
 
-                                                {VITALS.map(([key, label, unit]) => (
-                                                    <td
-                                                        key={key}
-                                                        className="av-dim"
-                                                        data-label={
-                                                            unit ? `${label} (${unit})` : label
-                                                        }
-                                                    >
-                                                        {vitalOf(
-                                                            visit.consultation!.vitals,
-                                                            key,
-                                                        ) ?? '—'}
-                                                    </td>
-                                                ))}
-                                            </tr>
-                                        ))}
-                                </tbody>
-                            </table>
+            <div className="pf-stats">
+                <StatTiles tiles={tiles} loading={!record} />
+            </div>
+
+            <div className="pf-body">
+                <aside className="pf-nav" aria-label="Patient record sections">
+                    {SECTIONS.map((entry) => (
+                        <button
+                            key={entry.value}
+                            type="button"
+                            className={cn(section === entry.value && 'is-on')}
+                            aria-current={section === entry.value ? 'page' : undefined}
+                            onClick={() => go(entry.value)}
+                        >
+                            <i className={entry.icon} aria-hidden="true" />
+                            {entry.label}
+                        </button>
+                    ))}
+                </aside>
+
+                <div className="pf-main">
+                    <Tabs
+                        tabs={SECTIONS.map((entry) => ({ value: entry.value, label: entry.short }))}
+                        value={section}
+                        onChange={go}
+                        label="Patient record sections"
+                    />
+
+                    {section === 'overview' && (
+                        <Overview
+                            patient={patient}
+                            fields={fields}
+                            record={record}
+                            file={file}
+                            canEdit={canEdit}
+                            go={go}
+                        />
+                    )}
+
+                    {section === 'visits' && <VisitsTable visits={visits} go={go} />}
+
+                    {section === 'prescriptions' && (
+                        <PrescriptionsTable rows={file.prescriptions} go={go} />
+                    )}
+
+                    {section === 'labs' && <LabsTable rows={file.labs} go={go} />}
+
+                    {section === 'billing' && <BillingPanel />}
+
+                    {section === 'documents' && <DocumentsPanel />}
+
+                    {section === 'notes' && <NotesPanel rows={file.notes} go={go} />}
+
+                    {section === 'services' && <ServicesPanel file={file} />}
+
+                    {section === 'vitals' && (
+                        <div className="pf-stack">
+                            <VitalsLatest record={record} />
+                            <VitalsHistory rows={file.vitalsRows} />
                         </div>
                     )}
-                </Card>
-            )}
-        </>
+
+                    {section === 'allergies' && <AllergiesPanel patient={patient} file={file} />}
+
+                    {section === 'settings' && (
+                        <RecordPanel
+                            patient={patient}
+                            record={record}
+                            canEdit={canEdit}
+                            history={history}
+                        />
+                    )}
+                </div>
+            </div>
+        </div>
     );
 }

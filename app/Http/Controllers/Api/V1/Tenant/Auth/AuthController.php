@@ -63,6 +63,84 @@ class AuthController extends BaseApiController
         );
     }
 
+    /**
+     * Sign in and get a token, for clients that cannot hold a session.
+     *
+     * The browser SPA uses [login] and a cookie. A phone is launched from an
+     * icon with no cookie and no subdomain, so it carries a token instead and
+     * names its organization in an `X-Organization` header on every later
+     * request. The token is created in that organization's own database, which
+     * is what makes the header safe to accept: pointed at another
+     * organization, it finds that organization's token table, where this token
+     * does not exist.
+     *
+     * The credential check, the rate limit and the lifecycle rules are the same
+     * ones [login] uses -- LoginRequest owns both paths so they cannot drift.
+     * The only difference is that no session is written.
+     */
+    public function token(LoginRequest $request, Permission $permission): JsonResponse
+    {
+        [$organization, $user] = $request->authenticateStateless();
+
+        $user->forceFill([
+            'last_login_at' => now(),
+            'last_login_ip' => $request->ip(),
+        ])->save();
+
+        /*
+         * One token per device name, replaced on each sign-in.
+         *
+         * Without this a phone that signs in, is signed out by an expiry, and
+         * signs in again leaves a live token behind every time -- and the list
+         * of "signed-in devices" fills with entries nobody can account for.
+         */
+        $device = trim((string) $request->input('device_name')) ?: 'Mobile app';
+
+        $user->tokens()->where('name', $device)->delete();
+
+        $token = $user->createToken($device)->plainTextToken;
+
+        return $this->ok(
+            $this->session($user, $organization, $permission) + ['token' => $token],
+            'Signed in successfully.'
+        );
+    }
+
+    /**
+     * Give up the token this request arrived with.
+     *
+     * Only that one. Signing out on a phone must not sign the same person out
+     * of the front desk's tablet.
+     */
+    public function revokeToken(Request $request): JsonResponse
+    {
+        $this->actor($request)?->currentAccessToken()?->delete();
+
+        return $this->noContent('Signed out successfully.');
+    }
+
+    /**
+     * The signed-in tenant user, from whichever guard actually holds one.
+     *
+     * Asked explicitly rather than through `$request->user()`, which reads the
+     * *default* guard. That was harmless while `web` was the only way in; with
+     * a second guard it is a bug waiting to happen, and the type check is the
+     * point: a platform administrator is not a tenant user, and a tenant
+     * endpoint must never answer as though they were.
+     */
+    private function actor(Request $request): ?TenantUser
+    {
+        foreach (['web', 'tenant-api'] as $guard) {
+            $user = Auth::guard($guard)->user();
+
+            if ($user instanceof TenantUser) {
+                return $user;
+            }
+        }
+
+        return null;
+    }
+
     public function logout(Request $request): JsonResponse
     {
         Auth::guard('web')->logout();
@@ -77,7 +155,11 @@ class AuthController extends BaseApiController
     public function me(Request $request, Permission $permission): JsonResponse
     {
         $organization = $request->attributes->get('tenant.organization');
-        $user = $request->user();
+        $user = $this->actor($request);
+
+        if (! $user) {
+            return $this->fail('Unauthenticated.', 401);
+        }
 
         if (! $organization) {
             return $this->ok([

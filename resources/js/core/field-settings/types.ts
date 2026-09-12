@@ -34,6 +34,25 @@ export interface ConfigurableField {
     is_custom: boolean;
     sort_order: number;
     options?: { value: string; label: string }[];
+    /** Declared by the server on a field that looks something up and fills its neighbours. */
+    lookup?: FieldLookup | null;
+}
+
+/**
+ * A lookup a field performs, and which fields its answer fills.
+ *
+ * Only `pincode` exists today: India Post's answer fills the area, district,
+ * state and country. Each target is a field key on the same form; a part
+ * with no target is not filled.
+ */
+export interface FieldLookup {
+    type: 'pincode';
+    fills: {
+        area?: string;
+        district?: string;
+        state?: string;
+        country?: string;
+    };
 }
 
 export interface FieldSettingsPayload {

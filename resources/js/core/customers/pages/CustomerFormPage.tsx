@@ -25,7 +25,7 @@ const GROUPS: FieldGroup[] = [
         key: 'contact',
         title: 'Contact',
         icon: 'ti ti-map-pin',
-        description: 'Where to reach them.',
+        description: 'Where to reach them. A PIN code fills in the rest of the address.',
     },
     {
         key: 'other',
@@ -82,6 +82,8 @@ export default function CustomerFormPage() {
         control,
         handleSubmit,
         reset,
+        setValue,
+        getValues,
         submit,
         formState: { errors, isSubmitting },
     } = useApiForm<CustomerFormValues>({
@@ -111,9 +113,11 @@ export default function CustomerFormPage() {
             date_of_birth: customer.date_of_birth ?? '',
             gender: customer.gender ?? '',
             address: customer.address ?? '',
-            city: customer.city ?? '',
-            state: customer.state ?? '',
             pincode: customer.pincode ?? '',
+            city: customer.city ?? '',
+            district: customer.district ?? '',
+            state: customer.state ?? '',
+            country: customer.country ?? '',
             notes: customer.notes ?? '',
             is_active: customer.is_active,
             custom_fields: customer.custom_fields ?? {},
@@ -185,12 +189,15 @@ export default function CustomerFormPage() {
                     <span className="req">*</span> Required. Everything else can be filled in later.
                 </p>
 
+                {/* setValue and getValues let the PIN code fill in the address. */}
                 <ConfigurableForm
                     fields={fields}
                     groups={GROUPS}
                     register={register}
                     errors={errors}
                     control={control}
+                    setValue={setValue}
+                    getValues={getValues}
                 />
 
                 <div className="form-actions">

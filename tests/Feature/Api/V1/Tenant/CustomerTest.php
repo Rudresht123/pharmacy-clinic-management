@@ -5,7 +5,6 @@ namespace Tests\Feature\Api\V1\Tenant;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\Location;
-use App\Models\Tenant\User as TenantUser;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Support\Fields\CustomerFields;
 use Illuminate\Foundation\Testing\RefreshDatabase;

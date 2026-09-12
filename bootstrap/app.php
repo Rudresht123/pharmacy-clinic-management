@@ -9,10 +9,12 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Validation\ValidationException;
+use App\Http\Middleware\AdoptTokenUser;
 use App\Http\Middleware\EnsureTenantCan;
 use App\Http\Middleware\EnsureTenantHasModule;
 use App\Http\Middleware\ResolveActingBranch;
 use App\Http\Middleware\EnsureTenantUserIsOwner;
+use App\Http\Middleware\ResolveTenantFromHeader;
 use App\Http\Middleware\ResolveTenantFromSession;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -33,6 +35,20 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'resolve.tenant' => ResolveTenantFromSession::class,
+
+            /*
+             * The same job for clients with no session: the organization
+             * arrives in an X-Organization header instead of a cookie.
+             */
+            'resolve.tenant.header' => ResolveTenantFromHeader::class,
+
+            /*
+             * A phone signs in on the token guard; every tenant gate asks the
+             * session guard. This tells the second who the first found. Runs
+             * straight after `auth:` and is unlisted for the same reason as
+             * `branch` below.
+             */
+            'tenant.actor' => AdoptTokenUser::class,
             'tenant.owner' => EnsureTenantUserIsOwner::class,
 
             /*
@@ -77,6 +93,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(
             before: \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
             prepend: ResolveTenantFromSession::class,
+        );
+
+        // Same hoisting problem, same fix: the token guard reads a token out
+        // of the tenant database, so the database has to be connected before
+        // Authenticate runs, not after.
+        $middleware->prependToPriorityList(
+            before: \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
+            prepend: ResolveTenantFromHeader::class,
         );
 
         /*

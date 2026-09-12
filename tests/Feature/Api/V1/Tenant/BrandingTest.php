@@ -8,6 +8,7 @@ use App\Models\Platform\PlatformRole;
 use App\Models\Platform\PlatformUser;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
+use App\Support\Platform\OrganizationCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -46,7 +47,7 @@ class BrandingTest extends TestCase
         $organization = $this->actingAs($admin, 'platform')
             ->postJson('/api/v1/admin/organizations', [
                 'organization_name' => 'Branding Test '.$unique,
-                'organization_code' => 'BR'.$unique,
+                'organization_code' => OrganizationCode::generate(),
                 'organization_type_id' => $type->id,
                 'subdomain' => 'branding-'.$unique,
                 'email' => "owner-{$unique}@example.com",

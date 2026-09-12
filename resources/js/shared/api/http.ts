@@ -85,6 +85,20 @@ export function setUnauthenticatedHandler(handler: () => void): void {
     onUnauthenticated = handler;
 }
 
+declare module 'axios' {
+    interface AxiosRequestConfig {
+        /**
+         * Skip the global error toast, because the caller shows the failure
+         * itself.
+         *
+         * For requests whose failure is an ordinary answer rather than an
+         * error, like a PIN code lookup reporting "no such code" beside the
+         * field. A toast on top of that says the same thing twice, louder.
+         */
+        silent?: boolean;
+    }
+}
+
 http.interceptors.response.use(
     (response) => response,
     async (error: AxiosError<ApiError | ApiValidationError>) => {
@@ -106,8 +120,9 @@ http.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        // 422 is expected — forms render those inline via useApiForm.
-        if (status !== 422) {
+        // 422 is expected — forms render those inline via useApiForm. A
+        // silent request shows its own failure.
+        if (status !== 422 && !config?.silent) {
             notify.error(resolveErrorMessage(error));
         }
 

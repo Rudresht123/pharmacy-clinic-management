@@ -97,10 +97,38 @@ class CustomerFields
                 'locked' => false,
                 'in_table' => false,
             ],
+            /*
+             * The PIN code first, because it fills in the rest.
+             *
+             * `lookup` tells the form to ask India Post as soon as six digits
+             * are in, and which of the fields below each part of the answer
+             * goes into. Declared here rather than in the form so any entity
+             * with an address — a branch, a supplier — opts in by adding the
+             * same key to its own PIN code field. See usePincodeAutofill.
+             */
+            [
+                'key' => 'pincode',
+                'label' => 'PIN code',
+                'placeholder' => '201301',
+                'type' => 'text',
+                'group' => self::GROUP_CONTACT,
+                'required' => false,
+                'locked' => false,
+                'in_table' => false,
+                'lookup' => [
+                    'type' => 'pincode',
+                    'fills' => [
+                        'area' => 'city',
+                        'district' => 'district',
+                        'state' => 'state',
+                        'country' => 'country',
+                    ],
+                ],
+            ],
             [
                 'key' => 'city',
-                'label' => 'City',
-                'placeholder' => 'Pune',
+                'label' => 'City / Area',
+                'placeholder' => 'Noida Sector 18',
                 'type' => 'text',
                 'group' => self::GROUP_CONTACT,
                 'required' => false,
@@ -108,9 +136,9 @@ class CustomerFields
                 'in_table' => true,
             ],
             [
-                'key' => 'state',
-                'label' => 'State',
-                'placeholder' => 'Maharashtra',
+                'key' => 'district',
+                'label' => 'District',
+                'placeholder' => 'Gautam Buddha Nagar',
                 'type' => 'text',
                 'group' => self::GROUP_CONTACT,
                 'required' => false,
@@ -118,9 +146,19 @@ class CustomerFields
                 'in_table' => false,
             ],
             [
-                'key' => 'pincode',
-                'label' => 'PIN code',
-                'placeholder' => '411001',
+                'key' => 'state',
+                'label' => 'State',
+                'placeholder' => 'Uttar Pradesh',
+                'type' => 'text',
+                'group' => self::GROUP_CONTACT,
+                'required' => false,
+                'locked' => false,
+                'in_table' => false,
+            ],
+            [
+                'key' => 'country',
+                'label' => 'Country',
+                'placeholder' => 'India',
                 'type' => 'text',
                 'group' => self::GROUP_CONTACT,
                 'required' => false,

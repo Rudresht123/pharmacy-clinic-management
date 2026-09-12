@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react';
-import type { Control, FieldErrors, FieldValues, UseFormRegister } from 'react-hook-form';
+import type {
+    Control,
+    FieldErrors,
+    FieldValues,
+    UseFormGetValues,
+    UseFormRegister,
+    UseFormSetValue,
+} from 'react-hook-form';
 import { Card } from '@/shared/components/ui/Card';
 import { FieldInput } from './FieldInput';
 import type { ConfigurableField } from './types';
@@ -20,6 +27,12 @@ interface ConfigurableFormProps<T extends FieldValues> {
     register: UseFormRegister<T>;
     errors: FieldErrors<T>;
     control: Control<T>;
+    /**
+     * Pass both to let fields fill each other in, like a PIN code filling the
+     * district and state. Without them those fields render as plain inputs.
+     */
+    setValue?: UseFormSetValue<T>;
+    getValues?: UseFormGetValues<T>;
     /** Extra content appended inside a particular group's card. */
     extras?: Record<string, ReactNode>;
 }
@@ -41,9 +54,14 @@ export function ConfigurableForm<T extends FieldValues>({
     register,
     errors,
     control,
+    setValue,
+    getValues,
     extras,
 }: ConfigurableFormProps<T>) {
     const visible = (fields ?? []).filter((field) => field.show_in_form);
+
+    // Which fields are on this form, so a lookup fills only those.
+    const visibleKeys = new Set(visible.map((field) => field.key));
 
     const populated = groups.filter(
         (group) =>
@@ -67,6 +85,9 @@ export function ConfigurableForm<T extends FieldValues>({
                             register={register}
                             errors={errors}
                             control={control}
+                            setValue={setValue}
+                            getValues={getValues}
+                            visibleKeys={visibleKeys}
                         />
                     ))}
 

@@ -589,10 +589,10 @@ class AvailabilityTest extends TenantTestCase
         $this->placeStaffAt($organization, $branchId);
         $this->signInAsStaff($organization);
 
-        $this->getJson("/api/v1/tenant/availability/week?from=".self::MONDAY."&location_id={$branchId}")
+        $this->getJson('/api/v1/tenant/availability/week?from='.self::MONDAY."&location_id={$branchId}")
             ->assertOk();
 
-        $this->getJson("/api/v1/tenant/availability/week?from=".self::MONDAY."&location_id={$other}")
+        $this->getJson('/api/v1/tenant/availability/week?from='.self::MONDAY."&location_id={$other}")
             ->assertStatus(403);
     }
 

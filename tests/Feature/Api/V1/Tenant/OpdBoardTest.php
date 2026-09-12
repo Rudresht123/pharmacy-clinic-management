@@ -12,8 +12,8 @@ use App\Models\Tenant\Location;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
 use App\Support\Opd\Weekday;
-use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TenantTestCase;
 
 /**

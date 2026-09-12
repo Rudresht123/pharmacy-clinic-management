@@ -9,6 +9,7 @@ use App\Models\Platform\PlatformRole;
 use App\Models\Platform\PlatformUser;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
+use App\Support\Platform\OrganizationCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -57,7 +58,7 @@ class OrganizationProvisioningTest extends TestCase
 
         return [
             'organization_name' => 'Provision Test '.$unique,
-            'organization_code' => 'PT'.$unique,
+            'organization_code' => OrganizationCode::generate(),
             'organization_type_id' => $type->id,
             'subdomain' => 'provision-test-'.$unique,
             'email' => "owner-{$unique}@example.com",
@@ -177,13 +178,13 @@ class OrganizationProvisioningTest extends TestCase
     {
         $deleted = Organization::factory()->create([
             'subdomain' => 'reclaimed-subdomain',
-            'organization_code' => 'RECLAIMED',
+            'organization_code' => 'RCL001',
         ]);
         $deleted->delete();
 
         $payload = array_merge($this->validPayload(), [
             'subdomain' => 'reclaimed-subdomain',
-            'organization_code' => 'RECLAIMED',
+            'organization_code' => 'RCL001',
         ]);
 
         $this->actingAsAdmin()

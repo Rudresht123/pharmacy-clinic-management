@@ -38,12 +38,22 @@ return [
     */
 
     /*
-     * Only the platform guard. The SPA this serves is the admin panel, and
-     * listing `web` here as well would let a tenant session satisfy
-     * `auth:sanctum` on an admin route — the one thing §18 forbids. When the
-     * tenant app arrives it gets its own stateful config, not an entry here.
+     * No session fallback at all. Tokens only.
+     *
+     * This list used to read `['platform']`, from a time when nothing in the
+     * application used the `sanctum` driver and the setting did nothing. The
+     * `tenant-api` guard uses it now, and the setting stopped being harmless:
+     * Sanctum checks these guards *before* it looks at the bearer token and
+     * returns the first user it finds, so an administrator with a live
+     * platform session would have authenticated on tenant routes — the one
+     * thing §18 forbids, arriving through the back door.
+     *
+     * Empty means the tenant-api guard answers from the token in the request
+     * and from nothing else, which is the only thing a phone can present
+     * anyway. The platform panel is unaffected: it signs in on the `platform`
+     * guard, whose driver is `session`, and never reads this list.
      */
-    'guard' => ['platform'],
+    'guard' => [],
 
     /*
     |--------------------------------------------------------------------------

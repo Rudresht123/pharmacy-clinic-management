@@ -71,6 +71,22 @@ return [
             'driver' => 'session',
             'provider' => 'platform_users',
         ],
+
+        /*
+         * The same tenant users as `web`, reached with a token instead of a
+         * cookie. This is what the mobile app authenticates on.
+         *
+         * A separate guard rather than a second driver on `web`, because the
+         * two answer different questions: `web` asks "which session is this",
+         * and the session is what carries the organization. `tenant-api` has
+         * no session at all -- ResolveTenantFromHeader connects the database
+         * from the X-Organization header first, and the token is then looked
+         * up in that organization's own table.
+         */
+        'tenant-api' => [
+            'driver' => 'sanctum',
+            'provider' => 'users',
+        ],
     ],
 
     /*

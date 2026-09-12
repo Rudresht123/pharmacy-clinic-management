@@ -5,6 +5,7 @@ namespace Tests\Feature\Api\V1\Tenant;
 use App\Http\Middleware\ResolveActingBranch;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\BranchMembership;
+use App\Models\Tenant\Customer;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
@@ -147,7 +148,7 @@ class ActingBranchTest extends TenantTestCase
     {
         [$organization, $lucknow, $delhi] = $this->network();
 
-        $customerId = $this->onTenant($organization, fn () => \App\Models\Tenant\Customer::on('organization')->create([
+        $customerId = $this->onTenant($organization, fn () => Customer::on('organization')->create([
             'name' => 'Asha Rane', 'phone' => '9876500061', 'is_active' => true,
         ])->id);
 
@@ -190,7 +191,7 @@ class ActingBranchTest extends TenantTestCase
     {
         [$organization] = $this->network();
 
-        $customerId = $this->onTenant($organization, fn () => \App\Models\Tenant\Customer::on('organization')->create([
+        $customerId = $this->onTenant($organization, fn () => Customer::on('organization')->create([
             'name' => 'Bina Rao', 'phone' => '9876500062', 'is_active' => true,
         ])->id);
 

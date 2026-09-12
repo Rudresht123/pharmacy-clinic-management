@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\Tenant\AppointmentController;
 use App\Http\Controllers\Api\V1\Tenant\Auth\AuthController as TenantAuthController;
 use App\Http\Controllers\Api\V1\Tenant\AvailabilityController;
 use App\Http\Controllers\Api\V1\Tenant\BrandingController;
+use App\Http\Controllers\Api\V1\Tenant\WorkspaceLookupController;
 use App\Http\Controllers\Api\V1\Tenant\ConsultationController;
 use App\Http\Controllers\Api\V1\Tenant\CustomerController;
 use App\Http\Controllers\Api\V1\Tenant\DashboardController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\Api\V1\Tenant\HistoryController;
 use App\Http\Controllers\Api\V1\Tenant\LocationController;
 use App\Http\Controllers\Api\V1\Tenant\LocationModuleController;
 use App\Http\Controllers\Api\V1\Tenant\OpdController;
+use App\Http\Controllers\Api\V1\Tenant\PincodeController;
 use App\Http\Controllers\Api\V1\Tenant\RoleController;
 use App\Http\Controllers\Api\V1\Tenant\UserController as TenantUserController;
 use Illuminate\Support\Facades\Route;
@@ -151,6 +153,20 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
     Route::get('branding', [BrandingController::class, 'show'])->name('branding');
 
     /*
+     * The same question the branding endpoint answers, asked the other way
+     * round. A browser is already on the tenant's subdomain, so branding can
+     * read it off the Host header; a phone app has no host until it knows
+     * which organization it is talking to, so it asks by code instead.
+     *
+     * Throttled because it is the one route that will confirm whether a code
+     * exists. The limit is per IP and generous enough that nobody typing their
+     * own code will ever meet it.
+     */
+    Route::get('workspace/{code}', [WorkspaceLookupController::class, 'show'])
+        ->middleware('throttle:20,1')
+        ->name('workspace.lookup');
+
+    /*
      * resolve.tenant runs ahead of guest:web on purpose. `guest` asks the web
      * guard whether anyone is signed in, and that lookup hits the tenant
      * database — with no tenant connected it queries an empty database and
@@ -162,13 +178,49 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
     });
 
     /*
+     * The same sign-in for clients that cannot hold a cookie.
+     *
+     * Deliberately outside the `guest:web` group: that guard asks the session
+     * whether anyone is signed in, and a phone has no session for it to ask.
+     * Throttled at the route because it is a credential endpoint reachable
+     * without one -- LoginRequest rate limits per address too, and this is the
+     * per-IP floor underneath it.
+     */
+    Route::post('auth/token', [TenantAuthController::class, 'token'])
+        ->middleware('throttle:10,1')
+        ->name('auth.token');
+
+    /*
      * `branch` runs after the guard and before every gate: somebody who works
      * at two branches has different permissions at each, so which one this
      * request is in has to be settled — and checked against their memberships
      * — before anything asks what they may do.
      */
-    Route::middleware(['resolve.tenant', 'auth:web', 'branch'])->group(function () {
+    /*
+     * Two ways in, one set of routes.
+     *
+     * `resolve.tenant` connects the database from the session; its header
+     * sibling does the same from X-Organization. Each is a no-op when its own
+     * input is absent, so a browser takes the first and a phone the second
+     * without either knowing about the other. `auth:web,tenant-api` then
+     * accepts whichever guard actually holds a signed-in user, and
+     * `tenant.actor` makes a token user visible to the gates that ask the
+     * session guard — see App\Http\Middleware\AdoptTokenUser.
+     *
+     * Duplicating every route for the mobile client was the alternative, and
+     * it would have meant every future gate being added in two places -- which
+     * is how one of them ends up missing.
+     */
+    Route::middleware([
+        'resolve.tenant',
+        'resolve.tenant.header',
+        'auth:web,tenant-api',
+        'tenant.actor',
+        'branch',
+    ])->group(function () {
         Route::get('auth/me', [TenantAuthController::class, 'me'])->name('auth.me');
+        Route::delete('auth/token', [TenantAuthController::class, 'revokeToken'])
+            ->name('auth.token.revoke');
 
         /*
         | The workspace's first screen. Ungated here because anybody who may
@@ -177,6 +229,20 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         */
         Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::post('auth/logout', [TenantAuthController::class, 'logout']);
+
+        /*
+        | Reference lookups: facts about the world rather than about this
+        | organization, so ungated beyond being signed in. Any address form
+        | can use them.
+        |
+        | The pattern keeps anything that is not a PIN code from ever reaching
+        | India Post, and the throttle keeps one browser from turning this
+        | into a scraper — a found code is cached, a miss is not free.
+        */
+        Route::get('lookups/pincode/{pincode}', [PincodeController::class, 'show'])
+            ->where('pincode', '[1-9][0-9]{5}')
+            ->middleware('throttle:60,1')
+            ->name('lookups.pincode');
 
         /*
         | Locations.

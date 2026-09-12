@@ -14417,3 +14417,216 @@ html::-webkit-scrollbar-track {
 }
 
 .db-branch li i{ flex:0 0 auto; font-size:15px; color:var(--muted); }
+
+/* =====================================================================
+   Patient file — /customers/:id
+   ---------------------------------------------------------------------
+   Prefixed pf- (patient file). Not pp-: that is PersonPhoto's own class.
+   Built entirely on the layout tokens, so dark mode follows for free.
+   ===================================================================== */
+
+.pf-top{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.pf-back{ display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--ink-2); text-decoration:none; }
+.pf-back:hover{ color:rgb(var(--brand)); }
+
+.pf-head{
+    display:flex;
+    align-items:center;
+    gap:20px;
+    flex-wrap:wrap;
+    padding:20px 22px;
+    margin-bottom:16px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:0 1px 2px rgba(var(--shadow), .04);
+}
+.pf-face{ width:88px; height:88px; flex:0 0 auto; border-radius:50%; }
+.pf-id{ flex:1 1 320px; min-width:0; }
+.pf-name{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+    margin:0;
+    font-size:22px;
+    font-weight:800;
+    letter-spacing:-.3px;
+    color:var(--ink);
+}
+.pf-status{ padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700; font-style:normal; background:rgba(16,185,129,.12); color:#047857; }
+.pf-status.is-off{ background:var(--surface-3); color:var(--muted); }
+.pf-code{ display:inline-flex; align-items:center; gap:6px; margin-top:4px; font-size:12.5px; color:var(--muted); }
+.pf-code button{ padding:0; border:0; background:none; color:rgb(var(--brand)); cursor:pointer; line-height:1; }
+.pf-facts{ display:flex; flex-wrap:wrap; gap:8px 22px; margin:12px 0 0; padding:0; list-style:none; font-size:13px; color:var(--ink-2); }
+.pf-facts li{ display:inline-flex; align-items:center; gap:7px; }
+.pf-facts i{ font-size:16px; color:var(--muted); }
+.pf-facts a{ color:inherit; text-decoration:none; }
+.pf-facts a:hover{ color:rgb(var(--brand)); }
+.pf-actions{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+
+.pf-stats{ margin-bottom:16px; }
+.pf-stats .stat-tiles{ display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:12px; }
+
+.pf-body{ display:grid; grid-template-columns:230px minmax(0, 1fr); gap:16px; align-items:start; }
+.pf-nav{
+    position:sticky;
+    top:84px;
+    padding:8px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:16px;
+}
+.pf-nav button{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    padding:10px 12px;
+    border:0;
+    border-radius:10px;
+    background:none;
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    text-align:left;
+    cursor:pointer;
+}
+.pf-nav button i{ font-size:18px; color:var(--muted); }
+.pf-nav button:hover{ background:var(--surface-2); color:var(--ink); }
+.pf-nav button.is-on{ background:rgba(var(--brand), .08); color:rgb(var(--brand)); }
+.pf-nav button.is-on i{ color:rgb(var(--brand)); }
+.pf-nav button:focus-visible{ outline:2px solid rgb(var(--brand)); outline-offset:1px; }
+
+.pf-main{ min-width:0; }
+.pf-main > .app-tabs{ margin-bottom:14px; overflow-x:auto; flex-wrap:nowrap; }
+
+.pf-grid{ display:grid; gap:16px; margin-bottom:16px; }
+.pf-grid.is-3{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+.pf-grid.is-2{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+.pf-stack{ display:grid; gap:16px; }
+.pf-panel{ height:100%; margin:0; }
+
+/*
+ * A table sits inset in its card, inside a frame of its own: a border down
+ * both sides and rounded corners, the same frame the queue, records,
+ * schedule and availability tables already had. The four below were the
+ * ones without it. The overflow each already sets is what clips the
+ * corners.
+ */
+.pf-table-wrap,
+.db-scroll,
+.opd-table-scroll,
+.q-table-scroll{
+    border:1px solid var(--line);
+    border-radius:10px;
+}
+
+.pf-panel .pf-soon-inset{ margin:12px 0 0; }
+
+/* Personal information, record settings */
+.pf-rows{ display:grid; gap:10px; margin:0; }
+.pf-rows > div{ display:grid; grid-template-columns:130px minmax(0, 1fr); gap:10px; font-size:13px; }
+.pf-rows dt{ font-weight:500; color:var(--muted); }
+.pf-rows dd{ margin:0; font-weight:600; color:var(--ink); word-break:break-word; }
+.pf-record-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+
+/* Medical summary */
+.pf-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.pf-chip{ padding:4px 10px; border-radius:999px; font-size:11.5px; font-weight:700; background:rgba(var(--brand), .08); color:rgb(var(--brand)); }
+.pf-chip:nth-child(2){ background:rgba(14,165,233,.12); color:#0369a1; }
+.pf-chip:nth-child(3){ background:rgba(16,185,129,.12); color:#047857; }
+.pf-med{ display:grid; gap:14px; margin:0; font-size:13px; }
+.pf-med dt{ margin-bottom:4px; font-size:11.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); }
+.pf-med dd{ margin:0; color:var(--ink); }
+.pf-med ul{ margin:0; padding-left:18px; }
+.pf-med li{ margin:3px 0; }
+.pf-med small{ color:var(--muted); }
+
+/* Vitals */
+.pf-vitals{ display:grid; margin:0; padding:0; list-style:none; }
+.pf-vitals li{ display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; }
+.pf-vitals li:last-child{ border-bottom:0; }
+.pf-vitals i{ display:grid; place-items:center; width:30px; height:30px; flex:0 0 auto; border-radius:9px; font-size:16px; }
+.pf-vitals span{ flex:1; color:var(--ink-2); }
+.pf-vitals b{ font-weight:700; color:var(--ink); white-space:nowrap; }
+.pf-vitals em{ margin-left:3px; font-size:11.5px; font-style:normal; font-weight:500; color:var(--muted); }
+.pf-tone-rose{ background:rgba(244,63,94,.1); color:#be123c; }
+.pf-tone-violet{ background:rgba(139,92,246,.12); color:#6d28d9; }
+.pf-tone-amber{ background:rgba(245,158,11,.12); color:#b45309; }
+.pf-tone-sky{ background:rgba(14,165,233,.12); color:#0369a1; }
+.pf-tone-indigo{ background:rgba(var(--brand), .1); color:rgb(var(--brand)); }
+.pf-tone-emerald{ background:rgba(16,185,129,.12); color:#047857; }
+.pf-tone-teal{ background:rgba(20,184,166,.12); color:#0f766e; }
+
+/* Tables */
+.pf-table-wrap{ overflow-x:auto; }
+.pf-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+.pf-table th{
+    padding:10px 16px;
+    border-bottom:1px solid var(--line);
+    background:var(--surface-2);
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--muted);
+    text-align:left;
+    white-space:nowrap;
+}
+.pf-table td{ padding:10px 16px; border-bottom:1px solid var(--line); color:var(--ink-2); vertical-align:top; }
+.pf-table tr:last-child td{ border-bottom:0; }
+.pf-table td.pf-strong{ font-weight:600; color:var(--ink); white-space:nowrap; }
+.pf-rx + .pf-rx{ margin-top:4px; }
+.pf-rx b{ margin-right:6px; font-weight:600; color:var(--ink); }
+.pf-rx small{ color:var(--muted); }
+.pf-pill{ display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; background:var(--surface-3); color:var(--ink-3); }
+.pf-pill.is-sky{ background:rgba(14,165,233,.12); color:#0369a1; }
+
+/* Notes */
+.pf-notes{ margin:0; padding:0; list-style:none; }
+.pf-notes li{ display:grid; grid-template-columns:10px 88px minmax(0, 1fr); gap:10px; padding:7px 0; font-size:12.5px; }
+.pf-notes li::before{ content:''; width:8px; height:8px; margin-top:5px; border-radius:50%; background:rgb(var(--brand)); }
+.pf-notes time{ color:var(--muted); white-space:nowrap; }
+.pf-notes p{ margin:0; color:var(--ink-2); }
+.pf-notes small{ display:block; margin-top:2px; font-size:11px; color:var(--muted); }
+
+/* Allergies & conditions */
+.pf-allergy{ display:flex; align-items:flex-start; gap:8px; margin:0; padding:12px; border-radius:10px; background:rgba(244,63,94,.08); font-weight:600; color:#be123c; }
+.pf-conditions{ display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+.pf-conditions li{ display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; }
+.pf-conditions li:last-child{ border-bottom:0; }
+.pf-conditions b{ font-weight:600; color:var(--ink); }
+.pf-conditions small{ color:var(--muted); white-space:nowrap; }
+
+.pf-soon{ display:flex; gap:8px; margin:12px 0 0; padding:10px 12px; border-radius:10px; background:var(--surface-2); font-size:12px; color:var(--ink-3); }
+.pf-soon-inset{ margin:12px 16px 16px; }
+
+@media (max-width: 1399.98px){
+    .pf-grid.is-3{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .pf-stats .stat-tiles{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 991.98px){
+    /* The tab strip carries the sections on its own below this width. */
+    .pf-body{ grid-template-columns:1fr; }
+    .pf-nav{ display:none; }
+    .pf-grid.is-3,
+    .pf-grid.is-2{ grid-template-columns:1fr; }
+}
+
+@media (max-width: 575.98px){
+    .pf-stats .stat-tiles{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .pf-rows > div{ grid-template-columns:1fr; gap:2px; }
+    .pf-head{ padding:16px; }
+    .pf-face{ width:64px; height:64px; }
+}
+
+@media print{
+    .pf-top .btn,
+    .pf-actions,
+    .pf-nav,
+    .pf-main > .app-tabs,
+    .md-viewall{ display:none !important; }
+    .pf-body{ grid-template-columns:1fr; }
+    .pf-head,
+    .pf-panel{ box-shadow:none; break-inside:avoid; }
+}

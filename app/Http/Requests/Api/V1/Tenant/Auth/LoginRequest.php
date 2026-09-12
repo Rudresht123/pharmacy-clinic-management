@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Tenant\Auth;
 
 use App\Models\Platform\Organization;
+use App\Models\Tenant\User as TenantUser;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Support\Tenancy\SubdomainResolver;
 use Illuminate\Auth\Events\Lockout;
@@ -53,13 +54,85 @@ class LoginRequest extends FormRequest
             'subdomain' => ['nullable', 'string'],
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
+
+            // Only the token endpoint sends this: what to call the token in a
+            // list of signed-in devices.
+            'device_name' => ['nullable', 'string', 'max:120'],
         ];
     }
 
     /**
+     * Signs in on the `web` guard, which puts the session in place.
+     *
      * @throws ValidationException
      */
     public function authenticate(): Organization
+    {
+        $organization = $this->resolveOrganization();
+
+        if (! Auth::guard('web')->attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+            $this->fail();
+        }
+
+        if (! Auth::guard('web')->user()->is_active) {
+            Auth::guard('web')->logout();
+
+            $this->fail('This account has been deactivated.');
+        }
+
+        RateLimiter::clear($this->throttleKey());
+
+        return $organization;
+    }
+
+    /**
+     * Checks the same credentials without starting a session.
+     *
+     * The token endpoint cannot use [authenticate]: `web` is a session guard,
+     * and a phone is not a stateful client — `EnsureFrontendRequestsAreStateful`
+     * only makes a request stateful when it comes from a configured domain, so
+     * there is no session for the guard to write into. Asking the user provider
+     * directly does the identical credential check with nothing to write.
+     *
+     * @return array{0: Organization, 1: TenantUser}
+     *
+     * @throws ValidationException
+     */
+    public function authenticateStateless(): array
+    {
+        $organization = $this->resolveOrganization();
+
+        $provider = Auth::createUserProvider('users');
+
+        $user = $provider?->retrieveByCredentials($this->only('email'));
+
+        // One failure for "no such address" and "wrong password", and the
+        // password is verified even when the address is unknown, so the two
+        // cannot be told apart by how long the answer takes.
+        if (! $user || ! $provider->validateCredentials($user, $this->only('password'))) {
+            $this->fail();
+        }
+
+        if (! $user->is_active) {
+            $this->fail('This account has been deactivated.');
+        }
+
+        RateLimiter::clear($this->throttleKey());
+
+        return [$organization, $user];
+    }
+
+    /**
+     * Finds the organization, checks it may be signed in to, and points the
+     * shared connection at its database.
+     *
+     * Shared by both sign-in paths so they cannot drift: the rate limit, the
+     * lifecycle check and the deliberately generic failure message are part of
+     * the security of this endpoint, not incidental detail.
+     *
+     * @throws ValidationException
+     */
+    private function resolveOrganization(): Organization
     {
         $this->ensureIsNotRateLimited();
 
@@ -77,18 +150,6 @@ class LoginRequest extends FormRequest
         }
 
         $this->tenants->connect($organization->database_name);
-
-        if (! Auth::guard('web')->attempt($this->only('email', 'password'), $this->boolean('remember'))) {
-            $this->fail();
-        }
-
-        if (! Auth::guard('web')->user()->is_active) {
-            Auth::guard('web')->logout();
-
-            $this->fail('This account has been deactivated.');
-        }
-
-        RateLimiter::clear($this->throttleKey());
 
         return $organization;
     }

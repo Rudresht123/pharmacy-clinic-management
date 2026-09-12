@@ -1,4 +1,12 @@
-import type { Control, FieldErrors, FieldValues, UseFormRegister } from 'react-hook-form';
+import type {
+    Control,
+    FieldErrors,
+    FieldValues,
+    Path,
+    UseFormGetValues,
+    UseFormRegister,
+    UseFormSetValue,
+} from 'react-hook-form';
 import {
     SelectField,
     SwitchField,
@@ -6,8 +14,10 @@ import {
     TextareaField,
 } from '@/shared/components/form/Fields';
 import { DateField } from '@/shared/components/form/DateField';
+import type { PincodeFills } from '@/shared/geo/usePincodeAutofill';
 import { MultiSelectField } from './MultiSelectField';
-import type { ConfigurableField } from './types';
+import { PincodeInput } from './PincodeInput';
+import type { ConfigurableField, FieldLookup } from './types';
 
 /**
  * Custom values live under the owning table's `custom_fields` jsonb column,
@@ -29,6 +39,15 @@ interface FieldInputProps<T extends FieldValues> {
      * carried a fallback for a case that never happens.
      */
     control: Control<T>;
+    /**
+     * Only needed by fields that fill other fields in, like a PIN code. A form
+     * that does not pass them renders such a field as a plain input, so
+     * opting in is a choice each form makes.
+     */
+    setValue?: UseFormSetValue<T>;
+    getValues?: UseFormGetValues<T>;
+    /** Keys of the fields on this form, so a lookup only fills what is there. */
+    visibleKeys?: ReadonlySet<string>;
 }
 
 /**
@@ -42,6 +61,9 @@ export function FieldInput<T extends FieldValues>({
     register,
     errors,
     control,
+    setValue,
+    getValues,
+    visibleKeys,
 }: FieldInputProps<T>) {
     const name = inputNameFor(field) as never;
 
@@ -52,6 +74,21 @@ export function FieldInput<T extends FieldValues>({
         register,
         errors,
     };
+
+    if (field.lookup?.type === 'pincode' && setValue && getValues) {
+        return (
+            <PincodeInput
+                field={field}
+                name={inputNameFor(field) as Path<T>}
+                register={register}
+                errors={errors}
+                control={control}
+                setValue={setValue}
+                getValues={getValues}
+                fills={fillsOnForm(field.lookup, visibleKeys)}
+            />
+        );
+    }
 
     switch (field.type) {
         case 'boolean':
@@ -115,4 +152,23 @@ export function FieldInput<T extends FieldValues>({
         default:
             return <TextField {...shared} placeholder={field.placeholder ?? undefined} />;
     }
+}
+
+/**
+ * The lookup's targets, less any the organization has switched off.
+ *
+ * A hidden field is still in the form's values, so without this a hidden
+ * district would be quietly filled and saved on every patient, which is the
+ * opposite of what switching it off asked for.
+ */
+function fillsOnForm(lookup: FieldLookup, visibleKeys?: ReadonlySet<string>): PincodeFills {
+    if (!visibleKeys) {
+        return lookup.fills;
+    }
+
+    return Object.fromEntries(
+        Object.entries(lookup.fills).filter(
+            ([, target]) => typeof target === 'string' && visibleKeys.has(target),
+        ),
+    ) as PincodeFills;
 }

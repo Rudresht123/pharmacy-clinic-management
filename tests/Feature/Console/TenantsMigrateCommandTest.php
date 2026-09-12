@@ -7,6 +7,7 @@ use App\Models\Platform\OrganizationType;
 use App\Services\Platform\OrganizationProvisioningService;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
+use App\Support\Platform\OrganizationCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -51,7 +52,7 @@ class TenantsMigrateCommandTest extends TestCase
 
         $organization = app(OrganizationProvisioningService::class)->provision([
             'organization_name' => $name,
-            'organization_code' => 'MT'.$unique,
+            'organization_code' => OrganizationCode::generate(),
             'organization_type_id' => $type->id,
             'subdomain' => 'migrate-test-'.$unique,
             'email' => "owner-{$unique}@example.com",
