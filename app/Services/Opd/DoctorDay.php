@@ -88,7 +88,7 @@ class DoctorDay
     private function dayFor(Doctor $doctor, Carbon $date, ?int $locationId): Collection
     {
         return Appointment::on('organization')
-            ->with(['customer', 'location', 'consultation'])
+            ->with(['customer', 'location', 'consultation.livePrescription.items'])
             ->where('doctor_id', $doctor->id)
             ->whereDate('appointment_date', $date->toDateString())
             ->when($locationId, fn ($query, $id) => $query->where('location_id', $id))
@@ -260,7 +260,7 @@ class DoctorDay
                 'chief_complaint' => $row->consultation?->chief_complaint,
                 'diagnoses' => $row->consultation?->diagnoses ?? [],
                 'vitals' => $row->consultation?->vitals ?? [],
-                'prescription' => $row->consultation?->prescription ?? [],
+                'prescription' => $row->consultation?->prescriptionLines() ?? [],
                 'investigations' => $row->consultation?->investigations ?? [],
                 'advice' => $row->consultation?->advice,
                 'notes' => $row->consultation?->notes,

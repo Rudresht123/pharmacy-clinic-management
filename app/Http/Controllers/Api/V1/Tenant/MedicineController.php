@@ -9,6 +9,7 @@ use App\Http\Requests\Api\V1\Tenant\UpdateMedicineRequest;
 use App\Http\Resources\Tenant\MedicineResource;
 use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\Medicine;
+use App\Models\Tenant\MedicineBatch;
 use App\Repositories\Tenant\Contracts\MedicineRepositoryInterface;
 use App\Services\Fields\FieldSchema;
 use App\Support\Fields\MedicineFields;
@@ -99,14 +100,25 @@ class MedicineController extends BaseApiController
      * Remove a medicine, with a reason.
      *
      * Deactivating is the everyday tool; removing takes it out of every
-     * working screen. From Phase 3 on this also refuses a medicine that
-     * any store still holds stock of.
+     * working screen, and is refused while any store holds stock of it.
      */
     public function destroy(Request $request, Medicine $medicine): JsonResponse
     {
         $validated = $request->validate([
             'reason' => ['required', 'string', 'max:500'],
         ]);
+
+        $inStock = MedicineBatch::query()
+            ->where('medicine_id', $medicine->id)
+            ->where('quantity_available', '>', 0)
+            ->exists();
+
+        if ($inStock) {
+            return $this->fail(
+                "{$medicine->displayName()} is still in stock. Adjust or transfer the stock out first, or deactivate the medicine instead.",
+                409,
+            );
+        }
 
         $medicine->deleteWithReason($validated['reason']);
 

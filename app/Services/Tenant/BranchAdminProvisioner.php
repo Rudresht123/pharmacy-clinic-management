@@ -31,7 +31,8 @@ class BranchAdminProvisioner
         'customers.view', 'customers.create', 'customers.edit', 'customers.delete',
         'appointments.view', 'appointments.book', 'appointments.queue',
         'appointments.cancel', 'appointments.doctors', 'appointments.schedule',
-        'prescriptions.view', 'prescriptions.write',
+        'prescriptions.view', 'prescriptions.write', 'prescriptions.cancel',
+        'medicines.view',
     ];
 
     /**

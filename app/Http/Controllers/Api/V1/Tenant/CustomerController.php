@@ -128,7 +128,7 @@ class CustomerController extends BaseApiController
     public function visits(Customer $customer): JsonResponse
     {
         $visits = Appointment::on('organization')
-            ->with(['doctor', 'location', 'consultation'])
+            ->with(['doctor', 'location', 'consultation.livePrescription.items'])
             ->where('customer_id', $customer->id)
             ->orderByDesc('appointment_date')
             ->orderByDesc('slot_at')
@@ -160,7 +160,7 @@ class CustomerController extends BaseApiController
                     'notes' => $visit->consultation->notes,
                     'follow_up_days' => $visit->consultation->follow_up_days,
                     'vitals' => $visit->consultation->vitals ?? [],
-                    'prescription' => $visit->consultation->prescription ?? [],
+                    'prescription' => $visit->consultation->prescriptionLines(),
                     'investigations' => $visit->consultation->investigations ?? [],
                 ] : null,
             ])->all(),
@@ -198,7 +198,7 @@ class CustomerController extends BaseApiController
          * newest row happens to be empty would lose the only reading there is.
          */
         $withVitals = $seen->first(fn (Appointment $visit) => ! empty($visit->consultation?->vitals));
-        $withDrugs = $seen->first(fn (Appointment $visit) => ! empty($visit->consultation?->prescription));
+        $withDrugs = $seen->first(fn (Appointment $visit) => ! empty($visit->consultation?->prescriptionLines()));
 
         return [
             'total_visits' => $visits->count(),
@@ -223,7 +223,7 @@ class CustomerController extends BaseApiController
 
             'medications' => $withDrugs ? [
                 'on' => $withDrugs->appointment_date?->toDateString(),
-                'lines' => $withDrugs->consultation->prescription,
+                'lines' => $withDrugs->consultation->prescriptionLines(),
             ] : null,
 
             /*

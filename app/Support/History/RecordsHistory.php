@@ -161,8 +161,12 @@ trait RecordsHistory
             'ip_address' => Request::ip(),
         ];
 
-        // Used once. The next delete or restore says its own reason.
-        if ($event === 'deleted' || $event === 'restored') {
+        /*
+         * Used once, by the entry that carried it. The save inside a restore
+         * is not that entry — the reason belongs to the `restored` one that
+         * follows, even when the restore also changed other fields.
+         */
+        if (! ($event === 'updated' && $this->historyIsRestoring())) {
             $this->historyNote = null;
         }
 
@@ -243,7 +247,31 @@ trait RecordsHistory
             $after[$field] = $this->historyValue($field, $value);
         }
 
+        /*
+         * A reason travels with a real change (blocking a batch, say) — never
+         * on its own. An update with nothing to show stays a non-event, so a
+         * restore's reason is kept for the `restored` entry it belongs to.
+         */
+        if ($this->historyNote !== null && $after !== [] && ! $this->historyIsRestoring()) {
+            $after['reason'] = $this->historyNote;
+        }
+
         return [$before, $after];
+    }
+
+    /**
+     * Whether the save being recorded is the one SoftDeletes::restore() makes:
+     * deleted_at has just gone back to null.
+     */
+    private function historyIsRestoring(): bool
+    {
+        if (! method_exists($this, 'getDeletedAtColumn')) {
+            return false;
+        }
+
+        $column = $this->getDeletedAtColumn();
+
+        return array_key_exists($column, $this->getChanges()) && $this->{$column} === null;
     }
 
     /** Something that survives json_encode and still means what it meant. */

@@ -5,6 +5,7 @@ namespace App\Models\Tenant;
 use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * What happened in the room.
@@ -12,6 +13,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * The appointment says somebody was due and turned up; this says what the
  * doctor found. One per appointment — a second would be two answers to "what
  * was the diagnosis".
+ *
+ * What was prescribed is a structured Prescription of its own (Phase 4). The
+ * `prescription` JSON column that used to hold the lines is no longer read or
+ * written; prescriptionLines() gives the screens the same shape from the
+ * structured one.
  */
 class Consultation extends Model
 {
@@ -26,7 +32,6 @@ class Consultation extends Model
         'chief_complaint',
         'diagnoses',
         'vitals',
-        'prescription',
         'investigations',
         'advice',
         'notes',
@@ -38,7 +43,6 @@ class Consultation extends Model
         return [
             'diagnoses' => 'array',
             'vitals' => 'array',
-            'prescription' => 'array',
             'investigations' => 'array',
             'follow_up_days' => 'integer',
         ];
@@ -82,6 +86,25 @@ class Consultation extends Model
     public function doctor(): BelongsTo
     {
         return $this->belongsTo(Doctor::class);
+    }
+
+    /** The visit's prescription, unless it was cancelled. */
+    public function livePrescription(): HasOne
+    {
+        return $this->hasOne(Prescription::class)->where('status', '<>', Prescription::CANCELLED);
+    }
+
+    /**
+     * What was prescribed, in the shape the old JSON column had — drug, dose,
+     * frequency, duration, notes — for the screens that still read it.
+     *
+     * Eager-load `livePrescription.items` when reading many.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function prescriptionLines(): array
+    {
+        return $this->livePrescription?->asConsultationLines() ?? [];
     }
 
     /** "Asha Rane · 14 Sep 2026", for the audit log. */

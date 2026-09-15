@@ -19,6 +19,10 @@ use Tests\TenantTestCase;
  * what the doctor found. The rules worth asserting are about who may write one
  * and about the record surviving correctly — the words themselves are the
  * doctor's business.
+ *
+ * What was prescribed is a structured prescription of its own since pharmacy
+ * Phase 4 (PrescriptionTest); these tests write it through that API and
+ * check the write-up still reads it back in the shape it always had.
  */
 class ConsultationTest extends TenantTestCase
 {
@@ -47,6 +51,12 @@ class ConsultationTest extends TenantTestCase
             'module_id' => Module::where('key', 'appointments')->value('id'),
             'is_enabled' => true,
         ]);
+
+        // Prescribing needs the medicine master behind it. Both before any
+        // doctor account exists: a doctor's role is built from what the
+        // organization runs.
+        $this->grantModule($organization, 'medicines');
+        $this->grantModule($organization, 'prescriptions');
 
         $this->signInAsOwner($organization);
 
@@ -110,6 +120,22 @@ class ConsultationTest extends TenantTestCase
         ])->assertOk();
     }
 
+    /** One unlisted line, the way a doctor types a medicine that is not in the catalogue. */
+    private function prescribe(int $appointmentId, string $medicine = 'Amlodipine 5mg'): void
+    {
+        $this->postJson('/api/v1/tenant/prescriptions', [
+            'appointment_id' => $appointmentId,
+            'items' => [[
+                'medicine_name' => $medicine,
+                'dose_amount' => 1,
+                'dose_unit' => 'tablet',
+                'frequency' => 'od',
+                'duration' => 30,
+                'duration_unit' => 'days',
+            ]],
+        ])->assertCreated();
+    }
+
     /** The doctor who saw the patient writes it up, and it comes back. */
     public function test_a_doctor_writes_up_their_own_visit(): void
     {
@@ -121,13 +147,12 @@ class ConsultationTest extends TenantTestCase
             'chief_complaint' => 'Chest pain since 2 days',
             'diagnoses' => ['Hypertension', 'Anxiety'],
             'vitals' => ['bp_systolic' => 148, 'bp_diastolic' => 92, 'pulse' => 88],
-            'prescription' => [
-                ['drug' => 'Amlodipine 5mg', 'dose' => '1 tablet', 'frequency' => 'Once a day', 'duration' => '30 days'],
-            ],
             'investigations' => [['test' => 'ECG', 'notes' => 'Today']],
             'advice' => 'Reduce salt, walk daily',
             'follow_up_days' => 7,
         ])->assertOk();
+
+        $this->prescribe($appointmentId);
 
         $body = $this->getJson("/api/v1/tenant/appointments/{$appointmentId}/consultation")
             ->assertOk()
@@ -137,6 +162,7 @@ class ConsultationTest extends TenantTestCase
         $this->assertSame(['Hypertension', 'Anxiety'], $body['diagnoses']);
         $this->assertSame(148, $body['vitals']['bp_systolic']);
         $this->assertSame('Amlodipine 5mg', $body['prescription'][0]['drug']);
+        $this->assertSame('Once a day', $body['prescription'][0]['frequency']);
         $this->assertSame('ECG', $body['investigations'][0]['test']);
         $this->assertSame(7, $body['follow_up_days']);
     }
@@ -241,16 +267,22 @@ class ConsultationTest extends TenantTestCase
         });
     }
 
-    /** A prescription line without a medicine is not a prescription line. */
+    /**
+     * A prescription line without a medicine is not a prescription line.
+     *
+     * Asked of the prescriptions API now: a line names a catalogue medicine
+     * or types one that is not in it, and a dose on its own is neither.
+     */
     public function test_a_prescription_line_needs_a_medicine(): void
     {
         [$organization, , , $appointmentId] = $this->clinic();
 
         $this->signInAsDoctor($organization, 'anjali@clinic.test');
 
-        $this->putJson("/api/v1/tenant/appointments/{$appointmentId}/consultation", [
-            'prescription' => [['dose' => '1 tablet', 'frequency' => 'Twice a day']],
-        ])->assertStatus(422)->assertJsonValidationErrors('prescription.0.drug');
+        $this->postJson('/api/v1/tenant/prescriptions', [
+            'appointment_id' => $appointmentId,
+            'items' => [['dose_amount' => 1, 'frequency' => 'bd']],
+        ])->assertStatus(422)->assertJsonValidationErrors('items.0.medicine_name');
     }
 
     /**
@@ -315,10 +347,11 @@ class ConsultationTest extends TenantTestCase
         $this->putJson("/api/v1/tenant/appointments/{$appointmentId}/consultation", [
             'chief_complaint' => 'Chest pain since 2 days',
             'diagnoses' => ['Hypertension'],
-            'prescription' => [['drug' => 'Amlodipine 5mg', 'dose' => '1 tablet']],
             'investigations' => [['test' => 'ECG']],
             'follow_up_days' => 7,
         ])->assertOk();
+
+        $this->prescribe($appointmentId);
 
         foreach (['consultations', 'prescriptions', 'investigations', 'follow-ups'] as $view) {
             $rows = $this->getJson("/api/v1/tenant/opd/my-records?view={$view}")

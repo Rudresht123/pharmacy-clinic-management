@@ -76,7 +76,7 @@ export function ReasonDialog({
             {error ? (
                 <div className="invalid-feedback d-block">{error}</div>
             ) : (
-                <small className="form-hint">Kept in this medicine&rsquo;s history.</small>
+                <small className="form-hint">Kept in this record&rsquo;s history.</small>
             )}
         </FormModal>
     );

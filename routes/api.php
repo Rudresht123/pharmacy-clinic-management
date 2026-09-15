@@ -22,10 +22,20 @@ use App\Http\Controllers\Api\V1\Tenant\FieldSettingController;
 use App\Http\Controllers\Api\V1\Tenant\HistoryController;
 use App\Http\Controllers\Api\V1\Tenant\LocationController;
 use App\Http\Controllers\Api\V1\Tenant\LocationModuleController;
+use App\Http\Controllers\Api\V1\Tenant\MedicineAvailabilityController;
+use App\Http\Controllers\Api\V1\Tenant\MedicineBatchController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineController;
 use App\Http\Controllers\Api\V1\Tenant\OpdController;
+use App\Http\Controllers\Api\V1\Tenant\PharmacyStoreController;
 use App\Http\Controllers\Api\V1\Tenant\PincodeController;
+use App\Http\Controllers\Api\V1\Tenant\PrescriptionController;
 use App\Http\Controllers\Api\V1\Tenant\RoleController;
+use App\Http\Controllers\Api\V1\Tenant\StockAdjustmentController;
+use App\Http\Controllers\Api\V1\Tenant\StockInwardController;
+use App\Http\Controllers\Api\V1\Tenant\StockMovementController;
+use App\Http\Controllers\Api\V1\Tenant\StockTransferController;
+use App\Http\Controllers\Api\V1\Tenant\StoreMedicineController;
+use App\Http\Controllers\Api\V1\Tenant\SupplierController;
 use App\Http\Controllers\Api\V1\Tenant\UserController as TenantUserController;
 use Illuminate\Support\Facades\Route;
 
@@ -333,6 +343,10 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             Route::get('medicines/{medicine}', [MedicineController::class, 'show'])
                 ->middleware('permission:medicines.view')
                 ->name('medicines.show');
+            // Stock of one medicine at every store the caller works at.
+            Route::get('medicines/{medicine}/availability', [MedicineAvailabilityController::class, 'forMedicine'])
+                ->middleware('permission:medicines.view')
+                ->name('medicines.availability');
 
             Route::middleware('permission:medicines.manage')->group(function () {
                 Route::post('medicines', [MedicineController::class, 'store'])
@@ -342,6 +356,165 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 Route::delete('medicines/{medicine}', [MedicineController::class, 'destroy'])
                     ->name('medicines.destroy');
             });
+        });
+
+        /*
+        | Pharmacy stores and what each stocks — behind the pharmacy module.
+        |
+        | The middleware asks about the acting branch; PharmacyStorePolicy asks
+        | again about the store's own branch, which is the one a store belongs
+        | to. Creating and changing stores is organization-scoped
+        | (`pharmacy.stores`); reading is the branch's (`pharmacy.view`).
+        | Literal paths before {store}.
+        */
+        Route::middleware('module:pharmacy')->group(function () {
+            Route::middleware('permission:pharmacy.stores')->group(function () {
+                Route::get('pharmacy-stores/form-options', [PharmacyStoreController::class, 'formOptions'])
+                    ->name('pharmacy-stores.form-options');
+                Route::post('pharmacy-stores', [PharmacyStoreController::class, 'store'])
+                    ->name('pharmacy-stores.store');
+                Route::put('pharmacy-stores/{store}', [PharmacyStoreController::class, 'update'])
+                    ->name('pharmacy-stores.update');
+                Route::delete('pharmacy-stores/{store}', [PharmacyStoreController::class, 'destroy'])
+                    ->name('pharmacy-stores.destroy');
+
+                Route::put('pharmacy-stores/{store}/medicines', [StoreMedicineController::class, 'update'])
+                    ->name('pharmacy-stores.medicines.update');
+                Route::delete(
+                    'pharmacy-stores/{store}/medicines/{storeMedicine}',
+                    [StoreMedicineController::class, 'destroy']
+                )->name('pharmacy-stores.medicines.destroy');
+            });
+
+            Route::middleware('permission:pharmacy.restore')->group(function () {
+                Route::get('pharmacy-stores/removed', [PharmacyStoreController::class, 'removed'])
+                    ->name('pharmacy-stores.removed');
+                Route::post('pharmacy-stores/{store}/restore', [PharmacyStoreController::class, 'restore'])
+                    ->withTrashed()
+                    ->name('pharmacy-stores.restore');
+            });
+
+            Route::middleware('permission:pharmacy.view')->group(function () {
+                Route::get('pharmacy-stores', [PharmacyStoreController::class, 'index'])
+                    ->name('pharmacy-stores.index');
+                Route::get('pharmacy-stores/{store}', [PharmacyStoreController::class, 'show'])
+                    ->name('pharmacy-stores.show');
+                Route::get('pharmacy-stores/{store}/medicines', [StoreMedicineController::class, 'index'])
+                    ->name('pharmacy-stores.medicines.index');
+            });
+
+            // What a store holds, for a doctor choosing what to prescribe.
+            Route::get('pharmacy-stores/{store}/availability', [MedicineAvailabilityController::class, 'atStore'])
+                ->middleware('permission:medicines.view')
+                ->name('pharmacy-stores.availability');
+
+            /*
+            | Suppliers: organization-wide, so no store Policy — the capability
+            | is the whole question. Literal paths before {supplier}.
+            */
+            Route::get('suppliers/removed', [SupplierController::class, 'removed'])
+                ->middleware('permission:pharmacy.restore')
+                ->name('suppliers.removed');
+            Route::post('suppliers/{supplier}/restore', [SupplierController::class, 'restore'])
+                ->withTrashed()
+                ->middleware('permission:pharmacy.restore')
+                ->name('suppliers.restore');
+
+            Route::middleware('permission:pharmacy.view')->group(function () {
+                Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
+                Route::get('suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
+            });
+
+            Route::middleware('permission:pharmacy.stores')->group(function () {
+                Route::post('suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
+                Route::put('suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
+                Route::delete('suppliers/{supplier}', [SupplierController::class, 'destroy'])->name('suppliers.destroy');
+            });
+
+            /*
+            | Stock. Every quantity change goes through StockMovementService;
+            | these routes only choose which document causes it. Stock-changing
+            | POSTs require an Idempotency-Key header.
+            */
+            Route::middleware('permission:pharmacy.view')->group(function () {
+                Route::get('pharmacy-stores/{store}/stock', [MedicineBatchController::class, 'stock'])
+                    ->name('pharmacy-stores.stock');
+                Route::get('pharmacy-stores/{store}/batches', [MedicineBatchController::class, 'index'])
+                    ->name('pharmacy-stores.batches');
+                Route::get('pharmacy-stores/{store}/movements', [StockMovementController::class, 'index'])
+                    ->name('pharmacy-stores.movements');
+                Route::get('pharmacy-stores/{store}/inwards', [StockInwardController::class, 'index'])
+                    ->name('pharmacy-stores.inwards.index');
+                Route::get('pharmacy-stores/{store}/adjustments', [StockAdjustmentController::class, 'index'])
+                    ->name('pharmacy-stores.adjustments.index');
+                Route::get('pharmacy-stores/{store}/transfers', [StockTransferController::class, 'index'])
+                    ->name('pharmacy-stores.transfers.index');
+
+                Route::get('batches/{batch}', [MedicineBatchController::class, 'show'])->name('batches.show');
+                Route::get('inwards/{inward}', [StockInwardController::class, 'show'])->name('inwards.show');
+                Route::get('stock-transfers/{transfer}', [StockTransferController::class, 'show'])
+                    ->name('stock-transfers.show');
+            });
+
+            Route::post('pharmacy-stores/{store}/inwards', [StockInwardController::class, 'store'])
+                ->middleware('permission:pharmacy.inward')
+                ->name('pharmacy-stores.inwards.store');
+            Route::post('inwards/{inward}/cancel', [StockInwardController::class, 'cancel'])
+                ->middleware('permission:pharmacy.adjust')
+                ->name('inwards.cancel');
+            Route::post('pharmacy-stores/{store}/adjustments', [StockAdjustmentController::class, 'store'])
+                ->middleware('permission:pharmacy.adjust')
+                ->name('pharmacy-stores.adjustments.store');
+            Route::post('stock-transfers', [StockTransferController::class, 'store'])
+                ->middleware('permission:pharmacy.transfer')
+                ->name('stock-transfers.store');
+
+            Route::middleware('permission:pharmacy.batches')->group(function () {
+                Route::patch('batches/{batch}/status', [MedicineBatchController::class, 'updateStatus'])
+                    ->name('batches.status');
+                Route::delete('batches/{batch}', [MedicineBatchController::class, 'destroy'])
+                    ->name('batches.destroy');
+            });
+
+            Route::post('batches/{batch}/restore', [MedicineBatchController::class, 'restore'])
+                ->withTrashed()
+                ->middleware('permission:pharmacy.restore')
+                ->name('batches.restore');
+        });
+
+        /*
+        | Prescriptions — one structured document per visit.
+        |
+        | The route holds the capability at the acting branch;
+        | PrescriptionPolicy asks about the prescription's own branch and,
+        | for writing, whether this is the doctor who saw the patient.
+        | Editing only while a draft; an issued one is cancelled with a
+        | reason, never deleted.
+        */
+        Route::middleware('module:prescriptions')->group(function () {
+            Route::middleware('permission:prescriptions.view')->group(function () {
+                Route::get('prescriptions', [PrescriptionController::class, 'index'])
+                    ->name('prescriptions.index');
+                Route::get('prescriptions/{prescription}', [PrescriptionController::class, 'show'])
+                    ->name('prescriptions.show');
+                Route::get('appointments/{appointment}/prescription', [PrescriptionController::class, 'forAppointment'])
+                    ->name('appointments.prescription');
+            });
+
+            Route::middleware('permission:prescriptions.write')->group(function () {
+                Route::post('prescriptions', [PrescriptionController::class, 'store'])
+                    ->name('prescriptions.store');
+                Route::put('prescriptions/{prescription}', [PrescriptionController::class, 'update'])
+                    ->name('prescriptions.update');
+                Route::post('prescriptions/{prescription}/issue', [PrescriptionController::class, 'issue'])
+                    ->name('prescriptions.issue');
+                Route::delete('prescriptions/{prescription}', [PrescriptionController::class, 'destroy'])
+                    ->name('prescriptions.destroy');
+            });
+
+            Route::post('prescriptions/{prescription}/cancel', [PrescriptionController::class, 'cancel'])
+                ->middleware('permission:prescriptions.cancel')
+                ->name('prescriptions.cancel');
         });
 
         /*

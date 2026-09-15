@@ -342,6 +342,48 @@ export function tenantNavigation(
     }
 
     /*
+     * The pharmacy: its stores today; stock, receiving and dispensing hang
+     * off the same entry as they arrive.
+     */
+    if (hasModule('pharmacy') && can('pharmacy.view')) {
+        clinical.push({
+            label: 'Pharmacy',
+            to: '/pharmacy/stock',
+            icon: 'ti ti-building-warehouse',
+            match: '/pharmacy',
+            // In the order a day runs: what is there, what came in, what moved,
+            // then the set-up behind it.
+            children: [
+                { label: 'Stock', to: '/pharmacy/stock', icon: 'ti ti-packages', match: '/pharmacy/stock' },
+                {
+                    label: 'Receive goods',
+                    to: '/pharmacy/inwards',
+                    icon: 'ti ti-truck-delivery',
+                    match: '/pharmacy/inwards',
+                },
+                {
+                    label: 'Movements',
+                    to: '/pharmacy/movements',
+                    icon: 'ti ti-list-numbers',
+                    match: '/pharmacy/movements',
+                },
+                {
+                    label: 'Stores',
+                    to: '/pharmacy/stores',
+                    icon: 'ti ti-building-store',
+                    match: '/pharmacy/stores',
+                },
+                {
+                    label: 'Suppliers',
+                    to: '/pharmacy/suppliers',
+                    icon: 'ti ti-truck',
+                    match: '/pharmacy/suppliers',
+                },
+            ],
+        });
+    }
+
+    /*
      * The work comes first.
      *
      * Everybody who signs in does it; the two sections under it are the
@@ -381,7 +423,10 @@ export function tenantNavigation(
         items: [
             { label: 'Prescriptions', to: '/prescriptions', icon: 'ti ti-file-text', soon: true },
             { label: 'Lab tests', to: '/lab', icon: 'ti ti-microscope', soon: true },
-            { label: 'Pharmacy', to: '/pharmacy', icon: 'ti ti-vaccine', soon: true },
+            // Listed as coming only where the real entry above is not.
+            ...(hasModule('pharmacy')
+                ? []
+                : [{ label: 'Pharmacy', to: '/pharmacy', icon: 'ti ti-vaccine', soon: true }]),
             { label: 'Billing', to: '/billing', icon: 'ti ti-receipt', soon: true },
             { label: 'Reports', to: '/reports', icon: 'ti ti-chart-bar', soon: true },
         ],

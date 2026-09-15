@@ -31,6 +31,14 @@ const QueuePage = lazy(() => import('@/core/appointments/pages/QueuePage'));
 const OpdTodayPage = lazy(() => import('@/core/opd/pages/OpdTodayPage'));
 const MedicineListPage = lazy(() => import('@/core/medicines/pages/MedicineListPage'));
 const MedicineFormPage = lazy(() => import('@/core/medicines/pages/MedicineFormPage'));
+const StoreListPage = lazy(() => import('@/core/pharmacy/pages/StoreListPage'));
+const StoreFormPage = lazy(() => import('@/core/pharmacy/pages/StoreFormPage'));
+const StoreMedicinesPage = lazy(() => import('@/core/pharmacy/pages/StoreMedicinesPage'));
+const StockPage = lazy(() => import('@/core/pharmacy/pages/StockPage'));
+const InwardListPage = lazy(() => import('@/core/pharmacy/pages/InwardListPage'));
+const InwardFormPage = lazy(() => import('@/core/pharmacy/pages/InwardFormPage'));
+const MovementsPage = lazy(() => import('@/core/pharmacy/pages/MovementsPage'));
+const SuppliersPage = lazy(() => import('@/core/pharmacy/pages/SuppliersPage'));
 
 /** Mirrors app/guards.tsx's ProtectedRoute, against the tenant auth context. */
 function TenantProtectedRoute() {
@@ -301,6 +309,46 @@ export function TenantAppRoutes() {
                                         path="/medicines/:id/edit"
                                         element={<MedicineFormPage />}
                                     />
+                                </Route>
+                            </Route>
+
+                            {/* Pharmacy stores: module, then capability. Setting
+                                stores up is the organization's; looking at
+                                them is the branch's. */}
+                            <Route element={<RequireModule module="pharmacy" />}>
+                                {/* Literal before the :id pattern. */}
+                                <Route
+                                    element={<RequireCapability capability="pharmacy.stores" />}
+                                >
+                                    <Route
+                                        path="/pharmacy/stores/create"
+                                        element={<StoreFormPage />}
+                                    />
+                                    <Route
+                                        path="/pharmacy/stores/:id/edit"
+                                        element={<StoreFormPage />}
+                                    />
+                                </Route>
+
+                                <Route
+                                    element={<RequireCapability capability="pharmacy.inward" />}
+                                >
+                                    <Route
+                                        path="/pharmacy/inwards/create"
+                                        element={<InwardFormPage />}
+                                    />
+                                </Route>
+
+                                <Route element={<RequireCapability capability="pharmacy.view" />}>
+                                    <Route path="/pharmacy/stores" element={<StoreListPage />} />
+                                    <Route
+                                        path="/pharmacy/stores/:id/medicines"
+                                        element={<StoreMedicinesPage />}
+                                    />
+                                    <Route path="/pharmacy/stock" element={<StockPage />} />
+                                    <Route path="/pharmacy/inwards" element={<InwardListPage />} />
+                                    <Route path="/pharmacy/movements" element={<MovementsPage />} />
+                                    <Route path="/pharmacy/suppliers" element={<SuppliersPage />} />
                                 </Route>
                             </Route>
 

@@ -50,6 +50,7 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
             'appointments.view',
             'prescriptions.view',
             'prescriptions.write',
+            'medicines.view',
         ],
     },
     {

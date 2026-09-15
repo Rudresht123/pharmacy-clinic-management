@@ -49,6 +49,9 @@ class DoctorAccountProvisioner
         'customers.view',
         'prescriptions.view',
         'prescriptions.write',
+
+        // Searching the catalogue, and seeing what is on the shelf, while prescribing.
+        'medicines.view',
     ];
 
     /** The slug of the role every doctor login shares. */

@@ -38,7 +38,7 @@ class DoctorRecords
         [$start, $end] = $this->window($from, $to);
 
         return Appointment::on('organization')
-            ->with(['customer', 'location', 'consultation'])
+            ->with(['customer', 'location', 'consultation.livePrescription.items'])
             ->where('doctor_id', $doctor->id)
             ->whereBetween('appointment_date', [$start->toDateString(), $end->toDateString()])
             ->when($status, fn ($query, $value) => $query->where('status', $value))
@@ -108,9 +108,9 @@ class DoctorRecords
                 'advice' => $row->advice,
                 'follow_up_days' => $row->follow_up_days,
 
-                'prescription' => $row->prescription ?? [],
+                'prescription' => $row->prescriptionLines(),
                 'investigations' => $row->investigations ?? [],
-                'prescription_count' => count($row->prescription ?? []),
+                'prescription_count' => count($row->prescriptionLines()),
                 'investigation_count' => count($row->investigations ?? []),
             ])
             ->values()
@@ -140,7 +140,12 @@ class DoctorRecords
             $on = $consultation->appointment?->appointment_date?->toDateString()
                 ?? $consultation->created_at?->toDateString();
 
-            foreach ($consultation->{$of} ?? [] as $index => $line) {
+            // Prescription lines come from the structured prescription, in the old shape.
+            $written = $of === 'prescription'
+                ? $consultation->prescriptionLines()
+                : ($consultation->investigations ?? []);
+
+            foreach ($written as $index => $line) {
                 $rows[] = [
                     'id' => "{$consultation->id}-{$index}",
                     'on' => $on,
@@ -247,7 +252,7 @@ class DoctorRecords
             'chief_complaint' => $row->chief_complaint,
             'diagnoses' => $row->diagnoses ?? [],
             'vitals' => $row->vitals ?? [],
-            'prescription' => $row->prescription ?? [],
+            'prescription' => $row->prescriptionLines(),
             'investigations' => $row->investigations ?? [],
             'advice' => $row->advice,
             'notes' => $row->notes,
@@ -265,7 +270,7 @@ class DoctorRecords
         [$start, $end] = $this->window($from, $to);
 
         return Consultation::on('organization')
-            ->with(['customer', 'appointment'])
+            ->with(['customer', 'appointment', 'livePrescription.items'])
             ->where('doctor_id', $doctor->id)
             ->whereHas('appointment', fn ($query) => $query
                 ->whereBetween('appointment_date', [$start->toDateString(), $end->toDateString()]))

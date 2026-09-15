@@ -91,7 +91,8 @@ class ConsultationController extends BaseApiController
             'chief_complaint' => $consultation?->chief_complaint,
             'diagnoses' => $consultation?->diagnoses ?? [],
             'vitals' => $consultation?->vitals ?? [],
-            'prescription' => $consultation?->prescription ?? [],
+            // From the structured prescription, in the shape this screen has always read.
+            'prescription' => $consultation?->prescriptionLines() ?? [],
             'investigations' => $consultation?->investigations ?? [],
             'advice' => $consultation?->advice,
             'notes' => $consultation?->notes,

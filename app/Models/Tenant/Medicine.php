@@ -8,6 +8,7 @@ use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -79,6 +80,18 @@ class Medicine extends Model
     public function remover(): BelongsTo
     {
         return $this->belongsTo(User::class, 'deleted_by');
+    }
+
+    /** Which stores stock it, and at what levels. */
+    public function storeConfigurations(): HasMany
+    {
+        return $this->hasMany(StoreMedicine::class);
+    }
+
+    /** Every prescription line that named it. */
+    public function prescriptionItems(): HasMany
+    {
+        return $this->hasMany(PrescriptionItem::class);
     }
 
     /** @param  Builder<Medicine>  $query */
