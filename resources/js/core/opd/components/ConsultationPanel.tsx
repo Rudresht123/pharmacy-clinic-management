@@ -1,14 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
+import { PrescriptionEditor } from '@/core/prescriptions/components/PrescriptionEditor';
+import { flushPrescription } from '@/core/prescriptions/lines';
 import { useSaveConsultation } from '../api';
-import type {
-    Consultation,
-    InvestigationLine,
-    PastConsultation,
-    PrescriptionLine,
-    Vitals,
-} from '../types';
+import type { Consultation, InvestigationLine, PastConsultation, Vitals } from '../types';
 
 /** Held by the card that owns the panel, so other things can open a tab. */
 export type ConsultationTab = 'clinical' | 'history' | 'vitals' | 'documents';
@@ -398,136 +394,12 @@ export function ConsultationPanel({
                     </div>
 
                     {/*
-                        Summarised until somebody is changing it. "2 medicines"
-                        is what a doctor needs while reading; the table is what
-                        they need while prescribing, and only then.
+                        The prescription is its own document: structured
+                        lines against the medicine catalogue, with what the
+                        branch's store holds beside each. It saves and issues
+                        on its own, not with "Save notes".
                     */}
-                    <div className="cn-row">
-                        <i className="cn-icon is-green ti ti-pill" aria-hidden="true" />
-                        <span className="cn-label">Prescription</span>
-
-                        <div className="cn-value cn-summary">
-                            {draft.prescription.length === 0
-                                ? 'Nothing prescribed yet'
-                                : `${draft.prescription.length} ${
-                                      draft.prescription.length === 1 ? 'medicine' : 'medicines'
-                                  } added`}
-                        </div>
-
-                        <button
-                            type="button"
-                            className="cn-plus"
-                            onClick={() => setOpen(open === 'prescription' ? null : 'prescription')}
-                        >
-                            <i
-                                className={open === 'prescription' ? 'ti ti-x' : 'ti ti-plus'}
-                                aria-hidden="true"
-                            />
-                            {open === 'prescription' ? 'Close' : 'Add prescription'}
-                        </button>
-                    </div>
-
-                    {open === 'prescription' && (
-                        <div className="cn-open">
-                            <table className="cn-lines">
-                                <thead>
-                                    <tr>
-                                        <th>Medicine</th>
-                                        <th>Dose</th>
-                                        <th>How often</th>
-                                        <th>For</th>
-                                        <th aria-label="Remove" />
-                                    </tr>
-                                </thead>
-
-                                <tbody>
-                                    {draft.prescription.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={5} className="cn-none">
-                                                Nothing prescribed yet.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        draft.prescription.map((row, index) => (
-                                            <tr key={index}>
-                                                {(
-                                                    [
-                                                        ['drug', 'Amoxicillin 500mg'],
-                                                        ['dose', '1 tablet'],
-                                                        ['frequency', 'Twice a day'],
-                                                        ['duration', '5 days'],
-                                                    ] as [keyof PrescriptionLine, string][]
-                                                ).map(([field, hint]) => (
-                                                    <td key={field}>
-                                                        <input
-                                                            type="text"
-                                                            className={`form-control${line(`prescription.${index}.${field}`) ? ' is-invalid' : ''}`}
-                                                            placeholder={hint}
-                                                            value={(row[field] as string) ?? ''}
-                                                            onChange={(event) =>
-                                                                patch({
-                                                                    prescription:
-                                                                        draft.prescription.map(
-                                                                            (other, at) =>
-                                                                                at === index
-                                                                                    ? {
-                                                                                          ...other,
-                                                                                          [field]:
-                                                                                              event
-                                                                                                  .target
-                                                                                                  .value,
-                                                                                      }
-                                                                                    : other,
-                                                                        ),
-                                                                })
-                                                            }
-                                                        />
-                                                    </td>
-                                                ))}
-
-                                                <td>
-                                                    <button
-                                                        type="button"
-                                                        className="cn-drop"
-                                                        aria-label="Remove this medicine"
-                                                        onClick={() =>
-                                                            patch({
-                                                                prescription:
-                                                                    draft.prescription.filter(
-                                                                        (_, at) => at !== index,
-                                                                    ),
-                                                            })
-                                                        }
-                                                    >
-                                                        <i
-                                                            className="ti ti-trash"
-                                                            aria-hidden="true"
-                                                        />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-
-                            <button
-                                type="button"
-                                className="cn-more"
-                                onClick={() =>
-                                    patch({
-                                        prescription: [
-                                            ...draft.prescription,
-                                            { drug: '', dose: '', frequency: '', duration: '' },
-                                        ],
-                                    })
-                                }
-                            >
-                                <i className="ti ti-plus" aria-hidden="true" />
-                                Add a medicine
-                            </button>
-                        </div>
-                    )}
+                    <PrescriptionEditor appointmentId={appointmentId} fallback={draft.prescription} />
 
                     <div className="cn-row">
                         <i className="cn-icon is-amber ti ti-flask" aria-hidden="true" />
@@ -905,11 +777,19 @@ export function ConsultationPanel({
                         {save.isPending ? 'Saving…' : 'Save notes'}
                     </button>
 
+                    {/*
+                        A draft prescription is saved and issued first, so a
+                        visit never ends with it left unsigned. If issuing is
+                        refused, the editor opens with the reason and the
+                        visit stays open.
+                    */}
                     <button
                         type="button"
                         className="cn-finish"
                         disabled={completing}
-                        onClick={onComplete}
+                        onClick={async () => {
+                            if (await flushPrescription(appointmentId)) onComplete();
+                        }}
                     >
                         <i className="ti ti-check" aria-hidden="true" />
                         Complete consultation

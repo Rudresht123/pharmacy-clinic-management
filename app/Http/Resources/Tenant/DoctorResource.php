@@ -18,7 +18,12 @@ class DoctorResource extends JsonResource
             'name' => $this->name,
             'code' => $this->code,
 
+            // The department's name, as text — what boards and filters read.
             'specialisation' => $this->specialisation,
+
+            // The department or sub-department itself, from the tree.
+            'department_id' => $this->department_id,
+            'department_name' => $this->whenLoaded('department', fn () => $this->department?->path()),
             'qualifications' => $this->qualifications ?? [],
 
             /*

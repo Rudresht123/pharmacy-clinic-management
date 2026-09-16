@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Tenant;
 
 use App\Http\Requests\Api\V1\Tenant\Concerns\MergesFieldSettings;
+use App\Models\Tenant\Department;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\EntityFieldSetting;
 use App\Support\Fields\DoctorFields;
@@ -52,6 +53,13 @@ class UpdateDoctorRequest extends FormRequest
             ],
 
             'specialisation' => ['nullable', 'string', 'max:120'],
+
+            // Their department or sub-department, from the department tree.
+            'department_id' => [
+                'nullable', 'integer',
+                Rule::exists(Department::class, 'id')->whereNull('deleted_at'),
+            ],
+
             // A list. Each entry is checked against the organization's own
             // options by withFieldSettings, which knows what they are.
             'qualifications' => ['nullable', 'array', 'max:12'],
@@ -119,11 +127,22 @@ class UpdateDoctorRequest extends FormRequest
             'locations.*' => ['integer'],
         ];
 
-        return $this->withFieldSettings(
+        $rules = $this->withFieldSettings(
             $rules,
             EntityFieldSetting::ENTITY_DOCTOR,
             DoctorFields::all(),
         );
+
+        /*
+         * A department chosen from the tree decides the department text, so
+         * the old option list does not judge it — the controller writes the
+         * text from the department.
+         */
+        if ($this->has('department_id')) {
+            unset($rules['specialisation']);
+        }
+
+        return $rules;
     }
 
     /**
@@ -134,6 +153,7 @@ class UpdateDoctorRequest extends FormRequest
         return [
             'code.unique' => 'Another doctor already uses that code.',
             'registration_no.unique' => 'Another doctor is already registered under that number.',
+            'department_id.exists' => 'That department has been removed. Choose another.',
         ];
     }
 
@@ -145,6 +165,7 @@ class UpdateDoctorRequest extends FormRequest
         return [
             'registration_no' => 'registration number',
             'default_consultation_fee' => 'default consultation fee',
+            'department_id' => 'department',
         ];
     }
 

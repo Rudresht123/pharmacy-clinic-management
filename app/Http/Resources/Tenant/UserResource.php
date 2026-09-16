@@ -22,6 +22,9 @@ class UserResource extends JsonResource
             'role' => $this->role,
 
             'role_id' => $this->role_id,
+
+            // Their department or sub-department, when they belong to one.
+            'department_id' => $this->department_id,
             'role_name' => $this->whenLoaded(
                 'permissionRole',
                 fn () => $this->permissionRole?->name,

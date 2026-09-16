@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\Tenant\WorkspaceLookupController;
 use App\Http\Controllers\Api\V1\Tenant\ConsultationController;
 use App\Http\Controllers\Api\V1\Tenant\CustomerController;
 use App\Http\Controllers\Api\V1\Tenant\DashboardController;
+use App\Http\Controllers\Api\V1\Tenant\DepartmentController;
 use App\Http\Controllers\Api\V1\Tenant\DoctorController;
 use App\Http\Controllers\Api\V1\Tenant\DoctorScheduleController;
 use App\Http\Controllers\Api\V1\Tenant\FieldSettingController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\Api\V1\Tenant\PharmacyStoreController;
 use App\Http\Controllers\Api\V1\Tenant\PincodeController;
 use App\Http\Controllers\Api\V1\Tenant\PrescriptionController;
 use App\Http\Controllers\Api\V1\Tenant\RoleController;
+use App\Http\Controllers\Api\V1\Tenant\SetupController;
 use App\Http\Controllers\Api\V1\Tenant\StockAdjustmentController;
 use App\Http\Controllers\Api\V1\Tenant\StockInwardController;
 use App\Http\Controllers\Api\V1\Tenant\StockMovementController;
@@ -37,6 +39,7 @@ use App\Http\Controllers\Api\V1\Tenant\StockTransferController;
 use App\Http\Controllers\Api\V1\Tenant\StoreMedicineController;
 use App\Http\Controllers\Api\V1\Tenant\SupplierController;
 use App\Http\Controllers\Api\V1\Tenant\UserController as TenantUserController;
+use App\Services\Tenant\OrganizationSetup;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -729,6 +732,22 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             ->name('settings.fields.update');
 
         /*
+        | Departments and their sub-departments — what doctors are grouped by.
+        | Read by anyone signed in (the doctor form and booking pick from the
+        | tree); changed under `settings.manage`, which kept the department
+        | list before it became a tree.
+        */
+        Route::get('departments', [DepartmentController::class, 'index'])->name('departments.index');
+
+        Route::middleware('permission:settings.manage')->group(function () {
+            Route::post('departments', [DepartmentController::class, 'store'])->name('departments.store');
+            Route::put('departments/{department}', [DepartmentController::class, 'update'])
+                ->name('departments.update');
+            Route::delete('departments/{department}', [DepartmentController::class, 'destroy'])
+                ->name('departments.destroy');
+        });
+
+        /*
         | The organization's own people.
         |
         | `people.manage` rather than `tenant.owner`, so an owner can hand
@@ -839,6 +858,19 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 ->name('locations.modules.show');
             Route::put('locations/{location}/modules', [LocationModuleController::class, 'update'])
                 ->name('locations.modules.update');
+
+            /*
+            | Organisation setup — the owner configuring their organization.
+            | Only the setup's own questions live here; each section's data
+            | is saved through the routes above that already own it.
+            */
+            Route::get('setup', [SetupController::class, 'show'])->name('setup.show');
+            Route::put('setup/organization', [SetupController::class, 'updateOrganization'])
+                ->name('setup.organization');
+            Route::post('setup/steps/{step}/confirm', [SetupController::class, 'confirm'])
+                ->whereIn('step', OrganizationSetup::CONFIRMABLE)
+                ->name('setup.confirm');
+            Route::post('setup/complete', [SetupController::class, 'complete'])->name('setup.complete');
         });
     });
 });

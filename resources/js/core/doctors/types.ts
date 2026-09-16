@@ -11,7 +11,14 @@ export interface Doctor extends Timestamps {
     name: string;
     code: string | null;
 
+    /** The department's name, as text — what boards and filters read. */
     specialisation: string | null;
+
+    /** Their department or sub-department, from the department tree. */
+    department_id: number | null;
+    /** "Cardiology › Interventional Cardiology" — on the detail endpoint. */
+    department_name?: string | null;
+
     /** A list. It was one comma-joined string until the column became jsonb. */
     qualifications: string[];
     registration_no: string | null;

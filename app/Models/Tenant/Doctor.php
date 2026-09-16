@@ -41,6 +41,7 @@ class Doctor extends Model
         'is_active',
         'notes',
         'custom_fields',
+        'department_id',
     ];
 
     protected function casts(): array
@@ -51,7 +52,17 @@ class Doctor extends Model
             'is_active' => 'boolean',
             'default_consultation_fee' => 'decimal:2',
             'custom_fields' => 'array',
+            'department_id' => 'integer',
         ];
+    }
+
+    /**
+     * Their department or sub-department. `specialisation` holds the
+     * department's name as text, for the screens that still read it.
+     */
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class)->withTrashed();
     }
 
     /**

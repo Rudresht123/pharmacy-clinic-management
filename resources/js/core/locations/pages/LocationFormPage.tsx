@@ -74,10 +74,28 @@ const TABS: TabItem<Tab>[] = [
     { value: 'modules', label: 'Modules', icon: 'ti ti-puzzle' },
 ];
 
-export default function LocationFormPage() {
-    const { id } = useParams();
+/**
+ * The branch form — its own page, or opened inside another screen.
+ *
+ * Organisation setup opens it in place: it passes `onDone`, and the form then
+ * hands control back instead of navigating to the list, and leaves the page
+ * header to the screen it sits in. Same fields, same rules, one form.
+ */
+export default function LocationFormPage({
+    id: givenId,
+    onDone,
+}: {
+    /** The branch to edit, when opened inside another screen. */
+    id?: string;
+    /** Called after saving or cancelling, instead of returning to the list. */
+    onDone?: () => void;
+} = {}) {
+    const params = useParams();
+    const id = givenId ?? params.id;
     const navigate = useNavigate();
     const isEdit = Boolean(id);
+    const embedded = onDone !== undefined;
+    const leave = () => (onDone ? onDone() : navigate('/locations'));
 
     const [tab, setTab] = useState<Tab>('details');
 
@@ -142,7 +160,7 @@ export default function LocationFormPage() {
         );
 
         if (result) {
-            navigate('/locations');
+            leave();
         }
     });
 
@@ -219,15 +237,17 @@ export default function LocationFormPage() {
 
     return (
         <>
-            <PageHeader
-                title={isEdit ? 'Edit Location' : 'Add Location'}
-                icon={isEdit ? 'ti ti-edit' : 'ti ti-building-plus'}
-                tone={isEdit ? 'amber' : 'emerald'}
-                crumbs={[
-                    { label: 'Locations', to: '/locations' },
-                    { label: isEdit ? 'Edit' : 'Add' },
-                ]}
-            />
+            {!embedded && (
+                <PageHeader
+                    title={isEdit ? 'Edit Location' : 'Add Location'}
+                    icon={isEdit ? 'ti ti-edit' : 'ti ti-building-plus'}
+                    tone={isEdit ? 'amber' : 'emerald'}
+                    crumbs={[
+                        { label: 'Locations', to: '/locations' },
+                        { label: isEdit ? 'Edit' : 'Add' },
+                    ]}
+                />
+            )}
 
             {/* Only the owner reaches level two, and only an existing branch
                 has modules to decide about. */}
@@ -267,7 +287,7 @@ export default function LocationFormPage() {
                             : 'The code must be unique across your live locations.'}
                     </span>
 
-                    <Button variant="light" onClick={() => navigate('/locations')}>
+                    <Button variant="light" onClick={leave}>
                         Cancel
                     </Button>
 

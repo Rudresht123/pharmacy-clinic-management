@@ -13,6 +13,7 @@ import {
     type TenantOrganization,
     type TenantLoginPayload,
     type TenantBranch,
+    type TenantSession,
 } from './api';
 import { setActiveBranchHeader, setUnauthenticatedHandler } from '@/shared/api/http';
 import { queryClient } from '@/shared/api/queryClient';
@@ -55,6 +56,18 @@ interface TenantAuthContextValue {
     doctorId: number | null;
 
     /**
+     * Whether the owner has finished organisation setup.
+     *
+     * The server's answer, from the session. Until it is true the workspace
+     * stays closed: the owner is kept on the setup screen, everybody else
+     * is told to wait.
+     */
+    setupCompleted: boolean;
+
+    /** Called when the setup has just been completed, so the workspace opens without a reload. */
+    markSetupCompleted(): void;
+
+    /**
      * Move to another branch.
      *
      * Refetches the session rather than recomputing anything locally: which
@@ -91,7 +104,33 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
     /* Set only for an account that belongs to a doctor; null for everybody
        else, which is almost everybody. */
     const [doctorId, setDoctorId] = useState<number | null>(null);
+
+    // True until told otherwise, so a session without the flag never locks anybody out.
+    const [setupCompleted, setSetupCompleted] = useState(true);
     const [initialising, setInitialising] = useState(true);
+
+    /** One place that takes a session in, so the fields cannot be set in three different ways. */
+    const adopt = useCallback((session: TenantSession) => {
+        setUser(session.user);
+        setOrganization(session.organization);
+        setModules(session.modules ?? []);
+        setCapabilities(session.capabilities ?? []);
+        setBranches(session.branches ?? []);
+        setActive(session.active_branch ?? null);
+        setDoctorId(session.doctor_id ?? null);
+        setSetupCompleted(session.setup_completed ?? true);
+    }, []);
+
+    const clear = useCallback(() => {
+        setUser(null);
+        setOrganization(null);
+        setModules([]);
+        setCapabilities([]);
+        setBranches([]);
+        setActive(null);
+        setDoctorId(null);
+        setSetupCompleted(true);
+    }, []);
 
     useEffect(() => {
         let cancelled = false;
@@ -99,26 +138,10 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         tenantAuthApi
             .me()
             .then((session) => {
-                if (!cancelled) {
-                    setUser(session.user);
-                    setOrganization(session.organization);
-                    setModules(session.modules ?? []);
-                    setCapabilities(session.capabilities ?? []);
-                    setBranches(session.branches ?? []);
-                    setActive(session.active_branch ?? null);
-                    setDoctorId(session.doctor_id ?? null);
-                }
+                if (!cancelled) adopt(session);
             })
             .catch(() => {
-                if (!cancelled) {
-                    setUser(null);
-                    setOrganization(null);
-                    setModules([]);
-                    setCapabilities([]);
-                    setBranches([]);
-                    setActive(null);
-                    setDoctorId(null);
-                }
+                if (!cancelled) clear();
             })
             .finally(() => {
                 if (!cancelled) {
@@ -129,55 +152,42 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [adopt, clear]);
 
     // A 401 from anywhere in the tenant app drops the user back to signed-out.
     useEffect(() => {
         setUnauthenticatedHandler(() => {
-            setUser(null);
-            setOrganization(null);
-            setModules([]);
-            setCapabilities([]);
-            setBranches([]);
-            setActive(null);
-            setDoctorId(null);
+            clear();
             queryClient.clear();
         });
-    }, []);
+    }, [clear]);
 
-    const login = useCallback(async (payload: TenantLoginPayload) => {
-        const session = await tenantAuthApi.login(payload);
+    const login = useCallback(
+        async (payload: TenantLoginPayload) => {
+            const session = await tenantAuthApi.login(payload);
 
-        setUser(session.user);
-        setOrganization(session.organization);
-        setModules(session.modules ?? []);
-        setCapabilities(session.capabilities ?? []);
-        setBranches(session.branches ?? []);
-        setActive(session.active_branch ?? null);
-        setDoctorId(session.doctor_id ?? null);
+            adopt(session);
 
-        return session.user;
-    }, []);
+            return session.user;
+        },
+        [adopt],
+    );
 
     const logout = useCallback(async () => {
         try {
             await tenantAuthApi.logout();
         } finally {
-            setUser(null);
-            setOrganization(null);
-            setModules([]);
-            setCapabilities([]);
-            setBranches([]);
-            setActive(null);
-            setDoctorId(null);
+            clear();
             queryClient.clear();
         }
-    }, []);
+    }, [clear]);
 
     const can = useCallback(
         (capability: string) => capabilities.includes(capability),
         [capabilities],
     );
+
+    const markSetupCompleted = useCallback(() => setSetupCompleted(true), []);
 
     /*
      * The header goes out on every request from here on, and the session is
@@ -195,6 +205,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             setCapabilities(session.capabilities ?? []);
             setActive(session.active_branch ?? null);
             setDoctorId(session.doctor_id ?? null);
+            setSetupCompleted(session.setup_completed ?? true);
         });
     }, []);
 
@@ -208,6 +219,8 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             branches,
             activeBranch,
             doctorId,
+            setupCompleted,
+            markSetupCompleted,
             setActiveBranch,
             initialising,
             isAuthenticated: user !== null,
@@ -224,6 +237,8 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             branches,
             activeBranch,
             doctorId,
+            setupCompleted,
+            markSetupCompleted,
             setActiveBranch,
             initialising,
             login,

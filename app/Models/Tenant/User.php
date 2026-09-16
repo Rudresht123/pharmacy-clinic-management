@@ -44,6 +44,8 @@ class User extends Authenticatable
         'role_id',
         'location_id',
         'custom_fields',
+        // Their department or sub-department, when they belong to one.
+        'department_id',
     ];
 
     /**

@@ -23,6 +23,9 @@ export interface TenantUser {
     role_id: number | null;
     role_name?: string | null;
 
+    /** Their department or sub-department, when they belong to one. */
+    department_id?: number | null;
+
     /**
      * Where they work, and what they hold at each place.
      *
@@ -102,6 +105,12 @@ export interface TenantSession {
      * because they bypass roles; a member of staff gets the intersection.
      */
     capabilities: string[];
+
+    /**
+     * Whether the owner has finished organisation setup. Until then the
+     * owner is kept on the setup screen and everybody else is told to wait.
+     */
+    setup_completed: boolean;
 }
 
 export interface TenantLoginPayload {

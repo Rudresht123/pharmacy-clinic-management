@@ -16,8 +16,17 @@ import { useConfigurableEntities } from '@/core/field-settings/api';
  * control that goes nowhere.
  */
 export function TenantShell() {
-    const { user, logout, modules, capabilities, organization, branches, activeBranch, doctorId } =
-        useTenantAuth();
+    const {
+        user,
+        logout,
+        modules,
+        capabilities,
+        organization,
+        branches,
+        activeBranch,
+        doctorId,
+        setupCompleted,
+    } = useTenantAuth();
 
     // The sidebar says whatever this organization calls its records.
     const { data: entities } = useConfigurableEntities();
@@ -31,8 +40,8 @@ export function TenantShell() {
     );
 
     const navigation = useMemo(
-        () => tenantNavigation(user?.role, labels, modules, capabilities, doctorId),
-        [user?.role, labels, modules, capabilities, doctorId],
+        () => tenantNavigation(user?.role, labels, modules, capabilities, doctorId, setupCompleted),
+        [user?.role, labels, modules, capabilities, doctorId, setupCompleted],
     );
 
     /*

@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Controller } from 'react-hook-form';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { FormError, TextField } from '@/shared/components/form/Fields';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { useApiForm } from '@/shared/components/form/useApiForm';
 import { ConfigurableForm, type FieldGroup } from '@/core/field-settings/ConfigurableForm';
 import { useEntityLabel } from '@/core/field-settings/api';
 import { RecordHistory } from '@/core/tenant-history/RecordHistory';
 import { locationsHooks } from '@/core/locations/api';
+import { departmentOptions, departmentsHooks } from '@/core/departments/api';
 import { doctorsHooks, useDoctorFields } from '../api';
 
 // A `type`, not an `interface` — only type aliases get the implicit index
@@ -115,6 +118,9 @@ export default function DoctorFormPage() {
     // Every branch the organization has, to tick against.
     const { data: allBranches } = locationsHooks.useList({ all: 1 });
 
+    // The department tree, to choose a department or sub-department from.
+    const { data: departments } = departmentsHooks.useList();
+
     const { data: fields, isLoading: fieldsLoading } = useDoctorFields();
     const { data: doctor, isLoading: recordLoading } = doctorsHooks.useDetail(id);
 
@@ -129,7 +135,7 @@ export default function DoctorFormPage() {
         submit,
         formState: { errors, isSubmitting },
     } = useApiForm<DoctorFormValues>({
-        defaultValues: { is_active: true },
+        defaultValues: { is_active: true, department_id: '' },
     });
 
     useEffect(() => {
@@ -140,7 +146,7 @@ export default function DoctorFormPage() {
         reset({
             name: doctor.name,
             code: doctor.code ?? '',
-            specialisation: doctor.specialisation ?? '',
+            department_id: doctor.department_id ? String(doctor.department_id) : '',
             qualifications: doctor.qualifications ?? [],
             registration_no: doctor.registration_no ?? '',
             phone: doctor.phone ?? '',
@@ -172,6 +178,7 @@ export default function DoctorFormPage() {
          */
         const payload = {
             ...values,
+            department_id: values.department_id ? Number(values.department_id) : null,
             account: withAccount ? values.account : null,
             locations: branches,
         };
@@ -224,6 +231,44 @@ export default function DoctorFormPage() {
                     errors={errors}
                     control={control}
                     extras={{
+                        /*
+                         * A department or a sub-department, from the tree.
+                         * "Cardiology › Interventional Cardiology" — the doctor
+                         * still counts under Cardiology wherever the software
+                         * groups by department.
+                         */
+                        identity: (
+                            <div className="mb-3">
+                                <label className="form-label" htmlFor="department_id">
+                                    Department
+                                </label>
+
+                                <Controller
+                                    name="department_id"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <SearchableSelect
+                                            id="department_id"
+                                            value={field.value == null ? '' : String(field.value)}
+                                            onChange={field.onChange}
+                                            invalid={Boolean(errors.department_id)}
+                                            clearable
+                                            placeholder="Choose a department or sub-department"
+                                            options={departmentOptions(departments ?? [], doctor?.department_id)}
+                                        />
+                                    )}
+                                />
+
+                                {errors.department_id ? (
+                                    <p className="invalid-feedback d-block">
+                                        {String(errors.department_id.message ?? '')}
+                                    </p>
+                                ) : (
+                                    <p className="form-hint">Manage the list under Departments.</p>
+                                )}
+                            </div>
+                        ),
+
                         branches: (
                             <>
                                 {(allBranches ?? []).length === 0 ? (

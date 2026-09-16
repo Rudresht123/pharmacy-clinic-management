@@ -10,6 +10,7 @@ import { useApiForm } from '@/shared/components/form/useApiForm';
 import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { ConfigurableForm, type FieldGroup } from '@/core/field-settings/ConfigurableForm';
 import { rolesHooks } from '@/core/roles/api';
+import { departmentOptions, departmentsHooks } from '@/core/departments/api';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { BranchMemberships } from '../components/BranchMemberships';
 import { tenantUsersHooks, useTenantUserFields } from '../api';
@@ -41,10 +42,28 @@ const GROUPS: FieldGroup[] = [
     },
 ];
 
-export default function TenantUserFormPage() {
-    const { id } = useParams();
+/**
+ * The person form — its own page, or opened inside another screen.
+ *
+ * Organisation setup opens it in place and passes `onDone`: the form then
+ * hands control back instead of returning to People, and leaves the page
+ * header to the screen it sits in.
+ */
+export default function TenantUserFormPage({
+    id: givenId,
+    onDone,
+}: {
+    /** The person to edit, when opened inside another screen. */
+    id?: string;
+    /** Called after saving or cancelling, instead of returning to People. */
+    onDone?: () => void;
+} = {}) {
+    const params = useParams();
+    const id = givenId ?? params.id;
     const navigate = useNavigate();
     const isEdit = Boolean(id);
+    const embedded = onDone !== undefined;
+    const leave = () => (onDone ? onDone() : navigate('/people'));
 
     const { data: fields, isLoading: fieldsLoading } = useTenantUserFields();
     const { data: person, isLoading: recordLoading } = tenantUsersHooks.useDetail(id);
@@ -53,6 +72,7 @@ export default function TenantUserFormPage() {
     const update = tenantUsersHooks.useUpdate();
 
     const { data: roles } = rolesHooks.useList();
+    const { data: departments } = departmentsHooks.useList();
     const { can } = useTenantAuth();
 
     const {
@@ -64,7 +84,7 @@ export default function TenantUserFormPage() {
         watch,
         formState: { errors, isSubmitting },
     } = useApiForm<UserFormValues>({
-        defaultValues: { role: 'staff', role_id: '', is_active: true },
+        defaultValues: { role: 'staff', role_id: '', department_id: '', is_active: true },
     });
 
     // An owner bypasses roles, so the picker only means anything for staff.
@@ -80,6 +100,7 @@ export default function TenantUserFormPage() {
             email: person.email,
             role: person.role,
             role_id: person.role_id ?? '',
+            department_id: person.department_id ?? '',
             is_active: person.is_active,
             password: '',
             password_confirmation: '',
@@ -103,12 +124,15 @@ export default function TenantUserFormPage() {
          */
         payload.role_id = payload.role === 'staff' ? Number(payload.role_id) || null : null;
 
+        // Nobody has to belong to one — somebody who works across the clinic belongs to none.
+        payload.department_id = Number(payload.department_id) || null;
+
         const result = await submit(payload, async () =>
             isEdit && id ? update.mutateAsync({ id, payload }) : create.mutateAsync(payload),
         );
 
         if (result) {
-            navigate('/people');
+            leave();
         }
     });
 
@@ -148,6 +172,43 @@ export default function TenantUserFormPage() {
                     errors={errors}
                     autoComplete="new-password"
                 />
+
+                {/*
+                    Where they work — a receptionist in General Medicine, a
+                    technician in Cardiac Diagnostics. Not a configurable field:
+                    it is a record of its own, and the list is managed under
+                    Departments.
+                */}
+                <div className="form-group">
+                    <label className="form-label" htmlFor="department_id">
+                        Department
+                    </label>
+
+                    <Controller
+                        name="department_id"
+                        control={control}
+                        render={({ field }) => (
+                            <SearchableSelect
+                                id="department_id"
+                                value={field.value == null ? '' : String(field.value)}
+                                onChange={field.onChange}
+                                invalid={Boolean(errors.department_id)}
+                                placeholder="Not in a department"
+                                options={departmentOptions(departments ?? [], person?.department_id)}
+                            />
+                        )}
+                    />
+
+                    {errors.department_id ? (
+                        <p className="invalid-feedback d-block">
+                            {String(errors.department_id.message ?? '')}
+                        </p>
+                    ) : (
+                        <p className="form-hint">
+                            Leave it empty for somebody who works across the clinic.
+                        </p>
+                    )}
+                </div>
             </>
         ),
 
@@ -200,12 +261,14 @@ export default function TenantUserFormPage() {
 
     return (
         <>
-            <PageHeader
-                title={isEdit ? 'Edit Person' : 'Add Person'}
-                icon={isEdit ? 'ti ti-user-edit' : 'ti ti-user-plus'}
-                tone={isEdit ? 'amber' : 'emerald'}
-                crumbs={[{ label: 'People', to: '/people' }, { label: isEdit ? 'Edit' : 'Add' }]}
-            />
+            {!embedded && (
+                <PageHeader
+                    title={isEdit ? 'Edit Person' : 'Add Person'}
+                    icon={isEdit ? 'ti ti-user-edit' : 'ti ti-user-plus'}
+                    tone={isEdit ? 'amber' : 'emerald'}
+                    crumbs={[{ label: 'People', to: '/people' }, { label: isEdit ? 'Edit' : 'Add' }]}
+                />
+            )}
 
             <form onSubmit={onSubmit} noValidate>
                 <FormError message={errors.root?.message} />
@@ -254,7 +317,7 @@ export default function TenantUserFormPage() {
                             : 'They will sign in with the email and password you set here.'}
                     </span>
 
-                    <Button variant="light" onClick={() => navigate('/people')}>
+                    <Button variant="light" onClick={leave}>
                         Cancel
                     </Button>
 

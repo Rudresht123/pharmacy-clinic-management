@@ -10,6 +10,7 @@ use App\Models\Platform\Organization;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\User as TenantUser;
 use App\Services\Permissions\Permission;
+use App\Services\Tenant\OrganizationSetup;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -244,6 +245,13 @@ class AuthController extends BaseApiController
              * everything the organization had been sold.
              */
             'capabilities' => $permission->capabilitiesFor($organization, $user),
+
+            /*
+             * Whether the owner has finished organisation setup. Until they
+             * have, the client keeps the owner on the setup screen and tells
+             * everybody else to wait — the workspace is not usable half set up.
+             */
+            'setup_completed' => app(OrganizationSetup::class)->isComplete(),
         ];
     }
 }

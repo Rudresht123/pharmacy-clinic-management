@@ -67,6 +67,12 @@ class StoreTenantUserRequest extends FormRequest
              * existed, so a branch role could be assigned here and quietly
              * apply everywhere.
              */
+            // Their department or sub-department, when they belong to one.
+            'department_id' => [
+                'nullable', 'integer',
+                Rule::exists(\App\Models\Tenant\Department::class, 'id')->whereNull('deleted_at'),
+            ],
+
             'role_id' => [
                 'nullable', 'integer',
                 'prohibited_if:role,'.User::OWNER,

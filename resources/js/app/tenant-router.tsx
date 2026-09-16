@@ -3,8 +3,11 @@ import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { FullPageLoader } from '@/shared/components/ui/Loader';
 import { NavigationLoader } from './NavigationLoader';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
-import { RequireCapability, RequireModule } from './tenant-guards';
+import { RequireCapability, RequireModule, RequireOwner } from './tenant-guards';
 import { TenantShell } from './TenantShell';
+
+const OrganizationSetupPage = lazy(() => import('@/core/org-setup/pages/OrganizationSetupPage'));
+const DepartmentsPage = lazy(() => import('@/core/departments/pages/DepartmentsPage'));
 
 const TenantLoginPage = lazy(() => import('@/core/tenant-auth/pages/TenantLoginPage'));
 const TenantDashboardPage = lazy(() => import('@/core/tenant-auth/pages/TenantDashboardPage'));
@@ -40,13 +43,62 @@ const InwardFormPage = lazy(() => import('@/core/pharmacy/pages/InwardFormPage')
 const MovementsPage = lazy(() => import('@/core/pharmacy/pages/MovementsPage'));
 const SuppliersPage = lazy(() => import('@/core/pharmacy/pages/SuppliersPage'));
 
-/** Mirrors app/guards.tsx's ProtectedRoute, against the tenant auth context. */
+/**
+ * Screens the owner may open before setup is finished: the setup itself, and
+ * the roles editor its Roles section links to.
+ */
+const OPEN_DURING_SETUP = [/^\/setup(\/|$)/, /^\/roles(\/|$)/];
+
+/**
+ * What everybody but the owner sees while the organisation is being set up.
+ * The owner is the only one who can finish it, so there is nothing else here
+ * for anybody to do yet.
+ */
+function SetupPending() {
+    const { organization, logout } = useTenantAuth();
+
+    return (
+        <div className="d-flex align-items-center justify-content-center min-vh-100 px-3">
+            <div className="org-pending">
+                <i className="ti ti-settings-cog" />
+                <h6>{organization?.name ?? 'Your organisation'} is still being set up</h6>
+                <p>
+                    The owner has not finished setting up the organisation yet. You can sign in
+                    and start working as soon as they have.
+                </p>
+
+                <button type="button" className="btn btn-light mt-3" onClick={() => void logout()}>
+                    <i className="ti ti-logout me-1" />
+                    Sign out
+                </button>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Mirrors app/guards.tsx's ProtectedRoute, against the tenant auth context.
+ *
+ * Also keeps the workspace closed until organisation setup is finished: the
+ * owner is taken to the setup screen from anywhere else, everybody else is
+ * told to wait. The server's session says whether it is finished.
+ */
 function TenantProtectedRoute() {
-    const { isAuthenticated } = useTenantAuth();
+    const { isAuthenticated, setupCompleted, user } = useTenantAuth();
     const location = useLocation();
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    }
+
+    if (!setupCompleted) {
+        if (user?.role !== 'owner') {
+            return <SetupPending />;
+        }
+
+        if (!OPEN_DURING_SETUP.some((path) => path.test(location.pathname))) {
+            return <Navigate to="/setup" replace />;
+        }
     }
 
     return <Outlet />;
@@ -58,10 +110,15 @@ function TenantProtectedRoute() {
  * A doctor's home is their own list. The dashboard counts branches, staff and
  * revenue — a manager's reading of the business — and landing a doctor there
  * shows them somebody else's job before their own. One helper, so login, the
- * root path and a stale /dashboard bookmark all agree.
+ * root path and a stale /dashboard bookmark all agree. Before setup is
+ * finished the owner's home is the setup.
  */
 function useHome(): string {
-    const { doctorId } = useTenantAuth();
+    const { doctorId, setupCompleted, user } = useTenantAuth();
+
+    if (!setupCompleted && user?.role === 'owner') {
+        return '/setup';
+    }
 
     return doctorId ? '/my-day' : '/dashboard';
 }
@@ -131,6 +188,17 @@ export function TenantAppRoutes() {
                     </Route>
 
                     <Route element={<TenantProtectedRoute />}>
+                        {/*
+                            Organisation setup is a page of its own, outside the
+                            workspace's chrome: nothing else opens until it is
+                            finished, so a sidebar would only offer shut doors.
+                            The owner's alone, as its API is. The open step is
+                            ?section=, so switching never leaves the page.
+                        */}
+                        <Route element={<RequireOwner />}>
+                            <Route path="/setup" element={<OrganizationSetupPage />} />
+                        </Route>
+
                         <Route element={<TenantShell />}>
                             <Route path="/dashboard" element={<HomeRoute />} />
 
@@ -387,6 +455,10 @@ export function TenantAppRoutes() {
                                     path="/settings/fields/:entity"
                                     element={<FieldSettingsPage />}
                                 />
+
+                                {/* Departments and their sub-departments, kept
+                                    under the same capability as the settings. */}
+                                <Route path="/departments" element={<DepartmentsPage />} />
                             </Route>
 
                             {/* The whole log needs its own capability; one
@@ -394,7 +466,6 @@ export function TenantAppRoutes() {
                             <Route element={<RequireCapability capability="settings.audit" />}>
                                 <Route path="/activity" element={<TenantHistoryPage />} />
                             </Route>
-
                             <Route path="*" element={<NotFound />} />
                         </Route>
                     </Route>

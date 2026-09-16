@@ -46,6 +46,8 @@ export function tenantNavigation(
     capabilities: string[] = [],
     /** Set when this login belongs to a doctor, from the session. */
     doctorId?: number | null,
+    /** Until organisation setup is finished, the setup is the whole menu. */
+    setupCompleted = true,
 ): NavSection[] {
     const isOwner = role === 'owner';
 
@@ -55,6 +57,29 @@ export function tenantNavigation(
     const can = (capability: string) => capabilities.includes(capability);
 
     const sections: NavSection[] = [];
+
+    /*
+     * Nothing else opens until setup is finished (see TenantProtectedRoute),
+     * so nothing else is offered: a menu full of entries that all lead back
+     * to the setup screen would read as broken.
+     */
+    if (!setupCompleted) {
+        return isOwner
+            ? [
+                  {
+                      title: '',
+                      items: [
+                          {
+                              label: 'Organisation setup',
+                              to: '/setup',
+                              icon: 'ti ti-list-check',
+                              match: '/setup',
+                          },
+                      ],
+                  },
+              ]
+            : [];
+    }
 
     /* --- the business ---------------------------------------------------- */
 
@@ -135,16 +160,29 @@ export function tenantNavigation(
     }
 
     /*
-     * Planned, not built — no table, model or routes. Shown as a marked,
-     * unclickable row so the shape of the product is visible without a menu
-     * entry that answers 404.
+     * Organisation setup, and the departments it keeps.
+     *
+     * Departments are the doctor form's own list rather than a table, and
+     * the setup screen is where they are edited, so the entry opens it on
+     * that section. Both are the owner's.
      */
     if (isOwner) {
+        organization.push({
+            label: 'Organisation setup',
+            to: '/setup',
+            icon: 'ti ti-list-check',
+            match: '/setup',
+        });
+
+    }
+
+    // Departments and their sub-departments, kept by whoever keeps the settings.
+    if (can('settings.manage')) {
         organization.push({
             label: 'Departments',
             to: '/departments',
             icon: 'ti ti-layout-grid',
-            soon: true,
+            match: '/departments',
         });
     }
 

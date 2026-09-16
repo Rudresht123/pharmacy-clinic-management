@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Http\Requests\Api\V1\Tenant\StoreDoctorRequest;
 use App\Http\Requests\Api\V1\Tenant\UpdateDoctorRequest;
 use App\Http\Resources\Tenant\DoctorResource;
+use App\Models\Tenant\Department;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\File;
 use App\Models\Tenant\EntityFieldSetting;
@@ -37,12 +38,19 @@ class DoctorController extends BaseApiController
         private readonly Permission $permission,
     ) {}
 
-    /** The field definitions the form and table render from. */
+    /**
+     * The field definitions the form and table render from.
+     *
+     * The department is chosen from the department tree on the form now, so
+     * the old free-standing Department field stays a table column (it holds
+     * the department's name) but leaves the form.
+     */
     public function fields(FieldSchema $schema): JsonResponse
     {
-        return $this->ok(
-            array_values($schema->for(EntityFieldSetting::ENTITY_DOCTOR, DoctorFields::all()))
-        );
+        return $this->ok(array_map(
+            fn (array $field) => $field['key'] === 'specialisation' ? [...$field, 'show_in_form' => false] : $field,
+            array_values($schema->for(EntityFieldSetting::ENTITY_DOCTOR, DoctorFields::all())),
+        ));
     }
 
     public function index(Request $request): JsonResponse
@@ -76,7 +84,7 @@ class DoctorController extends BaseApiController
     {
         // The schedules answer "which branches", which a doctor row cannot;
         // the user says whether the edit form should show a login section.
-        return $this->ok(DoctorResource::make($doctor->load(['schedules.location', 'user', 'photograph', 'postings'])));
+        return $this->ok(DoctorResource::make($doctor->load(['schedules.location', 'user', 'photograph', 'postings', 'department.parent'])));
     }
 
     public function store(
@@ -84,7 +92,7 @@ class DoctorController extends BaseApiController
         DoctorAccountProvisioner $accounts,
         DoctorPostings $postings,
     ): JsonResponse {
-        $data = $request->validated();
+        $data = $this->withDepartment($request->validated());
         $account = $data['account'] ?? null;
         $branches = $data['locations'] ?? null;
         unset($data['account'], $data['locations']);
@@ -110,7 +118,7 @@ class DoctorController extends BaseApiController
             });
 
         return $this->created(
-            DoctorResource::make($doctor->load(['user', 'photograph', 'postings'])),
+            DoctorResource::make($doctor->load(['user', 'photograph', 'postings', 'department.parent'])),
             $account ? 'Doctor added, and they can now sign in.' : 'Doctor added',
         );
     }
@@ -121,7 +129,7 @@ class DoctorController extends BaseApiController
         DoctorAccountProvisioner $accounts,
         DoctorPostings $postings,
     ): JsonResponse {
-        $data = $request->validated();
+        $data = $this->withDepartment($request->validated());
         $account = $data['account'] ?? null;
         $branches = $data['locations'] ?? null;
         unset($data['account'], $data['locations']);
@@ -155,7 +163,7 @@ class DoctorController extends BaseApiController
                 return $updated;
             });
 
-        return $this->ok(DoctorResource::make($updated->load(['user', 'photograph', 'postings'])), 'Doctor updated');
+        return $this->ok(DoctorResource::make($updated->load(['user', 'photograph', 'postings', 'department.parent'])), 'Doctor updated');
     }
 
     /**
@@ -217,6 +225,30 @@ class DoctorController extends BaseApiController
             DoctorResource::make($doctor->load('photograph')),
             'Photo removed',
         );
+    }
+
+    /**
+     * The department text follows the department chosen from the tree: the
+     * top-level department's name, so the OPD board, filters and booking —
+     * which read the text — count a sub-department's doctors under its
+     * department. A request that sends no `department_id` is left as it was.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function withDepartment(array $data): array
+    {
+        if (! array_key_exists('department_id', $data)) {
+            return $data;
+        }
+
+        $department = $data['department_id']
+            ? Department::query()->with('parent')->find($data['department_id'])
+            : null;
+
+        $data['specialisation'] = $department?->topLevelName();
+
+        return $data;
     }
 
     /**
