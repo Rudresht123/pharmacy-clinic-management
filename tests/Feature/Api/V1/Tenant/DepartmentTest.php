@@ -5,6 +5,7 @@ namespace Tests\Feature\Api\V1\Tenant;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Doctor;
+use App\Models\Tenant\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -169,7 +170,7 @@ class DepartmentTest extends TenantTestCase
     {
         $sub = $this->add('Adult Medicine', $this->id('General Medicine'))->json('data.id');
 
-        $this->onTenant($this->organization, fn () => \App\Models\Tenant\User::on('organization')
+        $this->onTenant($this->organization, fn () => User::on('organization')
             ->where('email', self::STAFF_EMAIL)
             ->update(['department_id' => $sub]));
 

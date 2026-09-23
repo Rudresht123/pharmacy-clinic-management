@@ -215,6 +215,21 @@ class ModuleRegistry
                     ['key' => 'appointments.cancel', 'name' => 'Cancel and mark no-shows', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'appointments.doctors', 'name' => 'Add and edit doctors', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'appointments.schedule', 'name' => 'Set timings, leave and extra sessions', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * The patient's side of the same module, in the patient
+                     * app. Own-data capabilities: each one is about the
+                     * signed-in patient's own record and nobody else's, which
+                     * the portal routes enforce (EnsurePortalPatient). They
+                     * live in this module rather than one of their own so
+                     * that a clinic that stops running OPD stops taking
+                     * bookings from the app in the same breath.
+                     *
+                     * Organization-scoped: a patient is not posted to a
+                     * branch, and books at whichever one their doctor sits at.
+                     */
+                    ['key' => 'portal.appointments.view', 'name' => 'Patients: see their own appointments', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'portal.appointments.book', 'name' => 'Patients: find a doctor and book for themselves', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             [
@@ -270,6 +285,8 @@ class ModuleRegistry
                 'capabilities' => [
                     ['key' => 'pharmacy.view', 'name' => 'View stock and the dispensing queue', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.dispense', 'name' => 'Dispense prescriptions', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.sell', 'name' => 'Sell at the counter', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.sale_cancel', 'name' => 'Cancel a bill', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.inward', 'name' => 'Receive stock (GRN)', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.adjust', 'name' => 'Adjust stock', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.transfer', 'name' => 'Transfer stock between stores', 'scope' => self::SCOPE_BRANCH],

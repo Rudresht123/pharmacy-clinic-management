@@ -6,6 +6,8 @@ import { notify } from '@/shared/utils/notify';
 import type { ApiResponse } from '@/shared/types/api';
 import type { TableQueryParams } from '@/shared/hooks/useServerTable';
 import type {
+    PharmacyDashboard,
+    PharmacySettings,
     PharmacyStore,
     StoreFormOptions,
     StoreMedicine,
@@ -112,5 +114,60 @@ export function useRemoveStoreMedicine(storeId: number) {
                 data: { reason },
             }),
         onSuccess: () => notify.success('Removed from this store'),
+    });
+}
+
+/**
+ * The organisation's pharmacy settings.
+ *
+ * Read by anyone who may see stock — the counter prices and warns from
+ * them — and kept for the session, since they change about once a year.
+ */
+export function usePharmacySettings(enabled = true) {
+    return useQuery({
+        queryKey: ['pharmacy', 'settings'],
+        queryFn: async (): Promise<PharmacySettings> => {
+            const { data } = await http.get<ApiResponse<PharmacySettings>>('/tenant/pharmacy/settings');
+
+            return data.data;
+        },
+        staleTime: 5 * 60 * 1000,
+        enabled,
+    });
+}
+
+/**
+ * One store's day, in a single request.
+ *
+ * Short staleness: the tiles are takings and what is running out, and a
+ * ten-minute-old count of either is worse than no count — somebody reads it,
+ * acts on it, and finds the shelf disagrees.
+ */
+export function usePharmacyDashboard(storeId: number | undefined) {
+    return useQuery({
+        queryKey: resourceKey(storesApi.endpoint, storeId, 'dashboard'),
+        queryFn: async (): Promise<PharmacyDashboard> => {
+            const { data } = await http.get<ApiResponse<PharmacyDashboard>>(
+                `/tenant/pharmacy-stores/${storeId}/dashboard`,
+            );
+
+            return data.data;
+        },
+        staleTime: 60 * 1000,
+        enabled: storeId !== undefined,
+    });
+}
+
+export function useSavePharmacySettings() {
+    return useMutation({
+        mutationFn: async (payload: Partial<PharmacySettings>): Promise<PharmacySettings> => {
+            const { data } = await http.put<ApiResponse<PharmacySettings>>(
+                '/tenant/pharmacy/settings',
+                payload,
+            );
+
+            return data.data;
+        },
+        onSuccess: () => notify.success('Pharmacy settings saved'),
     });
 }

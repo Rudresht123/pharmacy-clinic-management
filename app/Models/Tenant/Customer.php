@@ -6,6 +6,7 @@ use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -88,6 +89,32 @@ class Customer extends Model
     public function registeredLocation(): BelongsTo
     {
         return $this->belongsTo(Location::class, 'registered_location_id');
+    }
+
+    /**
+     * This patient's own portal login, when they have signed in to the app.
+     *
+     * One at most — the same partial unique index on (userable_type,
+     * userable_id) that gives a doctor one login gives a patient one too.
+     */
+    public function user(): MorphOne
+    {
+        return $this->morphOne(User::class, 'userable');
+    }
+
+    /**
+     * Matches a phone number however it was typed at the desk.
+     *
+     * Customers' numbers are free text — "98765 43210", "+91 9876543210",
+     * "09876543210" all turn up — so they are compared on their last ten
+     * digits, which is the part a person actually owns.
+     */
+    public function scopeWithPhone(Builder $query, string $digits): Builder
+    {
+        return $query->whereRaw(
+            "right(regexp_replace(coalesce(phone, ''), '\\D', '', 'g'), 10) = ?",
+            [substr($digits, -10)],
+        );
     }
 
     public function scopeActive(Builder $query): Builder

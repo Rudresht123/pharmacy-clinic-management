@@ -310,6 +310,29 @@ export function tenantNavigation(
      */
     const clinical: NavItem[] = [];
 
+    /*
+     * The pharmacy is one menu, and it borrows two rows from elsewhere.
+     *
+     * The module owns its stock, its counter and its paperwork, but a shop's
+     * catalogue is the medicines module and its buyers are the customers
+     * module. Both are decided here, once, because the question is not only
+     * "may this person see it" but "which menu is already showing it" — a row
+     * that appears in two places reads as two different screens.
+     */
+    const pharmacy = hasModule('pharmacy') && can('pharmacy.view');
+    const medicines = hasModule('medicines') && can('medicines.view');
+
+    /*
+     * A medical store's buyers belong in the only menu it has.
+     *
+     * With no OPD there is no clinical section for the customer book to sit
+     * beside, so it moves into the pharmacy group and takes the name a shop
+     * uses. A clinic keeps its patients where they are — this is the same
+     * list either way, and it is never offered twice.
+     */
+    const customersUnderPharmacy =
+        pharmacy && !hasModule('appointments') && can('customers.view');
+
     if (hasModule('appointments') && can('appointments.view')) {
         clinical.push({
             label: 'OPD',
@@ -356,7 +379,7 @@ export function tenantNavigation(
         });
     }
 
-    if (can('customers.view')) {
+    if (can('customers.view') && !customersUnderPharmacy) {
         clinical.push({
             label: labels?.customer ?? 'Patients',
             to: '/customers',
@@ -366,11 +389,17 @@ export function tenantNavigation(
     }
 
     /*
-     * The medicine master. Its own module, because a clinic with no pharmacy
-     * still needs doctors to find medicines — so it sits with the clinical
-     * work, not under a pharmacy heading that clinic would never have.
+     * The medicine master, on its own, for anybody who has it without a
+     * pharmacy.
+     *
+     * It stays: a clinic that dispenses nothing still needs its doctors to
+     * find a medicine to prescribe, and that clinic has no pharmacy heading to
+     * look under. It steps aside only when the pharmacy group below is on
+     * screen and already carries it as Products — which also covers somebody
+     * who has the pharmacy module but not `pharmacy.view`, where that group
+     * never renders and this entry is their only way to the list.
      */
-    if (hasModule('medicines') && can('medicines.view')) {
+    if (medicines && !pharmacy) {
         clinical.push({
             label: labels?.medicine ?? 'Medicines',
             to: '/medicines',
@@ -380,31 +409,134 @@ export function tenantNavigation(
     }
 
     /*
-     * The pharmacy: its stores today; stock, receiving and dispensing hang
-     * off the same entry as they arrive.
+     * The pharmacy, whole.
+     *
+     * Everything the shop does hangs off this one entry, module-wise, rather
+     * than being spread between a loose Medicines row up in the clinical work
+     * and a Pharmacy group below it — which left a medical store's own
+     * catalogue outside its own menu.
+     *
+     * The parent opens the overview rather than the stock list: a group header
+     * here is a link as well as a lid, and "the pharmacy" is a dashboard
+     * before it is a shelf.
      */
-    if (hasModule('pharmacy') && can('pharmacy.view')) {
+    if (pharmacy) {
         clinical.push({
             label: 'Pharmacy',
-            to: '/pharmacy/stock',
+            to: '/pharmacy/dashboard',
             icon: 'ti ti-building-warehouse',
-            match: '/pharmacy',
-            // In the order a day runs: what is there, what came in, what moved,
-            // then the set-up behind it.
+            /*
+             * Two of the group's screens are other modules' routes, so the
+             * /pharmacy prefix alone would leave the parent dark on them. Each
+             * is claimed only when this menu is the one showing that row.
+             */
+            match: [
+                '/pharmacy',
+                ...(medicines ? ['/medicines'] : []),
+                ...(customersUnderPharmacy ? ['/customers'] : []),
+            ],
+            /*
+             * In the order a shop is run: how it is doing, what it sells, what
+             * is on the shelf, what came in, the counter, what it billed, what
+             * moved — then the people and the set-up behind all of it.
+             */
             children: [
-                { label: 'Stock', to: '/pharmacy/stock', icon: 'ti ti-packages', match: '/pharmacy/stock' },
                 {
-                    label: 'Receive goods',
+                    label: 'Dashboard',
+                    to: '/pharmacy/dashboard',
+                    icon: 'ti ti-layout-dashboard',
+                    match: '/pharmacy/dashboard',
+                },
+
+                /*
+                 * The medicine master under the name a counter uses for it.
+                 * Its own module and its own capability, because a store can
+                 * be sold the pharmacy without the catalogue being readable by
+                 * whoever is standing at the till.
+                 */
+                ...(medicines
+                    ? [
+                          {
+                              label: labels?.medicine ?? 'Products',
+                              to: '/medicines',
+                              icon: 'ti ti-pill',
+                              match: '/medicines',
+                          },
+                      ]
+                    : []),
+
+                {
+                    label: 'Inventory',
+                    to: '/pharmacy/stock',
+                    icon: 'ti ti-packages',
+                    match: '/pharmacy/stock',
+                },
+                {
+                    label: 'Purchases',
                     to: '/pharmacy/inwards',
                     icon: 'ti ti-truck-delivery',
                     match: '/pharmacy/inwards',
                 },
+
+                // Only whoever may actually take money, as the route asks.
+                ...(can('pharmacy.sell')
+                    ? [
+                          {
+                              label: 'Sales (POS)',
+                              to: '/pharmacy/pos',
+                              icon: 'ti ti-cash-register',
+                              match: '/pharmacy/pos',
+                          },
+                      ]
+                    : []),
+
+                {
+                    label: 'Bills',
+                    to: '/pharmacy/sales',
+                    icon: 'ti ti-receipt',
+                    match: '/pharmacy/sales',
+                },
                 {
                     label: 'Movements',
                     to: '/pharmacy/movements',
-                    icon: 'ti ti-list-numbers',
+                    icon: 'ti ti-arrows-exchange',
                     match: '/pharmacy/movements',
                 },
+
+                // The shop's own name for the customer book — see above.
+                ...(customersUnderPharmacy
+                    ? [
+                          {
+                              label: labels?.customer ?? 'Customers',
+                              to: '/customers',
+                              icon: 'ti ti-users',
+                              match: '/customers',
+                          },
+                      ]
+                    : []),
+
+                {
+                    label: 'Reports',
+                    to: '/pharmacy/reports',
+                    icon: 'ti ti-report-analytics',
+                    match: '/pharmacy/reports',
+                },
+                {
+                    label: 'Suppliers',
+                    to: '/pharmacy/suppliers',
+                    icon: 'ti ti-truck',
+                    match: '/pharmacy/suppliers',
+                },
+
+                /*
+                 * Prescriptions would belong here, between who buys and where
+                 * it is kept, and the module exists in ModuleRegistry — but
+                 * nothing is built behind it. The only prescriptions screen in
+                 * the router is a doctor's own list, which a counter cannot
+                 * open. The "Coming soon" row at the bottom is the honest
+                 * answer until there is a screen to link to.
+                 */
+
                 {
                     label: 'Stores',
                     to: '/pharmacy/stores',
@@ -412,10 +544,10 @@ export function tenantNavigation(
                     match: '/pharmacy/stores',
                 },
                 {
-                    label: 'Suppliers',
-                    to: '/pharmacy/suppliers',
-                    icon: 'ti ti-truck',
-                    match: '/pharmacy/suppliers',
+                    label: 'Settings',
+                    to: '/pharmacy/settings',
+                    icon: 'ti ti-adjustments',
+                    match: '/pharmacy/settings',
                 },
             ],
         });
@@ -429,7 +561,16 @@ export function tenantNavigation(
      * by how often a row is pressed beats one ordered by hierarchy.
      */
     if (clinical.length > 0) {
-        sections.push({ title: 'Clinical', items: clinical });
+        /*
+         * "Clinical" only where there is a clinic. A standalone medical store
+         * has no OPD and no patients — its whole day is the counter — and
+         * filing that under a clinical heading describes somebody else's
+         * business back at them.
+         */
+        sections.push({
+            title: hasModule('appointments') ? 'Clinical' : 'The work',
+            items: clinical,
+        });
     }
 
     if (here.length > 0) {

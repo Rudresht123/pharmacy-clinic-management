@@ -49,4 +49,32 @@ return [
         'user_agent' => env('INDIA_POST_USER_AGENT', 'HMS-Care/1.0 (clinic management; PIN code lookup)'),
     ],
 
+    /*
+    | Stand-in portraits for the demo doctors. See App\Console\Commands\SeedOpdDemoCommand.
+    |
+    | Demo data only — nothing the product does at runtime touches this. A
+    | doctor with no photograph leaves a grey initial everywhere the board,
+    | the queue and the booking screens show one, which is the one part of
+    | those screens a demo cannot judge.
+    |
+    | randomuser.me serves the same numbered portrait every time, so a re-seed
+    | gives the same faces rather than reshuffling the department. It is
+    | fetched once per doctor and then lives in the tenant's own storage.
+    */
+    'demo_portraits' => [
+        'url' => env('DEMO_PORTRAITS_URL', 'https://randomuser.me/api/portraits'),
+        'timeout' => (int) env('DEMO_PORTRAITS_TIMEOUT', 10),
+    ],
+
+    /*
+    | Patient sign-in codes. See App\Services\Portal\PatientOtp.
+    |
+    | `log` writes the code to storage/logs and refuses to run in production.
+    | Add a driver here (and a class implementing OtpSender) when an SMS
+    | provider is chosen; nothing else changes.
+    */
+    'otp' => [
+        'driver' => env('OTP_DRIVER', 'log'),
+    ],
+
 ];

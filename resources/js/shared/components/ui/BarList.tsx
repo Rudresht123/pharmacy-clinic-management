@@ -19,6 +19,7 @@ export function BarList({
     empty = 'Nothing to show yet.',
     max = 6,
     sort = true,
+    format = String,
 }: {
     rows: BarListRow[];
     empty?: string;
@@ -31,6 +32,11 @@ export function BarList({
      * guessing.
      */
     sort?: boolean;
+    /**
+     * How a value reads. Counts are fine as they are; money is not — ₹1,82,162
+     * says something "182162" does not.
+     */
+    format?: (value: number) => string;
 }) {
     const ordered = sort ? [...rows].sort((a, b) => b.value - a.value) : rows;
     const shown = ordered.slice(0, max);
@@ -59,14 +65,14 @@ export function BarList({
                         />
                     </span>
 
-                    <span className="bar-list-value">{row.value}</span>
+                    <span className="bar-list-value">{format(row.value)}</span>
                 </div>
             ))}
 
             {rest.length > 0 && (
                 <p className="bar-list-more">
-                    +{rest.length} more, {rest.reduce((sum, row) => sum + row.value, 0)} between
-                    them
+                    +{rest.length} more, {format(rest.reduce((sum, row) => sum + row.value, 0))}{' '}
+                    between them
                 </p>
             )}
         </div>

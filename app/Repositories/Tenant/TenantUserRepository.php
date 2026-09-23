@@ -27,7 +27,7 @@ class TenantUserRepository extends BaseRepository implements TenantUserRepositor
          * edit another branch's people. Applying it at the query means a
          * second screen that lists staff cannot forget to.
          */
-        return $this->scope->apply($this->query(), Auth::guard('web')->user())
+        return $this->scope->apply($this->query()->staffAccounts(), Auth::guard('web')->user())
             // So the list can name the role each person holds rather than
             // saying "Staff" for everybody, which stopped being the answer the
             // moment roles became configurable.

@@ -32,6 +32,12 @@ class StockMovement extends Model
 
     public const DISPENSING_REVERSAL = 'dispensing_reversal';
 
+    /** Sold over the counter — dispensing is the same movement with a prescription behind it. */
+    public const SALE = 'sale';
+
+    /** A customer brought it back and it went on the shelf again. */
+    public const SALE_RETURN = 'sale_return';
+
     public const RETURN_FROM_PATIENT = 'return_from_patient';
 
     public const SUPPLIER_RETURN = 'supplier_return';
@@ -49,7 +55,8 @@ class StockMovement extends Model
     /** Every value the database CHECK permits. */
     public const TYPES = [
         self::OPENING_BALANCE, self::PURCHASE, self::STOCK_INWARD, self::TRANSFER_IN, self::TRANSFER_OUT,
-        self::DISPENSING, self::DISPENSING_REVERSAL, self::RETURN_FROM_PATIENT, self::SUPPLIER_RETURN,
+        self::DISPENSING, self::DISPENSING_REVERSAL, self::SALE, self::SALE_RETURN,
+        self::RETURN_FROM_PATIENT, self::SUPPLIER_RETURN,
         self::DAMAGE, self::EXPIRY_WRITEOFF, self::ADJUSTMENT_INCREASE, self::ADJUSTMENT_DECREASE,
         self::CORRECTION,
     ];

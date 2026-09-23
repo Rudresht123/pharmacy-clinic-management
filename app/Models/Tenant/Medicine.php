@@ -43,13 +43,33 @@ class Medicine extends Model
 
     public const SCHEDULES = ['OTC', 'G', 'H', 'H1', 'X'];
 
+    /*
+     * What kind of thing this is. A medical store sells more than medicine —
+     * syringes, gloves, a BP monitor, baby soap — and only a medicine has a
+     * dosage form, a route or a drug schedule. Everything else on the record
+     * (batches, expiry, stock, tax) applies to all of them equally.
+     */
+    public const MEDICINE = 'medicine';
+
+    public const CONSUMABLE = 'consumable';
+
+    public const DEVICE = 'device';
+
+    public const OTHER_ITEM = 'other';
+
+    /** Every value the database CHECK permits. */
+    public const ITEM_KINDS = [self::MEDICINE, self::CONSUMABLE, self::DEVICE, self::OTHER_ITEM];
+
     /** The columns that together make a medicine distinct. */
     public const IDENTITY = ['generic_name', 'brand_name', 'strength', 'dosage_form', 'manufacturer'];
 
     protected $connection = 'organization';
 
     protected $fillable = [
+        'item_kind',
         'medicine_code',
+        'sku',
+        'barcode',
         'generic_name',
         'brand_name',
         'strength',
@@ -59,6 +79,8 @@ class Medicine extends Model
         'pack_size',
         'manufacturer',
         'category',
+        'hsn_code',
+        'tax_rate',
         'schedule',
         'prescription_required',
         'description',
@@ -70,6 +92,9 @@ class Medicine extends Model
     {
         return [
             'pack_size' => 'integer',
+            // A string, not a float: a rate is money arithmetic, and 12.00 that
+            // arrives as 11.999999 puts a rupee wrong on a thousand bills.
+            'tax_rate' => 'decimal:2',
             'prescription_required' => 'boolean',
             'is_active' => 'boolean',
             'custom_fields' => 'array',
@@ -98,6 +123,12 @@ class Medicine extends Model
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true);
+    }
+
+    /** A medicine, rather than a consumable, a device or anything else sold. */
+    public function isMedicine(): bool
+    {
+        return $this->item_kind === self::MEDICINE;
     }
 
     /**

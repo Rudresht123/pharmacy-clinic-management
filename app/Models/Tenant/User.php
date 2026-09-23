@@ -21,6 +21,19 @@ class User extends Authenticatable
 
     public const STAFF = 'staff';
 
+    /**
+     * A patient's own login, opened by the one-time-code sign-in.
+     *
+     * An account KIND, like owner and staff — not a permission. What a patient
+     * may do still comes from the role on `role_id`, which the owner can edit.
+     * The kind exists so staff screens (the People list, setup's head count)
+     * can leave patients out without asking what anybody may do.
+     *
+     * Deliberately not in ROLES: that list is what the People form accepts,
+     * and a patient account is never made by hand.
+     */
+    public const PATIENT = 'patient';
+
     public const ROLES = [self::OWNER, self::STAFF];
 
     /**
@@ -176,11 +189,40 @@ class User extends Authenticatable
         return $query->where('is_active', false);
     }
 
+    /** The organization's own people: everybody but patients' portal logins. */
+    public function scopeStaffAccounts($query)
+    {
+        return $query->where('role', '!=', self::PATIENT);
+    }
+
     /**
      * Helper Methods
      */
     public function isOwner(): bool
     {
         return $this->role === self::OWNER;
+    }
+
+    public function isPatient(): bool
+    {
+        return $this->role === self::PATIENT;
+    }
+
+    /**
+     * The patient record this login belongs to, when it is a patient's own.
+     *
+     * Both halves are checked: the account kind, and what it points at. A
+     * login that is one without the other is a half-made record, and the
+     * portal must not guess whose data it should show.
+     */
+    public function patientRecord(): ?Customer
+    {
+        if (! $this->isPatient() || $this->userable_type !== Customer::class) {
+            return null;
+        }
+
+        $record = $this->userable;
+
+        return $record instanceof Customer ? $record : null;
     }
 }

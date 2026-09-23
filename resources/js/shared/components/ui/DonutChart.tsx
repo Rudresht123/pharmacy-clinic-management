@@ -36,15 +36,36 @@ const HUES = 6;
  * hues: a seventh generated colour is indistinguishable from an existing
  * one under colour blindness, and a ring of nine slivers answers nothing.
  */
+/**
+ * How big the figure in the hole can be before it runs over the ring.
+ *
+ * The hole is 61% of the plot, less the padding either side, so roughly ten
+ * characters of tabular figures at 16px — and three at 26px.
+ */
+function figureSize(text: string): number {
+    if (text.length <= 4) {
+        return 26;
+    }
+
+    if (text.length <= 6) {
+        return 22;
+    }
+
+    return text.length <= 8 ? 19 : 16;
+}
+
 export function DonutChart({
     slices,
     centreLabel = 'Total',
     empty = 'Nothing to show yet.',
+    format = String,
 }: {
     slices: DonutSlice[];
     /** Sits under the total in the middle of the ring. */
     centreLabel?: string;
     empty?: string;
+    /** How the figure in the middle reads — money needs its own formatting. */
+    format?: (value: number) => string;
 }) {
     const [hovered, setHovered] = useState<string | null>(null);
 
@@ -115,6 +136,9 @@ export function DonutChart({
 
     const active = arcs.find((arc) => arc.label === hovered);
 
+    // What the hole says: the hovered slice, or the total.
+    const figure = format(active ? active.value : total);
+
     return (
         <div className="donut">
             <div className="donut-plot">
@@ -149,7 +173,16 @@ export function DonutChart({
                  * against an arc.
                  */}
                 <div className="donut-centre" role="status">
-                    <b>{active ? active.value : total}</b>
+                    {/*
+                        Sized to what it says.
+
+                        The hole is 61% of the ring's width — a fixed 26px
+                        fits "128" and spills "₹1,80,163" straight over the
+                        arcs. The steps are in px rather than a container
+                        query because what overflows is the LENGTH of the
+                        figure, which no width unit knows about.
+                    */}
+                    <b style={{ fontSize: `${figureSize(figure)}px` }}>{figure}</b>
                     <span>
                         {active
                             ? `${active.label} · ${Math.round(active.share * 100)}%`
@@ -174,7 +207,7 @@ export function DonutChart({
                         <span className="donut-name" title={arc.label}>
                             {arc.label}
                         </span>
-                        <span className="donut-value">{arc.value}</span>
+                        <span className="donut-value">{format(arc.value)}</span>
                         <span className="donut-share">{Math.round(arc.share * 100)}%</span>
                     </li>
                 ))}

@@ -77,3 +77,146 @@ export const STORE_TYPE_LABELS: Record<string, string> = {
     retail: 'Retail',
     central: 'Central store',
 };
+
+/**
+ * How this organisation bills, prices and warns. One record, read by every
+ * counter and changed under `pharmacy.stores`.
+ */
+export interface PharmacySettings {
+    invoice_prefix: string;
+    round_off_enabled: boolean;
+
+    /** What the counter charges: the printed MRP, or the store's own price. */
+    price_basis: 'mrp' | 'selling';
+    /** Indian MRP includes GST, so a bill splits the tax out of the price. */
+    prices_include_tax: boolean;
+
+    expiry_warning_days: number;
+
+    allow_walk_in: boolean;
+    credit_sales_enabled: boolean;
+    require_prescription: boolean;
+
+    default_payment_method: string;
+
+    updated_at: string | null;
+    updated_by_name?: string | null;
+}
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+    cash: 'Cash',
+    card: 'Card',
+    upi: 'UPI',
+    bank_transfer: 'Bank transfer',
+    credit: 'Credit',
+    other: 'Other',
+    /* Not a tender: a bill settled by more than one, which no single method
+       column could ever say. */
+    split: 'Split',
+};
+
+/** One day on the sales-against-purchases chart. */
+export interface PharmacyDashboardPoint {
+    date: string;
+    /** Axis tick — the weekday. */
+    label: string;
+    /** Fuller wording for the tooltip, e.g. "17 Sep". */
+    title: string;
+    sales: number;
+    purchases: number;
+}
+
+export interface PharmacyDashboardBill {
+    id: number;
+    sale_number: string;
+    customer_name: string;
+    items_count: number;
+    total_amount: number;
+    amount_due: number;
+    /** A tender, `split` for more than one, or `credit` for none at all. */
+    payment: string;
+    sale_date: string | null;
+}
+
+export interface PharmacyDashboardLowStock {
+    medicine_id: number;
+    name: string;
+    unit: string | null;
+    /** What can actually be dispensed — active batches, not past expiry. */
+    on_hand: number;
+    reorder_level: number;
+}
+
+export interface PharmacyDashboardExpiry {
+    id: number;
+    name: string;
+    batch_number: string;
+    expiry_date: string | null;
+    days_left: number;
+    quantity: number;
+}
+
+/**
+ * One store's day.
+ *
+ * Never a sum across stores: stock that is low at one counter is not helped by
+ * a full shelf at another, and takings added across two answer a question
+ * nobody standing at either is asking.
+ */
+export interface PharmacyDashboard {
+    store: { id: number; name: string; branch: string | null };
+    date: string;
+
+    today: {
+        sales: number;
+        bills: number;
+        purchases: number;
+        /** Against the cost copied onto each bill line when it was sold. */
+        gross_profit: number;
+    };
+
+    yesterday: { sales: number; bills: number };
+
+    /** Against yesterday's takings. Null when yesterday took nothing. */
+    change: number | null;
+
+    stock: {
+        value_at_cost: number;
+        /** At or below the reorder level — out of stock is the worst of these. */
+        low: number;
+        out: number;
+        expiring: number;
+        stocked: number;
+        expiry_warning_days: number;
+    };
+
+    /** Still owed on completed bills this store issued. */
+    outstanding: number;
+
+    series: PharmacyDashboardPoint[];
+
+    /**
+     * The last seven days.
+     *
+     * A counter's takings swing about too much for one morning to say
+     * anything: what sells, what it is paid with and what a customer spends
+     * only become answerable over a few days.
+     */
+    week: {
+        sold: number;
+        bills: number;
+        /** What one customer spends in a visit — the figure a shop grows. */
+        average_bill: number;
+        /** Units handed over the counter. */
+        items: number;
+
+        top_items: { medicine_id: number; name: string; units: number; revenue: number }[];
+        categories: { label: string; value: number }[];
+        /** Tenders, plus "On account" for what was left owed. */
+        tenders: { label: string; value: number; muted?: boolean }[];
+    };
+
+    recent_bills: PharmacyDashboardBill[];
+    low_stock: PharmacyDashboardLowStock[];
+    expiring: PharmacyDashboardExpiry[];
+}

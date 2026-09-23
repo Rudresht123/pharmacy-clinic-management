@@ -41,7 +41,9 @@ class StoreMedicineRequest extends FormRequest
         $current = $this->medicine();
 
         $defaults = [
+            'item_kind' => $current?->item_kind ?? Medicine::MEDICINE,
             'pack_size' => $current?->pack_size ?? 1,
+            'tax_rate' => $current?->tax_rate ?? 0,
             'prescription_required' => $current?->prescription_required ?? true,
             'is_active' => $current?->is_active ?? true,
         ];
@@ -63,13 +65,24 @@ class StoreMedicineRequest extends FormRequest
         // On an edit a field left out keeps its value; on a create it is needed.
         $required = $this->medicine() ? ['sometimes', 'required'] : ['required'];
 
+        // Only a medicine has a dosage form; a box of gloves does not.
+        $isMedicine = ($this->input('item_kind') ?? $this->medicine()?->item_kind ?? Medicine::MEDICINE)
+            === Medicine::MEDICINE;
+
         $rules = [
+            'item_kind' => ['string', Rule::in(Medicine::ITEM_KINDS)],
+
             'medicine_code' => ['nullable', 'string', 'max:40'],
+            'sku' => ['nullable', 'string', 'max:40'],
+            // Digits and dashes: what a scanner sends, and nothing else.
+            'barcode' => ['nullable', 'string', 'max:60', 'regex:/^[A-Za-z0-9\-]+$/'],
 
             'generic_name' => [...$required, 'string', 'max:191'],
             'brand_name' => ['nullable', 'string', 'max:191'],
             'strength' => ['nullable', 'string', 'max:60'],
-            'dosage_form' => [...$required, 'string', Rule::in(Medicine::DOSAGE_FORMS)],
+            'dosage_form' => $isMedicine
+                ? [...$required, 'string', Rule::in(Medicine::DOSAGE_FORMS)]
+                : ['nullable', 'string', Rule::in(Medicine::DOSAGE_FORMS)],
             'route' => ['nullable', 'string', Rule::in(Medicine::ROUTES)],
 
             'base_unit' => [...$required, 'string', Rule::in(Medicine::BASE_UNITS)],
@@ -77,6 +90,9 @@ class StoreMedicineRequest extends FormRequest
 
             'manufacturer' => ['nullable', 'string', 'max:191'],
             'category' => ['nullable', 'string', 'max:100'],
+
+            'hsn_code' => ['nullable', 'string', 'max:10', 'regex:/^[0-9]{4,8}$/'],
+            'tax_rate' => ['numeric', 'min:0', 'max:100'],
 
             'schedule' => ['nullable', 'string', Rule::in(Medicine::SCHEDULES)],
             'prescription_required' => ['boolean'],
@@ -132,6 +148,35 @@ class StoreMedicineRequest extends FormRequest
                         "{$taken->displayName()} already uses this code."
                     );
                 }
+
+                /*
+                 * A scan that matched two items would be unusable at the
+                 * counter, so the answer names the item holding it rather
+                 * than leaving the unique index to say "duplicate key".
+                 */
+                foreach (['sku' => 'lower', 'barcode' => null] as $field => $fold) {
+                    $value = $this->input($field);
+
+                    if (blank($value)) {
+                        continue;
+                    }
+
+                    $query = Medicine::query()->when(
+                        $current,
+                        fn ($builder) => $builder->whereKeyNot($current->id),
+                    );
+
+                    $query = $fold === 'lower'
+                        ? $query->whereRaw('lower('.$field.') = ?', [mb_strtolower(trim((string) $value))])
+                        : $query->where($field, trim((string) $value));
+
+                    if ($holder = $query->first()) {
+                        $validator->errors()->add(
+                            $field,
+                            "{$holder->displayName()} already uses this ".($field === 'sku' ? 'SKU' : 'barcode').'.'
+                        );
+                    }
+                }
             },
         ];
     }
@@ -149,6 +194,9 @@ class StoreMedicineRequest extends FormRequest
             'pack_size' => 'units per pack',
             'medicine_code' => 'code',
             'prescription_required' => 'prescription required',
+            'item_kind' => 'item type',
+            'hsn_code' => 'HSN code',
+            'tax_rate' => 'GST rate',
         ];
     }
 }

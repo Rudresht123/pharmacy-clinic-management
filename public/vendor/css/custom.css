@@ -3287,7 +3287,9 @@ html::-webkit-scrollbar-track {
 }
 
 .donut-centre b{
-    font-size:26px;
+    /* The size itself is set per figure (see DonutChart), because what
+       overflows the hole is how long the number is, not how wide the ring. */
+    white-space:nowrap;
     font-weight:700;
     line-height:1;
     color:var(--ink);
@@ -8453,6 +8455,7 @@ html::-webkit-scrollbar-track {
 .dpt-label b{ display:block; font-size:13.5px; font-weight:600; color:var(--ink); }
 .dpt-label small{ display:block; max-width:360px; overflow:hidden; font-size:12px; color:var(--muted); text-overflow:ellipsis; white-space:nowrap; }
 .dpt-child .dpt-label b{ font-weight:500; }
+.dpt-mini{ display:none; margin-top:2px; font-size:11.5px; color:var(--ink-3); font-variant-numeric:tabular-nums; }
 .is-inactive .dpt-label b,
 .is-inactive .dpt-tile{ opacity:.55; }
 
@@ -8464,86 +8467,125 @@ html::-webkit-scrollbar-track {
 .dpt-acts button.is-danger:hover{ border-color:#c92a3a; color:#c92a3a; }
 .dpt-acts button:focus-visible{ outline:2px solid rgb(var(--brand)); outline-offset:1px; }
 
-/* Chart view: the organisation, a card per department, its sub-departments stacked beneath. */
-.dc-scroll{ overflow-x:auto; padding:22px; border:1px solid var(--line); border-radius:12px; background:var(--surface-2); }
-.dc{ min-width:max-content; }
+/*
+ * Chart view: the organisation at the top, its departments hanging off one
+ * trunk, and each department's sub-departments branching off it in turn.
+ * Vertical rather than a row of cards, because a clinic with a dozen
+ * departments would put its own name off the side of the screen.
+ */
+.dc{ padding:22px 22px 26px; border:1px solid var(--line); border-radius:12px; background:var(--surface-2); }
 
 .dc-root{
     position:relative;
     display:flex;
     align-items:center;
     gap:12px;
-    width:max-content;
-    margin:0 auto;
-    padding:12px 18px;
+    padding:13px 16px;
     border-radius:14px;
     background:rgb(var(--brand));
     color:#fff;
-    box-shadow:0 4px 14px rgba(var(--brand), .25);
+    box-shadow:0 3px 10px rgba(var(--brand), .18);
 }
 
-.dc-root::after{ content:''; position:absolute; left:50%; bottom:-26px; height:26px; border-left:2px solid var(--line-2); }
-.dc-root-icon{ display:grid; place-items:center; width:36px; height:36px; border-radius:10px; background:rgba(255,255,255,.18); font-size:19px; }
+.dc-root-icon{ display:grid; place-items:center; width:36px; height:36px; flex:0 0 auto; border-radius:10px; background:rgba(255,255,255,.18); font-size:19px; }
+.dc-root-name{ min-width:0; }
 .dc-root b{ display:block; font-size:14.5px; }
-.dc-root small{ font-size:11.5px; color:rgba(255,255,255,.8); }
+.dc-root small{ font-size:11.5px; color:rgba(255,255,255,.82); }
 
-.dc-row{ display:flex; justify-content:center; margin-top:26px; }
-
-/* The line across the top of the row, and the drop to each card. */
-.dc-branch{ position:relative; display:flex; flex-direction:column; align-items:center; padding:24px 9px 0; }
-.dc-branch::before{ content:''; position:absolute; top:0; left:0; right:0; border-top:2px solid var(--line-2); }
-.dc-branch:first-child::before{ left:50%; }
-.dc-branch:last-child::before{ right:50%; }
-.dc-branch:only-child::before{ display:none; }
-.dc-branch::after{ content:''; position:absolute; top:0; left:50%; height:24px; border-left:2px solid var(--line-2); }
+/* The trunk runs down under the organisation's own icon. */
+.dc-tree{ margin:0; padding:0; list-style:none; }
+.dc-tree > li{ position:relative; padding:14px 0 0 56px; }
+.dc-tree > li::before{ content:''; position:absolute; left:34px; top:0; bottom:0; border-left:2px solid var(--line-2); }
+.dc-tree > li:last-child::before{ bottom:auto; height:37px; }
+.dc-tree > li::after{ content:''; position:absolute; left:34px; top:37px; width:20px; border-top:2px solid var(--line-2); }
 
 .dc-card{
-    display:grid;
-    gap:10px;
-    width:208px;
-    padding:12px;
-    border:1px solid var(--line);
-    border-top:3px solid var(--dpt-hue);
-    border-radius:12px;
-    background:var(--surface);
-    box-shadow:0 1px 2px rgba(16,24,40,.05);
-}
-
-.dc-card.is-inactive{ opacity:.6; }
-.dc-card-head{ display:flex; align-items:center; gap:10px; }
-.dc-card-name{ min-width:0; }
-.dc-card-name b{ display:block; overflow:hidden; font-size:13.5px; font-weight:700; color:var(--ink); text-overflow:ellipsis; white-space:nowrap; }
-.dc-card-name small{ font-size:11px; color:var(--muted); }
-.dc-card-counts{ display:flex; gap:12px; font-size:12px; font-weight:600; color:var(--ink-2); font-variant-numeric:tabular-nums; }
-.dc-card-counts span{ display:inline-flex; align-items:center; gap:4px; }
-.dc-card-counts i{ font-size:14px; color:var(--muted); }
-.dc-card .dpt-acts{ justify-content:flex-start; }
-
-/* Sub-departments hang from a rail beneath their department's card. */
-.dc-subs{ position:relative; display:grid; gap:8px; width:208px; margin-top:12px; padding-left:18px; }
-.dc-subs::before{ content:''; position:absolute; left:6px; top:-12px; bottom:20px; border-left:2px solid var(--line-2); }
-
-.dc-sub{
     position:relative;
     display:flex;
     align-items:center;
-    gap:9px;
-    padding:8px 10px;
+    gap:12px;
+    width:100%;
+    padding:11px 14px;
     border:1px solid var(--line);
-    border-radius:10px;
+    border-left:3px solid var(--dpt-hue);
+    border-radius:12px;
     background:var(--surface);
+    box-shadow:0 1px 2px rgba(16,24,40,.04);
+    text-align:left;
+    font:inherit;
 }
 
-.dc-sub::before{ content:''; position:absolute; left:-12px; top:50%; width:12px; border-top:2px solid var(--line-2); }
-.dc-sub.is-inactive{ opacity:.6; }
-.dc-sub-name{ flex:1 1 auto; min-width:0; }
-.dc-sub-name b{ display:block; overflow:hidden; font-size:12.5px; font-weight:600; color:var(--ink); text-overflow:ellipsis; white-space:nowrap; }
-.dc-sub-name small{ font-size:11px; color:var(--muted); }
-.dc-sub-edit{ display:grid; place-items:center; width:26px; height:26px; flex:0 0 auto; border:0; border-radius:7px; background:transparent; color:var(--muted); cursor:pointer; }
-.dc-sub-edit:hover{ background:var(--surface-2); color:rgb(var(--brand)); }
+/* Clickable, but a card rather than a control: the chart is a picture. */
+button.dc-card{ cursor:pointer; transition:border-color .12s, box-shadow .12s; }
+button.dc-card:hover{ border-color:var(--dpt-hue); box-shadow:0 2px 8px rgba(16,24,40,.07); }
+button.dc-card:focus-visible{ outline:2px solid rgb(var(--brand)); outline-offset:2px; }
+.dc-card.is-inactive{ background:var(--surface-2); }
+.dc-card.is-inactive .dc-card-name b{ color:var(--muted); }
+
+.dc-card-name{ flex:1 1 auto; min-width:0; }
+.dc-card-name b{ display:block; overflow:hidden; font-size:13.5px; font-weight:600; color:var(--ink); text-overflow:ellipsis; white-space:nowrap; }
+.dc-card-name small{ font-size:11.5px; color:var(--muted); }
+
+.dc-card-counts{ display:flex; gap:6px; flex:0 0 auto; }
+.dc-card-counts span{ display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; background:var(--surface-2); font-size:12px; font-weight:600; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+.dc-card-counts i{ font-size:14px; color:var(--muted); }
+.dc-card.is-inactive .dc-card-counts span{ background:var(--surface); }
+
+/* Only on hover, so the card reads as a card until it is aimed at. */
+.dc-card-hint{ flex:0 0 auto; margin-left:2px; font-size:15px; color:transparent; }
+button.dc-card:hover .dc-card-hint,
+button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
+
+/* A sub-department: smaller, in its parent's colour, on its own branch. */
+.dc-subs{ margin:0; padding:0 0 0 34px; list-style:none; }
+.dc-subs > li{ position:relative; padding-top:10px; }
+.dc-subs > li::before{ content:''; position:absolute; left:-20px; top:0; bottom:0; border-left:2px solid var(--line-2); }
+.dc-subs > li:last-child::before{ bottom:auto; height:33px; }
+.dc-subs > li::after{ content:''; position:absolute; left:-20px; top:33px; width:20px; border-top:2px solid var(--line-2); }
+
+.dc-card.is-sub{ padding:8px 12px; border-left-width:2px; }
+.dc-card.is-sub .dc-card-name b{ font-size:12.5px; font-weight:500; }
+.dc-pip{ width:10px; height:10px; flex:0 0 auto; margin-left:2px; border-radius:50%; background:var(--dpt-hue); }
+
+@media (max-width:767.98px){
+    .dc{ padding:16px 14px 20px; }
+    .dc-tree > li{ padding-left:34px; }
+    .dc-tree > li::before,
+    .dc-tree > li::after{ left:18px; }
+    .dc-tree > li::after{ width:14px; }
+    .dc-subs{ padding-left:22px; }
+    .dc-subs > li::before,
+    .dc-subs > li::after{ left:-14px; }
+    .dc-subs > li::after{ width:14px; }
+    .dc-card{ flex-wrap:wrap; }
+    .dc-card-counts{ width:100%; }
+}
 
 @media (max-width:991.98px){
     .dpt-stats{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+}
+
+/*
+ * On a phone the row keeps what is acted on — the name, its people and the
+ * buttons. The code, the sub-department count and the status badge would
+ * push all three off the side.
+ */
+@media (max-width:767.98px){
+    .dpt-table :is(th, td):nth-child(2),
+    .dpt-table :is(th, td):nth-child(3),
+    .dpt-table :is(th, td):nth-child(4),
+    .dpt-table :is(th, td):nth-child(5),
+    .dpt-table :is(th, td):nth-child(6){ display:none; }
+
+    .dpt-cell{ min-width:0; }
+    .dpt-label small{ max-width:none; }
+    .dpt-mini{ display:block; }
+    .dpt-tile{ width:32px; height:32px; }
+
+    /* Four buttons don't fit beside the name, so they sit two by two. */
+    .dpt-acts{ flex-wrap:wrap; justify-content:flex-end; width:64px; }
+    .dpt-acts button{ width:28px; height:28px; }
+    .dpt-stats{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
 }
 
 @media (max-width:575.98px){
@@ -15297,3 +15339,271 @@ html::-webkit-scrollbar-track {
     .pf-head,
     .pf-panel{ box-shadow:none; break-inside:avoid; }
 }
+
+/* --- the counter (POS) ----------------------------------------- */
+
+.pos-search{ position:relative; }
+.pos-search i{ position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:17px; color:var(--muted); pointer-events:none; }
+.pos-search .form-control{ height:44px; padding-left:38px; font-size:14px; }
+
+/* What the search found, right under the box it was typed in. */
+.pos-results{ margin-top:8px; overflow:hidden; border:1px solid var(--line); border-radius:10px; }
+.pos-result{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    width:100%;
+    padding:9px 12px;
+    border:0;
+    border-bottom:1px solid var(--line);
+    background:var(--surface);
+    text-align:left;
+    cursor:pointer;
+}
+
+.pos-result:last-child{ border-bottom:0; }
+.pos-result:hover:not(:disabled){ background:var(--surface-2); }
+.pos-result:disabled{ opacity:.5; cursor:not-allowed; }
+.pos-result b{ display:block; font-size:13.5px; font-weight:600; color:var(--ink); }
+.pos-result small{ font-size:11.5px; color:var(--muted); }
+.pos-result i{ font-size:16px; color:rgb(var(--brand)); }
+.pos-none{ margin:0; padding:12px; font-size:12.5px; color:var(--muted); }
+
+/* Quantity and discount, sized for a keyboard rather than a mouse. */
+.pos-qty{ width:74px; margin-left:auto; padding:4px 8px; font-size:13px; text-align:right; font-variant-numeric:tabular-nums; }
+
+.pos-totals{ margin:0 0 14px; }
+.pos-totals > div{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:4px 0; }
+.pos-totals dt{ font-size:12.5px; font-weight:500; color:var(--muted); }
+.pos-totals dd{ margin:0; font-size:13.5px; color:var(--ink); font-variant-numeric:tabular-nums; }
+.pos-totals .pos-due{ margin-top:4px; padding-top:8px; border-top:1px solid var(--line); }
+.pos-totals .pos-due dt{ font-size:13.5px; font-weight:600; color:var(--ink); }
+.pos-totals .pos-due dd{ font-size:19px; font-weight:700; color:rgb(var(--brand)); }
+
+.pos-remove{ display:grid; place-items:center; width:28px; height:28px; border:0; border-radius:7px; background:transparent; color:var(--muted); cursor:pointer; }
+.pos-remove:hover{ background:var(--surface-2); color:#c92a3a; }
+
+/* --- end the counter ------------------------------------------- */
+
+/* --- the pharmacy dashboard ------------------------------------- */
+
+/*
+ * Two rows of tiles rather than one of eight. Money and stock are two
+ * different questions, and a single run of eight tiles reads as a wall in
+ * which neither is found. Each row is its own .stat-tiles grid, so the
+ * shared tile styling is untouched.
+ */
+.pd-tiles{ margin-bottom:16px; }
+.pd-tiles .stat-tiles{ grid-template-columns:repeat(4, minmax(0, 1fr)); margin-bottom:12px; }
+.pd-tiles .stat-tiles:last-child{ margin-bottom:0; }
+
+/* Takings and buying side by side, each on its own scale. */
+.pd-charts{ display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:16px; margin-bottom:16px; }
+.pd-charts > .pd-chart{ margin-bottom:0; }
+
+@media (max-width:991.98px){
+    .pd-charts{ grid-template-columns:minmax(0, 1fr); }
+}
+
+.pd-chart{ margin-bottom:16px; }
+
+/* Bills wide, the two alert lists narrower: a bill number, a name and a
+   tender need the room; an item and two numbers do not. */
+.pd-panels{ display:grid; grid-template-columns:minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.1fr); gap:16px; align-items:start; }
+.pd-panel{ height:100%; margin:0; }
+
+.pd-num{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.pd-sub{ display:block; margin-top:2px; font-size:11px; font-weight:400; color:var(--muted); }
+
+/* What was tendered. Credit is the absence of payment rather than a method
+   that takes money, so it is the one that is marked. */
+.pd-tender{ display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; background:var(--surface-3); color:var(--ink-3); }
+.pd-tender.is-credit{ background:rgba(245,158,11,.14); color:#b45309; }
+
+/* Low is a number; out is a word, because the two are different problems and
+   "0" beside a reorder level reads like just another quantity. */
+.pd-level{ font-weight:700; color:var(--ink); }
+.pd-level.is-out{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; background:rgba(244,63,94,.12); color:#be123c; }
+
+.pd-days{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:11.5px; font-weight:700; background:rgba(139,92,246,.12); color:#6d28d9; }
+.pd-days.is-urgent{ background:rgba(244,63,94,.12); color:#be123c; }
+
+.pd-quiet{ display:flex; align-items:center; gap:8px; margin:0; padding:18px 12px; justify-content:center; font-size:12.5px; color:var(--muted); }
+.pd-quiet i{ font-size:17px; }
+
+@media (max-width: 1399.98px){
+    .pd-panels{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .pd-tiles .stat-tiles{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767.98px){
+    .pd-panels{ grid-template-columns:1fr; }
+    .pd-tiles .stat-tiles{ grid-template-columns:1fr; }
+}
+
+/* --- the pharmacy dashboard, week panels ----------------------- */
+
+/*
+ * What sells, what it was made of, what paid for it. A ranking beside two
+ * splits: wider on the left, because a medicine's name needs the room and a
+ * ring does not.
+ */
+.pd-week{ display:grid; grid-template-columns:minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); gap:16px; margin-bottom:16px; align-items:start; }
+.pd-week > .card{ height:100%; margin:0; }
+
+/*
+ * The three lists below fit their card instead of scrolling sideways.
+ *
+ * A panel three to a row is narrower than a table's natural width, so the
+ * item column was pushing the numbers out of sight — the one thing the
+ * panel exists to show. Fixed layout, and the name takes what is left.
+ */
+.pd-panel .pf-table{ table-layout:fixed; width:100%; }
+.pd-panel .pf-table th,
+.pd-panel .pf-table td{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pd-panel .pf-table-wrap{ overflow:visible; }
+
+/*
+ * The numbers take a fixed, narrow column and the name lives on whatever is
+ * left. Panels sit three to a row, so a table that claims its natural width
+ * pushes the figures it exists to show off the side of the card.
+ */
+.pd-panel .pf-table th.pd-num,
+.pd-panel .pf-table td.pd-num{ width:88px; }
+.pd-panel .pf-table th.pd-tight,
+.pd-panel .pf-table td.pd-tight{ width:104px; }
+.pd-panel .pf-table th.pd-tender-col,
+.pd-panel .pf-table td.pd-tender-col{ width:78px; }
+
+/*
+ * Cards in a row end level, and a chart's spare room is rightly split above
+ * and below it. A LIST is different: it starts at the top and stops when it
+ * runs out, and centring one leaves a hole above it that reads as a loading
+ * screen that never finished.
+ */
+.card.chart-card.pd-panel .card-body,
+.pd-week > .card.chart-card .card-body{ justify-content:flex-start; }
+
+/*
+ * Cards in a row end level, and their content starts at the top.
+ *
+ * Those are two separate decisions, and conflating them was the bug: the
+ * cards stretched AND centred, so a six-row list inherited a ring's height
+ * and sat in the middle of it with a hole above. Stretching is right — a
+ * ragged bottom edge reads as unfinished — so what changed is where the
+ * content sits, not how tall the card is.
+ */
+.pd-week > .card.chart-card,
+.pd-panels > .card.chart-card.pd-panel{ height:100%; }
+
+/*
+ * In a narrow card the NAME is the part worth reading — "Omron HEM-71…"
+ * tells nobody which monitor. The bar gives up width to it, since a bar's
+ * job here is only to rank, and the figure beside it is exact anyway.
+ */
+.pd-week .bar-list-row{ grid-template-columns:minmax(120px, 1.6fr) 1fr auto; }
+
+/*
+ * The three cards keep one rhythm.
+ *
+ * A ranked list beside two rings only reads as one row of cards if a row in
+ * each is the same height — otherwise the eye reads three unrelated panels
+ * that happen to be adjacent.
+ */
+.pd-week .bar-list{ gap:13px; }
+.pd-week .donut-legend li{ padding-top:5px; padding-bottom:5px; }
+.pd-week .donut{ gap:14px; }
+.pd-week .donut-plot{ max-width:168px; }
+
+/* A bill number and its time; an item and its batch: two lines in one cell. */
+.pd-panel .pd-sub{ overflow:hidden; text-overflow:ellipsis; }
+
+@media (max-width:1399.98px){
+    .pd-week{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width:767.98px){
+    .pd-week{ grid-template-columns:minmax(0, 1fr); }
+}
+
+/* --- end the pharmacy dashboard, week panels ------------------- */
+
+/* --- pharmacy reports ------------------------------------------ */
+
+/*
+ * Which report, as one row of plain buttons rather than a select.
+ *
+ * Six of them, and the reader is choosing a SUBJECT — not setting a filter.
+ * A dropdown hides five of the six behind a click and makes the page look
+ * like it only does one thing.
+ */
+.rp-reports{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.rp-report{
+    padding:7px 14px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    background:var(--surface);
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-2);
+    cursor:pointer;
+}
+
+.rp-report:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+.rp-report.is-active{ border-color:rgb(var(--brand)); background:rgb(var(--brand)); color:#fff; }
+.rp-report:focus-visible{ outline:2px solid rgb(var(--brand)); outline-offset:2px; }
+
+/* How to read it, and over what dates. */
+.rp-bar{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.rp-dates{ display:flex; align-items:center; gap:8px; }
+.rp-dates label{ font-size:12.5px; color:var(--muted); }
+.rp-dates .form-control{ width:auto; height:36px; font-size:13px; }
+
+/* The headline figures: four to a row, the number first. */
+.rp-figures{ display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin-bottom:16px; }
+.rp-figure{ margin:0; }
+.rp-figure .card-body{ padding:14px 16px; }
+.rp-figure b{ display:block; font-size:22px; font-weight:700; line-height:1.15; color:var(--ink); font-variant-numeric:tabular-nums; }
+.rp-figure span{ display:block; margin-top:2px; font-size:12.5px; color:var(--muted); }
+.rp-figure small{ display:block; margin-top:2px; font-size:11px; color:var(--ink-3); }
+
+/* A chart of the days beside the split that explains them. */
+.rp-charts{ display:grid; grid-template-columns:minmax(0, 1.5fr) minmax(0, 1fr); gap:16px; margin-bottom:16px; align-items:start; }
+.rp-charts > .card{ height:100%; margin:0; }
+.rp-charts > .card:only-child{ grid-column:1 / -1; }
+
+/* A third card would otherwise sit in a half-width column with a hole
+   beside it; across the bottom it reads as the row it belongs to. */
+.rp-charts > .card:nth-child(3):last-child{ grid-column:1 / -1; }
+
+/* Cards in the row end level; their content starts at the top. A short bar
+   list centred inside a ring's height reads as a half-loaded card. */
+.rp-charts > .card.chart-card .card-body{ justify-content:flex-start; }
+
+.rp-tools{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+
+/* The search box inside a card keeps its own height and its icon's room. */
+.rp-tools .dpt-search{ flex:1 1 260px; max-width:340px; }
+.rp-tools .dpt-search .form-control{ height:38px; padding-left:36px; }
+.rp-tools .dpt-search i{ z-index:2; }
+.rp-count{ font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
+
+/* The evidence. Wide tables scroll inside their own frame, never the page. */
+.rp-table td{ max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+@media (max-width:1199.98px){
+    .rp-figures{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .rp-charts{ grid-template-columns:minmax(0, 1fr); }
+}
+
+@media (max-width:575.98px){
+    .rp-figures{ grid-template-columns:minmax(0, 1fr); }
+    .rp-bar{ align-items:stretch; }
+}
+
+/* --- end pharmacy reports -------------------------------------- */
+
+/* The Dashboard / Table switch, and what it sits beside. */
+.ph-bar{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+

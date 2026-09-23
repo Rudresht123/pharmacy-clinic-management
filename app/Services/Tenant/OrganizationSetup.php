@@ -72,7 +72,11 @@ class OrganizationSetup
     ];
 
     /** Roles the software writes itself; any other one is the organization's own. */
-    private const SOFTWARE_ROLES = [Role::SEEDED_STAFF, DoctorAccountProvisioner::ROLE];
+    private const SOFTWARE_ROLES = [
+        Role::SEEDED_STAFF,
+        DoctorAccountProvisioner::ROLE,
+        PatientAccountProvisioner::ROLE,
+    ];
 
     public function __construct(
         private readonly FieldSchema $schema,
@@ -277,7 +281,8 @@ class OrganizationSetup
             mandatory: false,
             completed: $staff > 0,
             missing: $staff > 0 ? [] : ['Add the people who will use the software, or carry on alone.'],
-            counts: ['staff' => $staff, 'people' => User::query()->count()],
+            // Patients' portal logins are not people who run the organization.
+            counts: ['staff' => $staff, 'people' => User::query()->staffAccounts()->count()],
         );
     }
 

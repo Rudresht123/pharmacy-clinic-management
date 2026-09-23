@@ -340,6 +340,11 @@ function DepartmentList({ departments, actions }: { departments: Department[]; a
                                                 <span className="dpt-label">
                                                     <b>{department.name}</b>
                                                     <small>{department.description ?? 'Department'}</small>
+                                                    {/* The columns don't fit on a phone, so the counts come here instead. */}
+                                                    <span className="dpt-mini">
+                                                        {plural(department.doctors_count ?? 0, 'doctor')} ·{' '}
+                                                        {department.staff_count ?? 0} staff · {plural(total, 'sub')}
+                                                    </span>
                                                 </span>
                                             </div>
                                         </td>
@@ -370,6 +375,10 @@ function DepartmentList({ departments, actions }: { departments: Department[]; a
                                                         <span className="dpt-label">
                                                             <b>{child.name}</b>
                                                             <small>{child.description ?? `Under ${department.name}`}</small>
+                                                            <span className="dpt-mini">
+                                                                {plural(child.doctors_count ?? 0, 'doctor')} ·{' '}
+                                                                {child.staff_count ?? 0} staff
+                                                            </span>
                                                         </span>
                                                     </div>
                                                 </td>
@@ -397,9 +406,92 @@ function DepartmentList({ departments, actions }: { departments: Department[]; a
     );
 }
 
+/** One count totalled across the whole tree, departments and sub-departments alike. */
+function everyone(departments: Department[], key: 'doctors_count' | 'staff_count'): number {
+    return departments.reduce(
+        (sum, department) =>
+            sum +
+            (department[key] ?? 0) +
+            (department.children ?? []).reduce((inner, child) => inner + (child[key] ?? 0), 0),
+        0,
+    );
+}
+
 /**
- * The chart view: the organisation at the top, a card per department below
- * it, and each department's sub-departments stacked beneath its card.
+ * One box on the chart. The whole card opens the department for editing —
+ * there are no buttons on it, so the chart stays a picture of the
+ * organisation rather than another list of controls.
+ */
+function ChartCard({
+    department,
+    subs,
+    child,
+    actions,
+}: {
+    department: Department;
+    /** How many sub-departments hang off it. Absent on a sub-department itself. */
+    subs?: number;
+    child?: boolean;
+    actions: Actions;
+}) {
+    const counts: [string, number, string][] = [
+        ['ti ti-stethoscope', department.doctors_count ?? 0, 'doctors'],
+        ['ti ti-users', department.staff_count ?? 0, 'staff'],
+    ];
+
+    if (!child) {
+        counts.push(['ti ti-subtask', subs ?? 0, 'sub-departments']);
+    }
+
+    const inside = (
+        <>
+            <span className={child ? 'dc-pip' : 'dpt-tile'} aria-hidden="true">
+                {child ? null : initials(department.name)}
+            </span>
+
+            <span className="dc-card-name">
+                <b>{department.name}</b>
+                <small>
+                    {department.code ? `${department.code} · ` : ''}
+                    {department.is_active ? (child ? 'Sub-department' : 'Department') : 'Inactive'}
+                </small>
+            </span>
+
+            <span className="dc-card-counts">
+                {counts.map(([icon, value, label]) => (
+                    <span key={label} title={`${value} ${label}`}>
+                        <i className={icon} aria-hidden="true" />
+                        {value}
+                    </span>
+                ))}
+            </span>
+        </>
+    );
+
+    const className = [
+        'dc-card',
+        child ? 'is-sub' : '',
+        department.is_active ? '' : 'is-inactive',
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    if (!actions.editable) {
+        return <div className={className}>{inside}</div>;
+    }
+
+    return (
+        <button type="button" className={className} onClick={() => actions.edit(department)}>
+            {inside}
+            <i className="ti ti-pencil dc-card-hint" aria-hidden="true" />
+            <span className="visually-hidden">Edit {department.name}</span>
+        </button>
+    );
+}
+
+/**
+ * The chart view: the organisation at the top, every department hanging off
+ * its trunk, and each one's sub-departments branching off it in turn.
  */
 function DepartmentChart({
     departments,
@@ -410,86 +502,46 @@ function DepartmentChart({
     organization: string;
     actions: Actions;
 }) {
+    const doctors = everyone(departments, 'doctors_count');
+    const staff = everyone(departments, 'staff_count');
+
     return (
-        <div className="dc-scroll">
-            <div className="dc">
-                <div className="dc-root">
-                    <span className="dc-root-icon" aria-hidden="true">
-                        <i className="ti ti-building-hospital" />
-                    </span>
-                    <span>
-                        <b>{organization}</b>
-                        <small>{plural(departments.length, 'department')}</small>
-                    </span>
-                </div>
+        <div className="dc">
+            <div className="dc-root">
+                <span className="dc-root-icon" aria-hidden="true">
+                    <i className="ti ti-building-hospital" />
+                </span>
 
-                <div className="dc-row">
-                    {departments.map((department) => {
-                        const children = department.children ?? [];
-
-                        return (
-                            <div className="dc-branch" key={department.id} style={tone(department.name)}>
-                                <div className={`dc-card${department.is_active ? '' : ' is-inactive'}`}>
-                                    <div className="dc-card-head">
-                                        <span className="dpt-tile" aria-hidden="true">
-                                            {initials(department.name)}
-                                        </span>
-                                        <span className="dc-card-name">
-                                            <b title={department.name}>{department.name}</b>
-                                            <small>{department.is_active ? 'Department' : 'Inactive'}</small>
-                                        </span>
-                                    </div>
-
-                                    <div className="dc-card-counts">
-                                        <span>
-                                            <i className="ti ti-stethoscope" aria-hidden="true" />
-                                            {department.doctors_count ?? 0}
-                                        </span>
-                                        <span>
-                                            <i className="ti ti-users" aria-hidden="true" />
-                                            {department.staff_count ?? 0}
-                                        </span>
-                                        <span>
-                                            <i className="ti ti-subtask" aria-hidden="true" />
-                                            {children.length}
-                                        </span>
-                                    </div>
-
-                                    <RowActions department={department} actions={actions} />
-                                </div>
-
-                                {children.length > 0 && (
-                                    <div className="dc-subs">
-                                        {children.map((child) => (
-                                            <div className={`dc-sub${child.is_active ? '' : ' is-inactive'}`} key={child.id}>
-                                                <span className="dpt-dot" aria-hidden="true" />
-                                                <span className="dc-sub-name">
-                                                    <b title={child.name}>{child.name}</b>
-                                                    <small>
-                                                        {child.doctors_count ?? 0} doctors · {child.staff_count ?? 0} staff
-                                                    </small>
-                                                </span>
-
-                                                {actions.editable && (
-                                                    <button
-                                                        type="button"
-                                                        className="dc-sub-edit"
-                                                        title="Edit"
-                                                        aria-label={`Edit ${child.name}`}
-                                                        onClick={() => actions.edit(child)}
-                                                    >
-                                                        <i className="ti ti-pencil" aria-hidden="true" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
+                <span className="dc-root-name">
+                    <b>{organization}</b>
+                    <small>
+                        {plural(departments.length, 'department')} · {plural(doctors, 'doctor')} ·{' '}
+                        {staff} staff
+                    </small>
+                </span>
             </div>
+
+            <ul className="dc-tree">
+                {departments.map((department) => {
+                    const children = department.children ?? [];
+
+                    return (
+                        <li className="dc-node" key={department.id} style={tone(department.name)}>
+                            <ChartCard department={department} subs={children.length} actions={actions} />
+
+                            {children.length > 0 && (
+                                <ul className="dc-subs">
+                                    {children.map((child) => (
+                                        <li key={child.id}>
+                                            <ChartCard department={child} child actions={actions} />
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </li>
+                    );
+                })}
+            </ul>
         </div>
     );
 }

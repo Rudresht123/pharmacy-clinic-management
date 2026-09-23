@@ -13,6 +13,8 @@ import { resolveErrorMessage } from '@/shared/api/http';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { ReasonDialog } from '@/core/medicines/components/ReasonDialog';
 import { NoStores, StorePicker, useChosenStore } from '../components/StorePicker';
+import { ReportSummaryView, ViewTabs, type PharmacyView } from '../components/ReportSummary';
+import { useReportSummary } from '../reports';
 import { BatchStatusBadge, ExpiryNote } from '../components/BatchStatusBadge';
 import { AdjustDialog, TransferDialog } from '../components/StockDialogs';
 import {
@@ -72,6 +74,16 @@ export default function StockPage() {
     const { stores, store, choose, isLoading: storesLoading } = useChosenStore();
 
     const [view, setView] = useState<View>('medicines');
+
+    /*
+     * Reading the shelf, or counting it.
+     *
+     * The dashboard is what the stock is WORTH and where that value sits;
+     * the table is every line of it. The same summary the stock report
+     * gives, from the same query, so the two can never disagree.
+     */
+    const [reading, setReading] = useState<PharmacyView>('table');
+    const summary = useReportSummary(store?.id, 'stock', {});
     const [filters, setFilters] = useState<Record<string, string>>({ in_stock: '1' });
 
     const stockTable = useServerTable({ pageSize: 25 });
@@ -366,9 +378,21 @@ export default function StockPage() {
                 </Card>
             ) : (
                 <>
-                    <div className="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-3">
+                    <div className="ph-bar">
+                        <ViewTabs value={reading} onChange={setReading} />
                         <StorePicker stores={stores} value={store} onChange={choose} />
+                    </div>
 
+                    {reading === 'dashboard' ? (
+                        <ReportSummaryView
+                            summary={summary.data}
+                            isLoading={summary.isLoading}
+                            isError={summary.isError}
+                            onRetry={() => summary.refetch()}
+                        />
+                    ) : (
+                    <>
+                    <div className="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-3">
                         <Tabs<View>
                             label="Stock views"
                             value={view}
@@ -442,6 +466,8 @@ export default function StockPage() {
                                 />
                             </Card>
                         </>
+                    )}
+                    </>
                     )}
                 </>
             )}

@@ -22,6 +22,8 @@ import {
     useRemovedMedicines,
     useRestoreMedicine,
 } from '../api';
+import { ReportSummaryView, ViewTabs, type PharmacyView } from '@/core/pharmacy/components/ReportSummary';
+import { useCatalogueOverview } from '@/core/pharmacy/reports';
 import { ReasonDialog } from '../components/ReasonDialog';
 import type { Medicine } from '../types';
 
@@ -35,6 +37,9 @@ type View = 'catalogue' | 'removed';
  */
 export default function MedicineListPage() {
     const navigate = useNavigate();
+
+    const [reading, setReading] = useState<PharmacyView>('table');
+    const overview = useCatalogueOverview(true);
     const label = useEntityLabel('medicine');
 
     // Every control names the capability its endpoint demands.
@@ -253,6 +258,24 @@ export default function MedicineListPage() {
                 }
             />
 
+            {/*
+                Two ways to read the catalogue: what is in it, or every line
+                of it. The overview is counts — a catalogue entry has no value
+                until a batch of it is on a shelf, which is stock's question.
+            */}
+            <div className="ph-bar">
+                <ViewTabs value={reading} onChange={setReading} />
+            </div>
+
+            {reading === 'dashboard' ? (
+                <ReportSummaryView
+                    summary={overview.data}
+                    isLoading={overview.isLoading}
+                    isError={overview.isError}
+                    onRetry={() => overview.refetch()}
+                />
+            ) : (
+            <>
             {canRestore && (
                 <Tabs<View>
                     label="Medicine lists"
@@ -343,6 +366,8 @@ export default function MedicineListPage() {
                         emptyDescription="A removed medicine appears here, with who removed it and why, until it is restored."
                     />
                 </Card>
+            )}
+            </>
             )}
 
             <ReasonDialog

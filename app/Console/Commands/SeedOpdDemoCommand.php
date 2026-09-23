@@ -7,12 +7,17 @@ use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\DoctorSchedule;
+use App\Models\Tenant\File;
 use App\Models\Tenant\Location;
 use App\Repositories\Tenant\Contracts\CustomerRepositoryInterface;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Support\Opd\Weekday;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * A department's worth of OPD data, for looking at the screens with.
@@ -36,7 +41,8 @@ class SeedOpdDemoCommand extends Command
         {--org= : Organization id or subdomain; the only one, if there is only one}
         {--patients=120 : How many patients to make sure exist}
         {--days=3 : Days of history to build, ending today}
-        {--fresh : Delete the appointments in that window first}';
+        {--fresh : Delete the appointments in that window first}
+        {--skip-photos : Leave the doctors without photographs}';
 
     protected $description = 'Build a realistic OPD day in one tenant, for looking at the screens with';
 
@@ -56,14 +62,21 @@ class SeedOpdDemoCommand extends Command
 
     private const CITIES = ['Pune', 'Mumbai', 'Nashik', 'Nagpur', 'Thane', 'Aurangabad'];
 
-    /** Name, speciality, and how long they take per patient. */
+    /**
+     * Name, speciality, how long they take per patient, and their portrait.
+     *
+     * The last two are the gallery and the number a stand-in photograph is
+     * fetched from — numbered rather than random, so re-seeding gives the
+     * same six faces instead of reshuffling the department under somebody
+     * who is mid-demo.
+     */
     private const DOCTORS = [
-        ['Dr. Anjali Sharma', 'General Medicine', 'MBBS, MD', 15],
-        ['Dr. Vikram Rao', 'Cardiology', 'MBBS, DM', 20],
-        ['Dr. Meera Iyer', 'Paediatrics', 'MBBS, DCH', 10],
-        ['Dr. Rajesh Menon', 'Orthopaedics', 'MBBS, MS', 20],
-        ['Dr. Sneha Kulkarni', 'Dermatology', 'MBBS, MD', 15],
-        ['Dr. Arjun Bhatt', 'ENT', 'MBBS, MS', 15],
+        ['Dr. Anjali Sharma', 'General Medicine', 'MBBS, MD', 15, 'women', 65],
+        ['Dr. Vikram Rao', 'Cardiology', 'MBBS, DM', 20, 'men', 32],
+        ['Dr. Meera Iyer', 'Paediatrics', 'MBBS, DCH', 10, 'women', 44],
+        ['Dr. Rajesh Menon', 'Orthopaedics', 'MBBS, MS', 20, 'men', 75],
+        ['Dr. Sneha Kulkarni', 'Dermatology', 'MBBS, MD', 15, 'women', 26],
+        ['Dr. Arjun Bhatt', 'ENT', 'MBBS, MS', 15, 'men', 51],
     ];
 
     /** Why an appointment was called off. */
@@ -91,6 +104,13 @@ class SeedOpdDemoCommand extends Command
         'Dr. Sneha Kulkarni' => 15,
         'Dr. Arjun Bhatt' => 15,
     ];
+
+    /**
+     * Set once the portrait service has failed, so the rest of the run stops
+     * asking. Six timeouts on a machine with no network is a minute of
+     * waiting to be told the same thing six times.
+     */
+    private bool $portraitsOff = false;
 
     public function __construct(
         private readonly CustomerRepositoryInterface $customers,
@@ -162,8 +182,14 @@ class SeedOpdDemoCommand extends Command
         $asked = $this->option('org');
 
         if ($asked) {
-            $organization = Organization::where('id', $asked)
-                ->orWhere('subdomain', $asked)
+            /*
+             * A subdomain is never compared against `id`: Postgres types the
+             * column as bigint and refuses the text outright, so `--org=demo`
+             * used to fail with a cast error rather than finding the demo.
+             */
+            $organization = Organization::query()
+                ->when(is_numeric($asked), fn ($query) => $query->whereKey((int) $asked))
+                ->when(! is_numeric($asked), fn ($query) => $query->where('subdomain', $asked))
                 ->first();
 
             if (! $organization) {
@@ -219,8 +245,9 @@ class SeedOpdDemoCommand extends Command
     private function doctors($branches)
     {
         $doctors = collect();
+        $portraits = 0;
 
-        foreach (self::DOCTORS as $index => [$name, $speciality, $qualification, $minutes]) {
+        foreach (self::DOCTORS as $index => [$name, $speciality, $qualification, $minutes, $gallery, $portrait]) {
             $doctor = Doctor::firstOrCreate(
                 ['name' => $name],
                 [
@@ -231,6 +258,8 @@ class SeedOpdDemoCommand extends Command
                     'is_active' => true,
                 ],
             );
+
+            $portraits += (int) $this->photograph($doctor, $gallery, $portrait);
 
             // Alternating branches, so a two-branch clinic has a real split
             // rather than every doctor sitting in the same room.
@@ -274,8 +303,77 @@ class SeedOpdDemoCommand extends Command
         }
 
         $this->line("  Doctors: {$doctors->count()}, sitting Mon–Sat 09:00–13:00 (two also on Sunday)");
+        $this->line("  Photographs: {$portraits} fetched");
 
         return $doctors;
+    }
+
+    /**
+     * Give a doctor a stand-in photograph, if they have none.
+     *
+     * Written the long way round rather than through DoctorController's
+     * upload endpoint, because that one takes an UploadedFile off a multipart
+     * request and there is no request here. The shape it leaves behind is the
+     * same in every respect the product reads — a row in the tenant's own
+     * `files`, the bytes under `doctors/` on the public disk, and the file's
+     * id on `doctors.photo` — so a seeded photograph can be replaced or
+     * removed from the screens exactly like an uploaded one.
+     *
+     * Never fatal. A demo without faces is worth far more than a seeder that
+     * refuses to finish because a free avatar service was down, so a failure
+     * warns, switches the rest of the run off and lets the clinic get built.
+     *
+     * @return bool Whether one was fetched.
+     */
+    private function photograph(Doctor $doctor, string $gallery, int $portrait): bool
+    {
+        // Already has one — including on a second run, which is why this is
+        // checked rather than the image being fetched and thrown away.
+        if ($this->option('skip-photos') || $this->portraitsOff || $doctor->photo) {
+            return false;
+        }
+
+        $url = rtrim((string) config('services.demo_portraits.url'), '/')."/{$gallery}/{$portrait}.jpg";
+
+        try {
+            $response = Http::timeout((int) config('services.demo_portraits.timeout'))->get($url);
+        } catch (ConnectionException) {
+            $this->portraitsOff = true;
+            $this->warn('  No photographs: could not reach '.config('services.demo_portraits.url').' — carrying on without them.');
+
+            return false;
+        }
+
+        if (! $response->successful()) {
+            $this->portraitsOff = true;
+            $this->warn("  No photographs: the portrait service answered {$response->status()} — carrying on without them.");
+
+            return false;
+        }
+
+        /*
+         * Named after the doctor rather than given a random name. A re-seed
+         * then overwrites the one file it wrote last time instead of leaving
+         * an orphan behind on disk for every run anybody has ever done.
+         */
+        $path = 'doctors/demo-'.Str::slug($doctor->name).'.jpg';
+
+        Storage::disk('public')->put($path, $response->body());
+
+        $file = File::create([
+            'file_name' => Str::slug($doctor->name).'.jpg',
+            'file_path' => $path,
+            'disk' => 'public',
+            'mime_type' => 'image/jpeg',
+            'file_size' => strlen($response->body()),
+            'extension' => 'jpg',
+        ]);
+
+        // forceFill, as the controller does: `photo` is a file id the server
+        // decides, and it is deliberately not something a form can post.
+        $doctor->forceFill(['photo' => $file->id])->save();
+
+        return true;
     }
 
     /**

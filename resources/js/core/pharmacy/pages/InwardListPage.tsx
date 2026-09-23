@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Card } from '@/shared/components/ui/Card';
@@ -13,6 +13,8 @@ import { resolveErrorMessage } from '@/shared/api/http';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { ReasonDialog } from '@/core/medicines/components/ReasonDialog';
 import { NoStores, StorePicker, useChosenStore } from '../components/StorePicker';
+import { ReportSummaryView, ViewTabs, type PharmacyView } from '../components/ReportSummary';
+import { useReportSummary } from '../reports';
 import {
     INWARD_TYPE_LABELS,
     useCancelInward,
@@ -35,6 +37,22 @@ export default function InwardListPage() {
     const canCancel = can('pharmacy.adjust');
 
     const { stores, store, choose, isLoading: storesLoading } = useChosenStore();
+
+    /*
+     * Two ways to read the same screen: the shape of it, or the rows.
+     * Kept in the URL beside the store, so a refresh — or a link sent to
+     * somebody — lands on the view it was left on.
+     */
+    const [params, setParams] = useSearchParams();
+    const view: PharmacyView = params.get('view') === 'dashboard' ? 'dashboard' : 'table';
+
+    function show(next: PharmacyView) {
+        const updated = new URLSearchParams(params);
+        updated.set('view', next);
+        setParams(updated, { replace: true });
+    }
+
+    const summary = useReportSummary(store?.id, 'purchases', {});
 
     const table = useServerTable({ pageSize: 25, sort: 'created_at', direction: 'desc' });
     const { data: page, isLoading, isFetching, isError, refetch } = useInwards(store?.id, table.params);
@@ -160,10 +178,20 @@ export default function InwardListPage() {
                 </Card>
             ) : (
                 <>
-                    <div className="mb-3">
+                    <div className="ph-bar">
+                        <ViewTabs value={view} onChange={show} />
                         <StorePicker stores={stores} value={store} onChange={choose} />
                     </div>
 
+                    {view === 'dashboard' ? (
+                        <ReportSummaryView
+                            summary={summary.data}
+                            isLoading={summary.isLoading}
+                            isError={summary.isError}
+                            onRetry={() => summary.refetch()}
+                            chartTitle="Bought in, day by day"
+                        />
+                    ) : (
                     <Card>
                         <DataTable
                             data={page?.data ?? []}
@@ -184,6 +212,7 @@ export default function InwardListPage() {
                             emptyDescription="Record a delivery, or an opening balance for what is already on the shelf."
                         />
                     </Card>
+                    )}
                 </>
             )}
 

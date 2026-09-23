@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\Tenant;
 
 use App\Http\Requests\Api\V1\Tenant\Concerns\ChecksRoleGrant;
 use App\Http\Requests\Api\V1\Tenant\Concerns\MergesFieldSettings;
+use App\Models\Tenant\Department;
 use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Role;
@@ -69,17 +70,17 @@ class UpdateTenantUserRequest extends FormRequest
              * existed, so a branch role could be assigned here and quietly
              * apply everywhere.
              */
-            // Their department or sub-department, when they belong to one.
-            'department_id' => [
-                'nullable', 'integer',
-                Rule::exists(\App\Models\Tenant\Department::class, 'id')->whereNull('deleted_at'),
-            ],
-
             'role_id' => [
                 'nullable', 'integer',
                 'prohibited_if:role,'.User::OWNER,
                 Rule::exists(Role::class, 'id')
                     ->where('scope', Role::SCOPE_ORGANIZATION),
+            ],
+
+            // The department they work in, when they belong to one.
+            'department_id' => [
+                'nullable', 'integer',
+                Rule::exists(Department::class, 'id')->whereNull('deleted_at'),
             ],
 
             /*

@@ -48,6 +48,13 @@ class MedicineFields
         'ampoule' => 'Ampoule', 'tube' => 'Tube', 'sachet' => 'Sachet', 'unit' => 'Unit',
     ];
 
+    private const ITEM_KIND_LABELS = [
+        'medicine' => 'Medicine',
+        'consumable' => 'Consumable (syringe, gloves, dressing)',
+        'device' => 'Device (BP monitor, glucometer)',
+        'other' => 'Other (personal care, general goods)',
+    ];
+
     private const SCHEDULE_LABELS = [
         'OTC' => 'OTC (over the counter)', 'G' => 'Schedule G', 'H' => 'Schedule H',
         'H1' => 'Schedule H1', 'X' => 'Schedule X',
@@ -72,6 +79,22 @@ class MedicineFields
     public static function all(): array
     {
         return [
+            /*
+             * What kind of thing this is. Locked, because the dosage form is
+             * required for a medicine and meaningless on a box of gloves —
+             * the database CHECK says so too.
+             */
+            [
+                'key' => 'item_kind',
+                'label' => 'Item type',
+                'type' => 'select',
+                'options' => self::options(Medicine::ITEM_KINDS, self::ITEM_KIND_LABELS),
+                'fixed_options' => true,
+                'group' => self::GROUP_IDENTITY,
+                'required' => true,
+                'locked' => true,
+                'in_table' => false,
+            ],
             [
                 'key' => 'generic_name',
                 'label' => 'Generic name',
@@ -110,7 +133,8 @@ class MedicineFields
                 'options' => self::options(Medicine::DOSAGE_FORMS, self::DOSAGE_FORM_LABELS),
                 'fixed_options' => true,
                 'group' => self::GROUP_IDENTITY,
-                'required' => true,
+                // Required of a medicine, which the request enforces by kind.
+                'required' => false,
                 'locked' => true,
                 'in_table' => true,
             ],
@@ -118,6 +142,26 @@ class MedicineFields
                 'key' => 'medicine_code',
                 'label' => 'Code',
                 'placeholder' => 'MED-0001',
+                'type' => 'text',
+                'group' => self::GROUP_IDENTITY,
+                'required' => false,
+                'locked' => false,
+                'in_table' => false,
+            ],
+            [
+                'key' => 'sku',
+                'label' => 'SKU',
+                'placeholder' => 'PCM-650-10',
+                'type' => 'text',
+                'group' => self::GROUP_IDENTITY,
+                'required' => false,
+                'locked' => false,
+                'in_table' => false,
+            ],
+            [
+                'key' => 'barcode',
+                'label' => 'Barcode',
+                'placeholder' => '8901234567890',
                 'type' => 'text',
                 'group' => self::GROUP_IDENTITY,
                 'required' => false,
@@ -202,6 +246,32 @@ class MedicineFields
                 'label' => 'Category',
                 'placeholder' => 'Analgesic',
                 'type' => 'text',
+                'group' => self::GROUP_SUPPLY,
+                'required' => false,
+                'locked' => false,
+                'in_table' => false,
+            ],
+
+            /*
+             * What a bill needs. The rate is a percentage; whether it is
+             * added to the price or split out of it is the organisation's
+             * setting, not the item's.
+             */
+            [
+                'key' => 'hsn_code',
+                'label' => 'HSN code',
+                'placeholder' => '3004',
+                'type' => 'text',
+                'group' => self::GROUP_SUPPLY,
+                'required' => false,
+                'locked' => false,
+                'in_table' => false,
+            ],
+            [
+                'key' => 'tax_rate',
+                'label' => 'GST rate (%)',
+                'placeholder' => '12',
+                'type' => 'number',
                 'group' => self::GROUP_SUPPLY,
                 'required' => false,
                 'locked' => false,

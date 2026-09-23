@@ -15,7 +15,10 @@ class MedicineResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'item_kind' => $this->item_kind,
             'medicine_code' => $this->medicine_code,
+            'sku' => $this->sku,
+            'barcode' => $this->barcode,
 
             'generic_name' => $this->generic_name,
             'brand_name' => $this->brand_name,
@@ -31,6 +34,10 @@ class MedicineResource extends JsonResource
 
             'manufacturer' => $this->manufacturer,
             'category' => $this->category,
+
+            // What a bill needs: the code it is taxed under, and at what rate.
+            'hsn_code' => $this->hsn_code,
+            'tax_rate' => (float) $this->tax_rate,
 
             'schedule' => $this->schedule,
             'prescription_required' => (bool) $this->prescription_required,

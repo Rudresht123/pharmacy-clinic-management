@@ -42,6 +42,11 @@ const InwardListPage = lazy(() => import('@/core/pharmacy/pages/InwardListPage')
 const InwardFormPage = lazy(() => import('@/core/pharmacy/pages/InwardFormPage'));
 const MovementsPage = lazy(() => import('@/core/pharmacy/pages/MovementsPage'));
 const SuppliersPage = lazy(() => import('@/core/pharmacy/pages/SuppliersPage'));
+const PharmacySettingsPage = lazy(() => import('@/core/pharmacy/pages/PharmacySettingsPage'));
+const PharmacyDashboardPage = lazy(() => import('@/core/pharmacy/pages/PharmacyDashboardPage'));
+const PharmacyReportsPage = lazy(() => import('@/core/pharmacy/pages/PharmacyReportsPage'));
+const PosPage = lazy(() => import('@/core/pharmacy/pages/PosPage'));
+const SalesListPage = lazy(() => import('@/core/pharmacy/pages/SalesListPage'));
 
 /**
  * Screens the owner may open before setup is finished: the setup itself, and
@@ -407,7 +412,20 @@ export function TenantAppRoutes() {
                                     />
                                 </Route>
 
+                                {/* The counter itself: only whoever may sell. */}
+                                <Route element={<RequireCapability capability="pharmacy.sell" />}>
+                                    <Route path="/pharmacy/pos" element={<PosPage />} />
+                                </Route>
+
                                 <Route element={<RequireCapability capability="pharmacy.view" />}>
+                                    {/* One store's day, gathered from the
+                                        screens below it. */}
+                                    <Route
+                                        path="/pharmacy/dashboard"
+                                        element={<PharmacyDashboardPage />}
+                                    />
+                                    <Route path="/pharmacy/sales" element={<SalesListPage />} />
+                                    <Route path="/pharmacy/reports" element={<PharmacyReportsPage />} />
                                     <Route path="/pharmacy/stores" element={<StoreListPage />} />
                                     <Route
                                         path="/pharmacy/stores/:id/medicines"
@@ -417,6 +435,12 @@ export function TenantAppRoutes() {
                                     <Route path="/pharmacy/inwards" element={<InwardListPage />} />
                                     <Route path="/pharmacy/movements" element={<MovementsPage />} />
                                     <Route path="/pharmacy/suppliers" element={<SuppliersPage />} />
+                                    {/* Read by everyone at a counter; the page
+                                        itself only lets pharmacy setup save. */}
+                                    <Route
+                                        path="/pharmacy/settings"
+                                        element={<PharmacySettingsPage />}
+                                    />
                                 </Route>
                             </Route>
 

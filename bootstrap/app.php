@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Validation\ValidationException;
 use App\Http\Middleware\AdoptTokenUser;
+use App\Http\Middleware\EnsurePortalPatient;
 use App\Http\Middleware\EnsureTenantCan;
 use App\Http\Middleware\EnsureTenantHasModule;
 use App\Http\Middleware\ResolveActingBranch;
@@ -24,7 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
-        apiPrefix: 'api/v1',
+        // The version is NOT part of the prefix: routes/api.php mounts each
+        // version under its own segment, so /api/v2 can sit beside /api/v1.
+        apiPrefix: 'api',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -65,6 +68,13 @@ return Application::configure(basePath: dirname(__DIR__))
             // Level three: their role holds this capability. Asks the two
             // above first — see App\Services\Permissions\Permission.
             'permission' => EnsureTenantCan::class,
+
+            /*
+             * The portal's answer to "whose data?": the signed-in login must be
+             * a patient's own. Capabilities say what may be done; this says the
+             * doing is about the one patient record the login belongs to.
+             */
+            'portal.patient' => EnsurePortalPatient::class,
         ]);
 
         /*

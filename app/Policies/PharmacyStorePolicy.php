@@ -70,6 +70,23 @@ class PharmacyStorePolicy
         return $this->mayAt($user, $store->location_id, 'pharmacy.inward');
     }
 
+    /** Sell at this store's counter — a bill, whether or not a prescription is behind it. */
+    public function sell(User $user, PharmacyStore $store): bool
+    {
+        return $this->mayAt($user, $store->location_id, 'pharmacy.sell');
+    }
+
+    /**
+     * Cancel a bill sold here.
+     *
+     * Its own capability, not the cashier's: cancelling puts stock back and
+     * takes money off the day's takings, which is a supervisor's decision.
+     */
+    public function cancelSale(User $user, PharmacyStore $store): bool
+    {
+        return $this->mayAt($user, $store->location_id, 'pharmacy.sale_cancel');
+    }
+
     /** Cancel a goods received note, or adjust stock, here. */
     public function adjust(User $user, PharmacyStore $store): bool
     {

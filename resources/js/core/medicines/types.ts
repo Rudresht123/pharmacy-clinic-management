@@ -8,12 +8,19 @@ import type { Timestamps } from '@/shared/types/api';
  */
 export interface Medicine extends Timestamps {
     id: number;
+
+    /** A store sells more than medicine: consumables, devices, general goods. */
+    item_kind: 'medicine' | 'consumable' | 'device' | 'other';
+
     medicine_code: string | null;
+    sku: string | null;
+    barcode: string | null;
 
     generic_name: string;
     brand_name: string | null;
     strength: string | null;
-    dosage_form: string;
+    /** Null on anything that is not a medicine — gloves have no dosage form. */
+    dosage_form: string | null;
     route: string | null;
 
     /** "Dolo 650 (Paracetamol) 650 mg tablet" — how every screen names it. */
@@ -26,6 +33,10 @@ export interface Medicine extends Timestamps {
 
     manufacturer: string | null;
     category: string | null;
+
+    /** What a bill needs: the code it is taxed under, and at what rate. */
+    hsn_code: string | null;
+    tax_rate: number;
 
     schedule: string | null;
     prescription_required: boolean;
