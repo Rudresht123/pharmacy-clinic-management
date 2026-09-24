@@ -47,6 +47,21 @@ class PortalDoctorResource extends JsonResource
                 ->map(fn ($weekday) => Weekday::label((int) $weekday))
                 ->values(),
 
+            // Each sitting in the week — what a clinic prints on its board:
+            // the day, the hours, the branch. Monday first, then by start.
+            'sittings' => $schedules
+                ->sortBy(fn (DoctorSchedule $schedule) => sprintf('%d-%s', $schedule->weekday, $schedule->starts_at))
+                ->map(fn (DoctorSchedule $schedule) => [
+                    'day' => Weekday::label((int) $schedule->weekday),
+                    'name' => $schedule->name,
+                    'starts_at' => substr((string) $schedule->starts_at, 0, 5),
+                    'ends_at' => substr((string) $schedule->ends_at, 0, 5),
+                    'slot_minutes' => $schedule->slot_minutes,
+                    'location_id' => $schedule->location?->id,
+                    'location_name' => $schedule->location?->name,
+                ])
+                ->values(),
+
             // Set by the controller when it was worked out; see BookableDoctors::nextAvailable.
             'next_available' => $this->resource->getAttribute('next_available'),
         ];

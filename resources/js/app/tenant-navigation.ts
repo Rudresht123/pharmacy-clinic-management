@@ -553,6 +553,35 @@ export function tenantNavigation(
         });
     }
 
+    if (hasModule('communication') && can('communication.view')) {
+        clinical.push({
+            label: 'Communication',
+            to: '/communication/whatsapp',
+            icon: 'ti ti-messages',
+            match: '/communication',
+            children: [
+                {
+                    label: 'WhatsApp',
+                    to: '/communication/whatsapp',
+                    icon: 'ti ti-brand-whatsapp',
+                    match: '/communication/whatsapp',
+                },
+                {
+                    label: 'Email',
+                    to: '/communication/email',
+                    icon: 'ti ti-mail',
+                    match: '/communication/email',
+                },
+                {
+                    label: 'SMS',
+                    to: '/communication/sms',
+                    icon: 'ti ti-message',
+                    soon: true,
+                },
+            ],
+        });
+    }
+
     /*
      * The work comes first.
      *

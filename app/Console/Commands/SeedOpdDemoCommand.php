@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Customer;
+use App\Models\Tenant\Department;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\DoctorSchedule;
 use App\Models\Tenant\File;
@@ -42,7 +43,8 @@ class SeedOpdDemoCommand extends Command
         {--patients=120 : How many patients to make sure exist}
         {--days=3 : Days of history to build, ending today}
         {--fresh : Delete the appointments in that window first}
-        {--skip-photos : Leave the doctors without photographs}';
+        {--skip-photos : Leave the doctors without photographs}
+        {--doctors-only : Add the doctors and their sittings, and stop before patients and appointments}';
 
     protected $description = 'Build a realistic OPD day in one tenant, for looking at the screens with';
 
@@ -63,20 +65,33 @@ class SeedOpdDemoCommand extends Command
     private const CITIES = ['Pune', 'Mumbai', 'Nashik', 'Nagpur', 'Thane', 'Aurangabad'];
 
     /**
-     * Name, speciality, how long they take per patient, and their portrait.
+     * The department, by doctor.
      *
-     * The last two are the gallery and the number a stand-in photograph is
-     * fetched from — numbered rather than random, so re-seeding gives the
-     * same six faces instead of reshuffling the department under somebody
-     * who is mid-demo.
+     * `portrait` is the gallery and the number a stand-in photograph is
+     * fetched from — numbered rather than random, so re-seeding gives the same
+     * faces instead of reshuffling the department under somebody who is
+     * mid-demo. `days` is when they sit; left out, it is Monday to Saturday.
+     *
+     * The first six are the original demo and keep their fees. The rest widen
+     * it to every department the clinic has, two deep in the busy ones, and
+     * sit on fewer days — so "available today" is a real question on the
+     * patient's doctor search rather than true of everybody.
      */
     private const DOCTORS = [
-        ['Dr. Anjali Sharma', 'General Medicine', 'MBBS, MD', 15, 'women', 65],
-        ['Dr. Vikram Rao', 'Cardiology', 'MBBS, DM', 20, 'men', 32],
-        ['Dr. Meera Iyer', 'Paediatrics', 'MBBS, DCH', 10, 'women', 44],
-        ['Dr. Rajesh Menon', 'Orthopaedics', 'MBBS, MS', 20, 'men', 75],
-        ['Dr. Sneha Kulkarni', 'Dermatology', 'MBBS, MD', 15, 'women', 26],
-        ['Dr. Arjun Bhatt', 'ENT', 'MBBS, MS', 15, 'men', 51],
+        ['name' => 'Dr. Anjali Sharma', 'speciality' => 'General Medicine', 'qualifications' => ['MBBS', 'MD'], 'minutes' => 15, 'portrait' => ['women', 65], 'fee' => 400],
+        ['name' => 'Dr. Vikram Rao', 'speciality' => 'Cardiology', 'qualifications' => ['MBBS', 'DM'], 'minutes' => 20, 'portrait' => ['men', 32], 'fee' => 550],
+        ['name' => 'Dr. Meera Iyer', 'speciality' => 'Paediatrics', 'qualifications' => ['MBBS', 'DCH'], 'minutes' => 10, 'portrait' => ['women', 44], 'fee' => 700],
+        ['name' => 'Dr. Rajesh Menon', 'speciality' => 'Orthopaedics', 'qualifications' => ['MBBS', 'MS'], 'minutes' => 20, 'portrait' => ['men', 75], 'fee' => 850],
+        ['name' => 'Dr. Sneha Kulkarni', 'speciality' => 'Dermatology', 'qualifications' => ['MBBS', 'MD'], 'minutes' => 15, 'portrait' => ['women', 26], 'fee' => 1000],
+        ['name' => 'Dr. Arjun Bhatt', 'speciality' => 'ENT', 'qualifications' => ['MBBS', 'MS'], 'minutes' => 15, 'portrait' => ['men', 51], 'fee' => 1150],
+        ['name' => 'Dr. Priya Nair', 'speciality' => 'Gynaecology', 'qualifications' => ['MBBS', 'MS (OBG)'], 'minutes' => 15, 'portrait' => ['women', 12], 'fee' => 800, 'days' => [0, 2, 4]],
+        ['name' => 'Dr. Karan Malhotra', 'speciality' => 'Ophthalmology', 'qualifications' => ['MBBS', 'MS (Ophth)'], 'minutes' => 10, 'portrait' => ['men', 22], 'fee' => 600, 'days' => [1, 3, 5]],
+        ['name' => 'Dr. Ritu Desai', 'speciality' => 'Dentistry', 'qualifications' => ['BDS', 'MDS'], 'minutes' => 20, 'portrait' => ['women', 33], 'fee' => 500],
+        ['name' => 'Dr. Sanjay Gupta', 'speciality' => 'General Physician', 'qualifications' => ['MBBS'], 'minutes' => 10, 'portrait' => ['men', 41], 'fee' => 300],
+        ['name' => 'Dr. Kavya Reddy', 'speciality' => 'Cardiology', 'qualifications' => ['MBBS', 'MD', 'DM (Cardiology)'], 'minutes' => 20, 'portrait' => ['women', 57], 'fee' => 900, 'days' => [0, 1, 2, 3]],
+        ['name' => 'Dr. Nikhil Joshi', 'speciality' => 'Orthopaedics', 'qualifications' => ['MBBS', 'MS (Ortho)'], 'minutes' => 20, 'portrait' => ['men', 62], 'fee' => 750, 'days' => [3, 4, 5]],
+        ['name' => 'Dr. Divya Pillai', 'speciality' => 'Paediatrics', 'qualifications' => ['MBBS', 'MD (Paediatrics)'], 'minutes' => 10, 'portrait' => ['women', 71], 'fee' => 600, 'days' => [0, 2, 4, 5]],
+        ['name' => 'Dr. Rohan Kapoor', 'speciality' => 'ENT', 'qualifications' => ['MBBS', 'DLO'], 'minutes' => 15, 'portrait' => ['men', 18], 'fee' => 500, 'days' => [1, 3, 5]],
     ];
 
     /** Why an appointment was called off. */
@@ -85,24 +100,6 @@ class SeedOpdDemoCommand extends Command
         'Doctor called away',
         'Booked twice by mistake',
         'Patient went elsewhere',
-    ];
-
-    /**
-     * How long each doctor takes, by name.
-     *
-     * The simulation needs this per doctor rather than per position, because
-     * the doctors sitting at a branch on a given day are a filtered subset —
-     * their index in that list is not their index in self::DOCTORS.
-     *
-     * @return array<string, int>
-     */
-    private const MINUTES = [
-        'Dr. Anjali Sharma' => 15,
-        'Dr. Vikram Rao' => 20,
-        'Dr. Meera Iyer' => 10,
-        'Dr. Rajesh Menon' => 20,
-        'Dr. Sneha Kulkarni' => 15,
-        'Dr. Arjun Bhatt' => 15,
     ];
 
     /**
@@ -133,6 +130,10 @@ class SeedOpdDemoCommand extends Command
         try {
             $branches = $this->branches();
             $doctors = $this->doctors($branches);
+
+            if ($this->option('doctors-only')) {
+                return self::SUCCESS;
+            }
             $patients = $this->patients((int) $this->option('patients'));
 
             $this->line('');
@@ -237,7 +238,7 @@ class SeedOpdDemoCommand extends Command
     }
 
     /**
-     * Six doctors, each sitting somewhere every weekday.
+     * The doctors, each sitting somewhere on their days.
      *
      * Sittings for the whole week rather than one day, so moving the date on
      * the board shows a department rather than an empty room.
@@ -247,41 +248,32 @@ class SeedOpdDemoCommand extends Command
         $doctors = collect();
         $portraits = 0;
 
-        foreach (self::DOCTORS as $index => [$name, $speciality, $qualification, $minutes, $gallery, $portrait]) {
+        foreach (self::DOCTORS as $index => $row) {
             $doctor = Doctor::firstOrCreate(
-                ['name' => $name],
+                ['name' => $row['name']],
                 [
-                    'specialisation' => $speciality,
-                    // A list now, so the demo data has the shape the form writes.
-                    'qualifications' => array_map('trim', explode(',', $qualification)),
-                    'default_consultation_fee' => 400 + ($index * 150),
+                    'specialisation' => $row['speciality'],
+                    'qualifications' => $row['qualifications'],
+                    'default_consultation_fee' => $row['fee'],
                     'is_active' => true,
                 ],
             );
 
-            $portraits += (int) $this->photograph($doctor, $gallery, $portrait);
+            // Linked on every run, so doctors from before this existed get
+            // their department too. `specialisation` stays the department's
+            // name as text, for the screens that still read it.
+            if (! $doctor->department_id) {
+                $doctor->update(['department_id' => $this->department($row['speciality'])->id]);
+            }
+
+            $portraits += (int) $this->photograph($doctor, ...$row['portrait']);
 
             // Alternating branches, so a two-branch clinic has a real split
             // rather than every doctor sitting in the same room.
             $branch = $branches[$index % $branches->count()];
 
-            foreach (range(Weekday::MONDAY, Weekday::SUNDAY) as $weekday) {
-                /*
-                 * A skeleton Sunday rather than no Sunday.
-                 *
-                 * Every doctor used to have the day off, on the grounds that an
-                 * empty day is worth being able to look at. True, but it meant
-                 * anybody opening the demo ON a Sunday found the whole product
-                 * blank — the one day it is most likely to be shown to somebody.
-                 * Two of the six sit a short morning, which is what a real
-                 * clinic does; the empty day is still reachable by stepping back
-                 * past the seeded window.
-                 */
+            foreach ($this->sittingDays($index, $row) as $weekday) {
                 $sunday = $weekday === Weekday::SUNDAY;
-
-                if ($sunday && $index >= 2) {
-                    continue;
-                }
 
                 DoctorSchedule::firstOrCreate(
                     [
@@ -292,8 +284,8 @@ class SeedOpdDemoCommand extends Command
                     ],
                     [
                         'name' => $sunday ? 'Sunday clinic' : 'Morning OPD',
-                        'ends_at' => $sunday ? '13:00' : '13:00',
-                        'slot_minutes' => $minutes,
+                        'ends_at' => '13:00',
+                        'slot_minutes' => $row['minutes'],
                         'is_active' => true,
                     ],
                 );
@@ -302,10 +294,40 @@ class SeedOpdDemoCommand extends Command
             $doctors->push($doctor);
         }
 
-        $this->line("  Doctors: {$doctors->count()}, sitting Mon–Sat 09:00–13:00 (two also on Sunday)");
+        $this->line("  Doctors: {$doctors->count()}, sitting 09:00–13:00 on their days (two also on Sunday)");
         $this->line("  Photographs: {$portraits} fetched");
 
         return $doctors;
+    }
+
+    /**
+     * The weekdays a doctor sits, Monday being 0.
+     *
+     * A skeleton Sunday rather than no Sunday. Every doctor used to have the
+     * day off, on the grounds that an empty day is worth being able to look
+     * at. True, but it meant anybody opening the demo ON a Sunday found the
+     * whole product blank — the one day it is most likely to be shown to
+     * somebody. The first two sit a short morning, which is what a real clinic
+     * does; the empty day is still reachable by stepping back past the seeded
+     * window.
+     *
+     * @return list<int>
+     */
+    private function sittingDays(int $index, array $row): array
+    {
+        $days = $row['days'] ?? range(Weekday::MONDAY, Weekday::SUNDAY - 1);
+
+        return $index < 2 ? [...$days, Weekday::SUNDAY] : $days;
+    }
+
+    /** The top-level department of that name, made if the clinic has none. */
+    private function department(string $name): Department
+    {
+        return Department::query()
+            ->whereNull('parent_id')
+            ->where('name', $name)
+            ->first()
+            ?? Department::create(['name' => $name, 'is_active' => true]);
     }
 
     /**
@@ -487,7 +509,7 @@ class SeedOpdDemoCommand extends Command
                 $count += 10;
             }
 
-            $consult = self::MINUTES[$doctor->name] ?? 15;
+            $consult = collect(self::DOCTORS)->firstWhere('name', $doctor->name)['minutes'] ?? 15;
 
             /*
              * Arrivals run a little faster than the doctor can see people.

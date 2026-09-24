@@ -153,3 +153,52 @@ if (! function_exists('emailButton')) {
         </a>";
     }
 }
+
+if (! function_exists('whatsapp')) {
+    /**
+     * The one door into WhatsApp.
+     *
+     *     whatsapp($organizationId)->sendTemplate(
+     *         phone: $patient->phone,
+     *         template: 'appointment_confirmation',
+     *         variables: [
+     *             'patient_name' => $patient->name,
+     *             'doctor_name' => $doctor->name,
+     *         ],
+     *     );
+     *
+     * The caller names a template and some values. Which provider carries it,
+     * what that provider calls the template, where its credentials live, how
+     * its answer maps onto a status, what is retried and what is logged are
+     * all below this line and none of them are the caller's business.
+     *
+     * The organization must be named. A queue worker serves many clinics in
+     * one process, so there is no safe ambient "current organization" to fall
+     * back on — that is how a message goes out from the wrong account.
+     */
+    function whatsapp(App\Models\Platform\Organization|int $organization): App\Services\WhatsApp\WhatsAppManager
+    {
+        return app(App\Services\WhatsApp\WhatsAppManager::class)->forOrganization($organization);
+    }
+}
+
+if (! function_exists('emailer')) {
+    /**
+     * The one door into email.
+     *
+     *     emailer($organization)->queue(
+     *         EmailMessage::make(to: $patient->email, subject: ..., body: ...),
+     *     );
+     *
+     * Named `emailer` rather than `email` because `email` reads as a noun and
+     * would collide with the first local variable somebody calls $email.
+     *
+     * The organization must be named, for the same reason it must be named for
+     * WhatsApp: a queue worker serves many clinics in one process, and mail
+     * that goes out from the wrong clinic's address is discovered by a patient.
+     */
+    function emailer(App\Models\Platform\Organization|int $organization): App\Services\Email\EmailManager
+    {
+        return app(App\Services\Email\EmailManager::class)->forOrganization($organization);
+    }
+}

@@ -74,6 +74,15 @@ export const navigation: NavSection[] = [
                 match: '/modules',
             },
             {
+                // Platform-wide rather than per organization: there is one
+                // account with each provider — one WhatsApp number patients
+                // see, one mail relay behind every clinic's email.
+                label: 'Messaging',
+                to: '/messaging',
+                icon: 'ti ti-send',
+                match: '/messaging',
+            },
+            {
                 label: 'Audit Log',
                 to: '/audit',
                 icon: 'ti ti-history',

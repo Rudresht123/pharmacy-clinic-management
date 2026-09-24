@@ -8,7 +8,12 @@ use App\Http\Controllers\Api\V1\Platform\ModuleController;
 use App\Http\Controllers\Api\V1\Platform\OrganizationController;
 use App\Http\Controllers\Api\V1\Platform\OrganizationModuleController;
 use App\Http\Controllers\Api\V1\Platform\OrganizationTypeController;
+use App\Http\Controllers\Api\V1\Platform\MessagingSettingsController;
 use App\Http\Controllers\Api\V1\Tenant\AppointmentController;
+use App\Http\Controllers\Api\V1\Tenant\AutomationRuleController;
+use App\Http\Controllers\Api\V1\Tenant\CampaignController;
+use App\Http\Controllers\Api\V1\Tenant\CommunicationController;
+use App\Http\Controllers\Api\V1\Tenant\MessageTemplateController;
 use App\Http\Controllers\Api\V1\Tenant\Auth\AuthController as TenantAuthController;
 use App\Http\Controllers\Api\V1\Tenant\AvailabilityController;
 use App\Http\Controllers\Api\V1\Tenant\BrandingController;
@@ -163,6 +168,21 @@ Route::prefix('admin')->name('admin.')->group(function () {
             'organization-types/{organizationType}/toggle-status',
             [OrganizationTypeController::class, 'toggleStatus']
         );
+
+        /*
+        | The sending accounts, for the whole platform.
+        |
+        | Here rather than on a tenant because there is ONE account with each
+        | provider — one WhatsApp number patients see, one mail relay — so a
+        | clinic setting these would be changing what every other clinic sends
+        | through.
+        */
+        Route::get('messaging/{channel}', [MessagingSettingsController::class, 'show'])
+            ->name('messaging.show');
+        Route::put('messaging/{channel}', [MessagingSettingsController::class, 'update'])
+            ->name('messaging.update');
+        Route::post('messaging/{channel}/test', [MessagingSettingsController::class, 'test'])
+            ->name('messaging.test');
     });
 });
 
@@ -916,6 +936,84 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             ->names('roles')
             ->only(['store', 'update', 'destroy'])
             ->middleware('permission:people.view');
+
+        /*
+        |----------------------------------------------------------------------
+        | Communication — WhatsApp, email and SMS
+        |----------------------------------------------------------------------
+        |
+        | Reading is `communication.view`, the branch capability a receptionist
+        | holds: the dashboards, the template library and the delivery log are
+        | what somebody at a desk opens to answer "did that go out".
+        |
+        | Writing is `communication.manage`, which is organisation-scoped —
+        | a template, a from-address and an automation rule apply to every
+        | patient on the register, so they are not a branch's to change.
+        |
+        | Literal paths before {template} and {campaign}.
+        */
+        Route::middleware('module:communication')->group(function () {
+            Route::middleware('permission:communication.view')->group(function () {
+                Route::get('communication/segments', [CampaignController::class, 'segments'])
+                    ->name('communication.segments');
+                Route::get('communication/templates', [MessageTemplateController::class, 'index'])
+                    ->name('communication.templates.index');
+                Route::get('communication/automation-rules', [AutomationRuleController::class, 'index'])
+                    ->name('communication.rules.index');
+
+                Route::get('communication/campaigns', [CampaignController::class, 'index'])
+                    ->name('communication.campaigns.index');
+                Route::get('communication/campaigns/{campaign}', [CampaignController::class, 'show'])
+                    ->name('communication.campaigns.show');
+
+                // Everything one channel's screen needs, in one request.
+                Route::get('communication/{channel}/overview', [CommunicationController::class, 'show'])
+                    ->name('communication.overview');
+            });
+
+            Route::middleware('permission:communication.manage')->group(function () {
+                Route::put('communication/{channel}/connection', [CommunicationController::class, 'update'])
+                    ->name('communication.connection.update');
+                Route::post('communication/{channel}/test', [CommunicationController::class, 'test'])
+                    ->name('communication.test');
+
+                // Proves the credentials without messaging a patient.
+                Route::post('communication/{channel}/test-connection', [CommunicationController::class, 'testConnection'])
+                    ->name('communication.test-connection');
+
+
+                Route::post('communication/templates', [MessageTemplateController::class, 'store'])
+                    ->name('communication.templates.store');
+                Route::put('communication/templates/{template}', [MessageTemplateController::class, 'update'])
+                    ->name('communication.templates.update');
+                Route::delete('communication/templates/{template}', [MessageTemplateController::class, 'destroy'])
+                    ->name('communication.templates.destroy');
+
+                Route::put('communication/automation-rules/{rule}', [AutomationRuleController::class, 'update'])
+                    ->name('communication.rules.update');
+
+                /*
+                | Campaigns. Scheduling is its own route rather than a field on
+                | update: setting a time is the act that makes a campaign go
+                | out by itself, and it deserves to be refused on its own terms
+                | — a past time, or an audience of nobody.
+                */
+                Route::post('communication/audience-preview', [CampaignController::class, 'audiencePreview'])
+                    ->name('communication.audience-preview');
+                Route::post('communication/campaigns', [CampaignController::class, 'store'])
+                    ->name('communication.campaigns.store');
+                Route::put('communication/campaigns/{campaign}', [CampaignController::class, 'update'])
+                    ->name('communication.campaigns.update');
+                Route::post('communication/campaigns/{campaign}/schedule', [CampaignController::class, 'schedule'])
+                    ->name('communication.campaigns.schedule');
+                Route::post('communication/campaigns/{campaign}/unschedule', [CampaignController::class, 'unschedule'])
+                    ->name('communication.campaigns.unschedule');
+                Route::post('communication/campaigns/{campaign}/send', [CampaignController::class, 'send'])
+                    ->name('communication.campaigns.send');
+                Route::delete('communication/campaigns/{campaign}', [CampaignController::class, 'destroy'])
+                    ->name('communication.campaigns.destroy');
+            });
+        });
 
         Route::middleware('tenant.owner')->group(function () {
             Route::get('locations/{location}/modules', [LocationModuleController::class, 'show'])

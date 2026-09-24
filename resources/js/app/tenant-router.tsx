@@ -47,6 +47,9 @@ const PharmacyDashboardPage = lazy(() => import('@/core/pharmacy/pages/PharmacyD
 const PharmacyReportsPage = lazy(() => import('@/core/pharmacy/pages/PharmacyReportsPage'));
 const PosPage = lazy(() => import('@/core/pharmacy/pages/PosPage'));
 const SalesListPage = lazy(() => import('@/core/pharmacy/pages/SalesListPage'));
+const WhatsAppPage = lazy(() => import('@/core/communication/pages/WhatsAppPage'));
+const EmailPage = lazy(() => import('@/core/communication/pages/EmailPage'));
+const CampaignWizardPage = lazy(() => import('@/core/communication/pages/CampaignWizardPage'));
 
 /**
  * Screens the owner may open before setup is finished: the setup itself, and
@@ -440,6 +443,28 @@ export function TenantAppRoutes() {
                                     <Route
                                         path="/pharmacy/settings"
                                         element={<PharmacySettingsPage />}
+                                    />
+                                </Route>
+                            </Route>
+
+                            <Route element={<RequireModule module="communication" />}>
+                                <Route element={<RequireCapability capability="communication.view" />}>
+                                    <Route path="/communication/whatsapp" element={<WhatsAppPage />} />
+                                    <Route path="/communication/email" element={<EmailPage />} />
+                                </Route>
+
+                                {/* Building a campaign is a write, and the
+                                    literal `new` sits before the `:id` pattern
+                                    so it is not read as a campaign called
+                                    "new". */}
+                                <Route element={<RequireCapability capability="communication.manage" />}>
+                                    <Route
+                                        path="/communication/email/campaigns/new"
+                                        element={<CampaignWizardPage channel="email" />}
+                                    />
+                                    <Route
+                                        path="/communication/email/campaigns/:id"
+                                        element={<CampaignWizardPage channel="email" />}
                                     />
                                 </Route>
                             </Route>

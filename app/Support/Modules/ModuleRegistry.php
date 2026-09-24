@@ -41,6 +41,8 @@ class ModuleRegistry
 
     public const GROUP_COMMERCE = 'commerce';
 
+    public const GROUP_COMMUNICATION = 'communication';
+
     /**
      * Where a capability can mean anything.
      *
@@ -294,6 +296,18 @@ class ModuleRegistry
                     ['key' => 'pharmacy.reverse', 'name' => 'Reverse a dispensing', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.stores', 'name' => 'Set up stores', 'scope' => self::SCOPE_ORGANIZATION],
                     ['key' => 'pharmacy.restore', 'name' => 'Restore removed pharmacy records', 'scope' => self::SCOPE_ORGANIZATION],
+                ],
+            ],
+            [
+                'key' => 'communication',
+                'name' => 'Communication',
+                'description' => 'WhatsApp integration, Email and SMS notifications.',
+                'icon' => 'ti ti-messages',
+                'group' => self::GROUP_COMMUNICATION,
+                'is_core' => false,
+                'capabilities' => [
+                    ['key' => 'communication.view', 'name' => 'View communication logs and dashboards', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'communication.manage', 'name' => 'Manage communication settings and integrations', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
         ];

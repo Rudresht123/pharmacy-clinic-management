@@ -7,6 +7,13 @@ export interface AreaPoint {
     value: number;
     /** Fuller wording for the tooltip, e.g. "2026-09". */
     title?: string;
+    /**
+     * A tick that must survive thinning — the first of a month on a daily
+     * series, say. Without it the label carrying the month is exactly the one
+     * an even stride drops, and the axis loses the only thing that said which
+     * month any of it was.
+     */
+    major?: boolean;
 }
 
 const HEIGHT = 210;
@@ -129,6 +136,27 @@ export function AreaChart({
 
     const last = points.length - 1;
     const active = hovered ?? last;
+
+    /*
+     * How many labels to actually print.
+     *
+     * This was written for a dozen monthly points, where every tick fits. A
+     * daily series over a month is thirty-one of them, which run together into
+     * an unreadable smear — so past fourteen only every nth is printed, always
+     * including the first, the last and whichever one is hovered.
+     *
+     * The spans are all still RENDERED and merely hidden, because they are
+     * flex items: dropping them would re-space the row and the remaining
+     * labels would no longer sit under their own points.
+     */
+    const stride = points.length > 14 ? Math.ceil(points.length / 8) : 1;
+
+    const labelled = (index: number) =>
+        stride === 1 ||
+        points[index].major === true ||
+        index % stride === 0 ||
+        index === last ||
+        index === hovered;
 
     return (
         <div className="area" ref={ref}>
@@ -258,7 +286,10 @@ export function AreaChart({
                 {points.map((point, index) => (
                     <span
                         key={point.label + index}
-                        className={`area-tick${index === active ? ' is-active' : ''}`}
+                        className={`area-tick${index === active ? ' is-active' : ''}${
+                            labelled(index) ? '' : ' is-quiet'
+                        }`}
+                        aria-hidden={labelled(index) ? undefined : true}
                     >
                         {point.label}
                     </span>

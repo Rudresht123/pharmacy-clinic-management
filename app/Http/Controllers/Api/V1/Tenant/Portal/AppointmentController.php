@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Tenant\Portal;
 use App\Http\Requests\Api\V1\Tenant\Portal\BookAppointmentRequest;
 use App\Http\Resources\Tenant\Portal\PortalAppointmentResource;
 use App\Services\Portal\PatientAppointments;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -45,5 +46,22 @@ class AppointmentController extends PortalController
         }
 
         return $this->created(PortalAppointmentResource::make($appointment), 'Appointment booked');
+    }
+
+    /** Call off one of their own bookings, before they have checked in. */
+    public function cancel(Request $request, int $appointment): JsonResponse
+    {
+        try {
+            $cancelled = $this->appointments->cancel($this->patient($request), $appointment);
+        } catch (ModelNotFoundException) {
+            // Caught first: it is itself a RuntimeException, and somebody
+            // else's appointment must read as missing, not as refused.
+            return $this->fail('That appointment was not found.', 404);
+        } catch (RuntimeException $exception) {
+            // Already checked in, already past — something to tell them, not a fault.
+            return $this->fail($exception->getMessage(), 422);
+        }
+
+        return $this->ok(PortalAppointmentResource::make($cancelled), 'Appointment cancelled');
     }
 }

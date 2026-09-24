@@ -6,6 +6,8 @@ use App\Models\Tenant\PersonalAccessToken;
 use App\Services\Permissions\Permission;
 use App\Services\Portal\Otp\LogOtpSender;
 use App\Services\Portal\Otp\OtpSender;
+use App\Services\Email\EmailManager;
+use App\Services\WhatsApp\WhatsAppManager;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
@@ -35,6 +37,18 @@ class AppServiceProvider extends ServiceProvider
 
         // How a patient's sign-in code reaches their phone. One driver today;
         // an SMS provider is a new `match` arm, not a change to the sign-in.
+        /*
+         * WhatsApp, one instance per request.
+         *
+         * `scoped` rather than `singleton` for the same reason the branch
+         * resolver is: it holds which organization it is acting for, and a
+         * singleton would carry one request's clinic into the next. The
+         * manager itself returns a clone from forOrganization(), so two
+         * callers in one request cannot change each other's target either.
+         */
+        $this->app->scoped(WhatsAppManager::class);
+        $this->app->scoped(EmailManager::class);
+
         $this->app->bind(OtpSender::class, fn () => match (config('services.otp.driver')) {
             default => new LogOtpSender,
         });

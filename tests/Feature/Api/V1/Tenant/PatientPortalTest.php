@@ -338,6 +338,81 @@ class PatientPortalTest extends TenantTestCase
         $book('11:00')->assertStatus(422);
     }
 
+    public function test_a_patient_cancels_their_own_booking_and_the_time_is_free_again(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+        $token = $this->signInPatient($organization);
+
+        $id = $this->asPatient($organization, $token)
+            ->postJson('/api/v1/tenant/portal/appointments', [
+                'doctor_id' => $doctorId,
+                'location_id' => $branchId,
+                'appointment_date' => self::MONDAY,
+                'slot_at' => '10:30',
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->asPatient($organization, $token)
+            ->postJson("/api/v1/tenant/portal/appointments/{$id}/cancel")
+            ->assertOk()
+            ->assertJsonPath('data.status', Appointment::STATUS_CANCELLED);
+
+        // Offered to everybody again, and gone from the patient's upcoming list.
+        $this->asPatient($organization, $token)
+            ->getJson("/api/v1/tenant/portal/doctors/{$doctorId}/slots?date=".self::MONDAY)
+            ->assertJsonPath('data.sessions.0.slots', ['10:00', '10:30', '11:00', '11:30']);
+
+        $this->asPatient($organization, $token)
+            ->getJson('/api/v1/tenant/portal/appointments')
+            ->assertJsonCount(0, 'data');
+
+        // Twice is a sentence, not an error page.
+        $this->asPatient($organization, $token)
+            ->postJson("/api/v1/tenant/portal/appointments/{$id}/cancel")
+            ->assertStatus(422);
+    }
+
+    public function test_a_patient_cannot_cancel_once_checked_in_or_somebody_elses(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+        $token = $this->signInPatient($organization);
+
+        [$mine, $theirs] = $this->onTenant($organization, function () use ($doctorId, $branchId) {
+            $patient = Customer::on('organization')->where('name', 'Rahul Tiwari')->firstOrFail();
+            $other = Customer::on('organization')->create(['name' => 'Someone Else', 'phone' => '9876599999', 'is_active' => true]);
+
+            $make = fn (Customer $who, string $status, string $slot) => Appointment::on('organization')->create([
+                'customer_id' => $who->id,
+                'doctor_id' => $doctorId,
+                'location_id' => $branchId,
+                'appointment_date' => self::MONDAY,
+                'type' => Appointment::BOOKED,
+                'status' => $status,
+                'slot_at' => $slot,
+            ])->id;
+
+            return [
+                $make($patient, Appointment::STATUS_CHECKED_IN, '10:00'),
+                $make($other, Appointment::STATUS_BOOKED, '11:30'),
+            ];
+        });
+
+        $this->asPatient($organization, $token)
+            ->postJson("/api/v1/tenant/portal/appointments/{$mine}/cancel")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'You have already checked in. Please speak to the front desk.');
+
+        $this->asPatient($organization, $token)
+            ->postJson("/api/v1/tenant/portal/appointments/{$theirs}/cancel")
+            ->assertNotFound();
+
+        $this->onTenant($organization, fn () => $this->assertSame(
+            Appointment::STATUS_BOOKED,
+            Appointment::on('organization')->findOrFail($theirs)->status,
+        ));
+    }
+
     /** Somebody else's booking never appears in a patient's own list. */
     public function test_a_patient_sees_only_their_own_appointments(): void
     {

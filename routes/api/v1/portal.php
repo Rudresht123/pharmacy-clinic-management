@@ -52,6 +52,11 @@ Route::middleware([
             Route::get('doctors/{doctor}', [DoctorController::class, 'show'])->name('doctors.show');
             Route::get('doctors/{doctor}/slots', [DoctorController::class, 'slots'])->name('doctors.slots');
             Route::post('appointments', [AppointmentController::class, 'store'])->name('appointments.store');
+
+            // Whoever may book may call off their own booking.
+            Route::post('appointments/{appointment}/cancel', [AppointmentController::class, 'cancel'])
+                ->whereNumber('appointment')
+                ->name('appointments.cancel');
         });
 
         Route::get('appointments', [AppointmentController::class, 'index'])

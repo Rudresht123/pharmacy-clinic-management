@@ -22,3 +22,13 @@ Schedule::command('pharmacy:reconcile-stock')->dailyAt('02:30')->withoutOverlapp
 
 // A prescription past its valid-until date stops being dispensable overnight.
 Schedule::command('prescriptions:expire')->dailyAt('00:15')->withoutOverlapping();
+
+/*
+| Scheduled campaigns, every minute.
+|
+| A clinic that schedules a campaign for 9:00 expects it at 9:00, so the
+| granularity of this is the granularity of the whole feature. Cheap when
+| nothing is due — one indexed query per tenant — and the dispatcher is
+| idempotent, so `withoutOverlapping` is belt as well as braces.
+*/
+Schedule::command('campaigns:dispatch')->everyMinute()->withoutOverlapping();

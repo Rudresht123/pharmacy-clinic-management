@@ -3089,6 +3089,12 @@ html::-webkit-scrollbar-track {
     font-weight:600;
 }
 
+/* Hidden rather than removed: the ticks are flex items, so dropping one would
+   re-space the row and the rest would stop sitting under their own points. */
+.area-tick.is-quiet{
+    visibility:hidden;
+}
+
 /* ---------------------------------------------------------
    Small multiples (TrendRows.tsx + Sparkline.tsx)
    --------------------------------------------------------- */
@@ -15607,3 +15613,1571 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 /* The Dashboard / Table switch, and what it sits beside. */
 .ph-bar{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
 
+
+
+/* --- communication ---------------------------------------------
+ *
+ * WhatsApp and email share every panel here — a connection card, a
+ * setup checklist, a template library, automation rules and a delivery
+ * log — so the block is named for the module rather than either
+ * channel. What differs is the shape of the library (cards for six
+ * templates, a table for twenty) and the preview, and those are the
+ * only two places a channel gets rules of its own.
+ *
+ * Built from the theme tokens throughout, which is what keeps the dark
+ * palette working without a single override down here. The two places
+ * that deliberately ignore them are the phone and the email render:
+ * both exist to look like the thing the patient receives, not like the
+ * admin screen around them.
+ */
+
+.comm-card{ margin-bottom:0; height:100%; }
+.comm-subhead{ margin:0 0 10px; font-size:11.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); }
+.comm-tabs{ margin-bottom:16px; }
+.comm-view{ margin-top:16px; }
+.comm-head-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+
+/* Figures */
+.comm-tiles{ margin:16px 0; }
+.comm-tiles.is-inset{ margin:0; }
+.comm-tiles .stat-tiles{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
+
+/* ---- The connected account ----
+ *
+ * Identity, then the buttons, then the wiring: who the patient sees
+ * this from, what you can do about it, and how it is actually hooked
+ * up — in the order somebody checking a broken connection asks them.
+ */
+.comm-connection{ display:grid; grid-template-columns:minmax(0, 1.3fr) auto minmax(0, 1fr); gap:20px; align-items:start; }
+.comm-who{ display:flex; align-items:flex-start; gap:14px; min-width:0; }
+.comm-who-body{ min-width:0; }
+.comm-mark{ position:relative; display:grid; place-items:center; width:58px; height:58px; flex:0 0 auto; border-radius:50%; font-size:30px; }
+.comm-mark.is-emerald{ background:#25d366; color:#fff; }
+.comm-mark.is-sky{ background:rgba(var(--brand), .1); color:rgb(var(--brand)); }
+.comm-dot{ position:absolute; right:1px; bottom:1px; width:13px; height:13px; border:2px solid var(--surface); border-radius:50%; background:#10b981; }
+.comm-name{ display:flex; align-items:center; gap:6px; margin:8px 0 3px; font-size:16px; font-weight:700; color:var(--ink); word-break:break-word; }
+.comm-name i{ font-size:16px; color:#3b82f6; }
+.comm-handle{ margin:0; font-size:13.5px; font-weight:600; color:var(--ink-2); word-break:break-word; }
+.comm-since{ margin:5px 0 0; font-size:11.5px; color:var(--muted); }
+.comm-connection-actions{ display:flex; flex-direction:column; gap:8px; }
+.comm-connection-actions .btn{ white-space:nowrap; }
+
+.comm-facts ul{ display:grid; gap:9px; margin:0; padding:0; list-style:none; }
+.comm-facts li{ display:flex; align-items:center; gap:9px; font-size:12.5px; }
+.comm-facts i{ flex:0 0 auto; font-size:16px; color:var(--muted); }
+/* The LABEL never shrinks and the VALUE does. An email address is one long
+   unbreakable token, so it refused to shrink and crushed "From address" into a
+   column of single letters instead. */
+.comm-facts span{ flex:0 0 auto; white-space:nowrap; color:var(--muted); }
+.comm-facts b{ flex:1 1 auto; min-width:0; font-weight:600; color:var(--ink); text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ---- Pills and tags ----
+ *
+ * A pill carries a state and leads with a dot, because the colour is
+ * the answer and the word confirms it. A tag carries a classification
+ * and has no dot — nothing about "Appointment" is good or bad news.
+ */
+.comm-pill{ display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; background:var(--surface-3); color:var(--ink-3); white-space:nowrap; }
+.comm-pill::before{ content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+.comm-pill.is-live{ background:rgba(16,185,129,.12); color:#047857; }
+.comm-pill.is-read{ background:rgba(20,184,166,.12); color:#0f766e; }
+.comm-pill.is-fail{ background:rgba(244,63,94,.1); color:#be123c; }
+.comm-pill.is-wait{ background:rgba(245,158,11,.14); color:#b45309; }
+.comm-tag{ display:inline-block; padding:3px 9px; border-radius:7px; background:var(--surface-3); font-size:11px; font-weight:600; color:var(--ink-3); white-space:nowrap; }
+
+/* ---- Tinted glyphs, shared by template cards and template rows ---- */
+.comm-glyph{ display:grid; place-items:center; width:34px; height:34px; flex:0 0 auto; border-radius:10px; font-size:17px; }
+.comm-glyph.is-sky{ background:rgba(59,130,246,.12); color:#1d4ed8; }
+.comm-glyph.is-violet{ background:rgba(139,92,246,.12); color:#6d28d9; }
+.comm-glyph.is-emerald{ background:rgba(16,185,129,.12); color:#047857; }
+.comm-glyph.is-rose{ background:rgba(244,63,94,.1); color:#be123c; }
+.comm-glyph.is-amber{ background:rgba(245,158,11,.14); color:#b45309; }
+.comm-glyph.is-teal{ background:rgba(20,184,166,.12); color:#0f766e; }
+
+/* ---- Setup progress ---- */
+.comm-count{ padding:2px 9px; border-radius:999px; background:var(--surface-3); font-size:11.5px; font-weight:700; color:var(--ink-3); font-variant-numeric:tabular-nums; }
+.comm-steps{ display:grid; gap:2px; margin:0; padding:0; list-style:none; }
+.comm-steps li{ display:flex; align-items:center; gap:9px; padding:8px 0; font-size:12.5px; color:var(--muted); }
+.comm-steps li + li{ border-top:1px solid var(--line); }
+.comm-steps > li > i{ font-size:18px; flex:0 0 auto; color:var(--line-2); }
+.comm-steps > li > span{ flex:1; min-width:0; }
+.comm-steps b{ font-size:11.5px; font-weight:700; color:#b45309; white-space:nowrap; }
+.comm-steps li.is-done{ color:var(--ink-2); }
+.comm-steps li.is-done > i{ color:#10b981; }
+.comm-steps li.is-done b{ color:#047857; }
+
+/* ---- Benefits ---- */
+.comm-benefits{ display:grid; gap:3px; margin:0; padding:0; list-style:none; }
+.comm-benefits li{ display:flex; align-items:flex-start; gap:11px; padding:9px 0; }
+.comm-benefits li + li{ border-top:1px solid var(--line); }
+.comm-benefits > li > i{ display:grid; place-items:center; width:34px; height:34px; flex:0 0 auto; border-radius:10px; font-size:17px; }
+.comm-benefits b{ display:block; font-size:12.5px; font-weight:600; color:var(--ink); }
+.comm-benefits small{ display:block; margin-top:2px; font-size:11.5px; line-height:1.5; color:var(--muted); }
+.comm-benefits i.is-emerald{ background:rgba(16,185,129,.12); color:#047857; }
+.comm-benefits i.is-amber{ background:rgba(245,158,11,.14); color:#b45309; }
+.comm-benefits i.is-violet{ background:rgba(139,92,246,.12); color:#6d28d9; }
+.comm-benefits i.is-sky{ background:rgba(59,130,246,.12); color:#1d4ed8; }
+.comm-benefits i.is-teal{ background:rgba(20,184,166,.12); color:#0f766e; }
+
+/* ---- Search and filters ---- */
+.comm-search{ position:relative; }
+.comm-search i{ position:absolute; top:50%; left:11px; transform:translateY(-50%); font-size:15px; color:var(--muted); pointer-events:none; }
+.comm-search .form-control{ width:210px; padding-left:32px; font-size:12.5px; }
+.comm-select{ width:auto; min-width:150px; font-size:12.5px; }
+
+.comm-filters{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+.comm-filter{ padding:5px 12px; border:1px solid var(--line); border-radius:999px; background:var(--surface-2); font-size:11.5px; font-weight:600; color:var(--ink-3); transition:background .16s ease, color .16s ease, border-color .16s ease; }
+.comm-filter:hover{ background:var(--surface-3); color:var(--ink); }
+.comm-filter.is-active{ border-color:transparent; background:rgb(var(--brand)); color:#fff; }
+
+/* ---- Template cards (WhatsApp) ---- */
+.comm-templates{ display:grid; grid-template-columns:repeat(auto-fill, minmax(215px, 1fr)); gap:12px; }
+.comm-template{ display:flex; flex-direction:column; gap:9px; padding:14px; border:1px solid var(--line); border-radius:12px; background:var(--surface); text-align:left; transition:border-color .16s ease, background .16s ease; }
+.comm-template:hover{ border-color:var(--line-2); background:var(--surface-2); }
+.comm-template.is-active{ border-color:rgb(var(--brand)); background:rgba(var(--brand), .04); }
+.comm-template-head{ display:flex; align-items:center; gap:10px; }
+.comm-template-head b{ font-size:12.5px; font-weight:700; line-height:1.35; color:var(--ink); }
+.comm-template-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.comm-template-body{ flex:1; font-size:11.5px; font-style:italic; line-height:1.6; color:var(--ink-3); quotes:'"' '"'; }
+.comm-template-foot{ display:flex; align-items:center; gap:5px; padding-top:9px; border-top:1px solid var(--line); font-size:11.5px; font-weight:700; color:rgb(var(--brand)); }
+.comm-template-foot i{ font-size:14px; transition:transform .16s ease; }
+.comm-template:hover .comm-template-foot i{ transform:translateX(2px); }
+
+/* ---- Template and message tables ---- */
+.comm-table td{ vertical-align:middle; }
+.comm-table tbody tr{ cursor:pointer; }
+.comm-table tbody tr:hover{ background:var(--surface-2); }
+.comm-table tbody tr.is-active{ background:rgba(var(--brand), .05); }
+.comm-row-name{ display:flex; align-items:center; gap:10px; }
+.comm-subject{ max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-3); }
+.comm-actions-col{ width:1%; white-space:nowrap; text-align:right; }
+.comm-row-actions{ display:flex; align-items:center; justify-content:flex-end; gap:6px; }
+.comm-more{ display:grid; place-items:center; width:28px; height:28px; border-radius:7px; background:transparent; font-size:16px; color:var(--muted); transition:background .16s ease, color .16s ease; }
+.comm-more:hover{ background:var(--surface-3); color:var(--ink); }
+
+/* ---- The phone mock. WhatsApp colours on purpose, in both themes. ---- */
+.comm-phone{ padding:10px; border-radius:12px; background:#e5ddd5; }
+.comm-phone-bar{ display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:9px 9px 0 0; background:#075e54; color:#fff; }
+.comm-phone-avatar{ display:grid; place-items:center; width:30px; height:30px; flex:0 0 auto; border-radius:50%; background:rgba(255,255,255,.18); font-size:16px; }
+.comm-phone-bar b{ display:block; font-size:12px; font-weight:700; }
+.comm-phone-bar small{ font-size:10.5px; color:rgba(255,255,255,.7); }
+.comm-bubble{ margin-top:10px; padding:11px 13px; border-radius:2px 9px 9px 9px; background:#fff; font-size:12px; color:#1f2937; }
+.comm-bubble > b{ display:block; margin-bottom:5px; font-weight:700; }
+.comm-bubble p{ margin:0 0 9px; line-height:1.6; }
+.comm-bubble p b{ font-weight:700; color:#065f46; }
+.comm-bubble-meta{ display:grid; gap:4px; padding-top:9px; border-top:1px solid #eceff1; font-size:11px; color:#4b5563; }
+.comm-bubble-meta span{ display:flex; align-items:center; gap:6px; }
+.comm-bubble-meta i{ color:#059669; }
+.comm-bubble small{ display:block; margin-top:9px; font-size:10.5px; color:#9ca3af; }
+.comm-bubble time{ display:block; margin-top:5px; font-size:9.5px; text-align:right; color:#9ca3af; }
+
+/* ---- The email render. Its own page, so its own palette. ---- */
+.comm-subject-line{ display:flex; align-items:baseline; gap:8px; margin:0 0 12px; padding:9px 12px; border-radius:9px; background:var(--surface-2); font-size:12.5px; }
+.comm-subject-line span{ flex:0 0 auto; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+.comm-subject-line b{ min-width:0; font-weight:600; color:var(--ink); }
+.comm-mail{ border:1px solid var(--line); border-radius:12px; background:#fff; overflow:hidden; }
+.comm-mail-head{ display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid #eef1f6; }
+.comm-mail-logo{ display:grid; place-items:center; width:34px; height:34px; flex:0 0 auto; border-radius:9px; background:#2563eb; color:#fff; font-size:20px; }
+.comm-mail-head b{ display:block; font-size:14px; font-weight:800; color:#1e293b; }
+.comm-mail-head small{ font-size:10.5px; color:#64748b; }
+.comm-mail-banner{ display:flex; align-items:center; gap:11px; margin:14px 16px 0; padding:14px; border-radius:10px; background:#eff6ff; }
+.comm-mail-banner-icon{ display:grid; place-items:center; width:38px; height:38px; flex:0 0 auto; border-radius:10px; background:#dbeafe; color:#1d4ed8; font-size:21px; }
+.comm-mail-banner b{ font-size:14px; font-weight:800; color:#1e3a8a; }
+.comm-mail-body{ padding:14px 16px 16px; font-size:12.5px; color:#334155; }
+.comm-mail-body > p{ margin:0 0 9px; line-height:1.6; }
+.comm-mail-body > p b{ font-weight:700; color:#1e293b; }
+.comm-mail-grid{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1px; margin:13px 0; border:1px solid #eef1f6; border-radius:10px; background:#eef1f6; overflow:hidden; }
+.comm-mail-grid > div{ padding:11px 12px; background:#fff; }
+.comm-mail-grid i{ font-size:15px; color:#64748b; }
+.comm-mail-grid span{ display:block; margin-top:3px; font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.3px; color:#94a3b8; }
+.comm-mail-grid b{ display:block; margin-top:2px; font-size:12px; font-weight:700; color:#1e293b; }
+.comm-mail-grid small{ display:block; font-size:10.5px; color:#94a3b8; }
+.comm-mail-cta{ display:block; padding:11px; border-radius:9px; background:#2563eb; font-size:12.5px; font-weight:700; color:#fff; text-align:center; }
+.comm-mail-foot{ margin:13px 0 0; font-size:11px; line-height:1.6; text-align:center; color:#94a3b8; }
+
+/* ---- Automation ---- */
+.comm-rules{ display:grid; gap:2px; margin:0; padding:0; list-style:none; }
+.comm-rules li{ display:flex; align-items:center; gap:12px; padding:11px 0; }
+.comm-rules li + li{ border-top:1px solid var(--line); }
+.comm-rules > li > i{ display:grid; place-items:center; width:34px; height:34px; flex:0 0 auto; border-radius:10px; background:rgba(var(--brand), .09); color:rgb(var(--brand)); font-size:17px; }
+.comm-rule-text{ flex:1; min-width:0; }
+.comm-rule-text b{ display:block; font-size:12.5px; font-weight:600; color:var(--ink); }
+.comm-rule-text small{ display:block; margin-top:2px; font-size:11.5px; line-height:1.5; color:var(--muted); }
+
+/* ---- Compliance ---- */
+.comm-note{ display:flex; gap:12px; margin-top:16px; padding:15px 17px; border:1px solid rgba(245,158,11,.3); border-radius:12px; background:rgba(245,158,11,.07); }
+.comm-note > i{ flex:0 0 auto; margin-top:1px; font-size:20px; color:#b45309; }
+.comm-note b{ display:block; margin-bottom:7px; font-size:12.5px; font-weight:700; color:#92400e; }
+.comm-note ul{ margin:0 0 9px; padding-left:17px; }
+.comm-note li{ margin:3px 0; font-size:12px; line-height:1.55; color:var(--ink-2); }
+
+@media (max-width:1599.98px){
+    .comm-connection{ grid-template-columns:minmax(0, 1fr) auto; }
+    .comm-facts{ grid-column:1 / -1; padding-top:15px; border-top:1px solid var(--line); }
+    .comm-facts ul{ grid-template-columns:repeat(2, minmax(0, 1fr)); display:grid; gap:9px 20px; }
+}
+
+@media (max-width:1399.98px){
+    .comm-tiles .stat-tiles{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width:767.98px){
+    .comm-connection{ grid-template-columns:minmax(0, 1fr); }
+    .comm-connection-actions{ flex-direction:row; }
+    .comm-connection-actions .btn{ flex:1; }
+    .comm-facts ul{ grid-template-columns:minmax(0, 1fr); }
+    .comm-tiles .stat-tiles{ grid-template-columns:minmax(0, 1fr); }
+    .comm-templates{ grid-template-columns:minmax(0, 1fr); }
+    .comm-head-actions{ width:100%; }
+    .comm-search,
+    .comm-search .form-control,
+    .comm-select{ width:100%; }
+    .comm-mail-grid{ grid-template-columns:minmax(0, 1fr); }
+}
+
+/* --- end communication ------------------------------------------ */
+
+
+/* --- communication, layout corrections --------------------------
+ *
+ * What the first pass got wrong, once there was real data in it.
+ */
+
+/* Nothing is wrong with a channel that is simply not set up yet, so
+   the off state is grey rather than red. */
+.comm-pill.is-muted{ background:var(--surface-3); color:var(--muted); }
+
+/*
+   Card headers: the action never wraps.
+
+   .card-header is a flex row with space-between and no shrink control,
+   so a long title and description squeezed "Manage rules" onto two
+   lines. The actions are a fixed-size end cap; the heading takes what
+   is left.
+*/
+.comm-card > .card-header{ align-items:center; }
+.comm-card > .card-header > .card-heading{ min-width:0; }
+.comm-card > .card-header > :last-child:not(.card-heading){ flex:0 0 auto; }
+.comm-card .card-header .btn{ white-space:nowrap; }
+.comm-card .card-description{ margin-bottom:0; }
+
+/*
+   The message preview column.
+
+   The clamp belongs on a span inside the cell, NEVER on the cell. A
+   <td> told to be a -webkit-box stops behaving as a table cell: the
+   column loses its width, and a third line leaks out below the
+   ellipsis instead of being clipped.
+*/
+.comm-preview-cell{ max-width:300px; }
+.comm-preview{
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+    font-size:11.5px;
+    line-height:1.55;
+    color:var(--ink-3);
+}
+
+/* Rows were tall enough to fit six templates on a screen and no more. */
+.comm-table td{ padding-top:9px; padding-bottom:9px; }
+.comm-table th{ padding-top:9px; padding-bottom:9px; }
+
+/* Use + kebab read as one control rather than a button beside a box. */
+.comm-row-actions{ gap:4px; }
+.comm-row-actions .btn{ padding:3px 12px; font-size:11.5px; }
+.comm-more{ width:26px; height:26px; border:1px solid var(--line); font-size:15px; }
+
+/*
+   The delivery log.
+
+   Patient and status are narrow and fixed; the message type takes the
+   slack. Left to itself the table spread four short columns across the
+   full width and read as mostly gaps.
+*/
+.comm-log-name{ width:22%; }
+.comm-log-status{ width:1%; white-space:nowrap; }
+.comm-log-when{ width:1%; white-space:nowrap; color:var(--ink-3); }
+.comm-log-type{ color:var(--ink-3); }
+
+/* Automation rows: four things per row, so they are tighter and wrap
+   as a block rather than shunting the switch off the end. */
+.comm-rules li{ padding:10px 0; gap:10px; flex-wrap:wrap; }
+.comm-rules .comm-rule-text{ flex:1 1 200px; }
+.comm-rule-text small{ margin-top:1px; }
+.comm-rule-meta{ display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:6px; }
+.comm-rule-meta .comm-tag{ display:inline-flex; align-items:center; gap:4px; }
+.comm-rule-meta .comm-tag i{ font-size:12px; }
+
+/*
+   The phone mock.
+
+   It sits in a tall panel beside a long table, so it fills the width it
+   is given and the bubble carries the message at a readable size — the
+   first pass left a postage stamp in an empty card.
+*/
+.comm-phone{ padding:12px; }
+.comm-phone-bar{ padding:10px 12px; }
+.comm-phone-avatar{ width:34px; height:34px; font-size:18px; }
+.comm-phone-bar b{ font-size:13px; }
+.comm-bubble{ padding:13px 15px; font-size:12.5px; }
+.comm-bubble p{ margin:0; }
+.comm-bubble time{ margin-top:7px; }
+
+/* What is being previewed, under it — the card is otherwise mostly air. */
+.comm-preview-meta{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+
+@media (max-width:1399.98px){
+    .comm-preview-cell{ max-width:220px; }
+}
+
+@media (max-width:575.98px){
+    .comm-preview-cell{ max-width:150px; }
+    .comm-log-name{ width:auto; }
+}
+
+/* --- end communication corrections ------------------------------ */
+
+
+
+/* --- communication: the two fixed-height panels -----------------
+ *
+ * Automation rules and the delivery log sit side by side and both
+ * grow without limit — one gains a row when a clinic adds a rule, the
+ * other on every send. Left alone the taller one set the height of the
+ * row and the other trailed off half empty.
+ *
+ * So both get the SAME height, declared once. The pair has to stay in
+ * step: two panels beside each other ending at different points is the
+ * thing this is fixing, and splitting the value across two rules is how
+ * that comes back the next time one is touched.
+ *
+ * Each keeps its header — the log's "View all", the rules' "Manage
+ * rules" — and scrolls only what is under it.
+ */
+.comm-log-card,
+.comm-rules-card{
+    height:440px;
+    display:flex;
+    flex-direction:column;
+}
+
+.comm-log-card > .card-header,
+.comm-rules-card > .card-header{ flex:0 0 auto; }
+
+/*
+   min-height:0 is doing real work. A flex child will not shrink below
+   its content by default, so without it the body grows to fit every
+   row and the height above is quietly ignored.
+*/
+.comm-log-card > .card-body,
+.comm-rules-card > .card-body{
+    flex:1 1 auto;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+}
+
+/*
+   What actually scrolls.
+
+   In the log it is the table's own bordered frame, so the scrollbar
+   sits inside the rounded border. In the rules it is the list itself,
+   which has no frame — so it gets a little room on the right instead,
+   or the bar overlaps the Edit buttons.
+*/
+.comm-log-scroll,
+.comm-rules-card .comm-rules{
+    flex:1 1 auto;
+    min-height:0;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+}
+
+.comm-rules-card .comm-rules{ padding-right:6px; }
+
+/*
+   The log's header stays while the body moves.
+
+   The opaque fill is not optional — it is what stops rows showing
+   through as they pass underneath — and the bottom hairline has to be
+   an inset shadow, because a sticky element's own border scrolls away
+   with the table it belongs to.
+*/
+.comm-log-scroll .pf-table thead th{
+    position:sticky;
+    top:0;
+    z-index:1;
+    background:var(--surface-2);
+    box-shadow:inset 0 -1px 0 var(--line);
+}
+
+/* .pf-table drops the last row's hairline, which is right at the end
+   of a list and wrong at the end of a scroll — here there is more
+   underneath. */
+.comm-log-scroll .pf-table tr:last-child td{ border-bottom:1px solid var(--line); }
+
+/* An empty panel should not leave a 440px hole with the words at the top. */
+.comm-log-card .pd-quiet,
+.comm-rules-card .pd-quiet{ margin:auto 0; }
+
+/* Slim scrollbars, so neither panel gains a grey gutter. */
+.comm-log-scroll,
+.comm-rules-card .comm-rules{ scrollbar-width:thin; scrollbar-color:var(--line-2) transparent; }
+
+.comm-log-scroll::-webkit-scrollbar,
+.comm-rules-card .comm-rules::-webkit-scrollbar{ width:8px; }
+
+.comm-log-scroll::-webkit-scrollbar-track,
+.comm-rules-card .comm-rules::-webkit-scrollbar-track{ background:transparent; }
+
+.comm-log-scroll::-webkit-scrollbar-thumb,
+.comm-rules-card .comm-rules::-webkit-scrollbar-thumb{
+    border:2px solid transparent;
+    border-radius:8px;
+    background:var(--line-2);
+    background-clip:content-box;
+}
+
+.comm-log-scroll::-webkit-scrollbar-thumb:hover,
+.comm-rules-card .comm-rules::-webkit-scrollbar-thumb:hover{
+    background:var(--muted);
+    background-clip:content-box;
+}
+
+@media (max-width:1399.98px){
+    /* Stacked, neither card has a neighbour left to match, and a short
+       window inside a short screen is two scrollbars to fight. */
+    .comm-log-card,
+    .comm-rules-card{ height:auto; }
+
+    .comm-log-scroll,
+    .comm-rules-card .comm-rules{ max-height:400px; }
+}
+
+/* --- end fixed-height panels ------------------------------------ */
+
+/* --- communication: the dialogs ---------------------------------
+ *
+ * Two of them, and both earn their width.
+ */
+
+/*
+   The template form: fields beside a live preview.
+
+   A template is mostly placeholders, and "Hi {{patient_name}}, your
+   appointment with {{doctor_name}}" cannot be read as a sentence. The
+   only way to tell whether the wording scans is to see it filled in,
+   so the preview is not an extra — it is half the dialog.
+*/
+.comm-form{ display:grid; grid-template-columns:minmax(0, 1.25fr) minmax(0, 1fr); gap:22px; align-items:start; }
+.comm-form-fields{ min-width:0; }
+.comm-form-row{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 14px; }
+
+.comm-form-preview{
+    position:sticky;
+    top:0;
+    min-width:0;
+    padding:16px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface-2);
+}
+.comm-form-preview .comm-phone{ margin-bottom:0; }
+.comm-form-preview .pf-soon{ margin-bottom:0; }
+.comm-bubble-empty{ color:#9ca3af; font-style:italic; }
+
+/*
+   The placeholder chips.
+
+   Small, quiet and immediately under the box they write into — they
+   are a shortcut for something that can always be typed, so they must
+   not compete with the message itself.
+*/
+.comm-tokens{ display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:8px; }
+.comm-tokens-label{ margin-right:2px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+.comm-token{
+    padding:3px 9px;
+    border:1px dashed var(--line-2);
+    border-radius:7px;
+    background:var(--surface-2);
+    font-size:11px;
+    font-weight:600;
+    color:var(--ink-3);
+    transition:background .16s ease, color .16s ease, border-color .16s ease;
+}
+.comm-token:hover{ border-style:solid; border-color:rgb(var(--brand)); background:rgba(var(--brand), .07); color:rgb(var(--brand)); }
+
+/* Icon and colour pickers. */
+.comm-picker{ display:flex; flex-wrap:wrap; gap:6px; }
+.comm-picker .comm-glyph{ width:32px; height:32px; font-size:16px; border:1px solid transparent; }
+.comm-picker .comm-glyph.is-active{ border-color:rgb(var(--brand)); box-shadow:0 0 0 2px rgba(var(--brand), .18); }
+.comm-swatch{ width:26px; height:26px; border:1px solid transparent; border-radius:50%; }
+.comm-swatch.is-active{ box-shadow:0 0 0 2px var(--surface), 0 0 0 4px rgba(var(--brand), .35); }
+.comm-swatch.is-sky{ background:#3b82f6; }
+.comm-swatch.is-violet{ background:#8b5cf6; }
+.comm-swatch.is-emerald{ background:#10b981; }
+.comm-swatch.is-rose{ background:#f43f5e; }
+.comm-swatch.is-amber{ background:#f59e0b; }
+.comm-swatch.is-teal{ background:#14b8a6; }
+
+/*
+   The test dialog: from, then to.
+
+   That is the order somebody checks when a test does not arrive, and
+   the "from" is the half people forget they never finished setting up.
+*/
+.comm-test{ display:grid; gap:16px; }
+.comm-test-route{
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items:center;
+    gap:12px;
+    padding:14px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface-2);
+}
+.comm-test-end{ display:flex; align-items:center; gap:10px; min-width:0; }
+.comm-test-end .comm-mark{ width:40px; height:40px; border-radius:12px; font-size:20px; flex:0 0 auto; }
+.comm-test-end .comm-mark.is-muted{ background:var(--surface-3); color:var(--muted); }
+.comm-test-end small{ display:block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+.comm-test-end b{ display:block; font-size:12.5px; font-weight:700; color:var(--ink); word-break:break-word; }
+.comm-test-end span{ display:block; font-size:11px; color:var(--ink-3); word-break:break-word; }
+.comm-test-arrow{ font-size:18px; color:var(--muted); }
+
+.comm-test-result{ display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border-radius:10px; font-size:12px; }
+.comm-test-result i{ flex:0 0 auto; font-size:17px; margin-top:1px; }
+.comm-test-result b{ display:block; font-weight:700; }
+.comm-test-result span{ display:block; margin-top:2px; line-height:1.5; }
+.comm-test-result.is-ok{ background:rgba(16,185,129,.1); color:#047857; }
+.comm-test-result.is-fail{ background:rgba(244,63,94,.09); color:#be123c; }
+
+@media (max-width:991.98px){
+    .comm-form{ grid-template-columns:minmax(0, 1fr); }
+    .comm-form-preview{ position:static; }
+}
+
+@media (max-width:575.98px){
+    .comm-form-row{ grid-template-columns:minmax(0, 1fr); }
+    .comm-test-route{ grid-template-columns:minmax(0, 1fr); }
+    .comm-test-arrow{ transform:rotate(90deg); justify-self:center; }
+}
+
+/* --- end dialogs ------------------------------------------------ */
+
+/* --- communication: chips, timeline, trigger --------------------- */
+
+/* The test dialog's address box: chips and an input as one control. */
+.comm-chips{
+    display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+    min-height:42px; padding:7px 10px;
+    border:1px solid var(--line-2); border-radius:9px;
+    background:var(--surface); cursor:text;
+}
+.comm-chips:focus-within{ border-color:rgb(var(--brand)); box-shadow:0 0 0 3px rgba(var(--brand), .12); }
+.comm-chips.is-disabled{ background:var(--surface-2); cursor:default; }
+.comm-chips input{
+    flex:1 1 140px; min-width:120px;
+    border:0; outline:0; background:transparent;
+    font-size:13px; color:var(--ink);
+}
+.comm-chip{
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 5px 3px 10px; border-radius:999px;
+    background:var(--surface-3);
+    font-size:12px; font-weight:600; color:var(--ink-2);
+}
+.comm-chip button{
+    display:grid; place-items:center; width:17px; height:17px;
+    border-radius:50%; background:transparent;
+    font-size:12px; color:var(--muted);
+}
+.comm-chip button:hover{ background:rgba(244,63,94,.14); color:#be123c; }
+.comm-test-count{ float:right; font-size:11px; font-weight:600; color:var(--muted); }
+
+/*
+   How far a message got.
+
+   A step with no timestamp is drawn as not reached rather than hidden: the
+   gap is the information — sent but never delivered is a different failure
+   from never having left.
+*/
+.comm-timeline{ display:grid; gap:0; margin:0; padding:0; list-style:none; }
+.comm-timeline li{ position:relative; display:flex; gap:11px; padding:0 0 16px 0; }
+.comm-timeline li:last-child{ padding-bottom:0; }
+/* The rail joins one step to the next, so it stops at the last. */
+.comm-timeline li:not(:last-child)::before{
+    content:''; position:absolute; left:9px; top:20px; bottom:2px;
+    width:2px; background:var(--line);
+}
+.comm-timeline li.is-done:not(:last-child)::before{ background:rgba(16,185,129,.35); }
+.comm-timeline > li > i{ position:relative; z-index:1; font-size:19px; color:var(--line-2); background:var(--surface); }
+.comm-timeline li.is-done > i{ color:#10b981; }
+.comm-timeline b{ display:block; font-size:12.5px; font-weight:600; color:var(--muted); }
+.comm-timeline li.is-done b{ color:var(--ink); }
+.comm-timeline small{ display:block; margin-top:1px; font-size:11.5px; color:var(--muted); }
+
+.comm-detail{ display:grid; gap:18px; }
+.comm-detail-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.comm-detail-head small{ display:block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+.comm-detail-head b{ display:block; margin-top:2px; font-size:14px; font-weight:700; color:var(--ink); }
+.comm-detail-head span{ display:block; font-size:12px; color:var(--ink-3); }
+
+/* The event a rule reacts to: stated, not offered. */
+.comm-trigger{
+    display:flex; gap:11px; margin-bottom:18px; padding:13px 14px;
+    border:1px solid var(--line); border-radius:11px; background:var(--surface-2);
+}
+.comm-trigger > i{ flex:0 0 auto; margin-top:1px; font-size:19px; color:rgb(var(--brand)); }
+.comm-trigger small{ display:block; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+.comm-trigger b{ display:block; margin:2px 0; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12.5px; color:var(--ink); }
+.comm-trigger span{ display:block; font-size:11.5px; line-height:1.5; color:var(--ink-3); }
+
+/* Setup switches, grouped so they read as one decision and its consequences. */
+.comm-switches{ padding:13px 14px; border:1px solid var(--line); border-radius:11px; background:var(--surface-2); }
+.comm-switches .form-check{ margin-bottom:10px; }
+.comm-switches > div:last-child .form-check{ margin-bottom:0; }
+
+/* --- end chips, timeline, trigger -------------------------------- */
+
+/* --- communication: dialog polish -------------------------------
+ *
+ * The two dialogs, tightened once there was real content in them.
+ */
+
+/*
+   The form and its preview end level.
+
+   The form ran a head taller than the preview beside it, which left a
+   column of white down the right of a very tall dialog. The preview
+   now sticks to the top of the scroll and fills the width it is in.
+*/
+.comm-form{ align-items:stretch; }
+.comm-form-preview{
+    position:sticky;
+    top:0;
+    align-self:start;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+.comm-form-preview .comm-subhead{ margin-bottom:0; }
+.comm-form-preview .comm-phone{ margin:0; }
+.comm-form-preview .pf-soon{ margin:0; }
+
+/* Room to type without the box owning the dialog. */
+.comm-form-fields textarea.form-control{ min-height:110px; resize:vertical; }
+
+/* The limit, on the label, going amber before it is a problem. */
+.comm-count-hint{ float:right; font-size:11px; font-weight:600; color:var(--muted); font-variant-numeric:tabular-nums; }
+.comm-count-hint.is-near{ color:#b45309; }
+
+/*
+   Icon and colour as one block.
+
+   Split across a two-column row the twelve icons wrapped 7-then-5
+   while six swatches sat in acres of space. Together they are one
+   decision — how the row looks in the library — and the header shows
+   the answer rather than making somebody imagine it.
+*/
+.comm-appearance{
+    margin-bottom:16px;
+    border:1px solid var(--line);
+    border-radius:11px;
+    background:var(--surface-2);
+    overflow:hidden;
+}
+.comm-appearance-head{
+    display:flex; align-items:center; gap:11px;
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+    background:var(--surface);
+}
+.comm-appearance-head b{ display:block; font-size:12.5px; font-weight:700; color:var(--ink); }
+.comm-appearance-head small{ display:block; font-size:11.5px; color:var(--muted); }
+.comm-appearance-pickers{
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) auto;
+    gap:16px;
+    padding:14px;
+    align-items:start;
+}
+.comm-appearance-pickers .form-label{ margin-bottom:7px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+
+/* A fixed grid, so twelve icons are two tidy rows of six. */
+.comm-picker.is-icons{ display:grid; grid-template-columns:repeat(6, 34px); gap:7px; }
+.comm-picker.is-icons .comm-glyph{ width:34px; height:34px; }
+
+/* Six swatches in two rows of three, so the block stays square beside
+   the icons rather than stretching into a long line. */
+.comm-picker:not(.is-icons){ display:grid; grid-template-columns:repeat(3, 28px); gap:8px; }
+.comm-swatch{ width:28px; height:28px; }
+
+/* The test dialog: what the person on the other end is about to get. */
+.comm-test-body{ padding:13px 14px; border:1px solid var(--line); border-radius:11px; background:var(--surface-2); }
+.comm-test-body .comm-subhead{ display:block; margin-bottom:5px; }
+.comm-test-body p{ margin:0; font-size:12px; line-height:1.6; color:var(--ink-3); }
+
+/* Both dialogs breathe a little more between blocks. */
+.comm-test{ gap:14px; }
+
+@media (max-width:991.98px){
+    .comm-appearance-pickers{ grid-template-columns:minmax(0, 1fr); }
+    .comm-picker:not(.is-icons){ grid-template-columns:repeat(6, 28px); }
+}
+
+/* --- end dialog polish ------------------------------------------ */
+
+/* --- communication: the test dialog, two columns -----------------
+ *
+ * What leaves and where it goes on the left, what lands on the right.
+ * The dialog used to describe the message in a sentence; showing it is
+ * the whole point of a test, so it gets half the width.
+ */
+.comm-test{
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) minmax(0, 0.9fr);
+    gap:20px;
+    align-items:start;
+}
+.comm-test-form{ display:grid; gap:16px; min-width:0; }
+.comm-test-preview{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    min-width:0;
+    padding:16px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface-2);
+}
+.comm-test-preview .comm-subhead{ margin-bottom:0; }
+.comm-test-preview .comm-phone{ margin:0; }
+.comm-test-preview .pf-soon{ margin:0; }
+
+/* The route panel sits on the form side now, so it loses its own fill
+   and keeps only its frame — two nested grey boxes read as a mistake. */
+.comm-test-form .comm-test-route{ background:var(--surface); }
+
+@media (max-width:767.98px){
+    .comm-test{ grid-template-columns:minmax(0, 1fr); }
+}
+
+/* --- end test dialog -------------------------------------------- */
+
+/* --- communication: field and chip corrections -------------------
+ *
+ * Three things the screenshot caught.
+ */
+
+/*
+   1. "Phone number1/10".
+
+   .form-label is inline-block, so it is only as wide as its text and a
+   float:right inside it lands immediately after the words rather than
+   at the end of the row. A flex row with space-between is what was
+   meant; the float was never going to work.
+*/
+.comm-field-label{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:12px;
+    width:100%;
+}
+.comm-field-label .comm-test-count,
+.comm-field-label .comm-count-hint{ float:none; flex:0 0 auto; }
+
+/*
+   2. The chip's remove button drew a ring.
+
+   A bare <button> keeps the user-agent border, and with border-radius
+   50% that is a circle around the cross. Nothing reset it, because the
+   rule set background and radius but never the border.
+*/
+.comm-chip button{
+    border:0;
+    padding:0;
+    line-height:1;
+    flex:0 0 auto;
+}
+.comm-chip button i{ font-size:13px; line-height:1; }
+
+/*
+   3. The "to" mark was a grey box beside a green one.
+
+   Both ends of the route are the same kind of thing — an identity — so
+   the recipient gets the brand tint rather than reading as disabled.
+*/
+.comm-test-end .comm-mark.is-muted{
+    background:rgba(var(--brand), .09);
+    color:rgb(var(--brand));
+}
+
+/* A little more air between the stacked fields. */
+.comm-test-form{ gap:18px; }
+.comm-test-form .form-label{ margin-bottom:6px; }
+
+/* --- end field and chip corrections ------------------------------ */
+
+/* --- communication: route ends line up --------------------------
+ *
+ * Each end was centred against its OWN text, and the two sides do not
+ * hold the same number of lines — a display name that wraps makes the
+ * left column taller — so the icons sat at different heights and the
+ * arrow pointed at neither.
+ *
+ * Stretching both cells to the row height first means centring inside
+ * them puts the marks on one line, whatever the text does.
+ */
+.comm-test-route{ align-items:stretch; }
+.comm-test-end{ align-items:center; }
+.comm-test-arrow{ align-self:center; }
+
+/* Both marks are the same object and must not differ by a pixel. */
+.comm-test-end .comm-mark{
+    width:44px;
+    height:44px;
+    border-radius:13px;
+    font-size:21px;
+}
+
+/* A long display name wraps rather than pushing the mark off centre. */
+.comm-test-end > div{ min-width:0; }
+
+/* --- end route alignment ---------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   Communication — the sending provider
+
+   The test button sits with its own explanation rather than under the save
+   row: it asks about credentials ALREADY stored, so pairing it with Save
+   would read as "save and test", which is not what it does.
+--------------------------------------------------------------------------- */
+
+.comm-provider-test {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface-2);
+}
+
+.comm-provider-test__note {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+.comm-provider-result {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.comm-provider-result i {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    font-size: 16px;
+}
+
+.comm-provider-result.is-ok {
+    color: #0f7a4d;
+    background: #e8f7f0;
+    border: 1px solid #b7e4cd;
+}
+
+.comm-provider-result.is-bad {
+    color: #a3341f;
+    background: #fdecea;
+    border: 1px solid #f5c6be;
+}
+
+.comm-spin {
+    animation: comm-spin 0.9s linear infinite;
+}
+
+@keyframes comm-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Communication — campaigns, the wizard and the audience builder
+
+   The audience count is deliberately the loudest thing in the builder: a
+   campaign is the one action here that cannot be taken back, and how many
+   people it reaches is the fact somebody must not be able to miss.
+--------------------------------------------------------------------------- */
+
+.comm-settings-copy {
+    margin: 0 0 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--muted);
+}
+
+/* -- the audience builder ------------------------------------------------- */
+
+.comm-audience {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.comm-segment-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.comm-segment {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    text-align: left;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: transparent;
+}
+
+.comm-segment.is-active {
+    border-color: rgb(var(--brand));
+    box-shadow: 0 0 0 1px rgb(var(--brand)) inset;
+}
+
+.comm-segment-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.comm-segment-body b {
+    font-size: 13px;
+}
+
+.comm-segment-body small {
+    font-size: 11.5px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.comm-segment-count {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.comm-audience-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.comm-filter-row {
+    display: grid;
+    grid-template-columns: 150px 150px minmax(0, 1fr) 36px;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.comm-filter-value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.comm-filter-and,
+.comm-filter-unit {
+    flex: 0 0 auto;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+.comm-filter-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+}
+
+.comm-filter-remove:hover {
+    background: #fdecea;
+    color: #a3341f;
+}
+
+/* The number this whole screen exists to show. */
+.comm-audience-count {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+    border: 1px solid #b7e4cd;
+    border-radius: 12px;
+    background: #e8f7f0;
+    color: #0f7a4d;
+}
+
+.comm-audience-count i {
+    font-size: 24px;
+}
+
+.comm-audience-count b {
+    display: block;
+    font-size: 16px;
+}
+
+.comm-audience-count small {
+    font-size: 12px;
+    opacity: 0.85;
+}
+
+/* Nobody matching is not a success, and must not be green. */
+.comm-audience-count.is-empty {
+    border-color: #f3d9a4;
+    background: #fdf6e7;
+    color: #8a5a00;
+}
+
+/* -- the review step ------------------------------------------------------ */
+
+.comm-row-sub {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 260px;
+}
+
+@media (max-width: 991.98px) {
+    .comm-wizard-split {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .comm-filter-row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .comm-filter-remove {
+        justify-self: end;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   The campaign wizard, on its own page
+
+   A RAIL DOWN THE SIDE, not a row of pills across the top. Five steps laid
+   across a wide page put every label a screen away from the fields it
+   describes, and left the content column three fields tall in an empty box.
+
+   The step marks are numbered circles with an explicit width AND height: a
+   flex child with only a basis stretches, and `border-radius: 50%` on a
+   stretched box is an ellipse, which is exactly what went wrong.
+--------------------------------------------------------------------------- */
+
+.cw {
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+/* -- the step rail -------------------------------------------------------- */
+
+.cw-rail {
+    position: sticky;
+    top: 84px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+}
+
+.cw-rail ol {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: none;
+}
+
+.cw-step > button {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    padding: 10px 11px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    text-align: left;
+    color: var(--muted);
+    transition: background 0.16s ease, color 0.16s ease;
+}
+
+.cw-step > button:disabled {
+    cursor: default;
+    opacity: 0.55;
+}
+
+.cw-step > button:not(:disabled):hover {
+    background: var(--surface-2);
+}
+
+/* Explicit box, so the circle is a circle at every label length. */
+.cw-step-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--muted);
+}
+
+.cw-step-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.3;
+}
+
+.cw-step-text b {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.cw-step-text small {
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+.cw-step.is-active > button {
+    background: rgba(var(--brand), 0.08);
+    color: rgb(var(--brand));
+}
+
+.cw-step.is-active .cw-step-mark {
+    border-color: transparent;
+    background: rgb(var(--brand));
+    color: #fff;
+}
+
+.cw-step.is-done > button {
+    color: var(--ink-2);
+}
+
+.cw-step.is-done .cw-step-mark {
+    border-color: transparent;
+    background: #10b981;
+    color: #fff;
+}
+
+/* -- the content column --------------------------------------------------- */
+
+.cw-main {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+/* Tall enough that Next does not jump up the page between steps, and no
+   taller — the old 320px box left an acre of nothing under three fields. */
+.cw-card {
+    min-height: 420px;
+}
+
+.cw-fields {
+    display: grid;
+    gap: 18px;
+    max-width: 520px;
+}
+
+.cw-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+    gap: 24px;
+    align-items: start;
+}
+
+.cw-split .cw-fields {
+    max-width: none;
+}
+
+.cw-field .form-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+.cw-preview {
+    position: sticky;
+    top: 84px;
+}
+
+.cw-preview .comm-subhead {
+    display: block;
+    margin-bottom: 10px;
+}
+
+/* -- the footer ----------------------------------------------------------- */
+
+.cw-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.cw-progress {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+/* -- the review ----------------------------------------------------------- */
+
+.cw-review {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.cw-review-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin: 0;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-2);
+}
+
+.cw-review-list dt {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+
+.cw-review-list dd {
+    margin: 3px 0 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 1199.98px) {
+    .cw {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* Horizontal once it is above the content rather than beside it. */
+    .cw-rail {
+        position: static;
+    }
+
+    .cw-rail ol {
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        gap: 4px;
+    }
+
+    .cw-step-text small {
+        display: none;
+    }
+
+    .cw-split {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .cw-preview {
+        position: static;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .cw-rail ol {
+        grid-auto-flow: row;
+    }
+
+    .cw-step-text small {
+        display: block;
+    }
+
+    .cw-foot {
+        flex-wrap: wrap;
+    }
+
+    .cw-progress {
+        order: -1;
+        width: 100%;
+        text-align: center;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Platform — messaging settings
+
+   Form beside an explanation rather than under one: what a credential does to
+   every clinic on the platform is the context somebody needs while typing it,
+   not after they have saved.
+--------------------------------------------------------------------------- */
+
+.ms-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+    gap: 20px;
+    align-items: start;
+    margin-top: 16px;
+}
+
+.ms-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0 18px;
+}
+
+.ms-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-top: 14px;
+    margin-top: 6px;
+    border-top: 1px solid var(--line);
+}
+
+.ms-note {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.ms-aside {
+    background: var(--surface-2);
+}
+
+.ms-aside-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    font-size: 13.5px;
+}
+
+.ms-aside p {
+    margin: 0 0 12px;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--muted);
+}
+
+.ms-aside code {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--surface-3);
+    font-size: 11.5px;
+}
+
+.ms-verified {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 !important;
+    color: #0f7a4d !important;
+}
+
+@media (max-width: 1199.98px) {
+    .ms-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Communication — reporting
+
+   Every figure on these panels is a count of rows in the delivery log. Where
+   something is not measured it reads "—" rather than 0: a clinic seeing 0%
+   concludes its messages are being ignored and rewrites templates that were
+   fine.
+--------------------------------------------------------------------------- */
+
+.comm-report-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin: 22px 0 12px;
+}
+
+.comm-report-head h6 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.comm-report-head p {
+    margin: 2px 0 0;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+/* -- the rate strip under the donut --------------------------------------- */
+
+.comm-rates {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 16px 0 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+
+.comm-rates dt {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.comm-rates dd {
+    margin: 3px 0 0;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+/* -- the hour-of-day bars ------------------------------------------------- */
+
+.comm-hours {
+    display: grid;
+    grid-template-columns: repeat(24, minmax(0, 1fr));
+    align-items: end;
+    gap: 5px;
+    height: 170px;
+    padding: 10px 0 2px;
+    /* A floor, so the bars sit ON something rather than floating above the
+       labels with nothing joining them. */
+    border-bottom: 1px solid var(--line);
+    /* Room for the labels, which hang below the floor rather than sitting
+       inside the plot. */
+    margin-bottom: 26px;
+}
+
+.comm-hour {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+    min-width: 0;
+    gap: 7px;
+}
+
+/* The label belongs under the floor, not inside the plot. */
+.comm-hour small {
+    margin-bottom: -20px;
+}
+
+/* A floor of 2px so an empty hour is visibly an empty hour rather than a gap
+   the eye reads as missing data. */
+.comm-hour-bar {
+    display: block;
+    width: 100%;
+    min-height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: rgba(var(--brand), 0.55);
+    transition: background 0.16s ease;
+}
+
+.comm-hour:hover .comm-hour-bar {
+    background: rgb(var(--brand));
+}
+
+.comm-hour small {
+    font-size: 9.5px;
+    line-height: 1;
+    color: var(--muted);
+}
+
+/* Every third label past a phone's width; all 24 would overlap into a smear. */
+@media (max-width: 767.98px) {
+    .comm-hours {
+        gap: 2px;
+        height: 120px;
+    }
+
+    .comm-hour:not(:nth-child(3n + 1)) small {
+        visibility: hidden;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Communication — campaign row actions
+
+   Reuses .comm-more, the icon button the template table already uses, rather
+   than a second one that looks almost the same. Remove is the only destructive
+   one here, so it is the only one that colours on hover — a row of red buttons
+   would make every action read as dangerous.
+--------------------------------------------------------------------------- */
+
+.comm-more.is-danger:hover {
+    background: rgba(220, 38, 38, 0.1);
+    color: #b91c1c;
+}
+
+/* A campaign row carries two lines, so it needs more air than a one-line row. */
+.comm-table td {
+    vertical-align: middle;
+}
+
+.comm-table .comm-row-sub {
+    margin-top: 2px;
+}

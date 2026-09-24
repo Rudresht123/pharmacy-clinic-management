@@ -9,6 +9,7 @@ use App\Models\Tenant\Doctor;
 use App\Services\Opd\BookingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Carbon;
 use RuntimeException;
 
@@ -110,6 +111,40 @@ class PatientAppointments
                 'notes' => $data['notes'] ?? null,
             ])
             ->load(['doctor.photograph', 'location']);
+    }
+
+    /**
+     * Call off one of the patient's own bookings.
+     *
+     * Only while it is still just a booking. Once they have checked in they
+     * are in the desk's queue with a token, and taking themselves out of it
+     * from a phone would leave the desk calling a number nobody answers — so
+     * from there it is the desk's decision, and the sentence says so.
+     *
+     * Somebody else's appointment is not found rather than refused: a patient
+     * has no business learning that an id belongs to anybody.
+     *
+     * @throws ModelNotFoundException when it is not theirs
+     * @throws RuntimeException with a sentence the patient can act on
+     */
+    public function cancel(Customer $patient, int $appointmentId): Appointment
+    {
+        $appointment = $this->of($patient)->whereKey($appointmentId)->firstOrFail();
+
+        if ($appointment->status !== Appointment::STATUS_BOOKED) {
+            throw new RuntimeException(match ($appointment->status) {
+                Appointment::STATUS_CANCELLED => 'This appointment is already cancelled.',
+                Appointment::STATUS_CHECKED_IN,
+                Appointment::STATUS_IN_CONSULTATION => 'You have already checked in. Please speak to the front desk.',
+                default => 'This appointment can no longer be cancelled.',
+            });
+        }
+
+        if ($appointment->appointment_date->lt(today())) {
+            throw new RuntimeException('This appointment has already passed.');
+        }
+
+        return $this->booking->cancel($appointment, 'Cancelled by the patient in the app');
     }
 
     private function of(Customer $patient): Builder
