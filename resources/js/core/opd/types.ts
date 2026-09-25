@@ -165,6 +165,8 @@ export interface OpdToday {
 export interface MyRow {
     id: number;
     token_no: number | null;
+    /** The patient this visit is for — what documents hang off. */
+    customer_id: number;
     customer_name: string | null;
     customer_code: string | null;
     age: number | null;

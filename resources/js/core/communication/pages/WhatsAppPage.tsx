@@ -22,6 +22,7 @@ import { AutomationRuleModal } from '../components/AutomationRuleModal';
 import { ConnectionModal } from '../components/ConnectionModal';
 import { ChannelAnalyticsPanel } from '../components/ChannelAnalyticsPanel';
 import { ReasonDialog } from '@/core/medicines/components/ReasonDialog';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import {
     useChannelOverview,
     useRemoveTemplate,
@@ -119,6 +120,19 @@ function tiles(figures: ChannelFigures): StatTile[] {
 export default function WhatsAppPage() {
     const [searchParams, setSearchParams] = useSearchParams();
 
+    /*
+     * Reading this screen is `communication.view`, which a receptionist holds.
+     * CHANGING any of it is `communication.manage`, which is organisation-
+     * scoped — a template, a from-address and an automation rule apply to every
+     * patient on the register.
+     *
+     * The API routes are split on exactly that line, so every write affordance
+     * below is passed only when this is true. Not disabled: absent. A button
+     * that can only ever answer 403 teaches people to distrust the screen.
+     */
+    const { can } = useTenantAuth();
+    const manage = can('communication.manage');
+
     const view = (searchParams.get('view') as View | null) ?? 'overview';
 
     const setView = (next: View) =>
@@ -178,14 +192,14 @@ export default function WhatsAppPage() {
             />
 
             <div className="row g-3">
-                <div className="col-12 col-xxl-8">
+                <div className="col-12">
                     <ChannelConnection
                         account={data.account}
                         tone="emerald"
                         mark={<i className="ti ti-brand-whatsapp" />}
                         testLabel="Test message"
-                        onTest={() => setTesting(true)}
-                        onManage={() => setManaging(true)}
+                        onTest={manage ? () => setTesting(true) : undefined}
+                        onManage={manage ? () => setManaging(true) : undefined}
                         facts={[
                             {
                                 icon: 'ti ti-id',
@@ -205,85 +219,131 @@ export default function WhatsAppPage() {
                         ]}
                     />
                 </div>
-
-                <div className="col-12 col-xxl-4">
-                    <SetupProgress steps={data.setup} onFinish={() => setTesting(true)} />
-                </div>
             </div>
 
             <ChannelStats tiles={tiles(data.figures)} />
 
-            {/* The charts behind the tiles, in the same request so the two
-                cannot disagree across a moving window. */}
-            <div className="comm-report-head">
-                <div>
-                    <h6>Reporting</h6>
-                    <p>Counted from the delivery log — nothing here is estimated.</p>
-                </div>
-
-                <select
-                    className="form-select comm-select"
-                    value={days}
-                    aria-label="Reporting period"
-                    onChange={(event) => setDays(Number(event.target.value))}
-                >
-                    <option value={7}>Last 7 days</option>
-                    <option value={30}>Last 30 days</option>
-                    <option value={90}>Last 90 days</option>
-                </select>
+            <div className="comm-tabs">
+                <Tabs tabs={VIEWS} value={view} onChange={setView} label="WhatsApp views" />
             </div>
 
-            <ChannelAnalyticsPanel
-                channel="whatsapp"
-                figures={data.figures}
-                analytics={data.analytics}
-                days={days}
-            />
+            <div className="comm-view">
+                {view === 'overview' && (
+                    <div className="row g-3">
+                        <div className="col-12 col-xxl-8">
+                            <RecentMessages
+                                messages={data.recent}
+                                typeLabel="Message type"
+                                onView={setViewing}
+                            />
+                        </div>
 
-            <div className="row g-3">
-                <div className="col-12 col-xxl-8">
-                    <TemplateTable
-                        templates={data.templates}
-                        categories={CATEGORIES}
-                        selected={selected}
-                        onSelect={setSelected}
-                        onCreate={() => setEditing(false)}
-                        onEdit={setEditing}
-                        onRemove={setRemoving}
-                    />
-                </div>
+                        <div className="col-12 col-xxl-4">
+                            <ChannelBenefits
+                                title="Why use WhatsApp?"
+                                benefits={WHATSAPP_BENEFITS}
+                            />
+                        </div>
+                    </div>
+                )}
 
-                <div className="col-12 col-xxl-4">
-                    <WhatsAppPreview template={selected} onEdit={setEditing} />
-                </div>
-            </div>
+                {view === 'templates' && (
+                    <div className="row g-3">
+                        <div className="col-12 col-xxl-8">
+                            <TemplateTable
+                                templates={data.templates}
+                                categories={CATEGORIES}
+                                selected={selected}
+                                onSelect={setSelected}
+                                onCreate={manage ? () => setEditing(false) : undefined}
+                                onEdit={manage ? setEditing : undefined}
+                                onRemove={manage ? setRemoving : undefined}
+                            />
+                        </div>
 
-            <div className="row g-3 mt-0">
-                <div className="col-12 col-xxl-5">
-                    <AutomationRules
-                        rules={data.rules}
-                        saving={toggleRule.isPending}
-                        onToggle={(rule) =>
-                            toggleRule.mutate({ id: rule.id, enabled: !rule.is_enabled })
-                        }
-                        onEdit={setEditingRule}
-                        description="Automatically send WhatsApp messages based on clinic events"
-                    />
-                </div>
+                        <div className="col-12 col-xxl-4">
+                            <WhatsAppPreview
+                                template={selected}
+                                onEdit={manage ? setEditing : undefined}
+                            />
+                        </div>
+                    </div>
+                )}
 
-                <div className="col-12 col-xxl-7">
-                    <RecentMessages messages={data.recent} typeLabel="Message type" onView={setViewing} />
-                </div>
-            </div>
+                {view === 'automation' && (
+                    <div className="row g-3">
+                        <div className="col-12 col-xxl-5">
+                            <AutomationRules
+                                rules={data.rules}
+                                saving={toggleRule.isPending}
+                                onToggle={
+                                    manage
+                                        ? (rule) =>
+                                              toggleRule.mutate({
+                                                  id: rule.id,
+                                                  enabled: !rule.is_enabled,
+                                              })
+                                        : undefined
+                                }
+                                onEdit={manage ? setEditingRule : undefined}
+                                description="Automatically send WhatsApp messages based on clinic events"
+                            />
+                        </div>
 
-            <div className="row g-3 mt-0">
-                <div className="col-12 col-xxl-8">
-                    <ComplianceNote />
-                </div>
+                        <div className="col-12 col-xxl-7">
+                            <RecentMessages
+                                messages={data.recent}
+                                typeLabel="Message type"
+                                onView={setViewing}
+                            />
+                        </div>
+                    </div>
+                )}
 
-                <div className="col-12 col-xxl-4">
-                    <ChannelBenefits title="Why use WhatsApp?" benefits={WHATSAPP_BENEFITS} />
-                </div>
+                {view === 'analytics' && (
+                    <>
+                        <div className="comm-report-head">
+                            <div>
+                                <h6>Reporting</h6>
+                                <p>Counted from the delivery log — nothing here is estimated.</p>
+                            </div>
+
+                            <select
+                                className="form-select comm-select"
+                                value={days}
+                                aria-label="Reporting period"
+                                onChange={(event) => setDays(Number(event.target.value))}
+                            >
+                                <option value={7}>Last 7 days</option>
+                                <option value={30}>Last 30 days</option>
+                                <option value={90}>Last 90 days</option>
+                            </select>
+                        </div>
+
+                        <ChannelAnalyticsPanel
+                            channel="whatsapp"
+                            figures={data.figures}
+                            analytics={data.analytics}
+                            days={days}
+                        />
+                    </>
+                )}
+
+                {view === 'settings' && (
+                    <div className="row g-3">
+                        <div className="col-12 col-xxl-5">
+                            <SetupProgress
+                                steps={data.setup}
+                                onFinish={manage ? () => setTesting(true) : undefined}
+                                finishLabel="Send a test message"
+                            />
+                        </div>
+
+                        <div className="col-12 col-xxl-7">
+                            <ComplianceNote />
+                        </div>
+                    </div>
+                )}
             </div>
 
             <TestSendModal

@@ -5,6 +5,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Tabs } from '@/shared/components/ui/Tabs';
 import { useServerTable, type TableQueryParams } from '@/shared/hooks/useServerTable';
 import { useEntityLabel } from '@/core/field-settings/api';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { CustomerDashboard } from '../components/CustomerDashboard';
 import { CustomerTable } from '../components/CustomerTable';
 import { useCustomerFields, useCustomerStats } from '../api';
@@ -29,6 +30,7 @@ export type CustomerFilters = Record<string, string>;
  */
 export default function CustomerListPage() {
     const navigate = useNavigate();
+    const { can } = useTenantAuth();
 
     // Pharmacies call them customers, clinics patients — one record either way.
     const label = useEntityLabel('customer');
@@ -103,9 +105,16 @@ export default function CustomerListPage() {
                 tone="sky"
                 crumbs={[{ label: label.plural }]}
                 actions={
-                    <Button icon="ti ti-plus" onClick={() => navigate('/customers/create')}>
-                        Add {label.singular}
-                    </Button>
+                    /*
+                     * Seeing the register and adding to it are two capabilities,
+                     * and /customers/create is guarded by the second. Without
+                     * this the button was a round trip to the refusal screen.
+                     */
+                    can('customers.create') && (
+                        <Button icon="ti ti-plus" onClick={() => navigate('/customers/create')}>
+                            Add {label.singular}
+                        </Button>
+                    )
                 }
             />
 

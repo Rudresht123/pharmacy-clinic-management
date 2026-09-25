@@ -7625,22 +7625,30 @@ html::-webkit-scrollbar-track {
 .cn-none-yet b{ font-size:13.5px; font-weight:600; color:var(--ink-2); }
 .cn-none-yet p{ margin:0; max-width:38ch; font-size:12px; line-height:1.55; color:var(--muted); }
 
-/* --- documents, as a preview -------------------------------- */
+/* --- the patient's documents -------------------------------- */
 
-.cn-preview{
-    display:flex;
-    align-items:flex-start;
-    gap:9px;
-    margin:0 0 12px;
-    padding:10px 12px;
-    border-radius:10px;
-    background:#fdf0e0;
-    font-size:11.5px;
-    line-height:1.5;
-    color:#8a4c08;
+/* Kind first, then the file. What a document IS decides who may read it, so
+   it is not a question that can be asked after the upload. */
+.doc-add{
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) auto;
+    gap:8px;
+    margin-bottom:12px;
 }
 
-.cn-preview i{ flex:0 0 auto; margin-top:1px; font-size:15px; color:#b45309; }
+.doc-add .form-select{ height:38px; font-size:12.5px; }
+
+.doc-empty{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:0;
+    padding:20px 0;
+    font-size:12.5px;
+    color:var(--ink-3);
+}
+
+.doc-empty i{ font-size:17px; color:var(--muted); }
 
 .cn-docs{ margin:0 0 12px; padding:0; list-style:none; display:grid; gap:8px; }
 
@@ -7667,13 +7675,15 @@ html::-webkit-scrollbar-track {
 .cn-doc-kind.is-rose{ background:#fdeaec; color:#c92a3a; }
 .cn-doc-kind.is-blue{ background:#e8f0fe; color:#1d4ed8; }
 .cn-doc-kind.is-amber{ background:#fdf0e0; color:#b45309; }
+.cn-doc-kind.is-emerald{ background:#e8f7f0; color:#0f7a4d; }
+.cn-doc-kind.is-slate{ background:var(--surface-2); color:var(--ink-2); }
 
 .cn-doc-what{ flex:1 1 auto; min-width:0; }
 .cn-doc-what b{ display:block; font-size:12.5px; font-weight:600; color:var(--ink); }
 .cn-doc-what small{ display:block; font-size:11px; color:var(--muted); }
 
-/* Marked on every row, not only at the top — a list of medical documents is
-   exactly what somebody acts on without reading the heading. */
+/* What kind of document it is, on every row — which is also what decides who
+   could see the row at all. */
 .cn-doc-tag{
     flex:0 0 auto;
     padding:2px 8px;
@@ -7700,22 +7710,6 @@ html::-webkit-scrollbar-track {
 }
 
 .cn-doc-acts button:disabled{ opacity:.5; cursor:not-allowed; }
-
-/* Named apart from .cn-drop, which is the trash button on a table row. */
-.cn-attach{
-    display:grid;
-    justify-items:center;
-    gap:5px;
-    padding:20px;
-    border:1px dashed var(--line-2);
-    border-radius:11px;
-    background:var(--surface-2);
-    text-align:center;
-}
-
-.cn-attach i{ font-size:24px; color:var(--ink-3); }
-.cn-attach b{ font-size:12.5px; font-weight:600; color:var(--ink-2); }
-.cn-attach small{ font-size:11.5px; color:var(--muted); }
 
 /* --- what this patient came in for before ------------------- */
 
@@ -15353,31 +15347,9 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 .pos-search .form-control{ height:44px; padding-left:38px; font-size:14px; }
 
 /* What the search found, right under the box it was typed in. */
-.pos-results{ margin-top:8px; overflow:hidden; border:1px solid var(--line); border-radius:10px; }
-.pos-result{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
-    width:100%;
-    padding:9px 12px;
-    border:0;
-    border-bottom:1px solid var(--line);
-    background:var(--surface);
-    text-align:left;
-    cursor:pointer;
-}
 
-.pos-result:last-child{ border-bottom:0; }
-.pos-result:hover:not(:disabled){ background:var(--surface-2); }
-.pos-result:disabled{ opacity:.5; cursor:not-allowed; }
-.pos-result b{ display:block; font-size:13.5px; font-weight:600; color:var(--ink); }
-.pos-result small{ font-size:11.5px; color:var(--muted); }
-.pos-result i{ font-size:16px; color:rgb(var(--brand)); }
-.pos-none{ margin:0; padding:12px; font-size:12.5px; color:var(--muted); }
 
 /* Quantity and discount, sized for a keyboard rather than a mouse. */
-.pos-qty{ width:74px; margin-left:auto; padding:4px 8px; font-size:13px; text-align:right; font-variant-numeric:tabular-nums; }
 
 .pos-totals{ margin:0 0 14px; }
 .pos-totals > div{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:4px 0; }
@@ -17180,4 +17152,752 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 
 .comm-table .comm-row-sub {
     margin-top: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   The counter
+
+   Shelf on the left, bill on the right, nothing between them. A cashier reads
+   this screen the same way all day, so the order is the order of the job:
+   find it, add it, take the money.
+
+   Reuses .pos-search, .pos-totals and .pos-remove, which the counter already
+   had — only what the new layout genuinely needs is new.
+--------------------------------------------------------------------------- */
+
+.pos-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+    gap: 16px;
+    align-items: start;
+}
+
+.pos-panel {
+    margin: 0;
+}
+
+/*
+ * The bill is a till, not a long card.
+ *
+ * It stays put, never grows past the window, scrolls inside itself, and keeps
+ * the total and the button on the floor of it. A "take the money" button below
+ * the fold is one scroll per sale, which on a busy counter is the whole day.
+ */
+.pos-bill {
+    position: sticky;
+    top: 84px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 104px);
+}
+
+.pos-bill-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+.pos-bill-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    /* Room for the scrollbar so it does not sit on the numbers. */
+    padding-right: 2px;
+}
+
+.pos-bill-foot {
+    flex: 0 0 auto;
+    padding-top: 12px;
+    margin-top: 12px;
+    border-top: 1px solid var(--line);
+}
+
+.pos-payable {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.pos-payable span {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.pos-payable b {
+    font-size: 22px;
+    font-weight: 700;
+    color: rgb(var(--brand));
+    font-variant-numeric: tabular-nums;
+}
+
+/* -- category strip -------------------------------------------------------
+   ONE line, whatever the catalogue grows to. Wrapped chips were two rows at
+   seventeen categories and would be five at fifty, pushing the shelf itself
+   below the fold — so the row scrolls sideways instead of growing downwards.
+   The arrows only exist when there is somewhere to go.
+-------------------------------------------------------------------------- */
+
+.pos-cats {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.pos-cats-strip {
+    display: flex;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    /* The row is the control; a bar under it would be a second one. */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.pos-cats-strip::-webkit-scrollbar {
+    display: none;
+}
+
+/* A chip cut in half at the edge is the hint that the row goes on. */
+.pos-cats.is-scrollable .pos-cats-strip {
+    mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
+
+.pos-cat-nav {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 32px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 14px;
+    color: var(--ink-2);
+}
+
+.pos-cat-nav:hover:not(:disabled) {
+    background: var(--surface-2);
+}
+
+.pos-cat-nav:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.pos-chip {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 13px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--ink-2);
+    transition: background .16s ease, color .16s ease, border-color .16s ease;
+}
+
+.pos-chip:hover {
+    background: var(--surface-2);
+}
+
+.pos-chip.is-active {
+    border-color: transparent;
+    background: rgb(var(--brand));
+    color: #fff;
+}
+
+/* -- the shelf ------------------------------------------------------------ */
+
+.pos-products {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.pos-product {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 13px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.pos-product:hover {
+    border-color: rgba(var(--brand), 0.45);
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+}
+
+/* Still listed, because knowing it is out is the answer to the question. */
+.pos-product.is-out {
+    opacity: 0.6;
+}
+
+.pos-product-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.pos-product-body b {
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--ink);
+}
+
+.pos-product-body small {
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+.pos-stock {
+    align-self: flex-start;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #e8f7f0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #0f7a4d;
+}
+
+.pos-stock.is-low {
+    background: #fdf6e7;
+    color: #8a5a00;
+}
+
+.pos-stock.is-out {
+    background: #fdecea;
+    color: #a3341f;
+}
+
+.pos-product-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: auto;
+}
+
+.pos-price {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.pos-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(var(--brand), 0.1);
+    font-size: 12px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+    transition: background .16s ease, color .16s ease;
+}
+
+.pos-add:hover:not(:disabled) {
+    background: rgb(var(--brand));
+    color: #fff;
+}
+
+.pos-add:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.pos-expiry {
+    font-size: 10.5px;
+    color: var(--muted);
+}
+
+/* -- pagination ----------------------------------------------------------- */
+
+.pos-pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.pos-pager-buttons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pos-page {
+    display: grid;
+    place-items: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 12px;
+    color: var(--ink-2);
+}
+
+.pos-page:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.pos-page.is-current {
+    border-color: transparent;
+    background: var(--surface-2);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* -- the bill ------------------------------------------------------------- */
+
+.pos-clear {
+    padding: 4px 11px;
+    border: 0;
+    border-radius: 8px;
+    background: #fdecea;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #a3341f;
+}
+
+.pos-clear:hover {
+    background: #f9d7d2;
+}
+
+.pos-lines {
+    display: flex;
+    flex-direction: column;
+}
+
+.pos-line {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto auto 28px;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.pos-line:last-child {
+    border-bottom: 0;
+}
+
+.pos-line-no {
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.pos-line-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.pos-line-body b {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pos-line-body small {
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.pos-line-warn {
+    color: #a3341f !important;
+}
+
+.pos-line-total {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* -- quantity stepper ----------------------------------------------------- */
+
+.pos-stepper {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.pos-stepper button {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 26px;
+    border: 0;
+    background: var(--surface-2);
+    font-size: 13px;
+    color: var(--ink-2);
+}
+
+.pos-stepper button:hover {
+    background: var(--surface-3);
+}
+
+/* Spinners would put two more controls beside the two already there, in a box
+   34px wide. */
+.pos-stepper input {
+    width: 34px;
+    height: 26px;
+    border: 0;
+    background: transparent;
+    text-align: center;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.pos-stepper input::-webkit-outer-spin-button,
+.pos-stepper input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* -- discount, totals, tax ------------------------------------------------ */
+
+/* One block, not three loose ones stacked down the panel. */
+.pos-money {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+}
+
+.pos-discount {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.pos-discount .form-select,
+.pos-discount .form-control {
+    height: 34px;
+    font-size: 12.5px;
+}
+
+.pos-discount .form-control {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.pos-totals dd.is-minus {
+    color: #0f7a4d;
+}
+
+/* A sentence, not a callout box: it says the same thing every sale. */
+.pos-tax {
+    margin: 8px 0 0;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+/* -- customer ------------------------------------------------------------- */
+
+.pos-bill-top {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 0 0 auto;
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--line);
+}
+
+.pos-walkin {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+}
+
+.pos-walkin .form-control {
+    height: 34px;
+    font-size: 12.5px;
+}
+
+/* -- payment -------------------------------------------------------------- */
+
+/* Three across, so "Bank transfer" reads on one line instead of folding. */
+.pos-methods {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+/* Four notes and the typed amount, on one row. */
+.pos-cash {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) 1.4fr;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.pos-method,
+.pos-note-btn {
+    padding: 7px 4px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--ink-2);
+    transition: background .16s ease, color .16s ease, border-color .16s ease;
+}
+
+.pos-method {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 34px;
+}
+
+.pos-method i {
+    font-size: 14px;
+}
+
+.pos-method:hover,
+.pos-note-btn:hover {
+    background: var(--surface-2);
+}
+
+.pos-method.is-active {
+    border-color: transparent;
+    background: rgb(var(--brand));
+    color: #fff;
+}
+
+.pos-cash .form-control {
+    height: 34px;
+    padding: 0 8px;
+    font-size: 12.5px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.pos-change {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 8px;
+    padding: 7px 11px;
+    border-radius: 8px;
+    background: #e8f7f0;
+    font-size: 12.5px;
+    color: #0f7a4d;
+}
+
+.pos-change b {
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+}
+
+.pos-generate {
+    width: 100%;
+    justify-content: center;
+    height: 46px;
+    font-size: 14px;
+}
+
+/* -- the receipt that comes back ------------------------------------------ */
+
+.pos-receipt {
+    margin-top: 14px;
+    padding: 13px;
+    border: 1px solid #b7e4cd;
+    border-radius: 11px;
+    background: #e8f7f0;
+}
+
+.pos-receipt > b {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 9px;
+    font-size: 13px;
+    color: #0f7a4d;
+}
+
+.pos-receipt dl {
+    margin: 0 0 10px;
+}
+
+.pos-receipt dl > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 3px 0;
+    font-size: 12px;
+}
+
+.pos-receipt dt {
+    color: #0f7a4d;
+    opacity: 0.85;
+}
+
+.pos-receipt dd {
+    margin: 0;
+    font-weight: 600;
+    color: #0f5132;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1199.98px) {
+    .pos-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .pos-bill {
+        position: static;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Who runs a branch
+
+   One fact, on its own panel. Everything a manager may then do is the Branch
+   manager role, edited once on the Roles screen — so there is deliberately
+   nothing to configure here beyond the name.
+--------------------------------------------------------------------------- */
+
+.bm-current {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-2);
+    margin-bottom: 14px;
+}
+
+.bm-avatar {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    border-radius: 11px;
+    background: rgba(var(--brand), 0.12);
+    font-size: 19px;
+    color: rgb(var(--brand));
+}
+
+.bm-who {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.bm-who b {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.bm-who small {
+    display: block;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+/* An unmanaged branch is a real state, not an error — said plainly. */
+.bm-none {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border: 1px dashed var(--line-2);
+    border-radius: 12px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ink-3);
+}
+
+.bm-none i {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    font-size: 17px;
+    color: var(--muted);
+}
+
+.bm-assign {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.bm-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--muted);
+}
+
+.bm-note i {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    font-size: 14px;
+}
+
+.bm-note b {
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+@media (max-width: 575.98px) {
+    .bm-assign {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }

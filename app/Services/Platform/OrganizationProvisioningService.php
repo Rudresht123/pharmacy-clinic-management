@@ -10,6 +10,7 @@ use App\Repositories\Platform\Contracts\TenantProvisionEventRepositoryInterface;
 use App\Services\Notifications\EmailService;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
+use App\Services\Tenant\DefaultRoleSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
@@ -138,6 +139,21 @@ class OrganizationProvisioningService
                 fn () => $this->migrateTenant($organization->database_name),
             );
 
+            /*
+             * The roles a clinic actually staffs, from the modules this
+             * organization was just sold.
+             *
+             * Its own step rather than part of the migration: which roles
+             * apply depends on the master database's entitlements, which a
+             * migration cannot read — the migrator repoints `database.default`
+             * at the tenant while it runs.
+             */
+            $this->runStep(
+                $organization,
+                'seed_default_roles',
+                fn () => $this->seedDefaultRoles($organization),
+            );
+
             $this->runStep(
                 $organization,
                 'send_setup_email',
@@ -237,6 +253,20 @@ class OrganizationProvisioningService
                 '--force' => true,
             ]);
         }
+    }
+
+    /**
+     * The starting role library — Branch manager, Doctor, Receptionist and so
+     * on, narrowed to what this organization was actually sold.
+     *
+     * Connects first because the previous step may have disconnected, and
+     * idempotent by role name, so a retried provisioning adds nothing twice.
+     */
+    private function seedDefaultRoles(Organization $organization): void
+    {
+        $this->tenants->connect($organization->database_name);
+
+        app(DefaultRoleSeeder::class)->seed($organization);
     }
 
     /**

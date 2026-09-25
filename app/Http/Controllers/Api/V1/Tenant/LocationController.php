@@ -60,7 +60,9 @@ class LocationController extends BaseApiController
 
         return $this->paginated(
             $this->tableQuery(
-                $query,
+                // Eager, so a list of twelve branches is not twelve queries
+                // for twelve managers.
+                $query->with('manager'),
                 $request,
                 searchable: ['name', 'code', 'city'],
                 sortable: ['name', 'code', 'type', 'is_active', 'created_at'],
@@ -72,7 +74,7 @@ class LocationController extends BaseApiController
 
     public function show(Location $location): JsonResponse
     {
-        return $this->ok(LocationResource::make($location));
+        return $this->ok(LocationResource::make($location->load('manager')));
     }
 
     /**

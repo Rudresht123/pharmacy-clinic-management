@@ -16,7 +16,8 @@ export function SetupProgress({
     finishLabel = 'Complete setup',
 }: {
     steps: SetupStep[];
-    onFinish: () => void;
+    /** Absent where the person may read the checklist but not act on it. */
+    onFinish?: () => void;
     finishLabel?: string;
 }) {
     const done = steps.filter((step) => step.done).length;
@@ -51,7 +52,7 @@ export function SetupProgress({
             </ol>
 
             {/* Nothing left to do is not a call to action. */}
-            {!complete && (
+            {!complete && onFinish && (
                 <Button className="w-100 mt-3" icon="ti ti-arrow-right" onClick={onFinish}>
                     {finishLabel}
                 </Button>

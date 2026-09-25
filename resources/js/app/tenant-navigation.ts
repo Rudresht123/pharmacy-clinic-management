@@ -273,11 +273,13 @@ export function tenantNavigation(
             },
 
             /*
-             * The last one still to build. Attaching scans and reports needs a
-             * file store wired to a visit, which is its own piece of work — and
-             * a row that answered 404 would be worse than one that says so.
+             * Documents used to sit here as "coming soon". They are built now,
+             * and they are a TAB on the consultation rather than a screen of
+             * their own: a scan is read while the patient is in the room, and
+             * a separate page would mean leaving the write-up to look at it.
+             * A menu row leading somewhere that only repeats what is already
+             * on screen is worse than no row.
              */
-            { label: 'Documents', to: '/documents', icon: 'ti ti-folder', soon: true },
         );
 
         sections.push({ title: 'My work', items: mine });

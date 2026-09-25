@@ -106,6 +106,19 @@ class ModuleRegistry
                     ['key' => 'branches.create', 'name' => 'Add branches', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'branches.edit', 'name' => 'Edit branches', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'branches.delete', 'name' => 'Remove branches', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * Who runs a branch — organization-scoped, and held apart
+                     * from `branches.edit` on purpose.
+                     *
+                     * Editing a branch changes its address and its opening
+                     * hours. Naming its manager decides who administers the
+                     * people there, so a manager holding it could appoint
+                     * themselves at another branch, or appoint somebody who
+                     * would then appoint them back. It belongs with the owner
+                     * and with head office, and nowhere else.
+                     */
+                    ['key' => 'branches.manage_manager', 'name' => 'Appoint and change branch managers', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             [
@@ -250,6 +263,87 @@ class ModuleRegistry
                     ['key' => 'prescriptions.view', 'name' => 'Read prescriptions', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'prescriptions.write', 'name' => 'Write prescriptions', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'prescriptions.cancel', 'name' => 'Cancel prescriptions', 'scope' => self::SCOPE_BRANCH],
+                ],
+            ],
+            [
+                'key' => 'documents',
+                'name' => 'Patient documents',
+                'description' => 'Scans, reports and letters kept against a patient or a visit.',
+                'icon' => 'ti ti-folder',
+                'group' => self::GROUP_CLINICAL,
+                'is_core' => false,
+                /*
+                 * A document hangs off a patient, so there is nothing to
+                 * attach one to without the register.
+                 */
+                'requires' => ['customers'],
+                /*
+                 * Reading is split in two, and the split is the whole point of
+                 * the module.
+                 *
+                 * A pharmacist needs the prescription in front of them and has
+                 * no business reading a discharge summary; a billing clerk
+                 * needs the insurance letter and none of the medicine. One
+                 * `documents.view` could not say that — everybody who could
+                 * open the folder could open all of it.
+                 *
+                 * So `documents.view` reaches the administrative files (ID,
+                 * insurance, consent, bills) and `documents.view_clinical`
+                 * reaches the medical ones. Which is which is decided by the
+                 * category in App\Support\Documents\DocumentCategories, not by
+                 * whoever uploaded the file.
+                 *
+                 * Uploading is deliberately ONE capability rather than one per
+                 * sensitivity: a desk that may attach an ID proof and a lab
+                 * that may attach a result are the same act, and the category
+                 * chosen at upload is recorded with the uploader's name.
+                 */
+                'capabilities' => [
+                    ['key' => 'documents.view', 'name' => 'View ID, insurance and billing documents', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'documents.view_clinical', 'name' => 'View medical documents (reports, scans, summaries)', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'documents.upload', 'name' => 'Attach documents to a patient or visit', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'documents.delete', 'name' => 'Remove documents', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * Printing a document is its own permission, separate from
+                     * reading one. A desk that may re-read an insurance letter
+                     * is not necessarily somebody who may produce a
+                     * prescription on the clinic's letterhead — what comes out
+                     * of this carries the organization's name and a doctor's
+                     * registration number.
+                     *
+                     * The document's own category still decides who may open
+                     * it afterwards, so generating a clinical document does
+                     * not let somebody read it back.
+                     */
+                    ['key' => 'documents.generate', 'name' => 'Print documents from a template', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * The letterhead itself, split three ways, because seeing
+                     * how a branch's prescription is laid out, changing it,
+                     * and putting a change into use are three different
+                     * decisions — the last one is what every patient handed a
+                     * document after it will see.
+                     */
+                    ['key' => 'documents.template_view', 'name' => 'View document templates', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'documents.template_edit', 'name' => 'Edit this branch’s document templates', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'documents.template_publish', 'name' => 'Put a template version into use', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * The whole authority model, in one key.
+                     *
+                     * ORGANIZATION-SCOPED, and it is what separates an
+                     * organization administrator from a branch manager here:
+                     * it reaches EVERY branch's template, sets the
+                     * organization default that branches inherit, and locks
+                     * fields a branch may then not change.
+                     *
+                     * A branch role cannot hold it — SaveRoleRequest refuses
+                     * an organization-scoped capability on a branch role — so
+                     * a manager cannot be given it for their own branch and
+                     * thereby reach everybody else's.
+                     */
+                    ['key' => 'documents.template_org', 'name' => 'Manage every branch’s templates and lock fields', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             [

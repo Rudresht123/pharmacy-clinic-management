@@ -25,6 +25,7 @@ import { ChannelAnalyticsPanel } from '../components/ChannelAnalyticsPanel';
 import { CampaignsTable } from '../components/CampaignsTable';
 
 import { ReasonDialog } from '@/core/medicines/components/ReasonDialog';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import {
     useCampaigns,
     useRemoveCampaign,
@@ -121,6 +122,16 @@ export default function EmailPage() {
     const [selected, setSelected] = useState<MessageTemplate | null>(null);
     const [testing, setTesting] = useState(false);
 
+    /*
+     * Reading is `communication.view`; every write on this screen is
+     * `communication.manage`, which is where the API routes are split. Each
+     * write affordance below is passed only when this holds — absent rather
+     * than disabled, because a button that can only answer 403 is worse than
+     * no button at all.
+     */
+    const { can } = useTenantAuth();
+    const manage = can('communication.manage');
+
     const { data, isLoading, isError, error, refetch } = useChannelOverview('email', days);
 
     const toggleRule = useToggleRule();
@@ -167,9 +178,11 @@ export default function EmailPage() {
                 tone="sky"
                 crumbs={[{ label: 'Communication' }, { label: 'Email' }]}
                 actions={
-                    <Button icon="ti ti-plus" onClick={() => setEditing(false)}>
-                        Create template
-                    </Button>
+                    manage && (
+                        <Button icon="ti ti-plus" onClick={() => setEditing(false)}>
+                            Create template
+                        </Button>
+                    )
                 }
             />
 
@@ -184,8 +197,8 @@ export default function EmailPage() {
                         tone="sky"
                         mark={<i className="ti ti-mail" />}
                         testLabel="Send test email"
-                        onTest={() => setTesting(true)}
-                        onManage={() => setManaging(true)}
+                        onTest={manage ? () => setTesting(true) : undefined}
+                        onManage={manage ? () => setManaging(true) : undefined}
                         facts={[
                             {
                                 icon: 'ti ti-mail',
@@ -241,11 +254,23 @@ export default function EmailPage() {
                         campaigns={campaigns.data?.data ?? []}
                         loading={campaigns.isLoading}
                         busy={sendCampaign.isPending}
-                        onNew={() => navigate('/communication/email/campaigns/new')}
-                        onEdit={(item) => navigate(`/communication/email/campaigns/${item.id}`)}
-                        onSchedule={(item) => navigate(`/communication/email/campaigns/${item.id}`)}
-                        onUnschedule={(item) => unscheduleCampaign.mutate(item.id)}
-                        onSend={(item) => {
+                        onNew={
+                            manage ? () => navigate('/communication/email/campaigns/new') : undefined
+                        }
+                        onEdit={
+                            manage
+                                ? (item) => navigate(`/communication/email/campaigns/${item.id}`)
+                                : undefined
+                        }
+                        onSchedule={
+                            manage
+                                ? (item) => navigate(`/communication/email/campaigns/${item.id}`)
+                                : undefined
+                        }
+                        onUnschedule={
+                            manage ? (item) => unscheduleCampaign.mutate(item.id) : undefined
+                        }
+                        onSend={manage ? (item) => {
                             /*
                              * The one irreversible action on this screen, so it
                              * asks — and it says the number, because "are you
@@ -264,8 +289,10 @@ It will reach ${reach} patients.` : ''),
                             ) {
                                 sendCampaign.mutate(item.id);
                             }
-                        }}
-                        onRemove={(item) => removeCampaign.mutate({ id: item.id })}
+                        } : undefined}
+                        onRemove={
+                            manage ? (item) => removeCampaign.mutate({ id: item.id }) : undefined
+                        }
                     />
                 )}
 
@@ -280,14 +307,17 @@ It will reach ${reach} patients.` : ''),
                                 filter="search"
                                 actionLabel="Edit"
                                 title="Email templates"
-                                onCreate={() => setEditing(false)}
-                                onEdit={setEditing}
-                                onRemove={setRemoving}
+                                onCreate={manage ? () => setEditing(false) : undefined}
+                                onEdit={manage ? setEditing : undefined}
+                                onRemove={manage ? setRemoving : undefined}
                             />
                         </div>
 
                         <div className="col-12 col-xxl-4">
-                            <EmailPreview template={selected} onEdit={setEditing} />
+                            <EmailPreview
+                                template={selected}
+                                onEdit={manage ? setEditing : undefined}
+                            />
                         </div>
                     </div>
                 )}
@@ -298,10 +328,16 @@ It will reach ${reach} patients.` : ''),
                             <AutomationRules
                                 rules={data.rules}
                                 saving={toggleRule.isPending}
-                                onToggle={(rule) =>
-                                    toggleRule.mutate({ id: rule.id, enabled: !rule.is_enabled })
+                                onToggle={
+                                    manage
+                                        ? (rule) =>
+                                              toggleRule.mutate({
+                                                  id: rule.id,
+                                                  enabled: !rule.is_enabled,
+                                              })
+                                        : undefined
                                 }
-                                onEdit={setEditingRule}
+                                onEdit={manage ? setEditingRule : undefined}
                                 description="Automatically send emails based on clinic events"
                             />
                         </div>
@@ -326,7 +362,7 @@ It will reach ${reach} patients.` : ''),
                         <div className="col-12 col-xxl-5">
                             <SetupProgress
                                 steps={data.setup}
-                                onFinish={() => setTesting(true)}
+                                onFinish={manage ? () => setTesting(true) : undefined}
                                 finishLabel="Send a test email"
                             />
                         </div>

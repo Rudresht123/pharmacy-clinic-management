@@ -5,6 +5,7 @@ namespace App\Models\Tenant;
 use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -133,6 +134,34 @@ class Location extends Model
         return $this->belongsToMany(User::class, 'branch_users', 'location_id', 'user_id')
             ->withPivot(['role_id', 'is_primary'])
             ->withTimestamps();
+    }
+
+    /**
+     * Who runs this branch.
+     *
+     * A CACHE OF A FACT, NOT THE PERMISSION. What the manager may do comes
+     * from the role on their `branch_users` row, exactly as it does for
+     * everybody else here — so a `manager_id` that somehow disagreed with the
+     * memberships grants nothing at all, and nothing downstream has to learn
+     * that managers exist.
+     *
+     * Null is the normal state of a new branch, not an error.
+     */
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_id');
+    }
+
+    /**
+     * This branch's own letterhead mark.
+     *
+     * Null means "use the organization's", which is the same inheritance the
+     * document templates themselves use — one clinic in a chain printing under
+     * its own mark should not force every other one to declare theirs.
+     */
+    public function logo(): BelongsTo
+    {
+        return $this->belongsTo(File::class, 'logo_file_id');
     }
 
     /** True once the drug licence on file is out of date. */

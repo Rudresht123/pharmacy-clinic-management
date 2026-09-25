@@ -42,6 +42,39 @@ export function useGrantable() {
     });
 }
 
+/** Somewhere to start, when writing a role. */
+export interface RoleTemplate {
+    key: string;
+    name: string;
+    /** What this person does all day, in the words somebody would use. */
+    summary: string;
+    icon: string;
+    scope: 'organization' | 'branch';
+    capabilities: string[];
+}
+
+/**
+ * The starting points, from the server.
+ *
+ * This list used to live in the bundle. It is the SAME library the seeder
+ * uses to give a new organization its roles on day one, so serving it keeps
+ * one list instead of two that agree only while somebody remembers to edit
+ * both — and it arrives already narrowed to what is grantable where this
+ * person works, so a template can never offer something ungrantable.
+ */
+export function useRoleTemplates() {
+    return useQuery({
+        queryKey: resourceKey(rolesApi.endpoint, 'templates'),
+        queryFn: async (): Promise<RoleTemplate[]> => {
+            const { data } = await http.get<ApiResponse<RoleTemplate[]>>('/tenant/roles/templates');
+
+            return data.data ?? [];
+        },
+        // Same reasoning as the pool above: it moves when a release does.
+        staleTime: 30 * 1000,
+    });
+}
+
 /**
  * Who holds one role.
  *

@@ -16,7 +16,8 @@ export function WhatsAppPreview({
     onEdit,
 }: {
     template: MessageTemplate | null;
-    onEdit: (template: MessageTemplate) => void;
+    /** Absent for a reader: the preview stays, the way in does not. */
+    onEdit?: (template: MessageTemplate) => void;
 }) {
     return (
         <Card
@@ -24,7 +25,8 @@ export function WhatsAppPreview({
             title="Template preview"
             icon="ti ti-device-mobile"
             actions={
-                template && (
+                template &&
+                onEdit && (
                     <Button
                         variant="light"
                         size="sm"

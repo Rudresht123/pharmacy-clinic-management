@@ -71,6 +71,14 @@ export function TemplateTable({
         });
     }, [templates, search, category]);
 
+    /*
+     * No actions column at all for somebody who holds none of them.
+     *
+     * An empty column with a heading reads as a feature that is broken; a
+     * column that is not there reads as a list, which is what it is.
+     */
+    const actionable = Boolean(onEdit || onRemove);
+
     const pageCount = Math.max(1, Math.ceil(matched.length / PER_PAGE));
     const current = Math.min(page, pageCount);
     const rows = matched.slice((current - 1) * PER_PAGE, current * PER_PAGE);
@@ -159,7 +167,7 @@ export function TemplateTable({
                                 <th>Category</th>
                                 <th>{filter === 'search' ? 'Subject' : 'Message preview'}</th>
                                 <th>Status</th>
-                                <th className="comm-actions-col">Actions</th>
+                                {actionable && <th className="comm-actions-col">Actions</th>}
                             </tr>
                         </thead>
 
@@ -208,18 +216,21 @@ export function TemplateTable({
                                         select again on their way to doing
                                         something else, so each stops the click.
                                     */}
+                                    {actionable && (
                                     <td className="comm-actions-col">
                                         <div className="comm-row-actions">
-                                            <Button
-                                                variant="light"
-                                                size="sm"
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    onEdit?.(template);
-                                                }}
-                                            >
-                                                {actionLabel}
-                                            </Button>
+                                            {onEdit && (
+                                                <Button
+                                                    variant="light"
+                                                    size="sm"
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        onEdit(template);
+                                                    }}
+                                                >
+                                                    {actionLabel}
+                                                </Button>
+                                            )}
 
                                             {onRemove && (
                                                 <button
@@ -237,6 +248,7 @@ export function TemplateTable({
                                             )}
                                         </div>
                                     </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>

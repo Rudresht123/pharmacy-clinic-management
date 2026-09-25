@@ -40,8 +40,15 @@ export function AutomationRules({
     saving,
 }: {
     rules: AutomationRule[];
-    onToggle: (rule: AutomationRule) => void;
-    onEdit: (rule: AutomationRule) => void;
+    /**
+     * Both absent for somebody who may only read this list.
+     *
+     * The switch then renders locked rather than vanishing: what a clinic has
+     * automated is worth seeing from a desk, and a rule with no visible state
+     * would be a list of titles. Editing simply is not offered.
+     */
+    onToggle?: (rule: AutomationRule) => void;
+    onEdit?: (rule: AutomationRule) => void;
     description: string;
     saving?: boolean;
 }) {
@@ -93,8 +100,8 @@ export function AutomationRules({
                                         role="switch"
                                         id={`rule-${rule.id}`}
                                         checked={rule.is_enabled}
-                                        disabled={saving}
-                                        onChange={() => onToggle(rule)}
+                                        disabled={saving || !onToggle}
+                                        onChange={() => onToggle?.(rule)}
                                     />
 
                                     <label className="visually-hidden" htmlFor={`rule-${rule.id}`}>
@@ -102,13 +109,11 @@ export function AutomationRules({
                                     </label>
                                 </div>
 
-                                <Button
-                                    variant="light"
-                                    size="sm"
-                                    onClick={() => onEdit(rule)}
-                                >
-                                    Edit
-                                </Button>
+                                {onEdit && (
+                                    <Button variant="light" size="sm" onClick={() => onEdit(rule)}>
+                                        Edit
+                                    </Button>
+                                )}
                             </li>
                         );
                     })}

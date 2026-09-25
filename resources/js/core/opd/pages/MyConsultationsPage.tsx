@@ -358,6 +358,7 @@ export default function MyConsultationsPage() {
                                 <ConsultationPanel
                                     key={open.id}
                                     appointmentId={open.id}
+                                    customerId={open.customer_id}
                                     saved={consultation}
                                     history={data.current?.id === open.id ? data.current.history : []}
                                     suggestions={

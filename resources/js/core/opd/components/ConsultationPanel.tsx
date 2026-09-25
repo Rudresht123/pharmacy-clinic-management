@@ -3,6 +3,8 @@ import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { PrescriptionEditor } from '@/core/prescriptions/components/PrescriptionEditor';
 import { flushPrescription } from '@/core/prescriptions/lines';
+import { DocumentsPanel } from '@/core/documents/components/DocumentsPanel';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { useSaveConsultation } from '../api';
 import type { Consultation, InvestigationLine, PastConsultation, Vitals } from '../types';
 
@@ -21,39 +23,6 @@ const VITALS: [keyof Vitals, string, string][] = [
     ['weight', 'Weight', 'kg'],
     ['height', 'Height', 'cm'],
 ];
-
-/**
- * Three rows so the layout can be judged, marked as examples.
- *
- * Deliberately generic — a plausible-looking result against a real patient's
- * name is the one thing a placeholder in a medical record must never be.
- */
-const SAMPLE_DOCUMENTS = [
-    {
-        name: 'Blood report.pdf',
-        size: '248 KB',
-        on: '12 Aug 2026',
-        by: 'Front desk',
-        icon: 'ti ti-file-type-pdf',
-        tone: 'rose',
-    },
-    {
-        name: 'Chest X-ray.jpg',
-        size: '1.4 MB',
-        on: '12 Aug 2026',
-        by: 'Radiology',
-        icon: 'ti ti-photo',
-        tone: 'blue',
-    },
-    {
-        name: 'Referral letter.pdf',
-        size: '96 KB',
-        on: '2 Jul 2026',
-        by: 'Dr. Neha Singh',
-        icon: 'ti ti-file-description',
-        tone: 'amber',
-    },
-] as const;
 
 /** "18 Sep 2026" */
 function longDate(value: string | null): string {
@@ -163,6 +132,7 @@ function Suggestions({
  */
 export function ConsultationPanel({
     appointmentId,
+    customerId,
     saved,
     history,
     suggestions,
@@ -172,6 +142,8 @@ export function ConsultationPanel({
     onTab,
 }: {
     appointmentId: number;
+    /** The patient, for the documents tab — a visit's files hang off them. */
+    customerId: number;
     saved: Consultation;
     history: PastConsultation[];
     /** This doctor's own recent wording, most used first. */
@@ -183,6 +155,11 @@ export function ConsultationPanel({
     tab: Tab;
     onTab: (tab: Tab) => void;
 }) {
+    const { can, modules } = useTenantAuth();
+
+    /* Level two and level three, together — see the tab list. */
+    const documents = modules.includes('documents') && can('documents.view');
+
     const save = useSaveConsultation(appointmentId);
 
     const [draft, setDraft] = useState<Consultation>(saved);
@@ -275,7 +252,16 @@ export function ConsultationPanel({
                             'ti ti-history',
                         ],
                         ['vitals', 'Vitals', 'ti ti-activity-heartbeat'],
-                        ['documents', 'Documents', 'ti ti-file'],
+
+                        /*
+                         * Only where there is a folder to open. The module has
+                         * to be running here AND this person has to hold the
+                         * capability — a tab that answered 403 would read as a
+                         * broken screen rather than as an answer.
+                         */
+                        ...(documents
+                            ? [['documents', 'Documents', 'ti ti-file'] as [Tab, string, string]]
+                            : []),
                     ] as [Tab, string, string][]
                 ).map(([key, label, icon]) => (
                     <button
@@ -679,59 +665,13 @@ export function ConsultationPanel({
                 </div>
             )}
 
-            {tab === 'documents' && (
-                <div className="cn-body">
-                    {/*
-                        The layout, with sample rows — not this patient's files.
-
-                        Said at the top and repeated on every row, because a
-                        list of medical documents is exactly the thing somebody
-                        would act on without reading the heading. Nothing here
-                        is stored; attaching files needs a store wired to a
-                        visit, which is its own piece of work.
-                    */}
-                    <p className="cn-preview">
-                        <i className="ti ti-info-circle" aria-hidden="true" />
-                        A preview of how documents will look. These are examples, not{' '}
-                        {'this patient\u2019s'} files — nothing is stored yet.
-                    </p>
-
-                    <ul className="cn-docs">
-                        {SAMPLE_DOCUMENTS.map((doc) => (
-                            <li key={doc.name}>
-                                <i className={`cn-doc-kind is-${doc.tone} ${doc.icon}`} aria-hidden="true" />
-
-                                <span className="cn-doc-what">
-                                    <b>{doc.name}</b>
-                                    <small>
-                                        {doc.size} · {doc.on} · {doc.by}
-                                    </small>
-                                </span>
-
-                                <em className="cn-doc-tag">Example</em>
-
-                                <span className="cn-doc-acts">
-                                    <button type="button" disabled aria-label="View — not available yet">
-                                        <i className="ti ti-eye" aria-hidden="true" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        disabled
-                                        aria-label="Download — not available yet"
-                                    >
-                                        <i className="ti ti-download" aria-hidden="true" />
-                                    </button>
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-
-                    <div className="cn-attach" aria-disabled="true">
-                        <i className="ti ti-cloud-upload" aria-hidden="true" />
-                        <b>Attach a scan or report</b>
-                        <small>Available once the documents module ships.</small>
-                    </div>
-                </div>
+            {/*
+                The patient's real folder, filed against them and against this
+                visit. What comes back is already narrowed by the server to
+                what this person may read — see DocumentsPanel.
+            */}
+            {tab === 'documents' && documents && (
+                <DocumentsPanel customerId={customerId} appointmentId={appointmentId} />
             )}
 
             </div>

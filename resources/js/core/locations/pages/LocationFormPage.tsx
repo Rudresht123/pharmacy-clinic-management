@@ -4,6 +4,7 @@ import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Button } from '@/shared/components/ui/Button';
 import { Tabs, type TabItem } from '@/shared/components/ui/Tabs';
 import { BranchModulePanel } from '@/core/roles/components/BranchModulePanel';
+import { BranchManagerPanel } from '../components/BranchManagerPanel';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { RecordHistory } from '@/core/tenant-history/RecordHistory';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
@@ -67,12 +68,29 @@ const GROUPS: FieldGroup[] = [
  * the branch does — there is nothing to switch on for a record that has not
  * been created.
  */
-type Tab = 'details' | 'modules';
+type Tab = 'details' | 'manager' | 'modules';
 
-const TABS: TabItem<Tab>[] = [
-    { value: 'details', label: 'Details', icon: 'ti ti-building-store' },
-    { value: 'modules', label: 'Modules', icon: 'ti ti-puzzle' },
-];
+const DETAILS_TAB: TabItem<Tab> = {
+    value: 'details',
+    label: 'Details',
+    icon: 'ti ti-building-store',
+};
+
+/*
+ * Two capabilities, two tabs, and they are NOT the same person's.
+ *
+ * Which modules a branch runs is the owner's alone — a branch that could
+ * switch its own on could re-open a door the owner closed. Naming a manager is
+ * `branches.manage_manager`, which head office holds too. So the tab strip is
+ * built per person rather than being one list shown to whoever is an owner.
+ */
+const MANAGER_TAB: TabItem<Tab> = {
+    value: 'manager',
+    label: 'Manager',
+    icon: 'ti ti-user-shield',
+};
+
+const MODULES_TAB: TabItem<Tab> = { value: 'modules', label: 'Modules', icon: 'ti ti-puzzle' };
 
 /**
  * The branch form — its own page, or opened inside another screen.
@@ -102,7 +120,17 @@ export default function LocationFormPage({
     /* Off by default — a branch created without a login is a normal thing
        to do, and a form that assumes otherwise makes it the harder path. */
     const [withAdmin, setWithAdmin] = useState(false);
-    const { user } = useTenantAuth();
+    const { user, can } = useTenantAuth();
+
+    const isOwner = user?.role === 'owner';
+    const mayManageManager = can('branches.manage_manager');
+
+    /* Only the tabs this person actually has something behind. */
+    const tabs = [
+        DETAILS_TAB,
+        ...(mayManageManager ? [MANAGER_TAB] : []),
+        ...(isOwner ? [MODULES_TAB] : []),
+    ];
 
     const { data: fields, isLoading: fieldsLoading } = useLocationFields();
     const { data: location, isLoading: recordLoading } = locationsHooks.useDetail(id);
@@ -249,13 +277,16 @@ export default function LocationFormPage({
                 />
             )}
 
-            {/* Only the owner reaches level two, and only an existing branch
-                has modules to decide about. */}
-            {isEdit && location && user?.role === 'owner' && (
-                <Tabs tabs={TABS} value={tab} onChange={setTab} label="Branch views" />
+            {/* Only where there is more than the form to show, and only for
+                an existing branch — a record being created has no manager to
+                appoint and no modules to decide about. */}
+            {isEdit && location && tabs.length > 1 && (
+                <Tabs tabs={tabs} value={tab} onChange={setTab} label="Branch views" />
             )}
 
-            {isEdit && location && tab === 'modules' ? (
+            {isEdit && location && tab === 'manager' && mayManageManager ? (
+                <BranchManagerPanel locationId={location.id} />
+            ) : isEdit && location && tab === 'modules' && isOwner ? (
                 <BranchModulePanel locationId={location.id} />
             ) : (
             <form onSubmit={onSubmit} noValidate>

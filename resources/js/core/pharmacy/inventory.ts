@@ -62,6 +62,19 @@ export type BatchStatus = 'active' | 'blocked' | 'recalled' | 'exhausted' | 'exp
 export interface StockRow {
     medicine_id: number;
     medicine_name: string | null;
+
+    /** The counter reads a name over a maker, not one long string. */
+    generic_name: string | null;
+    brand_name: string | null;
+    category: string | null;
+
+    /**
+     * What this would be sold at — the FIRST EXPIRY batch's price, which is
+     * the batch the cart allocates and the server sells from. Null where the
+     * shelf holds nothing usable.
+     */
+    price: number | null;
+
     base_unit: string | null;
     on_hand: number;
     /** What can actually be dispensed: active batches not past expiry. */
@@ -229,6 +242,27 @@ export function useStock(storeId: number | undefined, params: Params, enabled = 
         params,
         enabled && storeId !== undefined,
     );
+}
+
+/**
+ * The categories this store actually stocks, for the counter's chips.
+ *
+ * Its own request because the list describes the whole shelf, not the page of
+ * eight currently on screen.
+ */
+export function useStoreCategories(storeId: number | undefined) {
+    return useQuery({
+        queryKey: resourceKey('tenant/pharmacy', 'categories', storeId),
+        enabled: storeId !== undefined,
+        staleTime: 5 * 60 * 1000,
+        queryFn: async (): Promise<string[]> => {
+            const { data } = await http.get<ApiResponse<string[]>>(
+                `/tenant/pharmacy-stores/${storeId}/categories`,
+            );
+
+            return data.data ?? [];
+        },
+    });
 }
 
 export function useBatches(storeId: number | undefined, params: Params, enabled = true) {

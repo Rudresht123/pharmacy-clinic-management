@@ -126,6 +126,31 @@ trait RecordsHistory
     }
 
     /**
+     * Which branch this change happened at.
+     *
+     * The branch the REQUEST was acting in, not one re-derived from the
+     * record — so the log says where the software believed it was, which is
+     * the same value every permission check on that request used. A record
+     * that belongs to one branch and was edited from another is a thing worth
+     * being able to see rather than to smooth over.
+     *
+     * Null outside a request (a console command, a queued job) and null for
+     * the owner and head office, who work across the network. Both are real
+     * answers, not missing data.
+     */
+    protected function historyLocationId(): ?int
+    {
+        // No request at all — artisan, a worker, a test seeding rows directly.
+        if (! app()->bound('request')) {
+            return null;
+        }
+
+        $branch = Request::instance()->attributes->get('tenant.branch');
+
+        return $branch === null ? null : (int) $branch;
+    }
+
+    /**
      * What this record is called, for a log that has to stay readable after
      * the record is gone.
      */
@@ -181,6 +206,7 @@ trait RecordsHistory
                 'user_id' => $actor['type'] === 'tenant' ? $actor['id'] : null,
                 'actor_name' => $actor['name'],
                 'actor_type' => $actor['type'],
+                'location_id' => $this->historyLocationId(),
             ]);
 
             return;

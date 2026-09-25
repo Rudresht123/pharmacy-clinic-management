@@ -20,6 +20,16 @@ class LocationResource extends JsonResource
             'type' => $this->type,
             'is_active' => (bool) $this->is_active,
 
+            /*
+             * Who runs this branch. A fact, not a permission — what the
+             * manager may do comes from the role on their membership.
+             *
+             * Sent as a pair rather than a nested user so a list can render
+             * the name without loading an account it has no other use for.
+             */
+            'manager_id' => $this->manager_id,
+            'manager_name' => $this->whenLoaded('manager', fn () => $this->manager?->name, null),
+
             'address' => $this->address,
             'city' => $this->city,
             'state' => $this->state,

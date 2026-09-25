@@ -64,15 +64,23 @@ export function CampaignsTable({
     channel: Channel;
     campaigns: Campaign[];
     loading?: boolean;
-    onNew: () => void;
-    onEdit: (campaign: Campaign) => void;
-    onSchedule: (campaign: Campaign) => void;
-    onUnschedule: (campaign: Campaign) => void;
-    onSend: (campaign: Campaign) => void;
-    onRemove: (campaign: Campaign) => void;
+    /*
+     * All six absent for somebody who may read the log but not send.
+     *
+     * The row's own gating below is a SECOND question, asked of the campaign
+     * rather than of the person: a sent campaign cannot be edited by anybody.
+     * Both have to pass before a button exists, and the server asks both again.
+     */
+    onNew?: () => void;
+    onEdit?: (campaign: Campaign) => void;
+    onSchedule?: (campaign: Campaign) => void;
+    onUnschedule?: (campaign: Campaign) => void;
+    onSend?: (campaign: Campaign) => void;
+    onRemove?: (campaign: Campaign) => void;
     busy?: boolean;
 }) {
     const label = channel === 'email' ? 'Email' : 'WhatsApp';
+    const actionable = Boolean(onEdit || onSchedule || onUnschedule || onSend || onRemove);
 
     return (
         <Card
@@ -81,9 +89,11 @@ export function CampaignsTable({
             icon="ti ti-send"
             description={`One-off ${label.toLowerCase()} sends to a chosen audience`}
             actions={
-                <Button icon="ti ti-plus" onClick={onNew} disabled={busy}>
-                    New campaign
-                </Button>
+                onNew && (
+                    <Button icon="ti ti-plus" onClick={onNew} disabled={busy}>
+                        New campaign
+                    </Button>
+                )
             }
         >
             {loading ? (
@@ -110,7 +120,7 @@ export function CampaignsTable({
                                 <th className="text-end">Delivered</th>
                                 <th className="text-end">Opened</th>
                                 <th className="text-end">Clicked</th>
-                                <th className="comm-actions-col">Actions</th>
+                                {actionable && <th className="comm-actions-col">Actions</th>}
                             </tr>
                         </thead>
 
@@ -186,9 +196,10 @@ export function CampaignsTable({
                                         {rate(campaign.click_rate)}
                                     </td>
 
+                                    {actionable && (
                                     <td className="comm-actions-col">
                                         <div className="comm-row-actions">
-                                            {campaign.is_editable && (
+                                            {campaign.is_editable && onEdit && (
                                                 <button
                                                     type="button"
                                                     className="comm-more"
@@ -199,35 +210,29 @@ export function CampaignsTable({
                                                 </button>
                                             )}
 
-                                            {campaign.status === 'draft' && (
-                                                <>
-                                                    <button
-                                                        type="button"
-                                                        className="comm-more"
-                                                        title="Schedule"
-                                                        onClick={() => onSchedule(campaign)}
-                                                    >
-                                                        <i
-                                                            className="ti ti-clock"
-                                                            aria-hidden="true"
-                                                        />
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        className="comm-more"
-                                                        title="Send now"
-                                                        onClick={() => onSend(campaign)}
-                                                    >
-                                                        <i
-                                                            className="ti ti-send"
-                                                            aria-hidden="true"
-                                                        />
-                                                    </button>
-                                                </>
+                                            {campaign.status === 'draft' && onSchedule && (
+                                                <button
+                                                    type="button"
+                                                    className="comm-more"
+                                                    title="Schedule"
+                                                    onClick={() => onSchedule(campaign)}
+                                                >
+                                                    <i className="ti ti-clock" aria-hidden="true" />
+                                                </button>
                                             )}
 
-                                            {campaign.status === 'scheduled' && (
+                                            {campaign.status === 'draft' && onSend && (
+                                                <button
+                                                    type="button"
+                                                    className="comm-more"
+                                                    title="Send now"
+                                                    onClick={() => onSend(campaign)}
+                                                >
+                                                    <i className="ti ti-send" aria-hidden="true" />
+                                                </button>
+                                            )}
+
+                                            {campaign.status === 'scheduled' && onUnschedule && (
                                                 <button
                                                     type="button"
                                                     className="comm-more"
@@ -241,7 +246,7 @@ export function CampaignsTable({
                                                 </button>
                                             )}
 
-                                            {campaign.is_editable && (
+                                            {campaign.is_editable && onRemove && (
                                                 <button
                                                     type="button"
                                                     className="comm-more is-danger"
@@ -253,6 +258,7 @@ export function CampaignsTable({
                                             )}
                                         </div>
                                     </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>

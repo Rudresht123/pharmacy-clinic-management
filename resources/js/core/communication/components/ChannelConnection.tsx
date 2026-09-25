@@ -41,8 +41,17 @@ export function ChannelConnection({
     mark: ReactNode;
     tone: 'emerald' | 'sky';
     testLabel: string;
-    onTest: () => void;
-    onManage: () => void;
+    /**
+     * Absent where the signed-in person may not do it.
+     *
+     * A prop rather than a capability check inside the card: the card is used
+     * by both channels and knows nothing about who is looking at it. The page
+     * holds the capability and simply does not pass the handler — so the
+     * button is not rendered disabled, it does not exist, because a button
+     * that can only ever answer 403 is worse than no button.
+     */
+    onTest?: () => void;
+    onManage?: () => void;
     /**
      * The wiring behind the account, where a channel has any to configure.
      *
@@ -91,26 +100,32 @@ export function ChannelConnection({
                     </div>
                 </div>
 
-                <div className="comm-connection-actions">
-                    {onConfigure && (
-                        <Button
-                            variant="light"
-                            icon={onConfigure.icon}
-                            onClick={onConfigure.onClick}
-                            title={onConfigure.title}
-                        >
-                            {onConfigure.label}
-                        </Button>
-                    )}
+                {(onConfigure || onManage || onTest) && (
+                    <div className="comm-connection-actions">
+                        {onConfigure && (
+                            <Button
+                                variant="light"
+                                icon={onConfigure.icon}
+                                onClick={onConfigure.onClick}
+                                title={onConfigure.title}
+                            >
+                                {onConfigure.label}
+                            </Button>
+                        )}
 
-                    <Button variant="light" icon="ti ti-settings" onClick={onManage}>
-                        Manage connection
-                    </Button>
+                        {onManage && (
+                            <Button variant="light" icon="ti ti-settings" onClick={onManage}>
+                                Manage connection
+                            </Button>
+                        )}
 
-                    <Button icon="ti ti-send" onClick={onTest} disabled={!connected}>
-                        {testLabel}
-                    </Button>
-                </div>
+                        {onTest && (
+                            <Button icon="ti ti-send" onClick={onTest} disabled={!connected}>
+                                {testLabel}
+                            </Button>
+                        )}
+                    </div>
+                )}
 
                 <div className="comm-facts">
                     <h6 className="comm-subhead">Business account</h6>

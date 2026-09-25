@@ -92,7 +92,17 @@ class OrganizationProvisioningTest extends TestCase
             ->values()
             ->all();
 
-        $this->assertSame(['create_database', 'migrate_tenant', 'send_setup_email'], $completedSteps);
+        /*
+         * Sorted, so this reads alphabetically rather than in the order they
+         * ran. `seed_default_roles` gives the new organization the roles a
+         * clinic actually staffs — it is a step of its own because which roles
+         * apply depends on the master database's entitlements, which a tenant
+         * migration cannot read.
+         */
+        $this->assertSame(
+            ['create_database', 'migrate_tenant', 'seed_default_roles', 'send_setup_email'],
+            $completedSteps,
+        );
     }
 
     public function test_a_failed_step_leaves_the_organization_and_database_intact_for_retry(): void

@@ -138,6 +138,78 @@ class User extends Authenticatable
         return $this->hasMany(BranchMembership::class);
     }
 
+    /**
+     * Capabilities taken off this person individually.
+     *
+     * Deny rows only — see UserPermissionOverride. Normally empty, which is
+     * the point: a role is the unit, and this is the exception that keeps
+     * that true rather than a second permission system running alongside.
+     */
+    public function permissionOverrides(): HasMany
+    {
+        return $this->hasMany(UserPermissionOverride::class);
+    }
+
+    /**
+     * What this person is denied at one branch.
+     *
+     * Rows with no branch apply everywhere and are always included; rows
+     * naming a branch apply only there.
+     *
+     * @return list<string>
+     */
+    public function deniedAt(?int $locationId): array
+    {
+        return $this->permissionOverrides
+            ->filter(fn (UserPermissionOverride $override) => $override->effect === UserPermissionOverride::DENY
+                && ($override->location_id === null
+                    || ($locationId !== null && (int) $override->location_id === $locationId)))
+            ->pluck('capability')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Everything denied to this person, at any branch or at all of them.
+     *
+     * For the questions that are about the PERSON rather than about a place —
+     * "does this account administer the whole network" is one, and answering
+     * it per branch would leave somebody holding it at the branches where
+     * their deny does not reach.
+     *
+     * @return list<string>
+     */
+    public function deniedAnywhere(): array
+    {
+        return $this->permissionOverrides
+            ->where('effect', UserPermissionOverride::DENY)
+            ->pluck('capability')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** The branches this person runs — see Location::manager(). */
+    public function managedBranches(): HasMany
+    {
+        return $this->hasMany(Location::class, 'manager_id');
+    }
+
+    /**
+     * Do they run this branch?
+     *
+     * A fact about the `locations` row, not a permission — what a manager may
+     * actually do still comes from the role on their membership. Used to show
+     * the badge and to refuse taking the last manager off a branch by
+     * accident, never to decide an action.
+     */
+    public function managesBranch(?int $locationId): bool
+    {
+        return $locationId !== null
+            && $this->managedBranches->contains(fn (Location $branch) => $branch->getKey() === $locationId);
+    }
+
     public function branches(): BelongsToMany
     {
         return $this->belongsToMany(Location::class, 'branch_users', 'user_id', 'location_id')

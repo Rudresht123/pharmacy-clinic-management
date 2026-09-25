@@ -545,6 +545,7 @@ function CurrentPatient({
                     <ConsultationPanel
                         key={current.id}
                         appointmentId={current.id}
+                        customerId={current.customer_id}
                         saved={current.consultation}
                         history={current.history}
                         suggestions={current.suggestions}

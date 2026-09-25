@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Http\Resources\Tenant\MedicineBatchResource;
 use App\Models\Tenant\Medicine;
 use App\Models\Tenant\MedicineBatch;
+use App\Models\Tenant\PharmacySetting;
 use App\Models\Tenant\PharmacyStore;
 use App\Models\Tenant\StoreMedicine;
 use App\Services\Pharmacy\Inventory\BatchService;
@@ -41,6 +42,7 @@ class MedicineBatchController extends BaseApiController
 
         $today = now()->toDateString();
         $term = trim((string) $request->query('search', ''));
+        $category = trim((string) $request->query('category', ''));
 
         $page = MedicineBatch::query()
             ->where('pharmacy_store_id', $store->id)
@@ -61,6 +63,12 @@ class MedicineBatchController extends BaseApiController
                         ->orWhere('brand_name', 'ILIKE', "%{$term}%")
                 ),
             ))
+            // The counter's category chips. Filtered here rather than in the
+            // browser, because the browser only ever holds one page.
+            ->when($category !== '', fn (Builder $query) => $query->whereHas(
+                'medicine',
+                fn (Builder $medicine) => $medicine->withTrashed()->where('category', $category),
+            ))
             ->groupBy('medicine_id')
             ->orderBy('medicine_id')
             ->paginate($this->resolvePerPage($request))
@@ -75,7 +83,28 @@ class MedicineBatchController extends BaseApiController
             ->get()
             ->keyBy('medicine_id');
 
-        $page->through(function (MedicineBatch $row) use ($medicines, $levels) {
+        /*
+         * The price the counter would actually charge, per medicine.
+         *
+         * FIRST EXPIRY FIRST OUT, matching what the cart allocates and what the
+         * server sells from — a grid showing the cheapest batch's price while
+         * the bill charges the oldest batch's is a till that argues with its
+         * own screen.
+         */
+        $basis = PharmacySetting::current()->price_basis === 'selling' ? 'selling_price' : 'mrp';
+
+        $prices = MedicineBatch::query()
+            ->where('pharmacy_store_id', $store->id)
+            ->whereIn('medicine_id', $ids)
+            ->where('status', 'active')
+            ->where('quantity_available', '>', 0)
+            ->whereDate('expiry_date', '>', $today)
+            ->orderBy('expiry_date')
+            ->get(['medicine_id', $basis])
+            ->groupBy('medicine_id')
+            ->map(fn ($batches) => (float) $batches->first()->{$basis});
+
+        $page->through(function (MedicineBatch $row) use ($medicines, $levels, $prices) {
             $medicine = $medicines->get($row->medicine_id);
             $level = $levels->get($row->medicine_id);
             $usable = (int) $row->usable;
@@ -83,7 +112,15 @@ class MedicineBatchController extends BaseApiController
             return [
                 'medicine_id' => $row->medicine_id,
                 'medicine_name' => $medicine?->displayName(),
+
+                // The counter reads a name and a maker, not one long string:
+                // "Paracetamol 500mg" over "Crocin".
+                'generic_name' => $medicine?->generic_name,
+                'brand_name' => $medicine?->brand_name,
+                'category' => $medicine?->category,
+
                 'base_unit' => $medicine?->base_unit,
+                'price' => $prices->get($row->medicine_id),
                 'on_hand' => (int) $row->on_hand,
                 'usable' => $usable,
                 'next_expiry' => $row->next_expiry,
@@ -94,6 +131,33 @@ class MedicineBatchController extends BaseApiController
         });
 
         return $this->paginated($page, JsonResource::class);
+    }
+
+    /**
+     * The categories this store actually stocks.
+     *
+     * Scoped to the store rather than the whole catalogue: a counter's chips
+     * should not offer "Veterinary" to a shop that has never carried any, and
+     * a chip that always returns nothing is a chip people learn to distrust.
+     *
+     * Its own endpoint because the list is not page-scoped — it has to describe
+     * the whole shelf, not the eight items currently on screen.
+     */
+    public function categories(PharmacyStore $store): JsonResponse
+    {
+        $this->authorizeTenant('view', $store);
+
+        $categories = MedicineBatch::query()
+            ->where('pharmacy_store_id', $store->id)
+            ->where('quantity_available', '>', 0)
+            ->join('medicines', 'medicines.id', '=', 'medicine_batches.medicine_id')
+            ->whereNotNull('medicines.category')
+            ->where('medicines.category', '<>', '')
+            ->distinct()
+            ->orderBy('medicines.category')
+            ->pluck('medicines.category');
+
+        return $this->ok($categories);
     }
 
     public function index(Request $request, PharmacyStore $store): JsonResponse

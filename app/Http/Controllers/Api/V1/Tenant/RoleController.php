@@ -10,6 +10,7 @@ use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
 use App\Services\Permissions\Permission;
 use App\Support\Modules\ModuleRegistry;
+use App\Support\Roles\RoleTemplates;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -70,6 +71,75 @@ class RoleController extends BaseApiController
                 $scope,
             ),
         ]);
+    }
+
+    /**
+     * Somewhere to start, when writing a role.
+     *
+     * The same library the seeder uses, so what an owner is offered here and
+     * what a new organization is given on day one cannot drift apart. It used
+     * to live in the front-end bundle, which meant two lists that agreed only
+     * as long as somebody remembered to edit both.
+     *
+     * Narrowed to what is grantable WHERE THIS PERSON IS, for the same reason
+     * `grantable()` is: a branch writing its own roles can only draw on what
+     * the owner switched on there.
+     */
+    public function templates(Request $request): JsonResponse
+    {
+        $organization = $request->attributes->get('tenant.organization');
+
+        if (! $organization) {
+            return $this->ok([]);
+        }
+
+        $user = $request->user();
+        $branch = $user instanceof User ? $this->permission->branchFor($user) : null;
+        $modules = $this->permission->modulesAt($organization, $branch);
+        $pool = ModuleRegistry::capabilitiesFor($modules);
+
+        $templates = [];
+
+        foreach (RoleTemplates::all() as $template) {
+            $capabilities = RoleTemplates::capabilitiesFor($template, $modules);
+
+            // A template that would grant nothing here is not offered at all.
+            if ($capabilities === []) {
+                continue;
+            }
+
+            $templates[] = [
+                'key' => $template['key'],
+                'name' => $template['name'],
+                'summary' => $template['description'],
+                'icon' => $template['icon'],
+                'scope' => $template['scope'],
+                'capabilities' => $capabilities,
+            ];
+        }
+
+        /*
+         * Derived rather than listed — every capability whose key ends in
+         * `.view`. Writing them down would be a second place to remember when
+         * a module ships, and the one nobody would remember.
+         */
+        $readOnly = array_values(array_filter(
+            $pool,
+            fn (string $key) => str_ends_with($key, '.view'),
+        ));
+
+        if ($readOnly !== []) {
+            $templates[] = [
+                'key' => 'read_only',
+                'name' => 'Read-only',
+                'summary' => 'Can look at everything and change nothing.',
+                'icon' => 'ti ti-eye',
+                'scope' => Role::SCOPE_BRANCH,
+                'capabilities' => $readOnly,
+            ];
+        }
+
+        return $this->ok($templates);
     }
 
     public function index(Request $request): JsonResponse

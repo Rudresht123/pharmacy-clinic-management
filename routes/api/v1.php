@@ -31,6 +31,10 @@ use App\Http\Controllers\Api\V1\Tenant\MedicineAvailabilityController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineBatchController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineController;
 use App\Http\Controllers\Api\V1\Tenant\OpdController;
+use App\Http\Controllers\Api\V1\Tenant\DocumentGenerationController;
+use App\Http\Controllers\Api\V1\Tenant\DocumentTemplateController;
+use App\Http\Controllers\Api\V1\Tenant\LocationManagerController;
+use App\Http\Controllers\Api\V1\Tenant\PatientDocumentController;
 use App\Http\Controllers\Api\V1\Tenant\PharmacyDashboardController;
 use App\Http\Controllers\Api\V1\Tenant\PharmacyReportController;
 use App\Http\Controllers\Api\V1\Tenant\PharmacySaleController;
@@ -47,6 +51,7 @@ use App\Http\Controllers\Api\V1\Tenant\StockTransferController;
 use App\Http\Controllers\Api\V1\Tenant\StoreMedicineController;
 use App\Http\Controllers\Api\V1\Tenant\SupplierController;
 use App\Http\Controllers\Api\V1\Tenant\UserController as TenantUserController;
+use App\Http\Controllers\Api\V1\Tenant\UserPermissionController;
 use App\Http\Controllers\Api\V1\Tenant\WorkspaceLookupController;
 use App\Services\Pharmacy\PharmacyReports;
 use App\Services\Tenant\OrganizationSetup;
@@ -497,6 +502,10 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
 
                 Route::get('pharmacy-stores/{store}/stock', [MedicineBatchController::class, 'stock'])
                     ->name('pharmacy-stores.stock');
+
+                // The counter's category chips, scoped to what this store stocks.
+                Route::get('pharmacy-stores/{store}/categories', [MedicineBatchController::class, 'categories'])
+                    ->name('pharmacy-stores.categories');
                 Route::get('pharmacy-stores/{store}/batches', [MedicineBatchController::class, 'index'])
                     ->name('pharmacy-stores.batches');
                 Route::get('pharmacy-stores/{store}/movements', [StockMovementController::class, 'index'])
@@ -602,6 +611,99 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             Route::post('prescriptions/{prescription}/cancel', [PrescriptionController::class, 'cancel'])
                 ->middleware('permission:prescriptions.cancel')
                 ->name('prescriptions.cancel');
+        });
+
+        /*
+        |----------------------------------------------------------------------
+        | Patient documents
+        |----------------------------------------------------------------------
+        |
+        | Scans, reports and letters kept against a patient or a visit.
+        |
+        | `documents.view` is the ticket into the folder and reaches the
+        | administrative files — ID, insurance, consent, bills. The medical
+        | ones need `documents.view_clinical` ON TOP, which the controller
+        | asks per record because it depends on the document's category
+        | rather than on which URL was called. A desk and a pharmacist both
+        | hold the first; only clinical staff hold the second.
+        |
+        | The bytes are on the private disk and leave through `download`
+        | alone, which re-asks the same question — there is no public URL to
+        | leak, and no signed link that would skip the check silently.
+        */
+        Route::middleware('module:documents')->group(function () {
+            Route::middleware('permission:documents.view')->group(function () {
+                Route::get('document-categories', [PatientDocumentController::class, 'categories'])
+                    ->name('documents.categories');
+                Route::get('customers/{customer}/documents', [PatientDocumentController::class, 'index'])
+                    ->name('customers.documents.index');
+                Route::get('appointments/{appointment}/documents', [PatientDocumentController::class, 'forAppointment'])
+                    ->name('appointments.documents.index');
+                Route::get('documents/{document}/download', [PatientDocumentController::class, 'download'])
+                    ->name('documents.download');
+            });
+
+            Route::post('customers/{customer}/documents', [PatientDocumentController::class, 'store'])
+                ->middleware('permission:documents.upload')
+                ->name('customers.documents.store');
+
+            Route::delete('documents/{document}', [PatientDocumentController::class, 'destroy'])
+                ->middleware('permission:documents.delete')
+                ->name('documents.destroy');
+
+            /*
+            | The letterhead — what a printed document looks like, per branch.
+            |
+            | `documents.template_view` to read, `_edit` to save a draft,
+            | `_publish` to put one into use. Which BRANCH each of those
+            | reaches is decided per template in TemplateAuthority, because
+            | "the organisation's default" and "this branch's copy" are
+            | different answers no middleware can give.
+            |
+            | Literal paths before {template}.
+            */
+            Route::middleware('permission:documents.template_view')->group(function () {
+                Route::get('document-types', [DocumentTemplateController::class, 'types'])
+                    ->name('documents.types');
+                Route::get('document-templates/lockable', [DocumentTemplateController::class, 'lockable'])
+                    ->name('documents.templates.lockable');
+                Route::get('document-templates', [DocumentTemplateController::class, 'index'])
+                    ->name('documents.templates.index');
+                Route::get('document-templates/{template}', [DocumentTemplateController::class, 'show'])
+                    ->name('documents.templates.show');
+            });
+
+            Route::middleware('permission:documents.template_edit')->group(function () {
+                Route::post('document-templates', [DocumentTemplateController::class, 'store'])
+                    ->name('documents.templates.store');
+                Route::put('document-templates/{template}', [DocumentTemplateController::class, 'update'])
+                    ->name('documents.templates.update');
+                Route::delete('document-templates/{template}', [DocumentTemplateController::class, 'destroy'])
+                    ->name('documents.templates.destroy');
+
+                /* Rendered and thrown away — see the controller. Behind edit
+                   rather than view, because it renders a config the caller
+                   sent rather than one that was saved. */
+                Route::post('document-templates/preview', [DocumentTemplateController::class, 'preview'])
+                    ->name('documents.templates.preview');
+            });
+
+            Route::post('document-templates/{template}/publish', [DocumentTemplateController::class, 'publish'])
+                ->middleware('permission:documents.template_publish')
+                ->name('documents.templates.publish');
+
+            /* Locks are organisation-wide authority; the controller refuses
+               anybody without `documents.template_org` and refuses locks on
+               anything but the organisation's own default. */
+            Route::put('document-templates/{template}/locks', [DocumentTemplateController::class, 'lock'])
+                ->middleware('permission:documents.template_view')
+                ->name('documents.templates.lock');
+
+            /* Printing one. The record is named by id; WHICH record it may be
+               is decided by the document type, never by the request. */
+            Route::post('documents/generate', [DocumentGenerationController::class, 'store'])
+                ->middleware('permission:documents.generate')
+                ->name('documents.generate');
         });
 
         /*
@@ -881,6 +983,24 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             ->middleware('permission:people.edit')
             ->name('users.branches');
 
+        /*
+        | What one person holds, and the small differences from their role.
+        |
+        | `people.view` to read and `people.edit` to write, the same pair as
+        | the person's own record — and StaffScope decides WHOM, so a branch
+        | manager reaches their own branch's people and nobody else's.
+        |
+        | Only denies are writable, so this cannot hand anybody anything: the
+        | escalation guard that matters is on role assignment, which is a
+        | different endpoint.
+        */
+        Route::get('users/{user}/permissions', [UserPermissionController::class, 'show'])
+            ->middleware('permission:people.view')
+            ->name('users.permissions.show');
+        Route::put('users/{user}/permissions', [UserPermissionController::class, 'update'])
+            ->middleware('permission:people.edit')
+            ->name('users.permissions.update');
+
         Route::post('locations', [LocationController::class, 'store'])
             ->middleware('permission:branches.create')
             ->name('locations.store');
@@ -890,6 +1010,26 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         Route::delete('locations/{location}', [LocationController::class, 'destroy'])
             ->middleware('permission:branches.delete')
             ->name('locations.destroy');
+
+        /*
+        | Who runs a branch.
+        |
+        | Its own capability, ORGANISATION-SCOPED, and deliberately not
+        | `branches.edit`. Editing a branch changes its address; naming its
+        | manager decides who administers the people there — so a manager
+        | holding it could appoint themselves at another branch, or appoint
+        | somebody who would appoint them back.
+        |
+        | The endpoint moves the membership and its role as well as the
+        | column, in one transaction, so a branch can never have a manager who
+        | holds nothing.
+        */
+        Route::put('locations/{location}/manager', [LocationManagerController::class, 'assign'])
+            ->middleware('permission:branches.manage_manager')
+            ->name('locations.manager.assign');
+        Route::delete('locations/{location}/manager', [LocationManagerController::class, 'revoke'])
+            ->middleware('permission:branches.manage_manager')
+            ->name('locations.manager.revoke');
 
         /*
         |--------------------------------------------------------------------
@@ -920,6 +1060,11 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         Route::get('roles/grantable', [RoleController::class, 'grantable'])
             ->middleware('permission:people.view')
             ->name('roles.grantable');
+
+        // The same library the seeder uses, so the two cannot drift apart.
+        Route::get('roles/templates', [RoleController::class, 'templates'])
+            ->middleware('permission:people.view')
+            ->name('roles.templates');
 
         Route::get('roles/{role}/members', [RoleController::class, 'members'])
             ->middleware('permission:people.view')

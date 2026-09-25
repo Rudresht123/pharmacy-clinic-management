@@ -7,6 +7,7 @@ use App\Models\Platform\TenantMigrationState;
 use App\Repositories\Platform\Contracts\TenantMigrationRunRepositoryInterface;
 use App\Repositories\Platform\Contracts\TenantMigrationStateRepositoryInterface;
 use App\Services\Tenancy\TenantConnectionService;
+use App\Services\Tenant\DefaultRoleSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
 use Illuminate\Support\Collection;
@@ -237,6 +238,20 @@ class TenantsMigrateCommand extends Command
                 ]);
 
                 $this->line(Artisan::output());
+            }
+
+            /*
+             * The role library, after the schema and before the state is
+             * recorded. Here rather than in a migration because which roles an
+             * organization should get depends on which modules it was sold,
+             * and that lives in the master database — which a migration cannot
+             * read, since the migrator repoints `database.default` at the
+             * tenant while it runs. Idempotent, so every run is safe.
+             */
+            $seeded = app(DefaultRoleSeeder::class)->seed($organization);
+
+            if ($seeded !== []) {
+                $this->line('  Seeded roles: '.implode(', ', $seeded));
             }
 
             $after = $this->currentVersion();

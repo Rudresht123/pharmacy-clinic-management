@@ -44,7 +44,15 @@ export default function InwardListPage() {
      * somebody — lands on the view it was left on.
      */
     const [params, setParams] = useSearchParams();
-    const view: PharmacyView = params.get('view') === 'dashboard' ? 'dashboard' : 'table';
+    /*
+     * Dashboard first, table second.
+     *
+     * The shape of a screen is what somebody wants on arriving; the rows are
+     * what they drill into once a figure raises a question. PharmacyReportsPage
+     * already read it this way, and the rest disagreeing meant the same control
+     * opened differently depending on which screen you were on.
+     */
+    const view: PharmacyView = params.get('view') === 'table' ? 'table' : 'dashboard';
 
     function show(next: PharmacyView) {
         const updated = new URLSearchParams(params);

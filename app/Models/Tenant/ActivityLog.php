@@ -23,6 +23,8 @@ class ActivityLog extends Model
         'user_id',
         'actor_name',
         'actor_type',
+        /* The branch the request was acting in — see RecordsHistory. */
+        'location_id',
         'event',
         'entity_type',
         'entity_id',

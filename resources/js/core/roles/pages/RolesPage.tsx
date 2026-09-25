@@ -8,8 +8,7 @@ import { notify } from '@/shared/utils/notify';
 import { useConfigurableEntities } from '@/core/field-settings/api';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { tenantNavigation } from '@/app/tenant-navigation';
-import { rolesHooks, useGrantable, useRoleMembers } from '../api';
-import { ROLE_TEMPLATES, resolveTemplate } from '../templates';
+import { rolesHooks, useGrantable, useRoleMembers, useRoleTemplates } from '../api';
 import { ROLE_ICONS, type GrantableModule, type Role } from '../types';
 
 /**
@@ -765,7 +764,6 @@ export default function RolesPage() {
 
                                                 {draft.capabilities.length === 0 && !search && canWrite && (
                                                     <Templates
-                                                        modules={modules ?? []}
                                                         onApply={(capabilities, icon) =>
                                                             patch({ capabilities, icon })
                                                         }
@@ -998,14 +996,20 @@ export default function RolesPage() {
 
 /* -------------------------------------------------------------------------- */
 
-/** Somewhere to start, offered only while nothing is ticked. */
-function Templates({
-    modules,
-    onApply,
-}: {
-    modules: GrantableModule[];
-    onApply: (capabilities: string[], icon: string) => void;
-}) {
+/**
+ * Somewhere to start, offered only while nothing is ticked.
+ *
+ * The list comes from the server — the same library a new organization is
+ * seeded from — and arrives already narrowed to what is grantable here, so
+ * nothing has to be filtered on the way in.
+ */
+function Templates({ onApply }: { onApply: (capabilities: string[], icon: string) => void }) {
+    const { data: templates } = useRoleTemplates();
+
+    if ((templates ?? []).length === 0) {
+        return null;
+    }
+
     return (
         <section className="rp-templates">
             <header>
@@ -1015,30 +1019,22 @@ function Templates({
             </header>
 
             <div>
-                {ROLE_TEMPLATES.map((template) => {
-                    const capabilities = resolveTemplate(template, modules);
-
-                    if (capabilities.length === 0) {
-                        return null;
-                    }
-
-                    return (
-                        <button
-                            type="button"
-                            key={template.key}
-                            className="rp-template"
-                            onClick={() => onApply(capabilities, template.icon)}
-                        >
-                            <i className={template.icon} />
-                            <b>{template.name}</b>
-                            <small>{template.summary}</small>
-                            <em>
-                                {capabilities.length} permission
-                                {capabilities.length === 1 ? '' : 's'}
-                            </em>
-                        </button>
-                    );
-                })}
+                {(templates ?? []).map((template) => (
+                    <button
+                        type="button"
+                        key={template.key}
+                        className="rp-template"
+                        onClick={() => onApply(template.capabilities, template.icon)}
+                    >
+                        <i className={template.icon} />
+                        <b>{template.name}</b>
+                        <small>{template.summary}</small>
+                        <em>
+                            {template.capabilities.length} permission
+                            {template.capabilities.length === 1 ? '' : 's'}
+                        </em>
+                    </button>
+                ))}
             </div>
         </section>
     );

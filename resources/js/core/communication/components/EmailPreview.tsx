@@ -18,7 +18,8 @@ export function EmailPreview({
     onEdit,
 }: {
     template: MessageTemplate | null;
-    onEdit: (template: MessageTemplate) => void;
+    /** Absent for a reader: the preview stays, the way in does not. */
+    onEdit?: (template: MessageTemplate) => void;
 }) {
     return (
         <Card
@@ -26,7 +27,8 @@ export function EmailPreview({
             title="Template preview"
             icon="ti ti-mail-opened"
             actions={
-                template && (
+                template &&
+                onEdit && (
                     <Button
                         variant="light"
                         size="sm"

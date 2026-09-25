@@ -372,7 +372,8 @@ class PermissionTest extends TenantTestCase
 
         $user = $this->onTenant($organization, function () use ($lucknow) {
             $orgRole = Role::on('organization')->create([
-                'name' => 'Head office', 'slug' => 'head-office',
+                // Named so it cannot collide with the seeded role library.
+                'name' => 'Network desk', 'slug' => 'network-desk',
                 'scope' => Role::SCOPE_ORGANIZATION,
             ]);
             $orgRole->syncCapabilities(['customers.view']);
@@ -846,7 +847,7 @@ class PermissionTest extends TenantTestCase
 
         // An owner is refused one whatever its scope.
         $orgRoleId = $this->onTenant($organization, fn () => Role::on('organization')->create([
-            'name' => 'Head office', 'slug' => 'head-office-slot',
+            'name' => 'Network desk slot', 'slug' => 'network-desk-slot',
             'scope' => Role::SCOPE_ORGANIZATION,
         ])->id);
 

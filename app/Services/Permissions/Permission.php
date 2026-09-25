@@ -231,6 +231,14 @@ class Permission
      * role to preserve head office's reach, and re-checking here would strip
      * exactly the people that copy was made for.
      *
+     * DENIES ARE SUBTRACTED LAST, and this is the only place they are read.
+     * A role is still the unit — capabilities are held by reference, so
+     * editing a role changes what its holders can do — and an override is the
+     * exception that keeps that true instead of forcing a cloned role for
+     * every small difference. Only denies exist: an override that GRANTED
+     * would be a second way to escalate, and it would have to be checked
+     * everywhere a role already is.
+     *
      * @return list<string>
      */
     public function heldBy(User $user, ?int $locationId): array
@@ -239,7 +247,9 @@ class Permission
 
         $membership = $user->membershipAt($locationId);
 
-        return array_values(array_unique([...$held, ...($membership?->capabilityKeys() ?? [])]));
+        $granted = array_unique([...$held, ...($membership?->capabilityKeys() ?? [])]);
+
+        return array_values(array_diff($granted, $user->deniedAt($locationId)));
     }
 
     /**

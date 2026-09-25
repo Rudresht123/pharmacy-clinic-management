@@ -177,6 +177,18 @@ class StaffScope
             return false;
         }
 
+        /*
+         * An individual deny beats every role that grants it.
+         *
+         * Checked FIRST, and against denies at every branch as well as at
+         * one: this question is about the person rather than about a place,
+         * so somebody denied it anywhere has not been left administering the
+         * whole network from the branch where the deny does not reach.
+         */
+        if (in_array(self::ACROSS_BRANCHES, $actor->deniedAnywhere(), true)) {
+            return false;
+        }
+
         if ($actor->permissionRole?->grants(self::ACROSS_BRANCHES)) {
             return true;
         }

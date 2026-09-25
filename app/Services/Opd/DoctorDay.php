@@ -359,6 +359,13 @@ class DoctorDay
         return [
             'id' => $row->id,
             'token_no' => $row->token_no,
+
+            /*
+             * The patient, not just their name. Every screen that shows a row
+             * can now reach what hangs off the person — their documents, for
+             * one — without a second request to find out who they are.
+             */
+            'customer_id' => (int) $row->customer_id,
             'customer_name' => $row->customer?->name,
             'customer_code' => $row->customer?->code,
 

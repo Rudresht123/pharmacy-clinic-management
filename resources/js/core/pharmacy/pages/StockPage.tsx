@@ -82,7 +82,15 @@ export default function StockPage() {
      * the table is every line of it. The same summary the stock report
      * gives, from the same query, so the two can never disagree.
      */
-    const [reading, setReading] = useState<PharmacyView>('table');
+    /*
+     * Dashboard first, table second.
+     *
+     * The shape of a screen is what somebody wants on arriving; the rows are
+     * what they drill into once a figure raises a question. PharmacyReportsPage
+     * already read it this way, and the rest disagreeing meant the same control
+     * opened differently depending on which screen you were on.
+     */
+    const [reading, setReading] = useState<PharmacyView>('dashboard');
     const summary = useReportSummary(store?.id, 'stock', {});
     const [filters, setFilters] = useState<Record<string, string>>({ in_stock: '1' });
 
