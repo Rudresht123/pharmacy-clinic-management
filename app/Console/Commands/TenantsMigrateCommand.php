@@ -8,6 +8,7 @@ use App\Repositories\Platform\Contracts\TenantMigrationRunRepositoryInterface;
 use App\Repositories\Platform\Contracts\TenantMigrationStateRepositoryInterface;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DefaultRoleSeeder;
+use App\Services\Tenant\DefaultTemplateSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
 use Illuminate\Support\Collection;
@@ -252,6 +253,14 @@ class TenantsMigrateCommand extends Command
 
             if ($seeded !== []) {
                 $this->line('  Seeded roles: '.implode(', ', $seeded));
+            }
+
+            /* And a printable letterhead, for the same reason and in the same
+               place — both depend on the master database's entitlements. */
+            $templates = app(DefaultTemplateSeeder::class)->seed($organization);
+
+            if ($templates !== []) {
+                $this->line('  Seeded templates: '.implode(', ', $templates));
             }
 
             $after = $this->currentVersion();

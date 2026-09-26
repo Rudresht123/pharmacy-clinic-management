@@ -32,9 +32,41 @@ use Illuminate\Validation\Validator;
  */
 class SaveDocumentTemplateRequest extends FormRequest
 {
-    public function authorize(): bool
+    /**
+     * Authority is not validation.
+     *
+     * "You may not edit this" is a different answer from "this field is
+     * wrong", and answering it as a 422 buried in `errors.config` puts it
+     * where a form shows field hints. Refused here instead, before a single
+     * rule runs — 404 for another branch's template, so the id is never
+     * confirmed to exist, and 403 for the organisation's own default, which
+     * they CAN see and simply may not rewrite.
+     */
+    public function authorize(TemplateAuthority $authority): bool
     {
-        return true;
+        $organization = $this->attributes->get('tenant.organization');
+        $actor = Auth::guard('web')->user();
+
+        if (! $organization || ! $actor instanceof User) {
+            return false;
+        }
+
+        $template = $this->template();
+
+        if ($template === null) {
+            // Creating: the target branch comes from the payload.
+            return $authority->mayWrite(
+                $organization,
+                $actor,
+                $this->input('location_id') !== null ? (int) $this->input('location_id') : null,
+            );
+        }
+
+        if (! $authority->mayRead($organization, $actor, $template->location_id)) {
+            abort(404, 'Resource not found.');
+        }
+
+        return $authority->mayWrite($organization, $actor, $template->location_id);
     }
 
     private function template(): ?DocumentTemplate
@@ -105,22 +137,7 @@ class SaveDocumentTemplateRequest extends FormRequest
                     return;
                 }
 
-                $target = $template
-                    ? $template->location_id
-                    : ($this->input('location_id') !== null ? (int) $this->input('location_id') : null);
-
-                /* 1. Authority over this template. */
-                if (! $authority->mayWrite($organization, $actor, $target)) {
-                    $validator->errors()->add(
-                        $target === null ? 'location_id' : 'name',
-                        $target === null
-                            ? 'Only an organisation administrator can change the organisation’s default template.'
-                            : 'You cannot change a template for a branch you do not run.',
-                    );
-
-                    return;
-                }
-
+                /* Authority was settled in authorize(); what is left is shape. */
                 $config = TemplateConfig::sanitise((array) $this->input('config', []), $type);
 
                 /* 2. Placeholders this document type cannot fill. */

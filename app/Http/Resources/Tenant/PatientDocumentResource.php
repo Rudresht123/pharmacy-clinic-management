@@ -35,6 +35,19 @@ class PatientDocumentResource extends JsonResource
             'title' => $this->resource->title,
             'notes' => $this->resource->notes,
 
+            /*
+             * Scanned by somebody, or printed by this software from a
+             * template. A reader has to be able to tell: a generated
+             * prescription is this clinic's own statement, an uploaded one is
+             * somebody else's that was filed here.
+             */
+            'source' => $this->resource->source,
+            'document_number' => $this->resource->document_number,
+
+            /* Which template version produced it — what makes an old document
+               still readable as the document it was. Null on an upload. */
+            'template_version_id' => $this->resource->document_template_version_id,
+
             'category' => $category,
             'category_name' => DocumentCategories::name($category),
             'is_clinical' => $this->resource->isClinical(),

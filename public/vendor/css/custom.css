@@ -5523,9 +5523,20 @@ html::-webkit-scrollbar-track {
     min-height:0;
 }
 
-/* The two stacked cards split their row between them. */
+/* The two stacked cards share their row.
+ *
+ * `flex-basis: auto`, NOT 0. With a zero basis the pair split the row evenly
+ * and ignore what is in them, so on a quiet morning — a queue with one patient,
+ * and therefore a short row — the doctors card was given less height than its
+ * own single row needed, and that one row scrolled inside it. Sizing from
+ * content first and sharing only the LEFTOVER keeps a short list whole and
+ * still lets a long one take the rest of the column.
+ *
+ * The floor is the card's own chrome plus two rows, so an empty state and a
+ * one-doctor list both read as something rather than as a clipped fragment.
+ */
 .opd-stack{ display:flex; flex-direction:column; gap:12px; min-height:0; }
-.opd-stack > .card{ flex:1 1 0; }
+.opd-stack > .card{ flex:1 1 auto; min-height:176px; }
 
 /* Lists scroll; their card does not stretch to hold them. */
 .opd-stack .opd-list,

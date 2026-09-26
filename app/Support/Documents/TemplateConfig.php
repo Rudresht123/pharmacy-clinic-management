@@ -224,7 +224,23 @@ class TemplateConfig
             }
 
             foreach ($shape as $key => $fallback) {
-                $clean[$section][$key] = Arr::get($config, "{$section}.{$key}", $fallback);
+                $value = Arr::get($config, "{$section}.{$key}", $fallback);
+
+                /*
+                 * Null becomes the empty string where the shape says string.
+                 *
+                 * Laravel's ConvertEmptyStringsToNull turns a blank field in
+                 * the request into null, while the same field read back from
+                 * jsonb is ''. Left alone the two never match, so every save
+                 * reported an untouched blank field as CHANGED — and on a
+                 * LOCKED blank field that meant the template could never be
+                 * saved again by anybody it was locked against.
+                 */
+                if ($value === null && is_string($fallback)) {
+                    $value = '';
+                }
+
+                $clean[$section][$key] = $value;
             }
         }
 

@@ -79,8 +79,22 @@ class DocumentService
 
         [$customerId, $appointmentId] = $this->subjectKeys($subject);
 
+        /*
+         * A walk-in sale has no patient record, so there is no file to put
+         * the bill in — `patient_documents` hangs off a customer by
+         * definition, and that is the whole reason its access rules work.
+         *
+         * Refused with the thing somebody can actually do about it rather
+         * than a shrug. Printing a bill for a walk-in without filing it is a
+         * real want and a separate piece of work: it needs a way to hand over
+         * a PDF that was never stored, which this endpoint — whose answer is
+         * a stored document — cannot be.
+         */
         if ($customerId === null) {
-            throw new RuntimeException('This record is not attached to a patient.');
+            throw new RuntimeException(
+                'This record has no patient on it, so there is nowhere to file the document. '
+                .'Add the customer to it first.',
+            );
         }
 
         $number = $this->numberFor($subject);

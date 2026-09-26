@@ -357,8 +357,15 @@ class DocumentHtml
      * value for — an unfilled optional. Printing the braces would put
      * `{{patient_email}}` on a document handed to a patient.
      */
-    private function fill(string $text, array $values): string
+    private function fill(?string $text, array $values): string
     {
+        // A config read back from jsonb can hold a null where the defaults
+        // have an empty string — an unset footer line, a blank registration
+        // number. Null is "nothing to print", not a failure.
+        if ($text === null) {
+            return '';
+        }
+
         return preg_replace_callback(
             '/\{\{\s*([a-z0-9_]+)\s*\}\}/i',
             fn (array $match) => (string) ($values[mb_strtolower($match[1])] ?? ''),

@@ -11,6 +11,7 @@ use App\Services\Notifications\EmailService;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DefaultRoleSeeder;
+use App\Services\Tenant\DefaultTemplateSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
@@ -267,6 +268,11 @@ class OrganizationProvisioningService
         $this->tenants->connect($organization->database_name);
 
         app(DefaultRoleSeeder::class)->seed($organization);
+
+        /* A printable letterhead for every document this organization was
+           sold — an organization that can do nothing on day one is one
+           somebody has to be walked through before it works. */
+        app(DefaultTemplateSeeder::class)->seed($organization);
     }
 
     /**

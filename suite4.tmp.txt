@@ -1,0 +1,201 @@
+PHPUnit 11.5.55 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.0
+Configuration: C:\Users\ruder\Projects\HMS\phpunit.xml
+
+...............................................................  63 / 629 ( 10%)
+............................................................... 126 / 629 ( 20%)
+............................................................... 189 / 629 ( 30%)
+..........................................................[31;1mE[0m[31;1mE[0m.[31;1mE[0m[31;1mE[0m 252 / 629 ( 40%)
+............................................................... 315 / 629 ( 50%)
+............................................................... 378 / 629 ( 60%)
+............................................................... 441 / 629 ( 70%)
+............................................................... 504 / 629 ( 80%)
+............................................................... 567 / 629 ( 90%)
+..............................................................  629 / 629 (100%)
+
+Time: 19:58.771, Memory: 140.00 MB
+
+There were 4 errors:
+
+1) Tests\Feature\Api\V1\Tenant\DocumentTemplateTest::test_generating_falls_back_to_the_organisation_default
+Illuminate\Database\UniqueConstraintViolationException: SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "dt_unique_organization"
+DETAIL:  Key (document_type)=(patient_registration) already exists. (Connection: organization, Host: 127.0.0.1, Port: 5432, Database: hms_tenant_dt_test_6ab6b8846debd, SQL: insert into "document_templates" ("location_id", "document_type", "name", "status", "updated_at", "created_at") values (?, patient_registration, Organisation default, active, 2026-09-25 23:38:06, 2026-09-25 23:38:06) returning "id")
+
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:398
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\PostgresProcessor.php:24
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4170
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2237
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Support\helpers.php:393
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:100
+C:\Users\ruder\Projects\HMS\tests\TenantTestCase.php:123
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:99
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:292
+
+Caused by
+PDOException: SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "dt_unique_organization"
+DETAIL:  Key (document_type)=(patient_registration) already exists.
+
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:425
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:398
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\PostgresProcessor.php:24
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4170
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2237
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Support\helpers.php:393
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:100
+C:\Users\ruder\Projects\HMS\tests\TenantTestCase.php:123
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:99
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:292
+
+2) Tests\Feature\Api\V1\Tenant\DocumentTemplateTest::test_a_branch_override_wins_over_the_organisation_default
+Illuminate\Database\UniqueConstraintViolationException: SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "dt_unique_organization"
+DETAIL:  Key (document_type)=(patient_registration) already exists. (Connection: organization, Host: 127.0.0.1, Port: 5432, Database: hms_tenant_dt_test_6ab6b886cfb1c, SQL: insert into "document_templates" ("location_id", "document_type", "name", "status", "updated_at", "created_at") values (?, patient_registration, Organisation default, active, 2026-09-25 23:38:08, 2026-09-25 23:38:08) returning "id")
+
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:398
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\PostgresProcessor.php:24
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4170
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2237
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Support\helpers.php:393
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:100
+C:\Users\ruder\Projects\HMS\tests\TenantTestCase.php:123
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:99
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:316
+
+Caused by
+PDOException: SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "dt_unique_organization"
+DETAIL:  Key (document_type)=(patient_registration) already exists.
+
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:425
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:398
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\PostgresProcessor.php:24
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4170
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2237
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Support\helpers.php:393
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:100
+C:\Users\ruder\Projects\HMS\tests\TenantTestCase.php:123
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:99
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:316
+
+3) Tests\Feature\Api\V1\Tenant\DocumentTemplateTest::test_a_draft_template_cannot_print_anything
+Illuminate\Database\UniqueConstraintViolationException: SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "dt_unique_organization"
+DETAIL:  Key (document_type)=(patient_registration) already exists. (Connection: organization, Host: 127.0.0.1, Port: 5432, Database: hms_tenant_dt_test_6ab6b88b3c420, SQL: insert into "document_templates" ("location_id", "document_type", "name", "status", "updated_at", "created_at") values (?, patient_registration, Not published, draft, 2026-09-25 23:38:12, 2026-09-25 23:38:12) returning "id")
+
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:398
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\PostgresProcessor.php:24
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4170
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2237
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Support\helpers.php:393
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:402
+C:\Users\ruder\Projects\HMS\tests\TenantTestCase.php:123
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:401
+
+Caused by
+PDOException: SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "dt_unique_organization"
+DETAIL:  Key (document_type)=(patient_registration) already exists.
+
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:425
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:398
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\PostgresProcessor.php:24
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4170
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2237
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Support\helpers.php:393
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:402
+C:\Users\ruder\Projects\HMS\tests\TenantTestCase.php:123
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:401
+
+4) Tests\Feature\Api\V1\Tenant\DocumentTemplateTest::test_printing_needs_its_own_capability
+Illuminate\Database\UniqueConstraintViolationException: SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "dt_unique_organization"
+DETAIL:  Key (document_type)=(patient_registration) already exists. (Connection: organization, Host: 127.0.0.1, Port: 5432, Database: hms_tenant_dt_test_6ab6b88d36f34, SQL: insert into "document_templates" ("location_id", "document_type", "name", "status", "updated_at", "created_at") values (?, patient_registration, Organisation default, active, 2026-09-25 23:38:14, 2026-09-25 23:38:14) returning "id")
+
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:838
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:398
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\PostgresProcessor.php:24
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4170
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2237
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Support\helpers.php:393
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:100
+C:\Users\ruder\Projects\HMS\tests\TenantTestCase.php:123
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:99
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:436
+
+Caused by
+PDOException: SQLSTATE[23505]: Unique violation: 7 ERROR:  duplicate key value violates unique constraint "dt_unique_organization"
+DETAIL:  Key (document_type)=(patient_registration) already exists.
+
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:425
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:827
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:794
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:411
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Connection.php:398
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\PostgresProcessor.php:24
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php:4170
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:2237
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1436
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1401
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1240
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1219
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Support\helpers.php:393
+C:\Users\ruder\Projects\HMS\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1218
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:100
+C:\Users\ruder\Projects\HMS\tests\TenantTestCase.php:123
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:99
+C:\Users\ruder\Projects\HMS\tests\Feature\Api\V1\Tenant\DocumentTemplateTest.php:436
+
+[37;41mERRORS![0m
+[37;41mTests: 629[0m[37;41m, Assertions: 3587[0m[37;41m, Errors: 4[0m[37;41m.[0m
+EXIT=2

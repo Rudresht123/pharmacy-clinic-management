@@ -140,17 +140,34 @@ export function ModuleAssignPanel({
                  */
                 const byModule: Record<string, string> = {};
 
+                /*
+                 * Errors that belong to no row.
+                 *
+                 * "Prescriptions needs Medicines" is reported against
+                 * `modules`, with no index — there is no single row at fault.
+                 * It used to be dropped on the floor here and announced as
+                 * "Some dates need attention", which named the wrong problem
+                 * and hid the only sentence that said how to fix it.
+                 */
+                const general: string[] = [];
+
                 for (const [field, messages] of Object.entries(validation)) {
                     const module = payload[Number(field.split('.')[1])];
 
                     if (module) {
                         byModule[module.key] = messages[0];
+
+                        continue;
                     }
+
+                    general.push(messages[0]);
                 }
 
                 setErrors(byModule);
                 setExpanded(Object.keys(byModule)[0] ?? null);
-                notify.error('Some dates need attention.');
+
+                // Say what actually went wrong, not what usually does.
+                notify.error(general[0] ?? 'Some dates need attention.');
 
                 return;
             }
