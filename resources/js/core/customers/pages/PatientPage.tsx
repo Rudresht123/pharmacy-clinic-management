@@ -9,6 +9,8 @@ import { Button } from '@/shared/components/ui/Button';
 import { RecordHistory } from '@/core/tenant-history/RecordHistory';
 import { http } from '@/shared/api/http';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
+import { DocumentsPanel } from '@/core/documents/components/DocumentsPanel';
+import { usePatientDocuments } from '@/core/documents/api';
 import { cn } from '@/shared/utils/cn';
 import { customersHooks, useCustomerFields } from '../api';
 import type { ApiResponse } from '@/shared/types/api';
@@ -23,7 +25,6 @@ import {
 import {
     AllergiesPanel,
     BillingPanel,
-    DocumentsPanel,
     LabsTable,
     NotesPanel,
     Overview,
@@ -68,11 +69,28 @@ function useRecord(id: string | undefined) {
  */
 export default function PatientPage() {
     const { id } = useParams();
-    const { capabilities } = useTenantAuth();
+    const { modules, capabilities } = useTenantAuth();
     const [params, setParams] = useSearchParams();
 
+    /*
+     * The module bought AND the capability held — the same two questions the
+     * server asks. Documents used to be a permanent, harmless empty state
+     * shown to everyone; now that the module is real, showing it to somebody
+     * who cannot read it would mean the tab either 403s or — worse — quietly
+     * shows "No files yet" about a folder it was never allowed to open.
+     */
+    const hasDocuments = modules.includes('documents') && capabilities.includes('documents.view');
+
+    // The one entry a reader may not open, dropped from both the side menu
+    // and the tab strip — a row leading to a tab that bounces straight back
+    // to Overview is worse than no row.
+    const visibleSections = hasDocuments
+        ? SECTIONS
+        : SECTIONS.filter((entry) => entry.value !== 'documents');
+
     const asked = params.get('section');
-    const section: Section = isSection(asked) ? asked : 'overview';
+    const section: Section =
+        isSection(asked) && (asked !== 'documents' || hasDocuments) ? asked : 'overview';
 
     const go = (next: Section) => {
         const updated = new URLSearchParams(params);
@@ -93,6 +111,15 @@ export default function PatientPage() {
     const { data: record } = useRecord(id);
     const { data: fields } = useCustomerFields();
 
+    /*
+     * Shares its cache with the Overview tile and the full tab below —
+     * React Query dedupes identical queries, so three call sites reading the
+     * same patient's documents is one request, not three. `undefined`
+     * disables it outright rather than fetching something this reader could
+     * not open anyway.
+     */
+    const { data: documents } = usePatientDocuments(hasDocuments && id ? Number(id) : undefined);
+
     const visits = useMemo(() => record?.visits ?? [], [record]);
     const file = useMemo(() => readFile(visits), [visits]);
 
@@ -106,6 +133,15 @@ export default function PatientPage() {
     const summary = record?.summary;
     const lastRx = file.prescriptions[0]?.date ?? null;
     const lastLab = file.labs[0]?.date ?? null;
+
+    const documentsTile: StatTile = {
+        label: 'Files / Documents',
+        value: documents?.length ?? '—',
+        icon: 'ti ti-files',
+        tone: 'sky',
+        hint: documents?.length ? `${documents.length} on file` : 'None uploaded',
+        onClick: () => go('documents'),
+    };
 
     const tiles: StatTile[] = [
         {
@@ -150,14 +186,12 @@ export default function PatientPage() {
             hint: 'Billing not set up yet',
             onClick: () => go('billing'),
         },
-        {
-            label: 'Files / Documents',
-            value: 0,
-            icon: 'ti ti-files',
-            tone: 'sky',
-            hint: 'None uploaded',
-            onClick: () => go('documents'),
-        },
+        /*
+         * Omitted rather than shown at zero for somebody without
+         * `documents.view` — a tile whose click opens a tab that immediately
+         * bounces back to Overview is worse than no tile.
+         */
+        ...(hasDocuments ? [documentsTile] : []),
     ];
 
     const history = <RecordHistory entity="Customer" id={patient.id} label={patient.name} />;
@@ -274,7 +308,7 @@ export default function PatientPage() {
 
             <div className="pf-body">
                 <aside className="pf-nav" aria-label="Patient record sections">
-                    {SECTIONS.map((entry) => (
+                    {visibleSections.map((entry) => (
                         <button
                             key={entry.value}
                             type="button"
@@ -290,7 +324,7 @@ export default function PatientPage() {
 
                 <div className="pf-main">
                     <Tabs
-                        tabs={SECTIONS.map((entry) => ({ value: entry.value, label: entry.short }))}
+                        tabs={visibleSections.map((entry) => ({ value: entry.value, label: entry.short }))}
                         value={section}
                         onChange={go}
                         label="Patient record sections"
@@ -303,6 +337,7 @@ export default function PatientPage() {
                             record={record}
                             file={file}
                             canEdit={canEdit}
+                            hasDocuments={hasDocuments}
                             go={go}
                         />
                     )}
@@ -317,7 +352,9 @@ export default function PatientPage() {
 
                     {section === 'billing' && <BillingPanel />}
 
-                    {section === 'documents' && <DocumentsPanel />}
+                    {section === 'documents' && hasDocuments && id && (
+                        <DocumentsPanel customerId={Number(id)} />
+                    )}
 
                     {section === 'notes' && <NotesPanel rows={file.notes} go={go} />}
 

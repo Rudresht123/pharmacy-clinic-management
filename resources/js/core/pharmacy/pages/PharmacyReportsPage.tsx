@@ -6,6 +6,7 @@ import { Tabs, type TabItem } from '@/shared/components/ui/Tabs';
 import { ErrorState, LoadingBlock } from '@/shared/components/ui/Feedback';
 import { Pagination } from '@/shared/components/ui/Pagination';
 import { formatDate } from '@/shared/utils/format';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { NoStores, StorePicker, useChosenStore } from '../components/StorePicker';
 import { ReportSummaryView } from '../components/ReportSummary';
 import { PAYMENT_METHOD_LABELS } from '../types';
@@ -128,7 +129,21 @@ export default function PharmacyReportsPage() {
     const { stores, store, choose, isLoading: storesLoading } = useChosenStore();
     const [params, setParams] = useSearchParams();
 
-    const report = (REPORTS.find((key) => key === params.get('report')) ?? 'sales') as ReportKey;
+    /*
+     * Which of the six this person actually holds — its own capability per
+     * report (`reports.sales` … `reports.gst`), not the one `pharmacy.view`
+     * that used to gate all six at once. A cashier who may see what sold
+     * today has no structural need to see what it cost.
+     */
+    const { can } = useTenantAuth();
+    const allowedReports = REPORTS.filter((key) => can(`reports.${key}`));
+
+    const requested = params.get('report');
+    const report = (
+        requested && allowedReports.includes(requested as ReportKey)
+            ? requested
+            : allowedReports[0]
+    ) as ReportKey | undefined;
     const view: View = params.get('view') === 'table' ? 'table' : 'dashboard';
     const page = Math.max(1, Number(params.get('page') ?? 1));
     const search = params.get('q') ?? '';
@@ -163,7 +178,7 @@ export default function PharmacyReportsPage() {
         view === 'table',
     );
 
-    const columns = COLUMNS[report];
+    const columns = report ? COLUMNS[report] : [];
 
     if (storesLoading) {
         return <LoadingBlock label="Loading stores…" />;
@@ -173,6 +188,25 @@ export default function PharmacyReportsPage() {
         return (
             <Card>
                 <NoStores />
+            </Card>
+        );
+    }
+
+    /*
+     * Reached only by a direct link, or by a role somebody has since edited —
+     * the menu already hides the "Reports" row entirely once nobody holds any
+     * of the six. Said plainly rather than defaulting to Sales and letting
+     * the request 403: that would read as the screen being broken rather than
+     * as an answer.
+     */
+    if (!report) {
+        return (
+            <Card>
+                <div className="org-pending">
+                    <i className="ti ti-report-analytics" />
+                    <h6>No reports to show</h6>
+                    <p>Your role does not include any of the pharmacy reports.</p>
+                </div>
             </Card>
         );
     }
@@ -192,7 +226,7 @@ export default function PharmacyReportsPage() {
 
             {/* Which report. Its own row, because it changes everything below. */}
             <div className="rp-reports">
-                {REPORTS.map((key) => (
+                {allowedReports.map((key) => (
                     <button
                         type="button"
                         key={key}

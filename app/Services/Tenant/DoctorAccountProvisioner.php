@@ -36,8 +36,11 @@ class DoctorAccountProvisioner
         /*
          * Their own list, and the patients on it. Nothing wider.
          *
-         * `appointments.queue` is what moves somebody through — check in,
-         * start, complete — and is what `opd/my-day` is behind.
+         * `appointments.queue` is what `opd/my-day` is behind — it is how a
+         * doctor reads their own list at all. It NO LONGER carries the
+         * consultation: since the workflow split it means "check in and call
+         * through", the desk's two verbs, and the two keys below are what a
+         * doctor actually works with.
          *
          * `appointments.view` is deliberately NOT here. It opens the
          * department's board, the desk's queue for every doctor, the doctor
@@ -46,9 +49,27 @@ class DoctorAccountProvisioner
          * about seeing patients.
          */
         'appointments.queue',
+
+        /*
+         * The consultation, both ends of it. These are the keys the
+         * receptionist deliberately does not hold, and a doctor login without
+         * them could read its own list and never open a write-up.
+         */
+        'appointments.consult_start',
+        'appointments.consult_complete',
+
         'customers.view',
         'prescriptions.view',
         'prescriptions.write',
+
+        /*
+         * Ordering tests and reading what comes back. Not `.process` or
+         * `.complete`: a doctor who could sign off their own order has taken
+         * the bench out of the loop, and the result they act on would be one
+         * nobody ran.
+         */
+        'laboratory.view',
+        'laboratory.order',
 
         // Searching the catalogue, and seeing what is on the shelf, while prescribing.
         'medicines.view',

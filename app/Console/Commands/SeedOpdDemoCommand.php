@@ -646,15 +646,41 @@ class SeedOpdDemoCommand extends Command
                     $appointment->started_at = $startedAt;
                     $appointment->completed_at = $completedAt;
                     $appointment->token_no = ++$token;
+
+                    $appointment->forceFill([
+                        'consultation_status' => Appointment::CONSULT_COMPLETED,
+                        'visit_completed_at' => $completedAt,
+                        'next_action' => Appointment::NEXT_NONE,
+                    ]);
                 } elseif ($startedAt->lessThanOrEqualTo($clock)) {
                     $appointment->status = Appointment::STATUS_IN_CONSULTATION;
                     $appointment->checked_in_at = $arrival;
                     $appointment->started_at = $startedAt;
                     $appointment->token_no = ++$token;
+
+                    $appointment->forceFill([
+                        'queue_status' => Appointment::QUEUE_WITH_DOCTOR,
+                        'consultation_status' => Appointment::CONSULT_IN_PROGRESS,
+                    ]);
                 } else {
                     $appointment->status = Appointment::STATUS_CHECKED_IN;
                     $appointment->checked_in_at = $arrival;
                     $appointment->token_no = ++$token;
+
+                    /*
+                     * A third of the people in the waiting room have been
+                     * called, because a demo day where nobody ever has is a
+                     * demo of the state this workflow was built to add. The
+                     * ones nearest their turn are the ones called.
+                     */
+                    $called = $startedAt->diffInMinutes($clock, false) > -8;
+
+                    $appointment->forceFill([
+                        'queue_status' => $called
+                            ? Appointment::QUEUE_CALLED
+                            : Appointment::QUEUE_WAITING,
+                        'called_at' => $called ? $clock->copy()->subMinutes(random_int(1, 6)) : null,
+                    ]);
                 }
 
                 $appointment->save();

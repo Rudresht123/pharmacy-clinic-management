@@ -1,0 +1,22 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "HMS API",
+        "description": "Clinic Management System API Documentation",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/api/test": {
+            "get": {
+                "summary": "Test API",
+                "description": "Test endpoint for Swagger documentation",
+                "operationId": "4d01683b8def332942271d8c47d77875",
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    }
+                }
+            }
+        }
+    }
+}

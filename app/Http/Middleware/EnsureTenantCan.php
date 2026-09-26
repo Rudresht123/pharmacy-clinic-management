@@ -22,6 +22,11 @@ use Symfony\Component\HttpFoundation\Response;
  * the whole section disappear at once, which is a clearer failure than every
  * request inside it failing separately.
  *
+ * More than one capability — `permission:pharmacy.view,reports.sales,…` — asks
+ * for ANY of them, never all: a shared read like "which stores exist" is
+ * behind more than one door, and whoever holds any one of the capabilities
+ * behind it is not asking for anything the others do not already grant.
+ *
  * The branch is the person's own. A route that acts on a branch named in the
  * request — booking into a particular clinic, say — has to check that branch
  * too, and does so in the controller where the value has been validated;
@@ -37,7 +42,7 @@ class EnsureTenantCan
         private readonly Permission $permission,
     ) {}
 
-    public function handle(Request $request, Closure $next, string $capability): Response
+    public function handle(Request $request, Closure $next, string ...$capabilities): Response
     {
         $organization = $request->attributes->get('tenant.organization');
         $user = $request->user();
@@ -46,10 +51,12 @@ class EnsureTenantCan
             abort(403, 'This action is not available to you.');
         }
 
-        if (! $this->permission->allows($organization, $user, $capability)) {
-            abort(403, 'This action is not available to you.');
+        foreach ($capabilities as $capability) {
+            if ($this->permission->allows($organization, $user, $capability)) {
+                return $next($request);
+            }
         }
 
-        return $next($request);
+        abort(403, 'This action is not available to you.');
     }
 }

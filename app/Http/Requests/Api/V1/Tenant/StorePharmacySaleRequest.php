@@ -8,6 +8,7 @@ use App\Models\Tenant\Medicine;
 use App\Models\Tenant\MedicineBatch;
 use App\Models\Tenant\PharmacySalePayment;
 use App\Models\Tenant\Prescription;
+use App\Models\Tenant\PrescriptionItem;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -68,6 +69,16 @@ class StorePharmacySaleRequest extends FormRequest
             ],
             // Left out, the counter fills the line first-expiry-first-out.
             'items.*.medicine_batch_id' => ['nullable', 'integer', $live(MedicineBatch::class)],
+
+            /*
+             * Which prescribed line this fulfils, when the counter knows.
+             *
+             * Optional, because matching on the medicine is right for every
+             * ordinary prescription. It exists for the one that is not: the
+             * same drug written twice at two doses, where only the person
+             * handing it over can say which line they are answering.
+             */
+            'items.*.prescription_item_id' => ['nullable', 'integer', $live(PrescriptionItem::class)],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:1000000'],
             // Never above the batch's price; the service caps it too.
             'items.*.unit_price' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],

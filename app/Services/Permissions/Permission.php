@@ -3,6 +3,8 @@
 namespace App\Services\Permissions;
 
 use App\Models\Platform\Organization;
+use App\Models\Tenant\BranchMembership;
+use App\Models\Tenant\BranchRoleCapability;
 use App\Models\Tenant\LocationModule;
 use App\Models\Tenant\User;
 use App\Services\Modules\ModuleAccess;
@@ -49,6 +51,20 @@ class Permission
      * @var array<string, list<string>>
      */
     private array $resolved = [];
+
+    /**
+     * What each branch has taken off each role, once looked up this request.
+     *
+     * ONLY the customisations, never the whole answer. Caching what somebody
+     * holds would mean caching their role's capabilities too, and those change
+     * under a running process often enough to matter — a provisioner assigning
+     * a role, a seeder, a test — leaving this service confidently answering
+     * with a set nobody holds any more. A branch's customisations change on
+     * exactly one screen, which calls forget().
+     *
+     * @var array<string, list<string>>
+     */
+    private array $removed = [];
 
     /**
      * The branch this request is happening in, once resolved.
@@ -110,6 +126,7 @@ class Permission
     public function forget(): void
     {
         $this->resolved = [];
+        $this->removed = [];
     }
 
     /**
@@ -219,7 +236,11 @@ class Permission
      *
      *   the BRANCH-scoped role on their membership there — applies at that
      *   branch and nowhere else, which is what lets somebody be a receptionist
-     *   at Lucknow and a manager at Delhi without either leaking
+     *   at Lucknow and a manager at Delhi without either leaking, and already
+     *   MINUS whatever that branch has customised off the role (see
+     *   BranchMembership::capabilityKeys). The subtraction belongs there
+     *   because it is a property of holding the role at that branch, not a
+     *   rule this service applies afterwards
      *
      * A union rather than inheritance on purpose: "why can Rahul do this"
      * has to be answerable by reading two rows, and an inheritance chain is
@@ -247,9 +268,53 @@ class Permission
 
         $membership = $user->membershipAt($locationId);
 
-        $granted = array_unique([...$held, ...($membership?->capabilityKeys() ?? [])]);
+        /*
+         * Level five: what this branch has taken off the role, subtracted from
+         * the membership's half alone. The organization role is not a branch's
+         * to clip, and this stays a union rather than becoming a chain.
+         */
+        $fromBranch = array_diff(
+            $membership?->capabilityKeys() ?? [],
+            $this->removedAt($membership),
+        );
+
+        $granted = array_unique([...$held, ...$fromBranch]);
 
         return array_values(array_diff($granted, $user->deniedAt($locationId)));
+    }
+
+    /**
+     * What the branch behind this membership has customised off its role.
+     *
+     * Cached per request because a queue screen asks about the same membership
+     * once per patient waiting, and this is the one part of the answer that
+     * costs a query.
+     *
+     * @return list<string>
+     */
+    private function removedAt(?BranchMembership $membership): array
+    {
+        $role = $membership?->role;
+
+        if ($role === null || ! $role->isCustomisableByBranch()) {
+            return [];
+        }
+
+        /*
+         * The tenant database is part of the key, not decoration. Every
+         * organization numbers its own rows from one, so role 7 at two
+         * organizations is two different roles — and this service outlives a
+         * single tenant wherever one process serves more than one, which is
+         * every test run and every queued job.
+         */
+        $cacheKey = $membership->getConnection()->getDatabaseName()
+            .':'.$membership->location_id
+            .':'.$role->getKey();
+
+        return $this->removed[$cacheKey] ??= BranchRoleCapability::removedAt(
+            (int) $membership->location_id,
+            (int) $role->getKey(),
+        );
     }
 
     /**

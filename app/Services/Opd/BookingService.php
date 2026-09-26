@@ -4,8 +4,10 @@ namespace App\Services\Opd;
 
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Doctor;
+use App\Models\Tenant\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -201,11 +203,23 @@ class BookingService
                         ->whereDate('appointment_date', $appointment->appointment_date)
                         ->max('token_no');
 
-                    $appointment->update([
+                    $actor = Auth::guard('web')->user();
+
+                    $appointment->forceFill([
                         'status' => Appointment::STATUS_CHECKED_IN,
+
+                        /*
+                         * Arriving IS joining the queue — the desk has them,
+                         * nobody has called them. The one place outside
+                         * VisitWorkflow that writes `queue_status`, because
+                         * this is where somebody enters the queue at all.
+                         */
+                        'queue_status' => Appointment::QUEUE_WAITING,
+
                         'token_no' => ((int) $next) + 1,
                         'checked_in_at' => now(),
-                    ]);
+                        'checked_in_by' => $actor instanceof User ? $actor->id : null,
+                    ])->save();
 
                     return $appointment;
                 });
@@ -221,76 +235,26 @@ class BookingService
         throw new RuntimeException('Could not issue a token. Please try again.');
     }
 
-    public function start(Appointment $appointment): Appointment
-    {
-        $this->assertCanMoveTo($appointment, Appointment::STATUS_IN_CONSULTATION);
-
-        $appointment->update([
-            'status' => Appointment::STATUS_IN_CONSULTATION,
-            'started_at' => now(),
-        ]);
-
-        return $appointment;
-    }
-
-    public function complete(Appointment $appointment): Appointment
-    {
-        $this->assertCanMoveTo($appointment, Appointment::STATUS_COMPLETED);
-
-        $appointment->update([
-            'status' => Appointment::STATUS_COMPLETED,
-            'completed_at' => now(),
-        ]);
-
-        return $appointment;
-    }
-
-    /**
-     * Put a finished visit back in the room.
-     *
-     * Only today's. Reopening an older one would move a visit into a day it
-     * did not happen in, put it back on a queue nobody is working, and let
-     * somebody rewrite a record the day has already closed on.
-     *
-     * `completed_at` is cleared because it is no longer true, and `started_at`
-     * is reset because the only thing reading it is the "in the room for N
-     * minutes" clock — a timer counting from this morning helps nobody. When
-     * the visit was first written up survives on the consultation itself.
-     */
-    public function reopen(Appointment $appointment): Appointment
-    {
-        $this->assertCanMoveTo($appointment, Appointment::STATUS_IN_CONSULTATION);
-
-        if (! $appointment->appointment_date?->isToday()) {
-            throw new RuntimeException(
-                'Only a visit from today can be reopened.'
-            );
-        }
-
-        $appointment->update([
-            'status' => Appointment::STATUS_IN_CONSULTATION,
-            'started_at' => now(),
-            'completed_at' => null,
-        ]);
-
-        return $appointment;
-    }
-
     /**
      * Cancel.
      *
      * The token, if one was issued, is deliberately **not** returned to the
      * pool: reusing a number would make two patients share it in the day's
      * log, and the log is the thing anybody would go back to.
+     *
+     * They leave the queue as well as the day. A cancelled visit sitting in
+     * `waiting` would be called by the next person to glance at the screen.
      */
     public function cancel(Appointment $appointment, ?string $reason = null): Appointment
     {
         $this->assertCanMoveTo($appointment, Appointment::STATUS_CANCELLED);
 
-        $appointment->update([
+        $appointment->forceFill([
             'status' => Appointment::STATUS_CANCELLED,
+            'queue_status' => null,
+            'next_action' => null,
             'cancellation_reason' => $reason,
-        ]);
+        ])->save();
 
         return $appointment;
     }
@@ -299,13 +263,13 @@ class BookingService
      * Never arrived.
      *
      * Only from `booked` — somebody who checked in was here, whatever
-     * happened next.
+     * happened next — so there is no queue place to give up.
      */
     public function markNoShow(Appointment $appointment): Appointment
     {
         $this->assertCanMoveTo($appointment, Appointment::STATUS_NO_SHOW);
 
-        $appointment->update(['status' => Appointment::STATUS_NO_SHOW]);
+        $appointment->forceFill(['status' => Appointment::STATUS_NO_SHOW])->save();
 
         return $appointment;
     }
@@ -351,12 +315,27 @@ class BookingService
                     WHEN ? THEN 0
                     WHEN ? THEN 1
                     WHEN ? THEN 2
-                    ELSE 3
+                    WHEN ? THEN 3
+                    WHEN ? THEN 3
+                    WHEN ? THEN 3
+                    ELSE 4
                  END",
                 [
                     Appointment::STATUS_CHECKED_IN,
                     Appointment::STATUS_IN_CONSULTATION,
                     Appointment::STATUS_BOOKED,
+
+                    /*
+                     * The three waiting rooms rank together, above finished
+                     * work and below anybody still to be seen. They are the
+                     * desk's second job — telling a patient where to go next
+                     * — and burying them with this morning's completed
+                     * visits is how somebody ends up sitting in reception
+                     * with nobody realising the pharmacy is waiting on them.
+                     */
+                    Appointment::STATUS_AWAITING_PHARMACY,
+                    Appointment::STATUS_AWAITING_LAB,
+                    Appointment::STATUS_AWAITING_PAYMENT,
                 ]
             )
             ->orderByRaw('token_no NULLS LAST')

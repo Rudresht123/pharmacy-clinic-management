@@ -36,6 +36,26 @@ class RoleResource extends JsonResource
             ),
 
             /*
+             * The subset no branch may take away for itself. A separate list
+             * rather than a flag per capability, because every screen that
+             * reads `capabilities` treats it as a set of keys, and changing
+             * its shape to carry one extra boolean would rewrite all of them.
+             */
+            'locked' => $this->whenLoaded(
+                'capabilities',
+                fn () => $this->lockedCapabilityKeys(),
+                [],
+            ),
+
+            /*
+             * Whether branches may customise it at all — organization-wide and
+             * branch-assigned. The client needs this to decide whether to
+             * offer the lock column, and saying so here keeps that rule in one
+             * place rather than reimplemented in the screen.
+             */
+            'is_customisable_by_branch' => $this->isCustomisableByBranch(),
+
+            /*
              * How many people hold it, counting BOTH ways it can be held: on
              * `users.role_id` for head office, and on a membership for branch
              * staff. Counting only the first made every branch role read as

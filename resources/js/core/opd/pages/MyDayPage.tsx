@@ -4,11 +4,12 @@ import { Card } from '@/shared/components/ui/Card';
 import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
-import { useMoveAppointment } from '@/core/appointments/api';
+import { useMoveConsultation } from '@/core/appointments/api';
+import { NEXT_ACTION_STEP } from '@/core/appointments/workflow';
 import { useMyDay } from '../api';
 import { ConsultationPanel, type ConsultationTab } from '../components/ConsultationPanel';
 import { PatientAside } from '../components/PatientAside';
-import type { MyDay } from '../types';
+import type { MyDay, MyRow } from '../types';
 
 /** Morning, afternoon or evening — as the person reading it would say it. */
 function partOfDay(): string {
@@ -41,10 +42,14 @@ function spoken(value: string): string {
  * from memory.
  */
 export default function MyDayPage() {
-    const { activeBranch } = useTenantAuth();
+    const { activeBranch, can } = useTenantAuth();
 
     const { data, isLoading, isError, refetch } = useMyDay(activeBranch);
-    const move = useMoveAppointment();
+
+    // The consultation's own endpoints. A doctor starts, completes and
+    // reopens their own write-ups; checking patients in and calling them
+    // through is the desk's, on a different capability.
+    const move = useMoveConsultation();
 
     const [filter, setFilter] = useState<'all' | 'new' | 'returning'>('all');
     const [term, setTerm] = useState('');
@@ -240,87 +245,119 @@ export default function MyDayPage() {
                                                 </td>
 
                                                 <td className="md-dim" data-label="Wait time">
-                                                    {row.waiting_minutes !== null
-                                                        ? `${row.waiting_minutes} min`
-                                                        : row.status === 'in_consultation'
-                                                          ? 'In the room'
-                                                          : '—'}
+                                                    {/*
+                                                        The column answers
+                                                        "where is this patient",
+                                                        which for a finished
+                                                        visit is downstream of
+                                                        this room. A doctor
+                                                        asked whether somebody
+                                                        has collected their
+                                                        medicines can see it
+                                                        without leaving their
+                                                        list.
+                                                    */}
+                                                    {row.consultation_status === 'completed'
+                                                        ? (row.next_action
+                                                            ? NEXT_ACTION_STEP[row.next_action].label
+                                                            : 'Seen')
+                                                        : row.queue_status === 'called'
+                                                          ? 'Called'
+                                                          : row.waiting_minutes !== null
+                                                            ? `${row.waiting_minutes} min`
+                                                            : row.status === 'in_consultation'
+                                                              ? 'In the room'
+                                                              : '—'}
                                                 </td>
 
                                                 <td className="md-act" data-label="">
                                                     {/*
-                                                        Only the moves the
-                                                        server says are legal
-                                                        from here — it owns the
-                                                        transitions and hands
-                                                        back what is next.
+                                                        THE DOCTOR'S THREE, and
+                                                        never more than one at
+                                                        a time.
 
-                                                        A patient who has not
-                                                        arrived is checked in
-                                                        first; one who is
-                                                        waiting is called; a
-                                                        finished visit can be
-                                                        put back in the room on
-                                                        the day it happened.
+                                                        Two conditions each:
+                                                        the server says the
+                                                        state allows it, and
+                                                        this login holds the
+                                                        capability. Start is
+                                                        offered only once
+                                                        reception has called
+                                                        the patient, and never
+                                                        on a consultation that
+                                                        has already been
+                                                        started — which is what
+                                                        stops a second one
+                                                        before the server has
+                                                        to refuse it.
+
+                                                        "Arrived" is gone.
+                                                        Checking a patient in
+                                                        belongs at the desk,
+                                                        and offering it here
+                                                        made the doctor's list
+                                                        a second queue screen.
                                                     */}
-                                                    {row.next_states.includes('checked_in') && (
-                                                        <button
-                                                            type="button"
-                                                            className="md-done"
-                                                            disabled={move.isPending}
-                                                            onClick={() =>
-                                                                move.mutate({
-                                                                    id: row.id,
-                                                                    action: 'check-in',
-                                                                })
-                                                            }
-                                                        >
-                                                            Arrived
-                                                        </button>
-                                                    )}
+                                                    {row.available?.consult_start &&
+                                                        can('appointments.consult_start') && (
+                                                            <button
+                                                                type="button"
+                                                                className="md-call"
+                                                                disabled={move.isPending}
+                                                                onClick={() =>
+                                                                    move.mutate({
+                                                                        id: row.id,
+                                                                        action: 'start',
+                                                                    })
+                                                                }
+                                                            >
+                                                                Start consultation
+                                                            </button>
+                                                        )}
 
-                                                    {row.next_states.includes(
-                                                        'in_consultation',
-                                                    ) && (
-                                                        <button
-                                                            type="button"
-                                                            className={
-                                                                row.status === 'completed'
-                                                                    ? 'md-done'
-                                                                    : 'md-call'
-                                                            }
-                                                            disabled={move.isPending}
-                                                            onClick={() =>
-                                                                move.mutate({
-                                                                    id: row.id,
-                                                                    action:
-                                                                        row.status === 'completed'
-                                                                            ? 'reopen'
-                                                                            : 'start',
-                                                                })
-                                                            }
-                                                        >
-                                                            {row.status === 'completed'
-                                                                ? 'Reopen'
-                                                                : 'Call'}
-                                                        </button>
-                                                    )}
+                                                    {row.available?.consult_complete &&
+                                                        can('appointments.consult_complete') && (
+                                                            <button
+                                                                type="button"
+                                                                className="md-done"
+                                                                disabled={move.isPending}
+                                                                onClick={() =>
+                                                                    move.mutate({
+                                                                        id: row.id,
+                                                                        action: 'complete',
+                                                                    })
+                                                                }
+                                                            >
+                                                                Complete
+                                                            </button>
+                                                        )}
 
-                                                    {row.next_states.includes('completed') && (
-                                                        <button
-                                                            type="button"
-                                                            className="md-done"
-                                                            disabled={move.isPending}
-                                                            onClick={() =>
-                                                                move.mutate({
-                                                                    id: row.id,
-                                                                    action: 'complete',
-                                                                })
-                                                            }
-                                                        >
-                                                            Finish
-                                                        </button>
-                                                    )}
+                                                    {/*
+                                                        Finished today, and a
+                                                        mis-click is still
+                                                        recoverable — but as
+                                                        "Reopen", which says
+                                                        what it does, rather
+                                                        than as a Start button
+                                                        that would read as a
+                                                        second consultation.
+                                                    */}
+                                                    {row.available?.consult_reopen &&
+                                                        can('appointments.consult_complete') && (
+                                                            <button
+                                                                type="button"
+                                                                className="md-done"
+                                                                disabled={move.isPending}
+                                                                onClick={() =>
+                                                                    move.mutate({
+                                                                        id: row.id,
+                                                                        action: 'reopen',
+                                                                    })
+                                                                }
+                                                            >
+                                                                Reopen
+                                                            </button>
+                                                        )}
                                                 </td>
                                             </tr>
                                         ))}
@@ -332,6 +369,9 @@ export default function MyDayPage() {
 
                     <CurrentPatient
                         current={data.current}
+                        nextCalled={
+                            data.queue.find((row) => row.queue_status === 'called') ?? null
+                        }
                         advancing={move.isPending}
                         onDone={(id) => move.mutate({ id, action: 'complete' })}
                     />
@@ -458,10 +498,19 @@ export default function MyDayPage() {
  */
 function CurrentPatient({
     current,
+    nextCalled,
     advancing,
     onDone,
 }: {
     current: MyDay['current'];
+    /**
+     * Whoever reception has called and the doctor has not taken in yet.
+     *
+     * Only used for the empty state's sentence. A doctor sitting in front of
+     * "Nobody in the room" needs to know whether that is because nobody has
+     * been called or because somebody is standing outside the door.
+     */
+    nextCalled: MyRow | null;
     advancing: boolean;
     onDone: (id: number) => void;
 }) {
@@ -531,7 +580,16 @@ function CurrentPatient({
                 <div className="org-pending">
                     <i className="ti ti-door" />
                     <h6>Nobody in the room</h6>
-                    <p>Call the next patient from the queue above.</p>
+                    {/*
+                        Not "call the next patient" any more — calling is
+                        reception's. The doctor starts on somebody the desk
+                        has already called, and the queue above marks them.
+                    */}
+                    <p>
+                        {nextCalled
+                            ? `${nextCalled.customer_name ?? 'The next patient'} has been called. Start the consultation from the list above.`
+                            : 'Waiting for reception to call the next patient through.'}
+                    </p>
                 </div>
             ) : (
                 <div className="md-current">

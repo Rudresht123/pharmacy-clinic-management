@@ -114,7 +114,19 @@ class DoctorDay
                 ->whereNotIn('status', [Appointment::STATUS_CANCELLED])
                 ->count(),
 
-            'seen' => $appointments->where('status', Appointment::STATUS_COMPLETED)->count(),
+            /*
+             * Counted off `consultation_status`, not `status`.
+             *
+             * For a doctor, "seen" means they have finished with the patient
+             * — and a visit whose write-up is done can now sit in
+             * `awaiting_pharmacy` for another hour while somebody collects
+             * medicines. Counting completed VISITS would have this number
+             * falling behind the doctor's actual morning, and it would tick
+             * up later for reasons nothing to do with them.
+             */
+            'seen' => $appointments
+                ->where('consultation_status', Appointment::CONSULT_COMPLETED)
+                ->count(),
 
             'new' => $appointments
                 ->reject(fn (Appointment $row) => in_array(
@@ -132,7 +144,17 @@ class DoctorDay
                 ))
                 ->count(),
 
-            'waiting' => $appointments->where('status', Appointment::STATUS_CHECKED_IN)->count(),
+            /*
+             * In the department, nobody has called them yet. Read off
+             * `queue_status` rather than `status`, because a checked-in
+             * patient is now either waiting OR called and the difference is
+             * the whole of what the desk just did.
+             */
+            'waiting' => $appointments->where('queue_status', Appointment::QUEUE_WAITING)->count(),
+
+            // Called and not yet taken in — the doctor's own to-do list, and
+            // the number that should be zero when they are free.
+            'called' => $appointments->where('queue_status', Appointment::QUEUE_CALLED)->count(),
 
             // Booked, and nobody has checked them in yet.
             'expected' => $appointments->where('status', Appointment::STATUS_BOOKED)->count(),
@@ -163,7 +185,20 @@ class DoctorDay
             Appointment::STATUS_IN_CONSULTATION => 0,
             Appointment::STATUS_CHECKED_IN => 1,
             Appointment::STATUS_BOOKED => 2,
+
+            /*
+             * The three waiting rooms rank WITH completed, not above it.
+             *
+             * They are the doctor's finished work — somebody collecting
+             * medicines is not waiting for this room — and floating them up
+             * the list would put patients the doctor cannot act on above the
+             * ones still to be seen.
+             */
+            Appointment::STATUS_AWAITING_PHARMACY => 3,
+            Appointment::STATUS_AWAITING_LAB => 3,
+            Appointment::STATUS_AWAITING_PAYMENT => 3,
             Appointment::STATUS_COMPLETED => 3,
+
             Appointment::STATUS_NO_SHOW => 4,
             Appointment::STATUS_CANCELLED => 5,
         ];
@@ -171,6 +206,17 @@ class DoctorDay
         return $appointments
             ->sortBy([
                 fn (Appointment $a, Appointment $b) => ($rank[$a->status] ?? 9) <=> ($rank[$b->status] ?? 9),
+
+                /*
+                 * Called before merely waiting, inside the checked-in group.
+                 *
+                 * The desk has already decided who is next and told them so;
+                 * a doctor's list that ignored it would offer a different
+                 * answer to the same question, and one of the two screens
+                 * would be lying to a patient.
+                 */
+                fn (Appointment $a, Appointment $b) => ($a->isCalled() ? 0 : 1) <=> ($b->isCalled() ? 0 : 1),
+
                 fn (Appointment $a, Appointment $b) => ($a->token_no ?? 999) <=> ($b->token_no ?? 999),
             ])
             ->take(self::ROWS)
@@ -375,6 +421,13 @@ class DoctorDay
             'gender' => $row->customer?->gender,
 
             'status' => $row->status,
+
+            // The two axes a doctor's screen is actually about: has the desk
+            // called them, and has the write-up been opened.
+            'queue_status' => $row->queue_status,
+            'consultation_status' => $row->consultation_status,
+            'next_action' => $row->next_action,
+
             'type' => $row->type,
 
             // What the desk means by "new" or "follow-up": have we seen them
@@ -386,7 +439,27 @@ class DoctorDay
                 ? $this->waitedMinutes($row)
                 : null,
 
+            'called_at' => $row->called_at?->toIso8601String(),
+            'completed_at' => $row->completed_at?->toIso8601String(),
+
             'next_states' => Appointment::TRANSITIONS[$row->status] ?? [],
+
+            /*
+             * Which buttons this row's STATE allows — the same contract
+             * AppointmentResource offers, and for the same reason: the state
+             * machine is the server's and there must be one copy of it. The
+             * screen renders a button when this says possible AND the
+             * signed-in person holds the capability.
+             */
+            'available' => [
+                'check_in' => $row->canMoveTo(Appointment::STATUS_CHECKED_IN),
+                'call' => $row->queueCanMoveTo(Appointment::QUEUE_CALLED),
+                'consult_start' => $row->isCalled()
+                    && $row->consultation_status === Appointment::CONSULT_NOT_STARTED,
+                'consult_complete' => $row->consultation_status === Appointment::CONSULT_IN_PROGRESS,
+                'consult_reopen' => $row->consultationCompleted()
+                    && (bool) $row->appointment_date?->isToday(),
+            ],
         ];
     }
 

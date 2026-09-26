@@ -35,6 +35,20 @@ class PharmacyStorePolicy
     }
 
     /**
+     * One of the six reports, at this store's branch.
+     *
+     * Its own capability per report (`reports.sales`, `reports.profit`, …) —
+     * not `pharmacy.view`, which also opens the dashboard, the stock list and
+     * settings. A cashier who may see what sold today has no structural need
+     * to see what it cost, and this is what lets an owner staff the counter
+     * with the first and keep the second for themselves.
+     */
+    public function viewReport(User $user, PharmacyStore $store, string $report): bool
+    {
+        return $this->mayAt($user, $store->location_id, "reports.{$report}");
+    }
+
+    /**
      * What the store holds of a medicine — asked by a doctor choosing what to
      * prescribe, who holds `medicines.view` rather than `pharmacy.view`.
      */
@@ -70,10 +84,31 @@ class PharmacyStorePolicy
         return $this->mayAt($user, $store->location_id, 'pharmacy.inward');
     }
 
-    /** Sell at this store's counter — a bill, whether or not a prescription is behind it. */
+    /** Sell at this store's counter — a bill with no prescription behind it. */
     public function sell(User $user, PharmacyStore $store): bool
     {
         return $this->mayAt($user, $store->location_id, 'pharmacy.sell');
+    }
+
+    /**
+     * Hand over what a doctor prescribed.
+     *
+     * The same endpoint as a counter sale and a different question, which is
+     * why `pharmacy.dispense` has existed since the pharmacy shipped and was
+     * checked by no route: there was nothing that could tell the two apart,
+     * because a dispensing did not credit the prescription it carried. Now
+     * that it does, the bill that moves a clinical record is the one this
+     * asks about.
+     *
+     * Either key is enough. Somebody trusted to ring up a bill is not being
+     * refused a prescription they are standing there holding, and plenty of
+     * small shops staff one counter with one person; the split exists for the
+     * clinics that want a dispensing pharmacist distinct from a cashier.
+     */
+    public function dispense(User $user, PharmacyStore $store): bool
+    {
+        return $this->mayAt($user, $store->location_id, 'pharmacy.dispense')
+            || $this->mayAt($user, $store->location_id, 'pharmacy.sell');
     }
 
     /**

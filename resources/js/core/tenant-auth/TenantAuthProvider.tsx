@@ -47,6 +47,16 @@ interface TenantAuthContextValue {
     activeBranch: number | null;
 
     /**
+     * Re-read what this person may do, without changing branch.
+     *
+     * For the screens that can change it from underneath themselves: a branch
+     * manager customising a role they hold has just edited their own
+     * permissions, and a menu built from the answer before that edit is a menu
+     * offering doors the server will now refuse.
+     */
+    refreshSession(): Promise<void>;
+
+    /**
      * The doctor this account belongs to, when it belongs to one.
      *
      * Null for almost everybody — a doctor may have no login at all, which is
@@ -195,6 +205,15 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
      * cached query is dropped with it — a patient list fetched at Lucknow is
      * not the answer at Delhi.
      */
+    const refreshSession = useCallback(async () => {
+        const session = await tenantAuthApi.me();
+
+        setModules(session.modules ?? []);
+        setCapabilities(session.capabilities ?? []);
+        setDoctorId(session.doctor_id ?? null);
+        setSetupCompleted(session.setup_completed ?? true);
+    }, []);
+
     const setActiveBranch = useCallback((branchId: number | null) => {
         setActive(branchId);
         setActiveBranchHeader(branchId);
@@ -218,6 +237,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             can,
             branches,
             activeBranch,
+            refreshSession,
             doctorId,
             setupCompleted,
             markSetupCompleted,
@@ -236,6 +256,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             can,
             branches,
             activeBranch,
+            refreshSession,
             doctorId,
             setupCompleted,
             markSetupCompleted,

@@ -22,11 +22,21 @@ use RuntimeException;
  */
 class PatientAppointments
 {
-    /** Still ahead of the patient: not finished, not called off. */
+    /**
+     * Still ahead of the patient: not finished, not called off.
+     *
+     * The three waiting rooms belong here. A patient who has seen the doctor
+     * and is queuing for their medicines has an appointment that is very
+     * much still live — it is the one thing they are doing today — and
+     * dropping it into "past" the moment the write-up was signed would have
+     * the app tell them they were finished while they were standing at the
+     * counter.
+     */
     public const LIVE = [
         Appointment::STATUS_BOOKED,
         Appointment::STATUS_CHECKED_IN,
         Appointment::STATUS_IN_CONSULTATION,
+        ...Appointment::AWAITING,
     ];
 
     public function __construct(
@@ -135,7 +145,12 @@ class PatientAppointments
             throw new RuntimeException(match ($appointment->status) {
                 Appointment::STATUS_CANCELLED => 'This appointment is already cancelled.',
                 Appointment::STATUS_CHECKED_IN,
-                Appointment::STATUS_IN_CONSULTATION => 'You have already checked in. Please speak to the front desk.',
+                Appointment::STATUS_IN_CONSULTATION,
+                // Seen, and still in the building for the pharmacy, the lab
+                // or the till. "Already checked in" is the honest answer.
+                Appointment::STATUS_AWAITING_PHARMACY,
+                Appointment::STATUS_AWAITING_LAB,
+                Appointment::STATUS_AWAITING_PAYMENT => 'You have already checked in. Please speak to the front desk.',
                 default => 'This appointment can no longer be cancelled.',
             });
         }

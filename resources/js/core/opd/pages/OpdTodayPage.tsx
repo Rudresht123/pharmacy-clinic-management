@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from '@/shared/components/ui/Card';
 import { DonutChart } from '@/shared/components/ui/DonutChart';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
-import { useConfirm } from '@/shared/hooks/useConfirm';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { useEntityLabel } from '@/core/field-settings/api';
 import { BookDialog } from '@/core/appointments/components/BookDialog';
@@ -76,28 +75,57 @@ const ACTIONS: {
     },
 ];
 
-/** The states somebody is still moving through, which is what "Live" means. */
-const LIVE: AppointmentStatus[] = ['checked_in', 'in_consultation', 'booked'];
+/**
+ * The states somebody is still moving through, which is what "Live" means.
+ *
+ * The three waiting rooms are live: a patient the pharmacy has not finished
+ * with is still in the department, and a board that dropped them the moment
+ * the doctor signed off would report an empty clinic with people in it.
+ */
+const LIVE: AppointmentStatus[] = [
+    'checked_in',
+    'in_consultation',
+    'booked',
+    'awaiting_pharmacy',
+    'awaiting_lab',
+    'awaiting_payment',
+];
 
-/** Each move: what it is called, and the capability the server demands. */
-const MOVES: Record<string, { label: string; icon: string; action: string; needs: string }> = {
-    checked_in: {
+/**
+ * WHAT THE BOARD CAN DO from a row: check somebody in, and call them.
+ *
+ * "Call" fired `start` and put the visit straight in front of the doctor;
+ * "Done" fired `complete` and closed the consultation. Both were behind
+ * `appointments.queue`, so anybody working this board was starting and
+ * finishing consultations. The board is a desk screen — it now calls, and
+ * stops.
+ *
+ * Keyed by action, and `available` names the field on the row that says the
+ * state allows it. A button needs that AND the capability.
+ */
+const MOVES: Record<
+    string,
+    {
+        label: string;
+        icon: string;
+        action: 'check-in' | 'call';
+        needs: string;
+        available: 'check_in' | 'call';
+    }
+> = {
+    'check-in': {
         label: 'Check in',
         icon: 'ti ti-login',
         action: 'check-in',
         needs: 'appointments.queue',
+        available: 'check_in',
     },
-    in_consultation: {
+    call: {
         label: 'Call',
-        icon: 'ti ti-player-play',
-        action: 'start',
+        icon: 'ti ti-bell-ringing',
+        action: 'call',
         needs: 'appointments.queue',
-    },
-    completed: {
-        label: 'Done',
-        icon: 'ti ti-check',
-        action: 'complete',
-        needs: 'appointments.queue',
+        available: 'call',
     },
 };
 
@@ -216,7 +244,6 @@ const ACTIVITY: Record<string, { tone: string; verb: string }> = {
  */
 export default function OpdTodayPage() {
     const navigate = useNavigate();
-    const confirm = useConfirm();
     const { can, user } = useTenantAuth();
     const patients = useEntityLabel('customer');
     const context = useOpdContext();
@@ -325,32 +352,20 @@ export default function OpdTodayPage() {
     const inTab = data?.tabs[tab] ?? 0;
     const truncated = !search.trim() && inTab > rows.length;
 
-    async function onMove(row: OpdQueueRow, next: AppointmentStatus) {
-        const action = MOVES[next];
+    /**
+     * Both moves left on this board go straight through.
+     *
+     * There is nothing to confirm any more. The dialog that used to guard
+     * "Done" went with the button: checking somebody in and calling them
+     * through are the ordinary rhythm of a busy desk, both are recoverable,
+     * and neither touches a clinical record.
+     */
+    function onMove(row: OpdQueueRow, key: string) {
+        const action = MOVES[key];
 
-        if (!action) {
-            return;
+        if (action) {
+            move.mutate({ id: row.id, action: action.action });
         }
-
-        /*
-         * "Done" cannot be undone — `completed` has no transitions out of it,
-         * so nobody, not even the owner, can reopen a consultation closed by a
-         * mis-click. Checking in and calling through are the ordinary rhythm
-         * of a busy desk and must not cost a click each.
-         */
-        if (next === 'completed') {
-            const yes = await confirm({
-                title: 'Finish this consultation?',
-                message: `${row.customer_name}'s visit is closed. This cannot be reopened.`,
-                confirmLabel: 'Done',
-            });
-
-            if (!yes) {
-                return;
-            }
-        }
-
-        move.mutate({ id: row.id, action: action.action as never });
     }
 
     if (branchesLoading) {
@@ -730,10 +745,17 @@ export default function OpdTodayPage() {
 
                                             <tbody>
                                                 {rows.map((row, index) => {
-                                                    const next = row.next_states.find(
-                                                        (state) =>
-                                                            MOVES[state] &&
-                                                            can(MOVES[state].needs),
+                                                    /*
+                                                     * Two conditions, from two
+                                                     * places. The server says
+                                                     * the state allows it; the
+                                                     * session says this person
+                                                     * holds the capability.
+                                                     */
+                                                    const next = Object.keys(MOVES).find(
+                                                        (key) =>
+                                                            row.available?.[MOVES[key].available] &&
+                                                            can(MOVES[key].needs),
                                                     );
 
                                                     return (
@@ -771,7 +793,7 @@ export default function OpdTodayPage() {
                                                             </td>
 
                                                             <td data-label="Status">
-                                                                <StatusBadge status={row.status} />
+                                                                <StatusBadge status={row.status} queue={row.queue_status} />
                                                             </td>
 
                                                             <td data-label="Wait time">

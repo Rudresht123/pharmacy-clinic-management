@@ -2,6 +2,20 @@ import type { NavItem, NavSection } from './navigation';
 import type { TenantUserRole } from '@/core/tenant-auth/api';
 
 /**
+ * The six reports, each its own capability — sold as its own module
+ * (`reports`), separate from the rest of the pharmacy. Kept here rather than
+ * imported from the reports screen itself, which the menu must not depend on.
+ */
+const REPORT_CAPABILITIES = [
+    'reports.sales',
+    'reports.purchases',
+    'reports.stock',
+    'reports.expiry',
+    'reports.profit',
+    'reports.gst',
+];
+
+/**
  * An organization's own menu.
  *
  * Built from what the signed-in person may actually do, not filtered
@@ -325,6 +339,14 @@ export function tenantNavigation(
     const medicines = hasModule('medicines') && can('medicines.view');
 
     /*
+     * Sold as its own module, so it must not need `pharmacy.view` to be
+     * reachable — a role can hold every report and nothing else the counter
+     * does. Whether it sits inside the Pharmacy group or stands on its own
+     * depends only on whether that group is rendering at all (below).
+     */
+    const reports = hasModule('reports') && REPORT_CAPABILITIES.some((capability) => can(capability));
+
+    /*
      * A medical store's buyers belong in the only menu it has.
      *
      * With no OPD there is no clinical section for the customer book to sit
@@ -517,12 +539,23 @@ export function tenantNavigation(
                       ]
                     : []),
 
-                {
-                    label: 'Reports',
-                    to: '/pharmacy/reports',
-                    icon: 'ti ti-report-analytics',
-                    match: '/pharmacy/reports',
-                },
+                /*
+                 * Its own module, sold separately, and its own capability per
+                 * report inside the screen — so the row itself needs both:
+                 * the module bought at all, and at least one report this
+                 * person may actually open. A row leading to a screen that
+                 * would show nothing is worse than no row.
+                 */
+                ...(reports
+                    ? [
+                          {
+                              label: 'Reports',
+                              to: '/pharmacy/reports',
+                              icon: 'ti ti-report-analytics',
+                              match: '/pharmacy/reports',
+                          },
+                      ]
+                    : []),
                 {
                     label: 'Suppliers',
                     to: '/pharmacy/suppliers',
@@ -552,6 +585,21 @@ export function tenantNavigation(
                     match: '/pharmacy/settings',
                 },
             ],
+        });
+    }
+
+    /*
+     * A role that holds reports and nothing else the counter does — an
+     * accountant, say — still needs a way in. Only when the Pharmacy group
+     * itself is not already carrying it (see above): showing the same link
+     * twice would read as two different screens.
+     */
+    if (reports && !pharmacy) {
+        clinical.push({
+            label: 'Reports',
+            to: '/pharmacy/reports',
+            icon: 'ti ti-report-analytics',
+            match: '/pharmacy/reports',
         });
     }
 
@@ -638,7 +686,16 @@ export function tenantNavigation(
                 ? []
                 : [{ label: 'Pharmacy', to: '/pharmacy', icon: 'ti ti-vaccine', soon: true }]),
             { label: 'Billing', to: '/billing', icon: 'ti ti-receipt', soon: true },
-            { label: 'Reports', to: '/reports', icon: 'ti ti-chart-bar', soon: true },
+            /*
+             * Reports is built now, sold as its own module (see `reports`
+             * above) — "coming soon" described the product's build status,
+             * not this role's access, so it steps aside the same way Pharmacy
+             * does: once the organization has bought it, it is real, even for
+             * a role that holds none of its capabilities yet.
+             */
+            ...(hasModule('reports')
+                ? []
+                : [{ label: 'Reports', to: '/reports', icon: 'ti ti-chart-bar', soon: true }]),
         ],
     });
 

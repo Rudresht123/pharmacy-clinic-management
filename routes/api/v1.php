@@ -26,7 +26,11 @@ use App\Http\Controllers\Api\V1\Tenant\DoctorScheduleController;
 use App\Http\Controllers\Api\V1\Tenant\FieldSettingController;
 use App\Http\Controllers\Api\V1\Tenant\HistoryController;
 use App\Http\Controllers\Api\V1\Tenant\LocationController;
+use App\Http\Controllers\Api\V1\Tenant\BranchRolePermissionController;
+use App\Http\Controllers\Api\V1\Tenant\EffectivePermissionController;
 use App\Http\Controllers\Api\V1\Tenant\LocationModuleController;
+use App\Http\Controllers\Api\V1\Tenant\ModuleLockController;
+use App\Http\Controllers\Api\V1\Tenant\LabOrderController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineAvailabilityController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineBatchController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineController;
@@ -448,9 +452,20 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('pharmacy-stores.restore');
             });
 
+            /*
+            | The list itself is behind `pharmacy.view` OR any one report —
+            | the Reports screen has to know which store it is reporting on
+            | before it can ask for anything, and a role holding only reports
+            | must not be locked out of the one call that picks the store. A
+            | single store's OWN detail and its medicine list stay behind
+            | `pharmacy.view` alone: those answer questions a report never
+            | asks.
+            */
+            Route::get('pharmacy-stores', [PharmacyStoreController::class, 'index'])
+                ->middleware('permission:pharmacy.view,'.implode(',', PharmacyReports::CAPABILITIES))
+                ->name('pharmacy-stores.index');
+
             Route::middleware('permission:pharmacy.view')->group(function () {
-                Route::get('pharmacy-stores', [PharmacyStoreController::class, 'index'])
-                    ->name('pharmacy-stores.index');
                 Route::get('pharmacy-stores/{store}', [PharmacyStoreController::class, 'show'])
                     ->name('pharmacy-stores.show');
                 Route::get('pharmacy-stores/{store}/medicines', [StoreMedicineController::class, 'index'])
@@ -519,19 +534,37 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
 
                 Route::get('pharmacy-stores/{store}/sales', [PharmacySaleController::class, 'index'])
                     ->name('pharmacy-stores.sales.index');
+            });
 
-                /*
-                | Reports, each readable two ways: the summary is the shape
-                | of it, the rows are the evidence. Same filters, same query
-                | underneath, so one is the sum of the other.
-                */
+            /*
+            | Reports — its OWN module, sold separately from the rest of
+            | pharmacy and requiring it (ModuleRegistry: `reports.requires =
+            | ['pharmacy']`), so a superadmin binds it to an organization the
+            | same way as any other module rather than it riding along free
+            | with `pharmacy.view`.
+            |
+            | `permission:` is deliberately NOT on this group: which of the
+            | six reports somebody may open is a SEPARATE capability per
+            | report (`reports.sales`, `reports.profit`, …), decided inside
+            | the controller against the STORE'S branch — the same split
+            | `documents.view` / `documents.view_clinical` makes within one
+            | screen, because a role holding one report has no business
+            | reading another just for sharing a route.
+            |
+            | Reports, each readable two ways: the summary is the shape of it,
+            | the rows are the evidence. Same filters, same query underneath,
+            | so one is the sum of the other.
+            */
+            Route::middleware('module:reports')->group(function () {
                 Route::get('pharmacy-stores/{store}/reports/{report}/summary', [PharmacyReportController::class, 'summary'])
                     ->whereIn('report', PharmacyReports::REPORTS)
                     ->name('pharmacy-stores.reports.summary');
                 Route::get('pharmacy-stores/{store}/reports/{report}', [PharmacyReportController::class, 'rows'])
                     ->whereIn('report', PharmacyReports::REPORTS)
                     ->name('pharmacy-stores.reports.rows');
+            });
 
+            Route::middleware('permission:pharmacy.view')->group(function () {
                 Route::get('batches/{batch}', [MedicineBatchController::class, 'show'])->name('batches.show');
                 Route::get('inwards/{inward}', [StockInwardController::class, 'show'])->name('inwards.show');
                 Route::get('sales/{sale}', [PharmacySaleController::class, 'show'])->name('sales.show');
@@ -545,8 +578,17 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | same bill carrying one. Cancelling is its own capability —
             | it puts stock back and takes money off the day's takings.
             */
+            /*
+             * Either key opens the door; the controller decides which one
+             * this bill actually needed. A bill with a prescription behind
+             * it credits prescribed lines and can close a visit, so it asks
+             * `pharmacy.dispense`; a plain counter sale asks `pharmacy.sell`.
+             * Listing both here rather than splitting the route keeps one
+             * path for both ways the pharmacy sells, which is what stops a
+             * till and a shelf disagreeing.
+             */
             Route::post('pharmacy-stores/{store}/sales', [PharmacySaleController::class, 'store'])
-                ->middleware('permission:pharmacy.sell')
+                ->middleware('permission:pharmacy.sell,pharmacy.dispense')
                 ->name('pharmacy-stores.sales.store');
             Route::post('sales/{sale}/cancel', [PharmacySaleController::class, 'cancel'])
                 ->middleware('permission:pharmacy.sale_cancel')
@@ -611,6 +653,62 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             Route::post('prescriptions/{prescription}/cancel', [PrescriptionController::class, 'cancel'])
                 ->middleware('permission:prescriptions.cancel')
                 ->name('prescriptions.cancel');
+        });
+
+        /*
+        |----------------------------------------------------------------------
+        | Laboratory
+        |----------------------------------------------------------------------
+        |
+        | The other thing a consultation produces, and it gates the visit the
+        | same way a prescription does.
+        |
+        | THREE AUDIENCES, told apart by capability rather than by prefix.
+        | The doctor orders (`laboratory.order`, plus the Policy's check that
+        | the visit is theirs). The bench takes the work on and enters
+        | readings (`laboratory.process`). Signing off and withdrawing are
+        | held apart (`laboratory.complete`), because a completed order is
+        | what a doctor will act on and what lets the visit close — plenty of
+        | labs want that with somebody senior to whoever ran the sample.
+        | Reading is wider than all three: the desk is asked "are my results
+        | back" all day.
+        |
+        | Results are recorded PER LINE. A CBC back in twenty minutes and an
+        | LFT back tomorrow are one order and two results, and an endpoint
+        | that took them together would make the bench hold the first.
+        */
+        Route::middleware('module:laboratory')->group(function () {
+            Route::middleware('permission:laboratory.view')->group(function () {
+                Route::get('lab-orders', [LabOrderController::class, 'index'])
+                    ->name('lab-orders.index');
+                Route::get('lab-orders/{order}', [LabOrderController::class, 'show'])
+                    ->name('lab-orders.show');
+                Route::get('appointments/{appointment}/lab-orders', [LabOrderController::class, 'forAppointment'])
+                    ->name('appointments.lab-orders');
+            });
+
+            Route::middleware('permission:laboratory.order')->group(function () {
+                Route::post('lab-orders', [LabOrderController::class, 'store'])
+                    ->name('lab-orders.store');
+                Route::put('lab-orders/{order}', [LabOrderController::class, 'update'])
+                    ->name('lab-orders.update');
+            });
+
+            Route::middleware('permission:laboratory.process')->group(function () {
+                Route::post('lab-orders/{order}/process', [LabOrderController::class, 'process'])
+                    ->name('lab-orders.process');
+                Route::put('lab-orders/{order}/items/{item}/result', [LabOrderController::class, 'record'])
+                    ->name('lab-orders.items.result');
+                Route::post('lab-orders/{order}/items/{item}/cancel', [LabOrderController::class, 'cancelLine'])
+                    ->name('lab-orders.items.cancel');
+            });
+
+            Route::middleware('permission:laboratory.complete')->group(function () {
+                Route::post('lab-orders/{order}/complete', [LabOrderController::class, 'complete'])
+                    ->name('lab-orders.complete');
+                Route::post('lab-orders/{order}/cancel', [LabOrderController::class, 'cancel'])
+                    ->name('lab-orders.cancel');
+            });
         });
 
         /*
@@ -802,18 +900,43 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 ->name('opd.my-records');
 
             /*
-            | Writing up a visit.
+            | THE CONSULTATION — the doctor's, and nobody else's.
             |
-            | Behind the same capability as working the queue — writing up what
-            | happened is part of seeing the patient, not a separate job — and
-            | the controller then checks the visit is this doctor's, which no
+            | Three capabilities across four routes, and the split is the
+            | whole point of the workflow:
+            |
+            |   consult_start     take the patient in and open the record
+            |   consult_complete  close it, and set the visit moving
+            |                     downstream — and reopen it, because undoing
+            |                     a mis-click on a clinical record belongs
+            |                     with whoever could make it
+            |
+            | Reading and writing the notes sit behind `consult_start`: if
+            | somebody may begin a consultation they may write one up, and a
+            | fourth capability for the textarea between the two buttons
+            | would be a distinction no clinic draws.
+            |
+            | NONE of these is `appointments.queue`. That key used to cover
+            | all of it, which is exactly how the receptionist's screen came
+            | to carry a button that closed a doctor's consultation.
+            |
+            | The controller then checks the visit is THIS doctor's, which no
             | route middleware can know.
             */
-            Route::middleware('permission:appointments.queue')->group(function () {
+            Route::middleware('permission:appointments.consult_start')->group(function () {
                 Route::get('appointments/{appointment}/consultation', [ConsultationController::class, 'show'])
                     ->name('appointments.consultation.show');
                 Route::put('appointments/{appointment}/consultation', [ConsultationController::class, 'save'])
                     ->name('appointments.consultation.save');
+                Route::post('appointments/{appointment}/consultation/start', [ConsultationController::class, 'start'])
+                    ->name('appointments.consultation.start');
+            });
+
+            Route::middleware('permission:appointments.consult_complete')->group(function () {
+                Route::post('appointments/{appointment}/consultation/complete', [ConsultationController::class, 'complete'])
+                    ->name('appointments.consultation.complete');
+                Route::post('appointments/{appointment}/consultation/reopen', [ConsultationController::class, 'reopen'])
+                    ->name('appointments.consultation.reopen');
             });
 
             Route::get('appointments', [AppointmentController::class, 'index'])
@@ -828,26 +951,26 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 ->name('appointments.store');
 
             /*
-            | Each move is its own verb rather than a status field somebody can
-            | set to anything: the state machine is the point.
+            | THE QUEUE — the reception desk's, and the whole of it.
             |
-            | Moving somebody through the queue is what the desk does all day.
-            | Cancelling and marking a no-show change what the day is recorded
-            | as having been, so they are a separate capability that plenty of
-            | clinics will want to keep with somebody senior.
+            | Two verbs. Arriving, which issues the token and puts somebody in
+            | the queue, and calling them through, which is where the desk's
+            | authority over a consultation ends.
+            |
+            | There is deliberately no `complete` here and no `start`. Those
+            | were both on this list, behind this capability, and between them
+            | they let whoever was at reception open and close a clinical
+            | record. They are now the two consultation routes above.
+            |
+            | Each move is its own verb rather than a status field somebody
+            | can set to anything: the state machine is the point, and the
+            | server owns it.
             */
             Route::middleware('permission:appointments.queue')->group(function () {
                 Route::post('appointments/{appointment}/check-in', [AppointmentController::class, 'checkIn'])
                     ->name('appointments.check-in');
-                Route::post('appointments/{appointment}/start', [AppointmentController::class, 'start'])
-                    ->name('appointments.start');
-                Route::post('appointments/{appointment}/complete', [AppointmentController::class, 'complete'])
-                    ->name('appointments.complete');
-
-                // Undoing a mis-click, which is the same job as working the
-                // queue rather than a privilege of its own.
-                Route::post('appointments/{appointment}/reopen', [AppointmentController::class, 'reopen'])
-                    ->name('appointments.reopen');
+                Route::post('appointments/{appointment}/call', [AppointmentController::class, 'call'])
+                    ->name('appointments.call');
             });
 
             Route::middleware('permission:appointments.cancel')->group(function () {
@@ -1083,6 +1206,36 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             ->middleware('permission:people.view');
 
         /*
+        | How one branch customises one of the organization's roles.
+        |
+        | `people.roles` and the caller's OWN branch, both checked in the
+        | controller — a branch manager customising another branch's copy of a
+        | role is the one thing this level must never allow, and it is a
+        | comparison against the acting branch rather than a capability, so no
+        | middleware can make it.
+        |
+        | A branch may only SUBTRACT. That is a property of the table rather
+        | than of this route: there is no column in which a grant could be
+        | written down.
+        */
+        Route::get('locations/{location}/roles/{role}/permissions', [BranchRolePermissionController::class, 'show'])
+            ->middleware('permission:people.view')
+            ->name('locations.roles.permissions.show');
+
+        Route::put('locations/{location}/roles/{role}/permissions', [BranchRolePermissionController::class, 'update'])
+            ->middleware('permission:people.roles')
+            ->name('locations.roles.permissions.update');
+
+        /*
+        | What one person can actually do, and which of the six levels decided
+        | it. Read-only, and behind the capability somebody administering staff
+        | already holds — it says nothing their role screen does not.
+        */
+        Route::get('users/{user}/effective-permissions', [EffectivePermissionController::class, 'show'])
+            ->middleware('permission:people.view')
+            ->name('users.effective-permissions');
+
+        /*
         |----------------------------------------------------------------------
         | Communication — WhatsApp, email and SMS
         |----------------------------------------------------------------------
@@ -1165,6 +1318,16 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 ->name('locations.modules.show');
             Route::put('locations/{location}/modules', [LocationModuleController::class, 'update'])
                 ->name('locations.modules.update');
+
+            /*
+            | Which of those a branch may NOT switch off. The organization's
+            | answer, one per module, so it sits beside the screen it bounds
+            | rather than being repeated at every branch.
+            */
+            Route::get('module-locks', [ModuleLockController::class, 'show'])
+                ->name('module-locks.show');
+            Route::put('module-locks', [ModuleLockController::class, 'update'])
+                ->name('module-locks.update');
 
             /*
             | Organisation setup — the owner configuring their organization.

@@ -1,4 +1,10 @@
-import type { AppointmentStatus, AppointmentType } from '@/core/appointments/types';
+import type {
+    AppointmentStatus,
+    AppointmentType,
+    ConsultationStatus,
+    NextAction,
+    QueueStatus,
+} from '@/core/appointments/types';
 
 /**
  * A branch this person may actually run an OPD day at.
@@ -28,8 +34,19 @@ export interface OpdDelta {
 
 export interface OpdCounts {
     total: OpdDelta;
+    /** Nobody has called them yet — the figure the desk has to act on. */
     waiting: { value: number; average_wait: number | null; longest_wait: number };
+    /** Called and not gone in. A number that stays up is a fixable problem. */
+    called: { value: number; longest_wait: number };
     in_consultation: { value: number; doctors: number };
+
+    /** Write-ups finished, wherever the patient is now. */
+    consulted: { value: number; average_minutes: number | null; of_total: number };
+
+    /** Seen, and still here for somebody else's queue. */
+    awaiting: { pharmacy: number; laboratory: number; payment: number };
+
+    /** Visits actually over — everything downstream settled. */
     completed: OpdDelta & { average_minutes: number | null; of_total: number };
     no_show: { value: number; of_total: number };
     expected: { value: number; overdue: number };
@@ -40,7 +57,10 @@ export interface OpdCounts {
 export interface OpdTabs {
     all: number;
     checked_in: number;
+    waiting: number;
+    called: number;
     in_consultation: number;
+    awaiting: number;
     completed: number;
     booked: number;
 }
@@ -55,11 +75,51 @@ export interface OpdQueueRow {
     age: number | null;
     gender: string | null;
     doctor_name: string | null;
+
     status: AppointmentStatus;
+    queue_status: QueueStatus | null;
+    consultation_status: ConsultationStatus;
+    next_action: NextAction | null;
+
     type: AppointmentType;
     slot_at: string | null;
     waiting_minutes: number | null;
+    called_at: string | null;
     next_states: AppointmentStatus[];
+
+    /** What this row's state allows. Paired with `can()` to decide a button. */
+    available: {
+        check_in: boolean;
+        call: boolean;
+        cancel: boolean;
+        no_show: boolean;
+    };
+}
+
+/**
+ * A doctor who has finished and has somebody to see.
+ *
+ * THE NEXT-PATIENT NOTIFICATION, as a fact on the board rather than a message
+ * pushed anywhere. The desk already polls this endpoint; a doctor finishing
+ * changes what it says, and the screen raises a toast off the change. Nothing
+ * extra has to be running for it to work.
+ *
+ * `finished_at` is when their last consultation ended — what lets the screen
+ * tell "just now" from "this has been true for ten minutes", and notify once
+ * rather than on every poll.
+ */
+export interface OpdReady {
+    doctor_id: number;
+    doctor_name: string | null;
+    finished_at: string | null;
+    next: {
+        id: number;
+        token_no: number | null;
+        customer_name: string | null;
+        queue_status: QueueStatus | null;
+        waiting_minutes: number;
+    };
+    waiting: number;
 }
 
 /**
@@ -149,6 +209,8 @@ export interface OpdToday {
     flow: OpdFlowPoint[];
     departments: OpdDepartment[];
     waiting_longest: OpdWaiting[];
+    /** Doctors free with somebody to see — the next-patient notification. */
+    ready: OpdReady[];
     doctors: OpdDoctor[];
     upcoming: OpdUpcoming[];
     activity: OpdActivity[];
@@ -171,7 +233,13 @@ export interface MyRow {
     customer_code: string | null;
     age: number | null;
     gender: string | null;
-    status: string;
+
+    status: AppointmentStatus;
+    /** Has the desk called them, and has the write-up been opened. */
+    queue_status: QueueStatus | null;
+    consultation_status: ConsultationStatus;
+    next_action: NextAction | null;
+
     type: string;
 
     /** Have we seen them before? Not how the appointment was made. */
@@ -179,7 +247,21 @@ export interface MyRow {
 
     slot_at: string | null;
     waiting_minutes: number | null;
+    called_at: string | null;
+    completed_at: string | null;
     next_states: string[];
+
+    /**
+     * What this row's state allows — the doctor's three, plus the desk's two
+     * for the rare doctor who also runs their own queue.
+     */
+    available: {
+        check_in: boolean;
+        call: boolean;
+        consult_start: boolean;
+        consult_complete: boolean;
+        consult_reopen: boolean;
+    };
 }
 
 /** One line of a prescription. Free text until a drug catalogue exists. */

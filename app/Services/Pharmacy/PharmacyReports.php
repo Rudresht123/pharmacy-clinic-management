@@ -50,6 +50,15 @@ class PharmacyReports
         self::SALES, self::PURCHASES, self::STOCK, self::EXPIRY, self::PROFIT, self::GST,
     ];
 
+    /**
+     * The capability each report is sold under — `reports.sales`, and so on.
+     *
+     * Kept here, next to the reports themselves, rather than spelled out again
+     * wherever a route needs "any report at all": a seventh report is one line
+     * in this file, not a second place to remember to update.
+     */
+    public const CAPABILITIES = ['reports.sales', 'reports.purchases', 'reports.stock', 'reports.expiry', 'reports.profit', 'reports.gst'];
+
     /** Reports about a span of time; the rest are about the shelf right now. */
     public const DATED = [self::SALES, self::PURCHASES, self::PROFIT, self::GST];
 

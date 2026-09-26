@@ -134,6 +134,38 @@ class Role extends Model
     }
 
     /**
+     * Whether a branch may take capabilities off this role for itself.
+     *
+     * Exactly the roles the organization wrote FOR branches to use. The other
+     * two kinds are deliberately out of reach:
+     *
+     *   a role a branch wrote for itself is simply edited — offering two ways
+     *   to express one change is how the two drift apart
+     *
+     *   an organization-scoped role is head office's, and a branch clipping
+     *   what head office may do at it is the hierarchy running backwards
+     */
+    public function isCustomisableByBranch(): bool
+    {
+        return $this->isOrganizationWide() && ! $this->isOrganizationScoped();
+    }
+
+    /**
+     * The capabilities on this role no branch may remove.
+     *
+     * @return list<string>
+     */
+    public function lockedCapabilityKeys(): array
+    {
+        return $this->capabilities
+            ->where('is_locked', true)
+            ->pluck('capability')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
      * Roles that may be assigned at one branch.
      *
      * The organization's own, plus that branch's. A role another branch wrote
@@ -191,10 +223,11 @@ class Role extends Model
      *
      * @param  list<string>  $capabilities
      */
-    public function syncCapabilities(array $capabilities): void
+    public function syncCapabilities(array $capabilities, ?array $locked = null): void
     {
         $wanted = array_values(array_unique($capabilities));
         $held = $this->capabilityKeys();
+        $wasLocked = $this->lockedCapabilityKeys();
 
         $this->capabilities()->whereIn('capability', array_diff($held, $wanted))->delete();
 
@@ -202,7 +235,36 @@ class Role extends Model
             $this->capabilities()->create(['capability' => $capability]);
         }
 
+        /*
+         * Null means "leave the locks alone", which is not the same as an
+         * empty list meaning "unlock everything". Every caller that predates
+         * locking — the seeders, the provisioners — says nothing about them
+         * and must go on saying nothing rather than quietly unlocking a role
+         * the owner locked.
+         */
+        if ($locked !== null) {
+            // A lock on a capability the role does not hold would be a rule
+            // about nothing, waiting to surprise whoever grants it later.
+            $lock = array_values(array_intersect(array_unique($locked), $wanted));
+
+            $this->capabilities()->whereIn('capability', $lock ?: ['-'])->update(['is_locked' => true]);
+            $this->capabilities()->whereNotIn('capability', $lock ?: ['-'])->update(['is_locked' => false]);
+        }
+
         $this->load('capabilities');
+
+        /*
+         * Logged here rather than on RoleCapability: the delete above is a
+         * mass delete, which raises no model events at all, so a trait on that
+         * model would record every permission granted and none withdrawn —
+         * the half that matters least, and silence on the half that matters
+         * most. Written whole, because "what may this role do" is one answer.
+         */
+        $this->writeHistoryFor('capabilities', $held, $wanted);
+
+        if ($locked !== null) {
+            $this->writeHistoryFor('locked_capabilities', $wasLocked, $this->lockedCapabilityKeys());
+        }
     }
 
     /** Names the role in the activity log rather than showing an id. */

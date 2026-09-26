@@ -50,6 +50,23 @@ class PrescriptionController extends BaseApiController
             ->withCount('items')
             ->when($mine !== null, fn (Builder $q) => $q->whereIn('location_id', $mine ?: [0]))
             ->when($request->filled('status'), fn (Builder $q) => $q->where('status', $request->string('status')->toString()))
+
+            /*
+             * The pharmacist's worklist: everything signed off and not yet
+             * handed over in full.
+             *
+             * Two statuses rather than one, which `status=` cannot express —
+             * and the distinction matters at the counter, because a
+             * part-dispensed prescription is somebody coming back for the
+             * rest rather than a new customer.
+             *
+             * A draft is deliberately absent: it has not been signed and
+             * there is nothing for the pharmacy to do with it yet.
+             */
+            ->when($request->boolean('dispensable'), fn (Builder $q) => $q->whereIn('status', [
+                Prescription::ISSUED,
+                Prescription::PARTIALLY_DISPENSED,
+            ]))
             ->when($request->filled('customer_id'), fn (Builder $q) => $q->where('customer_id', (int) $request->input('customer_id')))
             ->when($request->filled('doctor_id'), fn (Builder $q) => $q->where('doctor_id', (int) $request->input('doctor_id')))
             ->when($request->filled('location_id'), fn (Builder $q) => $q->where('location_id', (int) $request->input('location_id')));

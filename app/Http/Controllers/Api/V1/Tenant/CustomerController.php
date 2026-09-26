@@ -175,7 +175,16 @@ class CustomerController extends BaseApiController
      */
     private function summarise(Customer $customer, $visits): array
     {
-        $seen = $visits->where('status', Appointment::STATUS_COMPLETED);
+        /*
+         * Visits the patient was actually seen at.
+         *
+         * `consultation_status` rather than `status`: a visit still waiting
+         * on the pharmacy has been seen, and counting only closed visits
+         * would drop today's from the patient's own history the moment they
+         * walked to the counter — along with the vitals and prescription
+         * read off it below.
+         */
+        $seen = $visits->where('consultation_status', Appointment::CONSULT_COMPLETED);
 
         $last = $seen->first();
 

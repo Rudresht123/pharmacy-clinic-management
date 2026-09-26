@@ -420,6 +420,19 @@ export function TenantAppRoutes() {
                                     <Route path="/pharmacy/pos" element={<PosPage />} />
                                 </Route>
 
+                                {/*
+                                    Its own module, sold separately from the
+                                    rest of the pharmacy — no `pharmacy.view`
+                                    requirement here. WHICH of the six reports
+                                    somebody may open is decided inside the
+                                    page and by the API per request, the same
+                                    split `documents.view_clinical` makes
+                                    within one screen.
+                                */}
+                                <Route element={<RequireModule module="reports" />}>
+                                    <Route path="/pharmacy/reports" element={<PharmacyReportsPage />} />
+                                </Route>
+
                                 <Route element={<RequireCapability capability="pharmacy.view" />}>
                                     {/* One store's day, gathered from the
                                         screens below it. */}
@@ -428,7 +441,6 @@ export function TenantAppRoutes() {
                                         element={<PharmacyDashboardPage />}
                                     />
                                     <Route path="/pharmacy/sales" element={<SalesListPage />} />
-                                    <Route path="/pharmacy/reports" element={<PharmacyReportsPage />} />
                                     <Route path="/pharmacy/stores" element={<StoreListPage />} />
                                     <Route
                                         path="/pharmacy/stores/:id/medicines"

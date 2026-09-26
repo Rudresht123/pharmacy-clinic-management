@@ -49,6 +49,7 @@ class BranchMembership extends Model
         ];
     }
 
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -65,7 +66,12 @@ class BranchMembership extends Model
     }
 
     /**
-     * What this membership grants, here.
+     * What the role on this membership grants, before the branch has its say.
+     *
+     * Deliberately NOT the branch's customisations — those are subtracted by
+     * Permission, which is the only thing that sees every level and the only
+     * thing that knows when its own cache of them has to be dropped. Reading
+     * them here would mean a second place that has to remember.
      *
      * Empty for a membership with no role — somebody who belongs to a branch
      * but has not been given anything to do there yet, which is a real state

@@ -36,7 +36,7 @@ class PharmacyReportController extends BaseApiController
 
     public function summary(Request $request, PharmacyStore $store, string $report): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewReport', [$store, $report]);
 
         [$from, $to] = $this->window($request);
 
@@ -53,7 +53,7 @@ class PharmacyReportController extends BaseApiController
 
     public function rows(Request $request, PharmacyStore $store, string $report): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewReport', [$store, $report]);
 
         [$from, $to] = $this->window($request);
 

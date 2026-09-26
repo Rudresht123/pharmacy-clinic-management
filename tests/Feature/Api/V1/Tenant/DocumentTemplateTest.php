@@ -97,6 +97,20 @@ class DocumentTemplateTest extends TenantTestCase
     private function seedTemplate(?int $locationId, string $type = 'prescription', array $overrides = []): DocumentTemplate
     {
         return $this->onTenant($this->organization, function () use ($locationId, $type, $overrides) {
+            /*
+             * Provisioning now seeds an organisation default for every
+             * document type the tenant's modules support (DefaultTemplateSeeder),
+             * so a test replacing "the" default has to remove what came free
+             * rather than collide with it — the unique index that stops two
+             * organisation defaults existing at once is exactly what fires
+             * here otherwise.
+             */
+            DocumentTemplate::on('organization')
+                ->where('location_id', $locationId)
+                ->where('document_type', $type)
+                ->get()
+                ->each(fn (DocumentTemplate $existing) => $existing->forceDelete());
+
             $template = DocumentTemplate::on('organization')->create([
                 'location_id' => $locationId,
                 'document_type' => $type,
@@ -399,6 +413,14 @@ class DocumentTemplateTest extends TenantTestCase
         Storage::fake('local');
 
         $this->onTenant($this->organization, function () {
+            // Provisioning already seeded a default for this type — see the
+            // note in seedTemplate().
+            DocumentTemplate::on('organization')
+                ->whereNull('location_id')
+                ->where('document_type', 'patient_registration')
+                ->get()
+                ->each(fn (DocumentTemplate $existing) => $existing->forceDelete());
+
             $template = DocumentTemplate::on('organization')->create([
                 'location_id' => null,
                 'document_type' => 'patient_registration',

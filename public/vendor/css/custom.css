@@ -13012,35 +13012,7 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     color:var(--muted);
 }
 
-/* --- one module's permissions ---------------------------- */
-
-.rp-module{
-    border:1px solid var(--line-2);
-    border-radius:12px;
-    overflow:hidden;
-    transition:border-color .16s ease;
-}
-
-.rp-module + .rp-module{ margin-top:11px; }
-
-/*
-   A module with something ticked reads as touched at a
-   glance, so scanning the list answers "what does this role
-   actually do" without reading every row.
-
-   Carried by the header's ground rather than a coloured
-   border. Six modules outlined in the accent at once turned
-   the whole panel violet and stopped meaning anything.
-*/
-.rp-module.is-on > header{ background:var(--surface-2); }
-
-.rp-module > header{
-    display:flex;
-    align-items:center;
-    gap:11px;
-    padding:12px 14px;
-    transition:background .16s ease;
-}
+/* --- the module icon, reused at two sizes ----------------- */
 
 .rp-module-icon{
     flex:0 0 auto;
@@ -13051,6 +13023,14 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     font-size:17px;
     line-height:34px;
     text-align:center;
+}
+
+.rp-module-icon.is-lg{
+    width:42px;
+    height:42px;
+    border-radius:12px;
+    font-size:20px;
+    line-height:42px;
 }
 
 /*
@@ -13066,93 +13046,290 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 .rp-module-icon.is-amber{ background:rgba(217,119,6,.15); color:#b45309; }
 .rp-module-icon.is-slate{ background:var(--surface-3); color:var(--ink-3); }
 
-.rp-module-text{ flex:1 1 auto; min-width:0; }
+/* --- module list (left) + one module's table (right) ------ */
 
-.rp-module-text b{
-    display:block;
-    font-size:14px;
-    font-weight:600;
-    color:var(--ink);
-}
-
-.rp-module-text small{
-    display:block;
-    margin-top:1px;
-    font-size:11.5px;
-    color:var(--muted);
-    font-variant-numeric:tabular-nums;
-}
-
-.rp-selectall{
-    display:inline-flex;
-    align-items:center;
-    gap:7px;
-    margin:0;
-    font-size:12.5px;
-    font-weight:600;
-    color:var(--ink-2);
-    white-space:nowrap;
-    cursor:pointer;
-}
-
-.rp-collapse{
-    width:28px;
-    height:28px;
-    display:block;
-    border:0;
-    border-radius:8px;
-    background:transparent;
-    font-size:16px;
-    line-height:28px;
-    text-align:center;
-    color:var(--muted);
-    cursor:pointer;
-}
-
-.rp-collapse:hover{ background:var(--surface-3); color:var(--ink-2); }
-
-/*
-   Two columns. In one column across a full-width panel the
-   name sat at the far left with several hundred pixels of
-   nothing after it, which made three permissions look like a
-   long list.
-*/
-.rp-caps{
+.rp-matrix{
     display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
-    gap:2px 10px;
-    padding:0 14px 13px 14px;
+    grid-template-columns:250px minmax(0,1fr);
+    gap:14px;
+    align-items:start;
 }
 
-.rp-cap{
+.rp-matrix-nav{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+    padding:6px;
+    border:1px solid var(--line-2);
+    border-radius:12px;
+    background:var(--surface);
+}
+
+.rp-matrix-item{
     display:flex;
     align-items:center;
-    gap:9px;
-    margin:0;
-    padding:6px 8px;
-    border-radius:8px;
-    font-size:13px;
-    color:var(--ink-2);
-    cursor:pointer;
+    gap:10px;
+    padding:8px 9px;
+    border:0;
+    border-radius:9px;
+    background:transparent;
+    text-align:left;
     transition:background .14s ease;
 }
 
-.rp-cap:hover{ background:var(--surface-2); }
+.rp-matrix-item:hover{ background:var(--surface-2); }
 
-.rp-cap.is-on{ color:var(--ink); font-weight:500; }
+/* The row a role has actually touched, whether or not it is the one
+   open right now — so scanning the rail answers "what does this role
+   do" without opening every module. */
+.rp-matrix-item.is-on .rp-matrix-item-text b{ color:var(--ink); }
 
-.rp-cap input{ flex:0 0 auto; margin:0; }
+.rp-matrix-item.is-active{
+    background:rgba(var(--brand),.1);
+}
 
-.rp-cap > span{
-    min-width:0;
+.rp-matrix-item.is-active .rp-matrix-item-text b{ color:rgb(var(--brand)); }
+
+.rp-matrix-item > i{
+    flex:0 0 auto;
+    font-size:14px;
+    color:var(--line-2);
+}
+
+.rp-matrix-item.is-active > i{ color:rgb(var(--brand)); }
+
+.rp-matrix-item-text{ flex:1 1 auto; min-width:0; }
+
+.rp-matrix-item-text b{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-2);
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
 }
 
+.rp-matrix-item-text small{
+    display:block;
+    margin-top:1px;
+    font-size:11px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+}
+
+.rp-matrix-detail{
+    min-width:0;
+    border:1px solid var(--line-2);
+    border-radius:12px;
+    background:var(--surface);
+    overflow:hidden;
+}
+
+.rp-matrix-head{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:14px 16px;
+    border-bottom:1px solid var(--line);
+}
+
+.rp-matrix-head-text{ flex:1 1 auto; min-width:0; }
+
+.rp-matrix-head-text h6{
+    margin:0;
+    font-size:15px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.rp-matrix-head-text p{
+    margin:2px 0 0;
+    font-size:12px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+}
+
+.rp-matrix-switch{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:0;
+}
+
+.rp-matrix-switch label{
+    margin:0;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+}
+
+.rp-matrix-table{ font-size:13px; }
+
+.rp-matrix-table th.rp-matrix-grant-col,
+.rp-matrix-table td.rp-matrix-grant-col{
+    width:90px;
+    text-align:center;
+}
+
+/* A granted row reads as touched without having to look at its own
+   switch — the same "on" treatment the left-hand list uses. */
+.rp-matrix-table tr.is-on td{ background:rgba(var(--brand),.04); }
+
+/* The lock: a padlock rather than a third switch on the row, because it
+   answers a different question — not "may they" but "may a branch change
+   it" — and two switches side by side read as two halves of one setting. */
+.rp-lock{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:28px;
+    height:28px;
+    padding:0;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:#fff;
+    color:var(--ink-3);
+    font-size:15px;
+    transition:background .15s,border-color .15s,color .15s;
+}
+
+.rp-lock:hover:not(:disabled){ border-color:rgba(var(--brand),.45); color:rgb(var(--brand)); }
+
+/* The same amber the stat tiles and the history dots already use for
+   "pay attention to this one", rather than a third shade of it. */
+.rp-lock.is-on{
+    border-color:rgba(245,158,11,.45);
+    background:rgba(245,158,11,.12);
+    color:#b45309;
+}
+
+.rp-lock:disabled{ opacity:.5; }
+
+/* ── Effective permissions ────────────────────────────────────────────────
+   Why one person can or cannot do each thing. Closed until asked for, so it
+   reads as a tool somebody reaches for rather than another wall of settings
+   on a form that already has plenty. */
+.ep-panel{
+    margin-top:18px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface);
+    overflow:hidden;
+}
+
+.ep-toggle{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    padding:14px 16px;
+    border:0;
+    background:none;
+    text-align:left;
+    color:var(--ink);
+}
+
+.ep-toggle:hover{ background:var(--surface-2); }
+.ep-toggle b{ font-size:13px; font-weight:600; }
+.ep-toggle small{ color:var(--ink-3); font-size:12px; }
+
+.ep-body{ border-top:1px solid var(--line); padding:14px 16px 16px; }
+
+.ep-head{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:14px;
+    padding-bottom:12px;
+    margin-bottom:12px;
+    border-bottom:1px solid var(--line);
+    font-size:12px;
+    color:var(--ink-2);
+}
+
+.ep-head > span{ display:inline-flex; align-items:center; gap:5px; }
+.ep-filter{ display:inline-flex; align-items:center; gap:6px; margin-left:auto; }
+
+.ep-module + .ep-module{ margin-top:14px; }
+
+.ep-module h6{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin:0 0 6px;
+    font-size:12px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--ink-3);
+}
+
+.ep-module ul{ margin:0; padding:0; list-style:none; }
+
+.ep-module li{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:7px 0;
+    border-bottom:1px solid var(--line-2);
+}
+
+.ep-module li:last-child{ border-bottom:0; }
+
+.ep-yes{ color:#0f9d58; }
+.ep-no{ color:var(--ink-3); }
+
+.ep-what{ display:flex; flex-direction:column; min-width:0; flex:1; }
+.ep-what b{ font-size:13px; font-weight:500; color:var(--ink); }
+.ep-what code{ font-size:11px; color:var(--ink-3); }
+
+/* The important half: not whether, but WHICH SETTING said so. */
+.ep-src{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    flex:none;
+    padding:3px 9px;
+    border-radius:999px;
+    font-size:11px;
+    font-style:normal;
+    white-space:nowrap;
+}
+
+.ep-src.is-ok{ background:rgba(15,157,88,.1); color:#0b7a44; }
+.ep-src.is-warn{ background:rgba(245,158,11,.12); color:#b45309; }
+.ep-src.is-off{ background:var(--surface-2); color:var(--ink-3); }
+
+@media (max-width:575.98px){
+    .ep-module li{ flex-wrap:wrap; }
+    .ep-src{ margin-left:26px; }
+}
+
+.rp-matrix-table td b{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink);
+}
+
+.rp-matrix-key{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-top:2px;
+}
+
+.rp-matrix-key code{
+    font-size:11px;
+    color:var(--muted);
+}
+
 /* Says why this one cannot be unticked alone: the rest of
    the module rests on it. */
-.rp-cap em{
+.rp-matrix-key em{
     flex:0 0 auto;
     padding:1px 7px;
     border-radius:30px;
@@ -13162,6 +13339,12 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     font-weight:600;
     color:var(--ink-3);
     white-space:nowrap;
+}
+
+@media (max-width:899.98px){
+    .rp-matrix{ grid-template-columns:minmax(0,1fr); }
+    .rp-matrix-nav{ flex-direction:row; overflow-x:auto; }
+    .rp-matrix-item{ flex:0 0 auto; }
 }
 
 /* --- somewhere to start ---------------------------------- */
@@ -14313,7 +14496,19 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     vector-effect:non-scaling-stroke;
 }
 
-/* The donut and its legend side by side, as the reference has them. */
+/*
+   The card this ring sits in is a CONTAINER, not a viewport-relative box:
+   `patients-by-branch` is given 5 of 12 grid columns beside a 7-column
+   sibling, so it stays narrow on an ordinary desktop screen even though the
+   window itself is wide. A media query keyed to the viewport cannot see
+   that — it only ever agreed the layout was cramped once the whole page
+   dropped below tablet width, which is why "Central Branch" was still
+   arriving as "Central…" on a perfectly ordinary laptop.
+*/
+.chart-card{ container-type:inline-size; }
+
+/* The donut and its legend side by side, as the reference has them —
+   while there is room for both. */
 .db-donut .donut{
     flex-direction:row;
     align-items:center;
@@ -14331,12 +14526,25 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 /*
    One line, with an ellipsis if it comes to that. Wrapping made
    "Consultation" break as "Consultati / on", which is worse than a clipped
-   word — the ring is small enough now that it rarely does.
+   word — below the threshold the ring moves out of the way entirely instead.
 */
 .db-donut .donut-name{
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
+}
+
+/*
+   Below this the row has nowhere left to give: ring plus gap alone is over
+   130px, and a name column narrower than the rest reads worse than not
+   sharing the row at all. The ring moves above the legend instead, which
+   hands the FULL card width to names like "Central Branch" — the ellipsis
+   this rule exists to avoid was never the ring's fault, only the row's.
+*/
+@container (max-width:420px){
+    .db-donut .donut{ flex-direction:column; }
+    .db-donut .donut-plot{ width:140px; max-width:140px; margin:0 auto; }
+    .db-donut .donut-legend{ width:100%; }
 }
 
 @media (max-width:1199.98px){
@@ -14345,9 +14553,10 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 
 @media (max-width:991.98px){
     /* One column below the split: a 7/5 pair at half width is two cramped
-       cards rather than two readable ones. */
+       cards rather than two readable ones. The donut's own row/column
+       choice is left to the container query above, which by then usually
+       finds the card wide enough to keep the ring and legend side by side. */
     .db-slot{ grid-column:span 12 !important; }
-    .db-donut .donut{ flex-direction:column; }
 }
 
 @media (max-width:575.98px){

@@ -15,50 +15,75 @@ import { StatusBadge, WaitBadge } from '@/core/opd/components/Badges';
 import { WaitTrend, type WaitPoint } from '../components/WaitTrend';
 import { BookDialog } from '../components/BookDialog';
 import { useMoveAppointment, useQueue } from '../api';
+import { deskStatus } from '../workflow';
 import type { Appointment, AppointmentStatus } from '../types';
 
 /**
- * Each move: what it is called, and the capability the server demands for it.
+ * WHAT THE DESK CAN DO, and nothing else.
  *
- * The capability is here rather than checked at the call site so the two can
- * never drift. A button whose capability this person does not hold is not
- * rendered greyed out — it is not rendered, because the route behind it
- * answers 403 and offering it is worse than offering nothing.
+ * Four moves. Check somebody in, call them through, and the two that record
+ * that the day did not go as booked.
+ *
+ * WHAT IS GONE, and why this file changed at all:
+ *
+ *   "Call in"  fired `start`, which put the visit straight into
+ *              `in_consultation` — so the receptionist was starting the
+ *              doctor's consultation. It is now "Call patient", it fires
+ *              `call`, and it stops at `called`. The doctor takes it from
+ *              there.
+ *
+ *   "Done"     fired `complete` and closed a clinical record from the front
+ *              desk. There is no replacement here. The doctor completes
+ *              their own consultation, and the SYSTEM decides when the visit
+ *              is over — the desk can see both and causes neither.
+ *
+ * Keyed by the action rather than by the status it produces, because a move
+ * no longer maps one-to-one onto a visit state: calling somebody changes the
+ * queue and leaves the visit exactly where it was.
+ *
+ * `needs` is the capability the server demands, held here rather than
+ * checked at the call site so the two can never drift. `available` is the
+ * field on the row that says the STATE allows it. A button needs both.
  */
 const ACTIONS: Record<
     string,
-    { label: string; icon: string; action: string; needs: string; danger?: boolean }
+    {
+        label: string;
+        icon: string;
+        action: 'check-in' | 'call' | 'cancel' | 'no-show';
+        needs: string;
+        available: keyof Appointment['available'];
+        danger?: boolean;
+    }
 > = {
-    checked_in: {
+    'check-in': {
         label: 'Check in',
         icon: 'ti ti-login',
         action: 'check-in',
         needs: 'appointments.queue',
+        available: 'check_in',
     },
-    in_consultation: {
-        label: 'Call in',
-        icon: 'ti ti-player-play',
-        action: 'start',
+    call: {
+        label: 'Call patient',
+        icon: 'ti ti-bell-ringing',
+        action: 'call',
         needs: 'appointments.queue',
+        available: 'call',
     },
-    completed: {
-        label: 'Done',
-        icon: 'ti ti-check',
-        action: 'complete',
-        needs: 'appointments.queue',
-    },
-    no_show: {
+    'no-show': {
         label: 'No-show',
         icon: 'ti ti-user-x',
         action: 'no-show',
         needs: 'appointments.cancel',
+        available: 'no_show',
         danger: true,
     },
-    cancelled: {
+    cancel: {
         label: 'Cancel',
         icon: 'ti ti-x',
         action: 'cancel',
         needs: 'appointments.cancel',
+        available: 'cancel',
         danger: true,
     },
 };
@@ -86,6 +111,18 @@ const STATUS_TABS: { key: string; label: string; match: AppointmentStatus[] }[] 
     { key: 'checked_in', label: 'Waiting', match: ['checked_in'] },
     { key: 'in_consultation', label: 'With doctor', match: ['in_consultation'] },
     { key: 'booked', label: 'Expected', match: ['booked'] },
+
+    /*
+     * Seen, and still in the building.
+     *
+     * One tab for all three waiting rooms rather than three: the desk's
+     * question is "who is still here after the doctor", not which of the
+     * pharmacy, the lab and the till each of them is in — the row itself
+     * says that. This is the tab that did not exist, because before the
+     * split there was no state between "with doctor" and "gone".
+     */
+    { key: 'awaiting', label: 'Awaiting', match: ['awaiting_pharmacy', 'awaiting_lab', 'awaiting_payment'] },
+
     { key: 'completed', label: 'Completed', match: ['completed'] },
     { key: 'no_show', label: 'No show', match: ['no_show', 'cancelled'] },
 ];
@@ -247,8 +284,8 @@ export default function QueuePage() {
         };
     }, [menuFor]);
 
-    async function onMove(appointment: Appointment, next: AppointmentStatus) {
-        const action = ACTIONS[next];
+    async function onMove(appointment: Appointment, key: string) {
+        const action = ACTIONS[key];
 
         setMenuFor(null);
 
@@ -257,36 +294,35 @@ export default function QueuePage() {
         }
 
         /*
-         * Three of the five are asked about, for two different reasons.
+         * Only the two that cannot be undone are asked about.
          *
-         * Cancel and no-show cannot be undone and are about a person. "Done"
-         * cannot be undone either — `completed` has no transitions out of it,
-         * so nobody, not even the owner, can reopen a consultation closed by a
-         * mis-click. Check-in and call-in are the ordinary rhythm of a busy
-         * desk and must not cost a click each.
+         * "Finish this consultation?" used to be the third, and it is gone
+         * with the button it guarded — a confirmation was the only thing
+         * standing between a mis-click at reception and a closed clinical
+         * record, which is not a job a dialog should ever have had.
+         *
+         * Check-in and calling are the ordinary rhythm of a busy desk and
+         * must not cost a click each. Calling is also recoverable: the
+         * server allows `called` back to `waiting`.
          */
-        const asks: Partial<Record<AppointmentStatus, { title: string; message: string }>> = {
-            cancelled: {
+        const asks: Record<string, { title: string; message: string }> = {
+            cancel: {
                 title: 'Cancel this appointment?',
                 message: `${appointment.customer_name}'s slot goes back into the day. Their token, if issued, is not reused.`,
             },
-            no_show: {
+            'no-show': {
                 title: 'Mark as a no-show?',
                 message: `${appointment.customer_name} will be recorded as not having come.`,
             },
-            completed: {
-                title: 'Finish this consultation?',
-                message: `${appointment.customer_name}'s visit is closed. This cannot be reopened.`,
-            },
         };
 
-        const ask = asks[next];
+        const ask = asks[key];
 
         if (ask) {
             const confirmed = await confirm({
                 ...ask,
                 confirmLabel: action.label,
-                danger: next !== 'completed',
+                danger: true,
             });
 
             if (!confirmed) {
@@ -294,26 +330,35 @@ export default function QueuePage() {
             }
         }
 
-        move.mutate({ id: appointment.id, action: action.action as never });
+        move.mutate({ id: appointment.id, action: action.action });
     }
 
-    /** What this person may actually do to this row, split by prominence. */
+    /**
+     * What this person may actually do to this row, split by prominence.
+     *
+     * TWO CONDITIONS, both from different places and both required. The
+     * server says the row's STATE allows the move (`row.available`); the
+     * session says this person HOLDS the capability (`can`). Neither alone
+     * is enough, and a button failing either is not rendered at all rather
+     * than rendered disabled — the route behind it answers 403, and offering
+     * it is worse than offering nothing.
+     */
     function movesFor(row: Appointment) {
-        const allowed = row.next_states.filter((next) => {
-            const action = ACTIONS[next];
+        const allowed = Object.keys(ACTIONS).filter((key) => {
+            const action = ACTIONS[key];
 
-            return action && can(action.needs);
+            return row.available?.[action.available] && can(action.needs);
         });
 
         return {
-            primary: allowed.find((next) => !ACTIONS[next].danger) ?? null,
+            primary: allowed.find((key) => !ACTIONS[key].danger) ?? null,
             /*
              * Destructive moves live behind a menu rather than beside the
              * primary one. On a tablet the two would be a thumb's width apart,
              * and cancelling somebody who is already with the doctor is a
              * mis-click, never an intention.
              */
-            rest: allowed.filter((next) => ACTIONS[next].danger),
+            rest: allowed.filter((key) => ACTIONS[key].danger),
         };
     }
 
@@ -460,12 +505,17 @@ export default function QueuePage() {
     /*
      * Who "Call next" calls.
      *
-     * The longest wait among people actually checked in — not the lowest token,
+     * The longest wait among people NOT YET CALLED — not the lowest token,
      * which would call somebody who booked for later ahead of a walk-in who has
      * been sitting there half an hour.
+     *
+     * `queue_status === 'waiting'` rather than `status === 'checked_in'`,
+     * which now covers both waiting and called: calling somebody a second
+     * time is refused by the server, and offering it would make the button
+     * appear to do nothing.
      */
     const nextUp = all
-        .filter((row) => row.status === 'checked_in')
+        .filter((row) => row.queue_status === 'waiting')
         .reduce<Appointment | null>(
             (worst, row) =>
                 worst === null || (row.waiting_minutes ?? 0) > (worst.waiting_minutes ?? 0)
@@ -527,7 +577,7 @@ export default function QueuePage() {
                             <Button
                                 icon="ti ti-bell-ringing"
                                 disabled={!nextUp || move.isPending}
-                                onClick={() => nextUp && onMove(nextUp, 'in_consultation')}
+                                onClick={() => nextUp && onMove(nextUp, 'call')}
                             >
                                 Call next
                             </Button>
@@ -818,7 +868,7 @@ export default function QueuePage() {
                                             </td>
 
                                             <td data-label="Status">
-                                                <StatusBadge status={row.status} />
+                                                <StatusBadge status={row.status} queue={row.queue_status} />
                                             </td>
 
                                             <td data-label="Wait">
@@ -895,11 +945,26 @@ export default function QueuePage() {
                                                         </div>
                                                     )}
 
+                                                    {/*
+                                                        Nothing for the desk to
+                                                        DO, so say what is
+                                                        happening instead.
+
+                                                        This is where "Done"
+                                                        used to be. After the
+                                                        doctor takes over, the
+                                                        receptionist's column
+                                                        reads "With doctor",
+                                                        then "Waiting for
+                                                        pharmacy", then "Visit
+                                                        completed" — the desk
+                                                        follows the visit all
+                                                        the way out without
+                                                        being able to move it.
+                                                    */}
                                                     {!primary && rest.length === 0 && (
                                                         <span className="q-done">
-                                                            {row.next_states.length === 0
-                                                                ? 'Closed'
-                                                                : 'View only'}
+                                                            {deskStatus(row)}
                                                         </span>
                                                     )}
                                                 </div>
@@ -960,7 +1025,7 @@ export default function QueuePage() {
                                         more than one doctor's patients. */}
                                     <span className="q-doctor">{row.doctor_name}</span>
 
-                                    <StatusBadge status={row.status} />
+                                    <StatusBadge status={row.status} queue={row.queue_status} />
 
                                     <WaitBadge
                                         minutes={row.waiting_minutes}
@@ -1020,15 +1085,13 @@ export default function QueuePage() {
                                             </div>
                                         )}
 
-                                        {/* Says why there is nothing to do,
+                                        {/* Says what is happening instead,
                                             rather than leaving a blank column
-                                            that reads as a rendering fault. */}
+                                            that reads as a rendering fault —
+                                            and rather than the Done button
+                                            that used to sit here. */}
                                         {!primary && rest.length === 0 && (
-                                            <span className="q-done">
-                                                {row.next_states.length === 0
-                                                    ? 'Closed'
-                                                    : 'View only'}
-                                            </span>
+                                            <span className="q-done">{deskStatus(row)}</span>
                                         )}
                                     </div>
                                 </li>

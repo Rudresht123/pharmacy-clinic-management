@@ -71,7 +71,17 @@ interface Window {
     to?: string;
 }
 
-export function useReportSummary(storeId: number | undefined, report: ReportKey, window: Window) {
+/**
+ * `report` is optional: a person holding none of the six capabilities has
+ * nothing to ask about, and the page passes `undefined` rather than guessing
+ * one — which would otherwise fetch a report they cannot read and fail with a
+ * 403 they never caused.
+ */
+export function useReportSummary(
+    storeId: number | undefined,
+    report: ReportKey | undefined,
+    window: Window,
+) {
     return useQuery({
         queryKey: resourceKey('tenant/pharmacy', 'report-summary', storeId, report, window),
         queryFn: async (): Promise<ReportSummary> => {
@@ -82,13 +92,13 @@ export function useReportSummary(storeId: number | undefined, report: ReportKey,
 
             return data.data;
         },
-        enabled: storeId !== undefined,
+        enabled: storeId !== undefined && report !== undefined,
     });
 }
 
 export function useReportRows(
     storeId: number | undefined,
-    report: ReportKey,
+    report: ReportKey | undefined,
     params: Window & { page?: number; per_page?: number; search?: string },
     enabled = true,
 ) {
@@ -102,7 +112,7 @@ export function useReportRows(
 
             return data;
         },
-        enabled: enabled && storeId !== undefined,
+        enabled: enabled && storeId !== undefined && report !== undefined,
     });
 }
 

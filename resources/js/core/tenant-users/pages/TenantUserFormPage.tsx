@@ -12,6 +12,7 @@ import { ConfigurableForm, type FieldGroup } from '@/core/field-settings/Configu
 import { rolesHooks } from '@/core/roles/api';
 import { departmentOptions, departmentsHooks } from '@/core/departments/api';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
+import { EffectivePermissionsPanel } from '@/core/roles/components/EffectivePermissionsPanel';
 import { BranchMemberships } from '../components/BranchMemberships';
 import { tenantUsersHooks, useTenantUserFields } from '../api';
 
@@ -303,6 +304,15 @@ export default function TenantUserFormPage({
                         canAssign={can('people.assign_branch')}
                     />
                 )}
+
+                {/*
+                    Directly under the roles that produce it, because it is the
+                    answer to the question those controls raise: a role and a
+                    branch are inputs, and this is what they add up to once the
+                    module and the branch's own customisations have had their
+                    say. Fetches nothing until somebody opens it.
+                */}
+                {isEdit && person && <EffectivePermissionsPanel userId={person.id} />}
 
                 <div className="form-actions">
                     {/* Only on edit: a record being created has no

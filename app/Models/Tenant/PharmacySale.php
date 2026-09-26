@@ -44,6 +44,17 @@ class PharmacySale extends Model
         'walk_in_name',
         'walk_in_phone',
         'prescription_id',
+
+        /*
+         * Which visit this bill belongs to.
+         *
+         * Set by SalesService from the prescription, never from a request —
+         * the client has no business asserting which visit it is billing.
+         * Null for every counter sale, which is all of them at a standalone
+         * medical store.
+         */
+        'appointment_id',
+
         'doctor_id',
         'sale_date',
         'price_basis',

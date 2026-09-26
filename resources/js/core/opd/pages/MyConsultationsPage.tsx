@@ -7,7 +7,7 @@ import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
 import { http } from '@/shared/api/http';
 import { resourceKey } from '@/shared/hooks/useResource';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
-import { useMoveAppointment } from '@/core/appointments/api';
+import { useMoveConsultation } from '@/core/appointments/api';
 import { useMyDay } from '../api';
 import { ConsultationPanel, type ConsultationTab } from '../components/ConsultationPanel';
 import type { ApiResponse } from '@/shared/types/api';
@@ -63,7 +63,7 @@ export default function MyConsultationsPage() {
     const { activeBranch } = useTenantAuth();
 
     const { data, isLoading, isError, refetch } = useMyDay(activeBranch);
-    const move = useMoveAppointment();
+    const move = useMoveConsultation();
 
     const [tab, setTab] = useState<Tab>('queue');
     const [term, setTerm] = useState('');
@@ -332,24 +332,36 @@ export default function MyConsultationsPage() {
                                 {/*
                                     The move that is legal from here, and only
                                     that one — the server owns the transitions
-                                    and hands back what is next.
+                                    and says which, on `available`.
+
+                                    "Call in" is gone: calling is the desk's,
+                                    and this button now starts the
+                                    consultation on somebody they have
+                                    already called.
                                 */}
-                                {open.next_states.includes('in_consultation') && (
+                                {open.available?.consult_start && (
                                     <button
                                         type="button"
                                         className="md-call"
                                         disabled={move.isPending}
                                         onClick={() =>
-                                            move.mutate({
-                                                id: open.id,
-                                                action:
-                                                    open.status === 'completed'
-                                                        ? 'reopen'
-                                                        : 'start',
-                                            })
+                                            move.mutate({ id: open.id, action: 'start' })
                                         }
                                     >
-                                        {open.status === 'completed' ? 'Reopen' : 'Call in'}
+                                        Start consultation
+                                    </button>
+                                )}
+
+                                {open.available?.consult_reopen && (
+                                    <button
+                                        type="button"
+                                        className="md-done"
+                                        disabled={move.isPending}
+                                        onClick={() =>
+                                            move.mutate({ id: open.id, action: 'reopen' })
+                                        }
+                                    >
+                                        Reopen
                                     </button>
                                 )}
                             </div>

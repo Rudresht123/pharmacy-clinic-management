@@ -103,6 +103,23 @@ class RoleController extends BaseApiController
         foreach (RoleTemplates::all() as $template) {
             $capabilities = RoleTemplates::capabilitiesFor($template, $modules);
 
+            /*
+             * Narrowed to what a BRANCH ROLE may actually hold.
+             *
+             * Every role this screen creates comes out branch-scoped — the
+             * payload it sends has no scope field, so the server defaults it
+             * to branch whoever is asking (see RoleController::store()). An
+             * organization-only capability in a template — `head_office`
+             * carries several — would tick a box that `SaveRoleRequest`
+             * refuses the moment the role is saved, which is the same
+             * "offered something that cannot be honoured" bug as the main
+             * capability list.
+             */
+            $capabilities = array_values(array_filter(
+                $capabilities,
+                fn (string $capability) => ModuleRegistry::capabilityScope($capability) !== ModuleRegistry::SCOPE_ORGANIZATION,
+            ));
+
             // A template that would grant nothing here is not offered at all.
             if ($capabilities === []) {
                 continue;
@@ -225,7 +242,9 @@ class RoleController extends BaseApiController
 
         $branch = $this->mustBeWritable($request);
 
-        $role = DB::connection('organization')->transaction(function () use ($data, $branch) {
+        $locked = $this->lockedFrom($data, $branch);
+
+        $role = DB::connection('organization')->transaction(function () use ($data, $branch, $locked) {
             $role = Role::create([
                 'name' => $data['name'],
                 'slug' => $this->uniqueSlug($data['name']),
@@ -239,7 +258,7 @@ class RoleController extends BaseApiController
                 'icon' => $data['icon'] ?? Role::DEFAULT_ICON,
             ]);
 
-            $role->syncCapabilities($data['capabilities']);
+            $role->syncCapabilities($data['capabilities'], $locked);
 
             return $role;
         });
@@ -252,11 +271,13 @@ class RoleController extends BaseApiController
 
     public function update(SaveRoleRequest $request, Role $role): JsonResponse
     {
-        $this->mustBeWritable($request, $role);
+        $branch = $this->mustBeWritable($request, $role);
 
         $data = $request->validated();
 
-        DB::connection('organization')->transaction(function () use ($data, $role) {
+        $locked = $this->lockedFrom($data, $branch);
+
+        DB::connection('organization')->transaction(function () use ($data, $role, $locked) {
             /*
              * The slug is not renamed with the name. It is what the software
              * refers to the seeded role by — Role::SEEDED_STAFF — and renaming
@@ -274,13 +295,36 @@ class RoleController extends BaseApiController
                 'icon' => $data['icon'] ?? $role->icon ?? Role::DEFAULT_ICON,
             ]);
 
-            $role->syncCapabilities($data['capabilities']);
+            $role->syncCapabilities($data['capabilities'], $locked);
         });
 
         return $this->ok(
             RoleResource::make($role->load('capabilities')->loadCount(['users', 'memberships'])),
             'Role updated successfully.'
         );
+    }
+
+    /**
+     * Which capabilities this save locks, if it is in a position to say.
+     *
+     * A lock is the organization telling branches "not this one", so it is the
+     * owner's to set and means nothing anywhere else: a role a branch wrote is
+     * that branch's own, and there is no third party to lock it against.
+     *
+     * Null — leave the locks alone — rather than an empty list, so a branch
+     * manager editing a role they may edit cannot unlock it by not mentioning
+     * it, and neither can an older client.
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<string>|null
+     */
+    private function lockedFrom(array $data, ?int $branch): ?array
+    {
+        if ($branch !== null || ! array_key_exists('locked', $data)) {
+            return null;
+        }
+
+        return array_values(array_unique($data['locked']));
     }
 
     /**

@@ -5,6 +5,7 @@ import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { useFieldSettings, useSaveFieldSettings } from '@/core/field-settings/api';
 import { BranchModulePanel } from '@/core/roles/components/BranchModulePanel';
+import { ModuleLockPanel } from '@/core/roles/components/ModuleLockPanel';
 import { locationsHooks } from '@/core/locations/api';
 import { useConfirmSetupStep } from '../api';
 import { toFieldInputs } from '../fieldInputs';
@@ -198,6 +199,13 @@ export function SettingsSection({ step, onDirty, nav }: SectionProps) {
                         </div>
 
                         {branchId !== null && <BranchModulePanel key={branchId} locationId={branchId} />}
+
+                        {/*
+                            The organization's side of the same question, under
+                            the branch's: "what may this branch turn off" is
+                            only answerable once you can see what it may not.
+                        */}
+                        <ModuleLockPanel />
                     </>
                 )}
             </div>

@@ -9,6 +9,7 @@ use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Doctor;
 use App\Services\Opd\BookingService;
 use App\Services\Opd\OpdBoard;
+use App\Services\Opd\VisitWorkflow;
 use App\Services\Tenancy\TenantBranchAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,14 +19,20 @@ use RuntimeException;
 /**
  * The OPD queue: booking into it, walking into it, and moving through it.
  *
- * Open to anyone signed in — whoever is at the desk does all of this. Only
- * the branch check narrows it, and that is about *which* branch rather than
- * about seniority.
+ * THE DESK'S CONTROLLER, and only the desk's. Booking, checking in, calling
+ * through, cancelling, no-shows. Starting and completing a consultation used
+ * to live here too and are now ConsultationController's, behind the doctor's
+ * own capabilities and the check that the visit is theirs — which is the
+ * whole separation this workflow exists to make.
+ *
+ * The branch check is about *which* branch rather than about seniority; what
+ * somebody may do is the route's `permission:` middleware.
  */
 class AppointmentController extends BaseApiController
 {
     public function __construct(
         private readonly BookingService $booking,
+        private readonly VisitWorkflow $workflow,
         private readonly TenantBranchAccess $branches,
     ) {}
 
@@ -61,10 +68,31 @@ class AppointmentController extends BaseApiController
 
         return $this->ok([
             'queue' => AppointmentResource::collection($queue),
-            'waiting' => $queue->where('status', Appointment::STATUS_CHECKED_IN)->count(),
+
+            /*
+             * Waiting is now strictly "nobody has called them": the people
+             * whose wait is still growing and who the desk has to do
+             * something about. Called is its own figure, and a number that
+             * stays up is a specific, fixable problem — somebody was called
+             * and has not gone in.
+             */
+            'waiting' => $queue->where('queue_status', Appointment::QUEUE_WAITING)->count(),
+            'called' => $queue->where('queue_status', Appointment::QUEUE_CALLED)->count(),
+
             'with_doctor' => $queue->where('status', Appointment::STATUS_IN_CONSULTATION)->count(),
-            'seen' => $queue->where('status', Appointment::STATUS_COMPLETED)->count(),
+
+            // The doctors' output, not closed visits: somebody at the
+            // pharmacy has been seen.
+            'seen' => $queue->where('consultation_status', Appointment::CONSULT_COMPLETED)->count(),
+
             'expected' => $queue->where('status', Appointment::STATUS_BOOKED)->count(),
+
+            // Seen, and still here for somebody else's queue.
+            'awaiting' => [
+                'pharmacy' => $queue->where('status', Appointment::STATUS_AWAITING_PHARMACY)->count(),
+                'laboratory' => $queue->where('status', Appointment::STATUS_AWAITING_LAB)->count(),
+                'payment' => $queue->where('status', Appointment::STATUS_AWAITING_PAYMENT)->count(),
+            ],
 
             /*
              * The doctors working this branch's day, so the filter is built
@@ -137,7 +165,7 @@ class AppointmentController extends BaseApiController
         );
     }
 
-    /** Arrived. This is where the token is issued. */
+    /** Arrived. This is where the token is issued, and the queue joined. */
     public function checkIn(Appointment $appointment): JsonResponse
     {
         return $this->move(
@@ -147,31 +175,22 @@ class AppointmentController extends BaseApiController
         );
     }
 
-    public function start(Appointment $appointment): JsonResponse
+    /**
+     * Call the patient through — the desk's one act on a consultation.
+     *
+     * NOT "start". It moves the queue from `waiting` to `called` and stops
+     * there; the doctor takes it from there under their own capability. The
+     * endpoint this replaced was called `start`, did both, and was held by
+     * whoever was at reception.
+     */
+    public function call(Request $request, Appointment $appointment): JsonResponse
     {
         return $this->move(
             $appointment,
-            fn () => $this->booking->start($appointment),
-            fn () => 'Consultation started',
-        );
-    }
-
-    /** Put a finished visit back in the room — today's only. */
-    public function reopen(Appointment $appointment): JsonResponse
-    {
-        return $this->move(
-            $appointment,
-            fn () => $this->booking->reopen($appointment),
-            fn () => 'Back in the room',
-        );
-    }
-
-    public function complete(Appointment $appointment): JsonResponse
-    {
-        return $this->move(
-            $appointment,
-            fn () => $this->booking->complete($appointment),
-            fn () => 'Consultation completed',
+            fn () => $this->workflow->call($appointment, $request->user()),
+            fn () => $appointment->token_no
+                ? "Token {$appointment->token_no} called"
+                : 'Patient called',
         );
     }
 
@@ -199,8 +218,10 @@ class AppointmentController extends BaseApiController
      * Every status change goes through here.
      *
      * The service refuses a move the state machine does not allow, and that
-     * refusal is a 422 rather than a 500: "somebody already completed this"
-     * is a thing that happens at a busy desk, not a bug.
+     * refusal is a 422 rather than a 500: "the patient next to you already
+     * called that token" is a thing that happens at a busy desk, not a bug.
+     * WorkflowConflict extends RuntimeException, so both are caught here and
+     * both carry a message somebody can act on.
      */
     private function move(Appointment $appointment, callable $change, callable $message): JsonResponse
     {

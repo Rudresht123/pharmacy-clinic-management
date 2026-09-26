@@ -1,0 +1,485 @@
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Support\ModuleRegistryGrantableTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma branch scope excludes organization only capabilities[39m[90m                                                      [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90man organization scope keeps everything branch capabilities included[39m
+  [32;1m✓[39;22m[90m [39m[90mno scope at all also returns everything[39m
+  [32;1m✓[39;22m[90m [39m[90ma module left with nothing grantable at this scope is dropped entirely[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Support\ModuleRegistryRequirementsTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe pharmacy modules exist and are sold separately[39m[90m                                                          [39m [90m0.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90meach capability has the scope it can honour[39m
+  [32;1m✓[39;22m[90m [39m[90mcapability keys are never reused[39m
+  [32;1m✓[39;22m[90m [39m[90mprescriptions and pharmacy require medicines[39m
+  [32;1m✓[39;22m[90m [39m[90mreports requires pharmacy[39m
+  [32;1m✓[39;22m[90m [39m[90munmet requirements name the module and what it lacks[39m
+  [32;1m✓[39;22m[90m [39m[90ma requirement on a core module is always satisfied[39m
+  [32;1m✓[39;22m[90m [39m[90mevery requirement points at a real module[39m
+  [32;1m✓[39;22m[90m [39m[90mthe refusal reads as a sentence[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Support\RoleTemplatesTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma branch manager holds every report[39m
+  [32;1m✓[39;22m[90m [39m[90ma pharmacist holds the operational reports but not the financial ones[39m
+  [32;1m✓[39;22m[90m [39m[90mreports disappear entirely without the pharmacy module[39m
+  [32;1m✓[39;22m[90m [39m[90mreports disappear without being bought even alongside pharmacy[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Unit\Support\TestDatabaseGuardTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma testing database in the testing environment is allowed[39m
+  [32;1m✓[39;22m[90m [39m[90mthe live database is refused[39m
+  [32;1m✓[39;22m[90m [39m[90ma database that only contains testing is refused[39m
+  [32;1m✓[39;22m[90m [39m[90mno database at all is refused[39m
+  [32;1m✓[39;22m[90m [39m[90many other environment is refused even with a testing database[39m
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Onboarding\OrganizationSetupTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe owner can complete setup and then sign in[39m[90m                                                               [39m [90m4.69s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma weak password is rejected with the rule the form promises[39m[90m                                                 [39m [90m2.67s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmismatched confirmation is rejected[39m[90m                                                                         [39m [90m2.78s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe token cannot be used twice[39m[90m                                                                              [39m [90m2.51s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Platform\Auth\AuthenticationTest[39m
+  [32;1m✓[39;22m[90m [39m[90man administrator can sign in[39m[90m                                                                                [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe auto increment id is never exposed[39m[90m                                                                      [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90msigning in records the login[39m[90m                                                                                [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma wrong password is rejected[39m[90m                                                                                [39m [90m0.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma deactivated administrator cannot sign in[39m[90m                                                                  [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogin is rate limited after five attempts[39m[90m                                                                   [39m [90m1.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90man authenticated admin can read their own record[39m[90m                                                            [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90madmin endpoints reject a guest[39m[90m                                                                              [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma tenant user cannot authenticate on the platform guard[39m[90m                                                     [39m [90m0.32s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma tenant session does not unlock the admin panel[39m[90m                                                            [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthere is no self registration endpoint[39m[90m                                                                      [39m [90m0.11s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Platform\OrganizationModuleTest[39m
+  [32;1m✓[39;22m[90m [39m[90man admin sees every module and where the organization stands[39m[90m                                                [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90man admin can bind a module to an organization[39m[90m                                                               [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma module left out of the submission is unbound[39m[90m                                                              [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma core module cannot be bound[39m[90m                                                                               [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcore modules are available with no bindings at all[39m[90m                                                          [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma binding is live only when enabled started and unexpired[39m[90m                                                   [39m [90m0.26s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma subscription expiring today still works today[39m[90m                                                             [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe capability pool follows the entitlements[39m[90m                                                                [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrevoking a module removes its capabilities[39m[90m                                                                  [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma module cannot be bound without what it requires[39m[90m                                                           [39m [90m0.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma module binds once what it requires is bound with it[39m[90m                                                       [39m [90m0.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90man end date before the start date is rejected[39m[90m                                                               [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmodules are not readable without an admin session[39m[90m                                                           [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe catalogue counts live entitlements only[39m[90m                                                                 [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe catalogue flags subscriptions ending soon[39m[90m                                                               [39m [90m0.34s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe assign list counts optional modules only[39m[90m                                                                [39m [90m0.25s[39m  
+  [32;1m✓[39;22m[90m [39m[90man organization with no modules still appears[39m[90m                                                               [39m [90m0.19s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe catalogue syncs from the registry without duplicating[39m[90m                                                   [39m [90m0.17s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Platform\OrganizationProvisioningTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma successful provision creates the tenant database and reaches active[39m[90m                                       [39m [90m2.43s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma failed step leaves the organization and database intact for retry[39m[90m                                         [39m [90m2.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90mretrying resumes instead of restarting[39m[90m                                                                      [39m [90m2.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mretry rejects an already active organization[39m[90m                                                                [39m [90m0.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma soft deleted organizations subdomain and code can be reused[39m[90m                                               [39m [90m2.67s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdatabase service exists reflects reality[39m[90m                                                                    [39m [90m0.54s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Platform\OrganizationTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma new organization gets a ulid without being asked[39m[90m                                                          [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe list exposes the ulid and never the row id[39m[90m                                                              [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90man organization is addressed by its ulid[39m[90m                                                                    [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe row id is not a usable address[39m[90m                                                                          [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mslugs do not collide[39m[90m                                                                                        [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90man admin can update an organization[39m[90m                                                                         [39m [90m0.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90mupdating cannot move the tenant database or the slug[39m[90m                                                        [39m [90m0.24s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdeleting is a soft delete so the tenant database survives[39m[90m                                                   [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma status change writes its own history[39m[90m                                                                      [39m [90m0.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90msuspending stamps the time and the reason[39m[90m                                                                   [39m [90m0.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90mresuming clears the suspension[39m[90m                                                                              [39m [90m0.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmoving to the status it already has records nothing[39m[90m                                                         [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe list can be filtered by status[39m[90m                                                                          [39m [90m0.13s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Platform\OrganizationTypeTest[39m
+  [32;1m✓[39;22m[90m [39m[90man admin can list organization types[39m[90m                                                                        [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90man admin can create an organization type[39m[90m                                                                    [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90man admin can update an organization type[39m[90m                                                                    [39m [90m0.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mupdating a type may keep its own name[39m[90m                                                                       [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma duplicate name is rejected[39m[90m                                                                                [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90man admin can toggle status[39m[90m                                                                                  [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90man admin can delete an organization type[39m[90m                                                                    [39m [90m0.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma guest cannot reach organization types[39m[90m                                                                     [39m [90m0.10s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\ActingBranchTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma branch they do not work at is refused[39m[90m                                                                     [39m [90m2.58s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unknown branch is refused[39m[90m                                                                                [39m [90m2.75s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrubbish is refused[39m[90m                                                                                          [39m [90m2.64s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe answer follows the branch they are working in[39m[90m                                                           [39m [90m3.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mme answers for the branch being worked in[39m[90m                                                                   [39m [90m3.04s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwithout a header they land on their primary branch[39m[90m                                                          [39m [90m3.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe owner may act at any branch[39m[90m                                                                             [39m [90m2.96s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlevel two follows the branch they moved to[39m[90m                                                                  [39m [90m3.18s[39m  
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\Api\V1\Tenant\AppointmentTest[39m
+  [32;1m✓[39;22m[90m [39m[90mbooking a slot records the sitting it came from[39m[90m                                                             [39m [90m2.79s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma time outside the sitting is refused[39m[90m                                                                       [39m [90m2.88s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma slot cannot be sold twice[39m[90m                                                                                 [39m [90m3.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcancelling frees the slot[39m[90m                                                                                   [39m [90m3.53s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma doctor on leave cannot be booked[39m[90m                                                                          [39m [90m2.83s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma booked slot disappears from what is free[39m[90m                                                                  [39m [90m2.92s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma token is issued at check in[39m[90m                                                                               [39m [90m2.92s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma walk in is checked in immediately[39m[90m                                                                         [39m [90m2.68s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma walk in may not name a time[39m[90m                                                                               [39m [90m2.99s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbookings and walk ins share one run of tokens[39m[90m                                                               [39m [90m3.24s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma cancelled token is not reused[39m[90m                                                                             [39m [90m3.30s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtokens are per doctor not per branch[39m[90m                                                                        [39m [90m3.08s[39m  
+  [31;1m⨯[39;22m[90m [39m[90man appointment moves through the states in order[39m[90m                                                            [39m [90m3.07s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mtodays finished visit can be reopened[39m[90m                                                                       [39m [90m2.90s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma patient who arrived cannot be marked a no show[39m[90m                                                            [39m [90m3.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe queue is in arrival order[39m[90m                                                                               [39m [90m3.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstaff cannot book at another branch[39m[90m                                                                         [39m [90m3.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90mappointments are behind the module[39m[90m                                                                          [39m [90m2.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90mbooking is recorded in the history[39m[90m                                                                          [39m [90m3.08s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\AuthenticationTest[39m
+  [32;1m✓[39;22m[90m [39m[90man owner can sign in with the right subdomain[39m[90m                                                               [39m [90m2.48s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe subdomain can be derived from the host header alone[39m[90m                                                     [39m [90m2.46s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe host header wins over a mismatched body field[39m[90m                                                           [39m [90m2.67s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe tenant is resolved before the guard runs with data set "me"[39m[90m                                             [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe tenant is resolved before the guard runs with data set "login"[39m[90m                                          [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe default guard never resolves tenant users[39m[90m                                                               [39m [90m0.10s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma wrong password is rejected generically[39m[90m                                                                    [39m [90m2.73s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unknown subdomain is rejected with the same generic message[39m[90m                                              [39m [90m0.16s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma suspended organization shows the reason[39m[90m                                                                   [39m [90m2.38s[39m  
+  [32;1m✓[39;22m[90m [39m[90mme reconnects the right tenant database on a later request[39m[90m                                                  [39m [90m2.75s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlast login at survives a round trip through the database[39m[90m                                                    [39m [90m2.50s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogout clears the session[39m[90m                                                                                   [39m [90m2.61s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogin is rate limited after five attempts[39m[90m                                                                   [39m [90m3.67s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\AvailabilityTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma sitting appears only on its weekday[39m[90m                                                                       [39m [90m3.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90mslots are derived and the last one fits[39m[90m                                                                     [39m [90m2.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno slots are ever persisted[39m[90m                                                                                 [39m [90m2.93s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma sitting outside its effective window does not apply[39m[90m                                                       [39m [90m3.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90mleave removes the whole day[39m[90m                                                                                 [39m [90m2.85s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcancelling one sitting leaves the rest[39m[90m                                                                      [39m [90m2.96s[39m  
+  [32;1m✓[39;22m[90m [39m[90mchanged hours apply to that date alone[39m[90m                                                                      [39m [90m3.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90man extra session appears on a day with no sitting[39m[90m                                                           [39m [90m2.77s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe day view lists doctors sitting at a branch[39m[90m                                                              [39m [90m3.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstaff cannot read another branchs day[39m[90m                                                                       [39m [90m2.92s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe owner may read any branchs day[39m[90m                                                                          [39m [90m3.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90meach exception type demands what it needs[39m[90m                                                                   [39m [90m3.64s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstaff cannot record an exception[39m[90m                                                                            [39m [90m2.55s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe week lists doctors posted to the branch[39m[90m                                                                 [39m [90m2.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe week leaves out doctors posted elsewhere[39m[90m                                                                [39m [90m2.63s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma cancelled day reads differently from a day off[39m[90m                                                            [39m [90m2.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90mchanged hours mark the day as changed[39m[90m                                                                       [39m [90m2.76s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe week snaps back to monday[39m[90m                                                                               [39m [90m3.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstaff cannot read another branchs week[39m[90m                                                                      [39m [90m3.44s[39m  
+  [32;1m✓[39;22m[90m [39m[90man exception records who wrote it[39m[90m                                                                           [39m [90m2.95s[39m  
+  [32;1m✓[39;22m[90m [39m[90mexceptions can be scoped to a branch[39m[90m                                                                        [39m [90m3.41s[39m  
+  [32;1m✓[39;22m[90m [39m[90man exception reports the branch it belongs to[39m[90m                                                               [39m [90m3.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe day reports how many slots are still open[39m[90m                                                               [39m [90m3.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mavailability is behind the module[39m[90m                                                                           [39m [90m2.49s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\BranchAdminReachTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma branch admin session reports its capabilities[39m[90m                                                             [39m [90m2.94s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch admin can add a doctor[39m[90m                                                                             [39m [90m2.97s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch admin can register and book[39m[90m                                                                        [39m [90m3.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch admin cannot add branches[39m[90m                                                                          [39m [90m3.07s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\BranchManagerTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe role library is seeded from what the organization holds[39m[90m                                                 [39m [90m3.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90massigning a manager gives them the membership and the role[39m[90m                                                  [39m [90m3.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90mchanging the manager revokes the role but keeps the membership[39m[90m                                              [39m [90m3.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe change is audited[39m[90m                                                                                       [39m [90m2.96s[39m  
+  [32;1m✓[39;22m[90m [39m[90man owner cannot be made a branch manager[39m[90m                                                                    [39m [90m2.84s[39m  
+  [32;1m✓[39;22m[90m [39m[90mappointing a manager needs its own capability[39m[90m                                                               [39m [90m3.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch manager reaches their own branch and no other[39m[90m                                                      [39m [90m3.29s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma deny takes a capability off one person without touching the role[39m[90m                                          [39m [90m3.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma deny is enforced by the api not only reported[39m[90m                                                             [39m [90m3.26s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe permissions screen refuses somebody out of reach[39m[90m                                                        [39m [90m3.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90man owner cannot be denied anything[39m[90m                                                                          [39m [90m2.76s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma retired capability cannot be denied[39m[90m                                                                       [39m [90m2.82s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\BranchRoleOverrideTest[39m
+  [32;1m✓[39;22m[90m [39m[90mone role answers differently at two branches[39m[90m                                                                [39m [90m3.45s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma removed capability is refused by the api[39m[90m                                                                  [39m [90m3.24s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlocking overrules a customisation already made[39m[90m                                                              [39m [90m3.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch cannot customise an organization scoped role[39m[90m                                                       [39m [90m3.44s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma disabled module beats a capability the branch left alone[39m[90m                                                  [39m [90m3.29s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma locked module cannot be switched off by a branch[39m[90m                                                          [39m [90m3.11s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\BranchRolePermissionApiTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma branch manager reads what they may change[39m[90m                                                                 [39m [90m3.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch manager removes a capability at their own branch[39m[90m                                                   [39m [90m3.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch cannot grant beyond the organizations role[39m[90m                                                         [39m [90m2.91s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch cannot remove a locked capability[39m[90m                                                                  [39m [90m3.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch manager cannot customise another branch[39m[90m                                                            [39m [90m3.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch owned role is not customised through this screen[39m[90m                                                   [39m [90m2.96s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch manager cannot lock anything[39m[90m                                                                       [39m [90m2.80s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlocking a module switches it back on where it was off[39m[90m                                                       [39m [90m3.32s[39m  
+  [32;1m✓[39;22m[90m [39m[90meffective permissions name the level that decided[39m[90m                                                           [39m [90m3.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90meffective permissions report a module switched off[39m[90m                                                          [39m [90m3.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmodule locks start empty[39m[90m                                                                                    [39m [90m2.92s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\BrandingTest[39m
+  [32;1m✓[39;22m[90m [39m[90mbranding resolves from the host header[39m[90m                                                                      [39m [90m2.26s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unknown subdomain returns not found[39m[90m                                                                      [39m [90m0.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma host outside the main domain returns not found[39m[90m                                                            [39m [90m0.09s[39m  
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\Api\V1\Tenant\ConsultationTest[39m
+  [31;1m⨯[39;22m[90m [39m[90ma doctor writes up their own visit[39m[90m                                                                          [39m [90m3.35s[39m  
+  [31;1m⨯[39;22m[90m [39m[90msaving again edits the same record[39m[90m                                                                          [39m [90m3.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma doctor cannot write up another doctors visit[39m[90m                                                              [39m [90m3.46s[39m  
+  [32;1m✓[39;22m[90m [39m[90msomebody who is not a doctor cannot write one[39m[90m                                                               [39m [90m3.45s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mthe words stay out of the audit log[39m[90m                                                                         [39m [90m3.47s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma prescription line needs a medicine[39m[90m                                                                        [39m [90m3.55s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mvitals are held to believable ranges[39m[90m                                                                        [39m [90m3.55s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mthe day carries the write up for the patient in the room[39m[90m                                                    [39m [90m3.29s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mthe records screens are scoped to the signed in doctor[39m[90m                                                      [39m [90m3.41s[39m  
+  [31;1m⨯[39;22m[90m [39m[90ma follow up is due the stated days after the visit[39m[90m                                                          [39m [90m3.33s[39m  
+  [32;1m✓[39;22m[90m [39m[90msomebody who is not a doctor has no records[39m[90m                                                                 [39m [90m3.26s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\CustomerTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma customer is given a number in sequence[39m[90m                                                                    [39m [90m2.63s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe number after a deletion does not repeat[39m[90m                                                                 [39m [90m2.75s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe sequence crosses a digit boundary[39m[90m                                                                       [39m [90m3.61s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma supplied number is kept[39m[90m                                                                                   [39m [90m2.61s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma customer is not tied to a location[39m[90m                                                                        [39m [90m2.55s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstaff can add and edit customers[39m[90m                                                                            [39m [90m2.71s[39m  
+  [32;1m✓[39;22m[90m [39m[90monly the owner can remove a customer[39m[90m                                                                        [39m [90m2.70s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma phone number cannot be shared by two live customers[39m[90m                                                       [39m [90m2.65s[39m  
+  [32;1m✓[39;22m[90m [39m[90mseveral customers may have no phone at all[39m[90m                                                                  [39m [90m2.76s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma removed customers phone can be used again[39m[90m                                                                 [39m [90m2.71s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma future date of birth is rejected[39m[90m                                                                          [39m [90m2.63s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe age is derived from the date of birth[39m[90m                                                                   [39m [90m2.42s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe registering branch is recorded and filterable[39m[90m                                                           [39m [90m3.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe registering branch does not limit who can see a customer[39m[90m                                                [39m [90m2.68s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch users own branch is recorded and cannot be overridden[39m[90m                                              [39m [90m2.91s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe owner still picks the branch[39m[90m                                                                            [39m [90m2.64s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe monthly series fills in quiet months[39m[90m                                                                    [39m [90m2.87s[39m  
+  [32;1m✓[39;22m[90m [39m[90mage bands are bounded and stay in order[39m[90m                                                                     [39m [90m2.84s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe gender split returns every option[39m[90m                                                                       [39m [90m2.82s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtowns are counted once however they were typed[39m[90m                                                              [39m [90m2.93s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe listing filters narrow the results[39m[90m                                                                      [39m [90m2.81s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe joined window excludes older records[39m[90m                                                                    [39m [90m2.95s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unknown age band is ignored[39m[90m                                                                              [39m [90m2.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe customer form is configurable[39m[90m                                                                           [39m [90m2.86s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\DashboardTest[39m
+  [32;1m✓[39;22m[90m [39m[90mdemo mode fills panels without widening access[39m[90m                                                              [39m [90m2.77s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe owner sees every panel they hold[39m[90m                                                                        [39m [90m2.77s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma panel without its capability is absent[39m[90m                                                                    [39m [90m2.90s[39m  
+  [32;1m✓[39;22m[90m [39m[90msomebody holding nothing gets an empty dashboard[39m[90m                                                            [39m [90m2.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe figures are scoped to the callers branches[39m[90m                                                              [39m [90m3.30s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe opd panel needs the module[39m[90m                                                                              [39m [90m3.18s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\DepartmentTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe existing list arrives as top level departments[39m[90m                                                          [39m [90m2.68s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma department takes sub departments[39m[90m                                                                          [39m [90m2.91s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe tree is two levels and never loops[39m[90m                                                                      [39m [90m3.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnames are unique among siblings[39m[90m                                                                             [39m [90m2.88s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma doctor in a sub department reads as its department[39m[90m                                                      [39m [90m296.99s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma department in use is not deleted[39m[90m                                                                          [39m [90m3.85s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstaff are counted in their department and keep it from removal[39m[90m                                              [39m [90m3.35s[39m  
+  [32;1m✓[39;22m[90m [39m[90monly settings managers change departments[39m[90m                                                                   [39m [90m2.76s[39m  
+  [32;1m✓[39;22m[90m [39m[90mnames doctors already use become departments[39m[90m                                                                [39m [90m2.80s[39m  
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\Api\V1\Tenant\DoctorPostingTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma doctor is created without naming a branch[39m[90m                                                                 [39m [90m2.70s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma doctor covers several branches as one record[39m[90m                                                              [39m [90m2.91s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unposted doctor is not hidden from every branch[39m[90m                                                          [39m [90m2.81s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma sitting posts the doctor to that branch[39m[90m                                                                   [39m [90m2.90s[39m  
+  [32;1m✓[39;22m[90m [39m[90mremoving a branch keeps the doctor and their other branches[39m[90m                                                 [39m [90m3.33s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mexisting appointments survive a branch being dropped[39m[90m                                                        [39m [90m2.98s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch from another organization is not reachable[39m[90m                                                         [39m [90m6.03s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\DoctorTest[39m
+  [32;1m✓[39;22m[90m [39m[90man organization without the module cannot reach doctors[39m[90m                                                     [39m [90m2.44s[39m  
+  [32;1m✓[39;22m[90m [39m[90massigning the module opens the domain[39m[90m                                                                       [39m [90m2.69s[39m  
+  [32;1m✓[39;22m[90m [39m[90mme reports the organizations modules[39m[90m                                                                        [39m [90m2.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma code is unique among live doctors only[39m[90m                                                                    [39m [90m2.82s[39m  
+  [32;1m✓[39;22m[90m [39m[90mtwo live doctors cannot share a registration number[39m[90m                                                         [39m [90m2.75s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma doctor can be saved without changing their own code[39m[90m                                                       [39m [90m2.68s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma doctor may have no login but never two[39m[90m                                                                    [39m [90m2.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma doctor may sit twice on one day at different branches[39m[90m                                                     [39m [90m2.80s[39m  
+  [32;1m✓[39;22m[90m [39m[90moverlapping sittings are rejected even at different branches[39m[90m                                                [39m [90m2.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90mback to back sittings are accepted[39m[90m                                                                          [39m [90m2.90s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma sitting must end after it starts[39m[90m                                                                          [39m [90m2.65s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdoctors can be filtered by the branch they sit at[39m[90m                                                           [39m [90m3.38s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstaff may read doctors but not write them[39m[90m                                                                   [39m [90m3.58s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe doctor form is configurable[39m[90m                                                                             [39m [90m2.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdoctors appear among the configurable entities[39m[90m                                                              [39m [90m2.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcreating a doctor is recorded in the history[39m[90m                                                                [39m [90m2.71s[39m  
+  [32;1m✓[39;22m[90m [39m[90msaving a login refreshes what doctors may do[39m[90m                                                                [39m [90m3.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma doctor can be given a login[39m[90m                                                                               [39m [90m2.78s[39m  
+  [32;1m✓[39;22m[90m [39m[90msaving again edits the login rather than adding one[39m[90m                                                         [39m [90m3.36s[39m  
+  [32;1m✓[39;22m[90m [39m[90mremoving the login leaves the doctor[39m[90m                                                                        [39m [90m2.90s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma login email already in use is rejected[39m[90m                                                                    [39m [90m2.66s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma doctor needs no login[39m[90m                                                                                     [39m [90m2.77s[39m  
+  [32;1m✓[39;22m[90m [39m[90mqualifications are stored as a list[39m[90m                                                                         [39m [90m2.67s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe department must be one of the organizations options[39m[90m                                                     [39m [90m2.61s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe doctor form offers departments and qualifications[39m[90m                                                       [39m [90m2.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90man organization can replace the department list[39m[90m                                                             [39m [90m3.13s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\DocumentTemplateTest[39m
+  [32;1m✓[39;22m[90m [39m[90man organisation administrator reaches every branch template[39m[90m                                                 [39m [90m2.82s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch manager cannot read another branchs template[39m[90m                                                       [39m [90m3.23s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch manager cannot write the organisation default[39m[90m                                                      [39m [90m3.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch manager edits their own branchs template[39m[90m                                                           [39m [90m3.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma locked field cannot be changed by a branch[39m[90m                                                                [39m [90m3.75s[39m  
+  [32;1m✓[39;22m[90m [39m[90mechoing a locked value back unchanged is not a change[39m[90m                                                       [39m [90m3.62s[39m  
+  [32;1m✓[39;22m[90m [39m[90monly an organisation administrator may lock[39m[90m                                                                 [39m [90m3.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma template using a placeholder the document cannot fill is refused[39m[90m                                          [39m [90m2.77s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma misspelt placeholder is refused[39m[90m                                                                           [39m [90m2.97s[39m  
+  [32;1m✓[39;22m[90m [39m[90mgenerating falls back to the organisation default[39m[90m                                                           [39m [90m3.29s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch override wins over the organisation default[39m[90m                                                        [39m [90m3.43s[39m  
+  [32;1m✓[39;22m[90m [39m[90man old document keeps the version it was printed from[39m[90m                                                       [39m [90m4.21s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma draft template cannot print anything[39m[90m                                                                      [39m [90m3.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mprinting needs its own capability[39m[90m                                                                           [39m [90m3.70s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma preview renders a pdf without storing anything[39m[90m                                                            [39m [90m2.90s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma document type whose module is absent is not offered[39m[90m                                                       [39m [90m6.68s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\FieldSettingTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe registry is returned when nothing is configured[39m[90m                                                         [39m [90m2.74s[39m  
+  [32;1m✓[39;22m[90m [39m[90monly the owner may save settings[39m[90m                                                                            [39m [90m2.90s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma field marked mandatory is enforced on write[39m[90m                                                               [39m [90m3.46s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma locked field cannot be hidden or made optional[39m[90m                                                            [39m [90m2.94s[39m  
+  [32;1m✓[39;22m[90m [39m[90man organization can add and store its own field[39m[90m                                                             [39m [90m3.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma custom field cannot take a built in name[39m[90m                                                                  [39m [90m2.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90msaving replaces the previous configuration[39m[90m                                                                  [39m [90m3.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma dropdown field needs options[39m[90m                                                                              [39m [90m2.83s[39m  
+  [32;1m✓[39;22m[90m [39m[90man organization can rename what it calls a record[39m[90m                                                           [39m [90m3.20s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\LocationTest[39m
+  [32;1m✓[39;22m[90m [39m[90man owner can create and list locations[39m[90m                                                                      [39m [90m3.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90man owner can update and delete a location[39m[90m                                                                   [39m [90m3.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma soft deleted locations code can be reused[39m[90m                                                                 [39m [90m3.02s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma duplicate code is rejected while the location is live[39m[90m                                                     [39m [90m3.07s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstaff may read locations[39m[90m                                                                                    [39m [90m3.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstaff may not write locations[39m[90m                                                                               [39m [90m3.13s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe clinic type is selectable[39m[90m                                                                               [39m [90m3.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unknown location type is rejected[39m[90m                                                                        [39m [90m2.95s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma licence expiry without a licence number is rejected[39m[90m                                                       [39m [90m3.03s[39m  
+  [32;1m✓[39;22m[90m [39m[90man already expired licence can be recorded[39m[90m                                                                  [39m [90m2.87s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma licence expiring today is not expired yet[39m[90m                                                                 [39m [90m2.94s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch can be created with an admin who can sign in[39m[90m                                                       [39m [90m3.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe branch admin role holds only the modules that are on[39m[90m                                                    [39m [90m3.18s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch admin email that is already in use is rejected[39m[90m                                                     [39m [90m3.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch can still be created without an admin[39m[90m                                                              [39m [90m3.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe permission check runs after the guard and the tenant is resolved first[39m[90m                                  [39m [90m0.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstaff only see the branches they work at[39m[90m                                                                    [39m [90m3.28s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\MedicineTest[39m
+  [32;1m✓[39;22m[90m [39m[90man organization without the module cannot reach medicines[39m[90m                                                   [39m [90m2.81s[39m  
+  [32;1m✓[39;22m[90m [39m[90mstaff holding view may read but not change the catalogue[39m[90m                                                    [39m [90m3.60s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma medicine is added with its defaults[39m[90m                                                                       [39m [90m3.00s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma value outside a fixed list is refused[39m[90m                                                                     [39m [90m3.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma medicine can be saved without changing anything[39m[90m                                                           [39m [90m3.25s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma duplicate is refused naming the one already there[39m[90m                                                         [39m [90m3.71s[39m  
+  [32;1m✓[39;22m[90m [39m[90manother strength form or brand is not a duplicate[39m[90m                                                           [39m [90m3.34s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma code is unique ignoring case[39m[90m                                                                              [39m [90m3.42s[39m  
+  [32;1m✓[39;22m[90m [39m[90mremoving needs a reason and records who and why[39m[90m                                                             [39m [90m3.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma removed medicine leaves every working list[39m[90m                                                                [39m [90m3.77s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma removed medicine can be added again[39m[90m                                                                       [39m [90m3.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mrestoring is its own capability[39m[90m                                                                             [39m [90m3.23s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma removed medicine is restored with a reason[39m[90m                                                                [39m [90m4.09s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma restore is refused while a live duplicate exists[39m[90m                                                          [39m [90m3.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90msearch finds by generic brand code and strength[39m[90m                                                             [39m [90m3.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mmedicines appear among the configurable entities[39m[90m                                                            [39m [90m2.94s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma fixed list keeps its values whatever the settings say[39m[90m                                                     [39m [90m3.71s[39m  
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\Api\V1\Tenant\MyDayTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma doctor sees only their own patients[39m[90m                                                                       [39m [90m5.31s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe counts are the doctors own[39m[90m                                                                              [39m [90m5.74s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe day is spread across its hours[39m[90m                                                                          [39m [90m4.86s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mthe trend is a fortnight of the doctors own days[39m[90m                                                            [39m [90m5.41s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma non doctor has no day of their own[39m[90m                                                                        [39m [90m4.69s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe day carries the doctors sittings[39m[90m                                                                        [39m [90m4.53s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma doctor may act at the branch they are posted to[39m[90m                                                           [39m [90m4.98s[39m  
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\Api\V1\Tenant\OpdBoardTest[39m
+  [32;1m✓[39;22m[90m [39m[90mthe queue reads every doctor at the branch[39m[90m                                                                  [39m [90m4.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma doctor narrows the queue without being required[39m[90m                                                           [39m [90m4.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90mfiltering by doctor still offers every doctor[39m[90m                                                               [39m [90m4.05s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mthe queue counts who is with a doctor[39m[90m                                                                       [39m [90m3.97s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mthe board reports the department[39m[90m                                                                            [39m [90m3.71s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe dashboard arrives in one piece[39m[90m                                                                          [39m [90m3.93s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma wait is reported in whole minutes[39m[90m                                                                         [39m [90m3.68s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mthe queue puts people still waiting above finished ones[39m[90m                                                     [39m [90m3.64s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mthe dashboard queue carries rows for every tab[39m[90m                                                              [39m [90m3.64s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe day is split by speciality[39m[90m                                                                              [39m [90m4.17s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma comparison against an empty yesterday has no percentage[39m[90m                                                   [39m [90m4.02s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mthe flow counts arrivals in the hour they came[39m[90m                                                              [39m [90m3.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe flow is empty before anybody arrives[39m[90m                                                                    [39m [90m4.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90mno shows and cancellations are reported separately[39m[90m                                                          [39m [90m4.51s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma receptionist without branches view still gets their branches[39m[90m                                              [39m [90m4.22s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe branch list omits branches this person cannot use[39m[90m                                                       [39m [90m4.25s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe owner gets every branch[39m[90m                                                                                 [39m [90m4.00s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma doctors login reports which doctor it is[39m[90m                                                                  [39m [90m3.94s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma desk login belongs to no doctor[39m[90m                                                                           [39m [90m3.84s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe board is behind the module[39m[90m                                                                              [39m [90m3.63s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe board needs appointments view[39m[90m                                                                           [39m [90m3.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90mhead office gets no branches rather than a failure[39m[90m                                                          [39m [90m4.17s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\OrganizationSetupTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma new organisation opens on its first required section[39m[90m                                                      [39m [90m3.77s[39m  
+  [32;1m✓[39;22m[90m [39m[90monly the owner opens setup[39m[90m                                                                                  [39m [90m3.66s[39m  
+  [32;1m✓[39;22m[90m [39m[90msaving the details completes that section and leaves the email alone[39m[90m                                        [39m [90m3.71s[39m  
+  [32;1m✓[39;22m[90m [39m[90man active branch completes the branch section[39m[90m                                                               [39m [90m4.15s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdepartments are required where opd runs and signed off once saved[39m[90m                                           [39m [90m3.86s[39m  
+  [32;1m✓[39;22m[90m [39m[90msetup cannot finish with a required section missing[39m[90m                                                         [39m [90m4.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwork done before setup existed counts[39m[90m                                                                       [39m [90m3.74s[39m  
+  [32;1m✓[39;22m[90m [39m[90mone organisations progress is its own[39m[90m                                                                       [39m [90m7.20s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\PatientDocumentTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma reader without the clinical capability sees only administrative documents[39m[90m                                 [39m [90m3.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma clinical reader sees both[39m[90m                                                                                 [39m [90m3.83s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe category list is narrowed the same way[39m[90m                                                                  [39m [90m3.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90man upload is stored off the public disk and attached to the visit[39m[90m                                           [39m [90m3.87s[39m  
+  [32;1m✓[39;22m[90m [39m[90man uploaded document can be read back[39m[90m                                                                       [39m [90m3.84s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma visit belonging to another patient is refused[39m[90m                                                             [39m [90m4.14s[39m  
+  [32;1m✓[39;22m[90m [39m[90muploading needs its own capability[39m[90m                                                                          [39m [90m3.81s[39m  
+  [32;1m✓[39;22m[90m [39m[90mremoval is soft and keeps its reason[39m[90m                                                                        [39m [90m3.94s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe whole module disappears when the organization does not have it[39m[90m                                          [39m [90m7.30s[39m  
+
+  [30;42;1m PASS [39;49;22m[39m Tests\Feature\Api\V1\Tenant\PatientPortalTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma new patient signs up with a code and their name[39m[90m                                                           [39m [90m3.74s[39m  
+  [32;1m✓[39;22m[90m [39m[90man existing patient is matched however the number was written[39m[90m                                               [39m [90m3.43s[39m  
+  [32;1m✓[39;22m[90m [39m[90man unknown number is asked for a name without spending the code[39m[90m                                             [39m [90m3.63s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma code is spent after five wrong guesses[39m[90m                                                                    [39m [90m3.84s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma new code cannot be asked for straight away[39m[90m                                                                [39m [90m3.46s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma clinic that does not run opd does not take app sign ins[39m[90m                                                   [39m [90m3.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma patient finds a doctor sees free times and books one[39m[90m                                                      [39m [90m4.11s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma time that has already passed today is not offered or bookable[39m[90m                                             [39m [90m3.68s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma patient cannot hold two slots with one doctor on one day[39m[90m                                                  [39m [90m3.82s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma patient cancels their own booking and the time is free again[39m[90m                                              [39m [90m4.27s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma patient cannot cancel once checked in or somebody elses[39m[90m                                                   [39m [90m3.89s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma patient sees only their own appointments[39m[90m                                                                  [39m [90m3.76s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma patient token opens no staff screen[39m[90m                                                                       [39m [90m3.72s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma staff token opens no patient screen[39m[90m                                                                       [39m [90m3.56s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwhat a patient may do follows the editable patient role[39m[90m                                                     [39m [90m3.96s[39m  
+  [32;1m✓[39;22m[90m [39m[90mpatients are not listed among the organizations people[39m[90m                                                      [39m [90m3.94s[39m  
+
+  [39;41;1m FAIL [39;49;22m[39m Tests\Feature\Api\V1\Tenant\PermissionTest[39m
+  [32;1m✓[39;22m[90m [39m[90ma capability the role does not hold is refused[39m[90m                                                              [39m [90m4.29s[39m  
+  [32;1m✓[39;22m[90m [39m[90mcreating editing and removing are three permissions[39m[90m                                                         [39m [90m4.81s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe split migration preserved what staff could already do[39m[90m                                                   [39m [90m3.48s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma staff member with no role can do nothing[39m[90m                                                                  [39m [90m3.90s[39m  
+  [32;1m✓[39;22m[90m [39m[90mevery gated route refuses somebody holding nothing[39m[90m                                                          [39m [90m6.81s[39m  
+  [31;1m⨯[39;22m[90m [39m[90mthe owner bypasses roles but not entitlements[39m
+  [31;1m⨯[39;22m[90m [39m[90ma role at one branch does not reach another[39m
+  [31;1m⨯[39;22m[90m [39m[90man organization role reaches every branch[39m
+  [31;1m⨯[39;22m[90m [39m[90ma role cannot be given a capability the organization lacks[39m
+  [31;1m⨯[39;22m[90m [39m[90ma capability survives its module being withdrawn but stops working[39m
+  [31;1m⨯[39;22m[90m [39m[90ma branch with no rows inherits everything[39m
+  [31;1m⨯[39;22m[90m [39m[90ma module switched off at a branch is refused there[39m
+  [32;1m✓[39;22m[90m [39m[90mthe owner is not narrowed by any one branch[39m[90m                                                                 [39m [90m4.32s[39m  
+  [32;1m✓[39;22m[90m [39m[90mswitching a branch back on removes the row rather than storing true[39m[90m                                         [39m [90m8.88s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch cannot be given a module the organization lacks[39m[90m                                                    [39m [90m7.91s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma branch cannot switch off what another module needs[39m[90m                                                        [39m [90m8.67s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlevel two stays the owners and level three does not[39m[90m                                                         [39m [90m8.78s[39m  
+  [32;1m✓[39;22m[90m [39m[90mwriting a branch role needs its own capability[39m[90m                                                              [39m [90m8.20s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma role in use cannot be deleted[39m[90m                                                                             [39m [90m8.65s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma roles icon is kept to the closed list[39m[90m                                                                     [39m [90m8.52s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe members endpoint names who holds a role[39m[90m                                                                 [39m [90m8.40s[39m  
+  [32;1m✓[39;22m[90m [39m[90mediting a role replaces its capabilities rather than adding[39m[90m                                                 [39m [90m8.88s[39m  
+  [32;1m✓[39;22m[90m [39m[90mdelegated people management cannot create an owner[39m[90m                                                          [39m [90m8.01s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe organization role slot takes only organization roles[39m[90m                                                    [39m [90m8.12s[39m  
+  [32;1m✓[39;22m[90m [39m[90mme answers with the persons own capabilities not the pool[39m[90m                                                   [39m [90m8.39s[39m  
+  [32;1m✓[39;22m[90m [39m[90mlogin answers with the same session as me[39m[90m                                                                   [39m [90m8.05s[39m  
+  [32;1m✓[39;22m[90m [39m[90mme reports the modules running at the persons branch[39m[90m                                                        [39m [90m8.33s[39m  
+  [32;1m✓[39;22m[90m [39m[90mthe grantable pool offers only what was sold[39m[90m                                                                [39m [90m7.44s[39m  
+  [32;1m✓[39;22m[90m [39m[90ma retired module is gone from the catalogue[39m[90m                                                                 [39m [90m7.78s[39m  

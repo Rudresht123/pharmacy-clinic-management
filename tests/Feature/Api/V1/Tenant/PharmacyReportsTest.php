@@ -47,6 +47,8 @@ class PharmacyReportsTest extends TenantTestCase
         $this->organization = $this->provisionOrganization('R');
         $this->grantModule($this->organization, 'medicines');
         $this->grantModule($this->organization, 'pharmacy');
+        // Reports is now sold separately from the rest of the pharmacy.
+        $this->grantModule($this->organization, 'reports');
 
         $this->onTenant($this->organization, function () {
             $this->branch = Location::on('organization')->create([
@@ -276,17 +278,91 @@ class PharmacyReportsTest extends TenantTestCase
         $this->assertCount(0, $this->rows('sales', 'search=INV-90909'));
     }
 
-    public function test_reports_are_behind_the_capability_that_reads_the_pharmacy(): void
+    /**
+     * Each report is its own capability — NOT `pharmacy.view`, which also
+     * opens the dashboard, the stock list and settings. Holding one report's
+     * key must not open another: that split, sales visible and profit not,
+     * is the entire reason six capabilities exist instead of one.
+     */
+    public function test_each_report_needs_its_own_capability(): void
     {
+        // Holding the general pharmacy capability alone is not enough — it
+        // used to be, and that was the bug this module exists to fix.
         $this->setStaffCapabilities($this->organization, ['pharmacy.view']);
         $this->signInAsStaff($this->organization);
 
-        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/sales/summary")->assertOk();
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/sales/summary")
+            ->assertForbidden();
 
-        $this->setStaffCapabilities($this->organization, ['customers.view']);
+        // Sales specifically, and nothing else — profit stays shut.
+        $this->setStaffCapabilities($this->organization, ['pharmacy.view', 'reports.sales']);
         $this->signInAsStaff($this->organization);
 
-        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/sales/summary")->assertForbidden();
-        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/sales")->assertForbidden();
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/sales/summary")->assertOk();
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/sales")->assertOk();
+
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/profit/summary")
+            ->assertForbidden();
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/profit")
+            ->assertForbidden();
+
+        // And with none of the six, every report is shut.
+        $this->setStaffCapabilities($this->organization, ['pharmacy.view', 'customers.view']);
+        $this->signInAsStaff($this->organization);
+
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/sales/summary")
+            ->assertForbidden();
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/sales")
+            ->assertForbidden();
+    }
+
+    /**
+     * The Reports screen has to know which store it is reporting on before it
+     * can ask for anything else — so a role holding only a report, and none of
+     * `pharmacy.view`, must still be able to list the stores to pick from.
+     * Everything else about a store — its detail, its medicines — stays shut,
+     * because a report never asks either of those questions.
+     */
+    public function test_a_role_holding_only_a_report_can_still_list_stores_to_pick_one(): void
+    {
+        $this->setStaffCapabilities($this->organization, ['reports.sales']);
+        $this->signInAsStaff($this->organization);
+
+        $listed = array_column(
+            $this->getJson('/api/v1/tenant/pharmacy-stores?all=1')->assertOk()->json('data'),
+            'id',
+        );
+        $this->assertContains($this->store, $listed);
+
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}")->assertForbidden();
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/medicines")->assertForbidden();
+    }
+
+    /** Sold separately: an organization without the module reaches no report at all. */
+    public function test_reports_are_refused_without_their_own_module(): void
+    {
+        $bare = $this->provisionOrganization('RB');
+        $this->grantModule($bare, 'medicines');
+        $this->grantModule($bare, 'pharmacy');
+        // Deliberately no `reports` grant.
+
+        $branch = $this->onTenant($bare, fn () => Location::on('organization')->create([
+            'name' => 'No Reports', 'code' => 'RB-1', 'type' => Location::RETAIL_STORE, 'is_active' => true,
+        ])->id);
+
+        $store = $this->onTenant($bare, fn () => PharmacyStore::on('organization')->create([
+            'location_id' => $branch,
+            'name' => 'Counter',
+            'code' => 'RB-A',
+            'store_type' => PharmacyStore::RETAIL,
+            'is_active' => true,
+            'is_default' => true,
+        ])->id);
+
+        // An owner bypasses roles entirely, so a 403 here can only be the module.
+        $this->signInAsOwner($bare);
+
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$store}/reports/sales/summary")
+            ->assertForbidden();
     }
 }

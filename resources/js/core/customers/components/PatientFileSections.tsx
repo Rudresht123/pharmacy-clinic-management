@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Card } from '@/shared/components/ui/Card';
 import { DonutChart } from '@/shared/components/ui/DonutChart';
 import { cn } from '@/shared/utils/cn';
+import { formatDate } from '@/shared/utils/format';
+import { fileSize, usePatientDocuments } from '@/core/documents/api';
 import type { ConfigurableField } from '@/core/field-settings/types';
 import type { Customer } from '../types';
 import {
@@ -545,14 +547,61 @@ export function LabsTable({ rows, preview, go }: { rows: LabRow[]; preview?: boo
 | and why it is empty, rather than a row of zeroes that looks finished.
 */
 
-export function DocumentsPanel({ preview }: { preview?: boolean }) {
+/**
+ * The five most recent documents, with a link to the real folder.
+ *
+ * A PREVIEW only — the full tab, with the upload control and the
+ * view/download/remove actions, is the actual `DocumentsPanel` (see
+ * `@/core/documents/components/DocumentsPanel`), used as-is on the "Files &
+ * Documents" tab. This card fetches the same list independently rather than
+ * receiving it as a prop; React Query shares the one request between the two
+ * when both are mounted, so nothing is fetched twice.
+ *
+ * What comes back is already narrowed by the server to what THIS reader may
+ * see — a clinical document never reaches somebody holding only
+ * `documents.view` — so this card does no filtering of its own and cannot
+ * disagree with the tab about what exists.
+ */
+function DocumentsPreview({ customerId, go }: { customerId: number; go: Go }) {
+    const { data, isLoading } = usePatientDocuments(customerId);
+    const rows = (data ?? []).slice(0, PREVIEW);
+
     return (
-        <Panel title="Files & Documents" icon={preview ? undefined : 'ti ti-files'}>
-            <NoneYet
-                icon="ti ti-file-off"
-                title="No files yet"
-                line="Reports, scans, prescriptions and ID proofs uploaded for this patient will appear here."
-            />
+        <Panel
+            title="Files & Documents"
+            icon="ti ti-files"
+            action={
+                !isLoading && (data ?? []).length > PREVIEW ? (
+                    <ViewAll to="documents" go={go} />
+                ) : undefined
+            }
+        >
+            {isLoading ? null : rows.length === 0 ? (
+                <NoneYet
+                    icon="ti ti-file-off"
+                    title="No files yet"
+                    line="Reports, scans, prescriptions and ID proofs uploaded for this patient will appear here."
+                />
+            ) : (
+                <ul className="cn-docs">
+                    {rows.map((document) => (
+                        <li key={document.id}>
+                            <i
+                                className={`cn-doc-kind is-${document.tone} ${document.icon}`}
+                                aria-hidden="true"
+                            />
+
+                            <span className="cn-doc-what">
+                                <b>{document.title}</b>
+                                <small>
+                                    {document.category_name} · {fileSize(document.file_size)} ·{' '}
+                                    {formatDate(document.created_at)}
+                                </small>
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            )}
         </Panel>
     );
 }
@@ -739,6 +788,7 @@ export function Overview({
     record,
     file,
     canEdit,
+    hasDocuments,
     go,
 }: {
     patient: Customer;
@@ -746,6 +796,8 @@ export function Overview({
     record: PatientRecord | undefined;
     file: PatientFile;
     canEdit: boolean;
+    /** Whether this reader holds `documents.view` at all — see PatientPage. */
+    hasDocuments: boolean;
     go: Go;
 }) {
     const visits = record?.visits ?? [];
@@ -765,7 +817,11 @@ export function Overview({
 
             <div className="pf-grid is-2">
                 <LabsTable rows={file.labs} preview go={go} />
-                <DocumentsPanel preview />
+                {/* Never fetched at all without the capability — the request
+                    would 403, and showing "No files yet" off the back of a
+                    refused request would tell this reader nothing exists
+                    when the truth is only that they may not look. */}
+                {hasDocuments && <DocumentsPreview customerId={patient.id} go={go} />}
             </div>
 
             <div className="pf-grid is-3">

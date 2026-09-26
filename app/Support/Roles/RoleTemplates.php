@@ -25,11 +25,17 @@ use App\Support\Modules\ModuleRegistry;
  * protected class of role, and `template_key` is a memory of where it came
  * from rather than a rule about what it must stay.
  *
- * WHAT IS DELIBERATELY ABSENT: Lab Technician and Accountant. Both were asked
- * for, and neither can be built — there is no lab module and no billing
- * module, so every capability such a role could hold would be one no route
- * will ever check. A permission screen that offers permissions nothing honours
- * is how a permission screen starts lying.
+ * LAB TECHNICIAN NOW EXISTS. It was absent for as long as there was no lab
+ * module — every capability such a role could have held would have been one
+ * no route ever checked, and a permission screen that offers permissions
+ * nothing honours is how a permission screen starts lying. The `laboratory`
+ * module and its four routes are what made the role buildable.
+ *
+ * ACCOUNTANT IS STILL ABSENT, for exactly the reason Lab Technician used to
+ * be: there is no billing module. What money a visit owes is read off the
+ * pharmacy's own bills, so the person who collects it is the pharmacist or
+ * the branch manager, both of whom already hold `pharmacy.sell`. A separate
+ * Accountant role would hold nothing the other two do not.
  */
 class RoleTemplates
 {
@@ -98,12 +104,31 @@ class RoleTemplates
                     'appointments.doctors',
                     'appointments.schedule',
                     'prescriptions.view',
+
+                    /*
+                     * Sees the lab's worklist and its results; does not work
+                     * the bench. Running a branch means knowing what is
+                     * outstanding, which is not the same as signing a result
+                     * off — that stays with whoever ran the sample.
+                     */
+                    'laboratory.view',
+
                     'medicines.view',
                     'pharmacy.view',
                     'pharmacy.sell',
+                    /* Covers the counter, so dispenses as well as sells. */
+                    'pharmacy.dispense',
                     'pharmacy.inward',
                     'pharmacy.adjust',
                     'pharmacy.batches',
+                    /* Runs the branch's books as well as its counter — all six,
+                       including what it earns and what it owes in tax. */
+                    'reports.sales',
+                    'reports.purchases',
+                    'reports.stock',
+                    'reports.expiry',
+                    'reports.profit',
+                    'reports.gst',
                     'documents.view',
                     'documents.view_clinical',
                     'documents.upload',
@@ -144,8 +169,29 @@ class RoleTemplates
                     'customers.view',
                     'appointments.view',
                     'appointments.queue',
+
+                    /*
+                     * The consultation is theirs, both ends of it. These two
+                     * are what the receptionist deliberately does NOT hold —
+                     * the whole point of splitting them out of
+                     * `appointments.queue`.
+                     */
+                    'appointments.consult_start',
+                    'appointments.consult_complete',
+
                     'prescriptions.view',
                     'prescriptions.write',
+
+                    /*
+                     * Orders tests and reads what comes back. Not
+                     * `laboratory.process` or `.complete`: a doctor who could
+                     * sign off their own order has removed the bench from the
+                     * loop, and the result they act on would be one nobody
+                     * ran.
+                     */
+                    'laboratory.view',
+                    'laboratory.order',
+
                     'medicines.view',
                     'documents.view',
                     'documents.view_clinical',
@@ -170,6 +216,21 @@ class RoleTemplates
                  * business reading a discharge summary. That split is the
                  * whole point of the documents module.
                  */
+                /*
+                 * `appointments.queue` and NOT `appointments.consult_*`.
+                 *
+                 * This is the boundary the whole workflow rests on. The desk
+                 * checks patients in and calls them through; whether the
+                 * doctor has started, and whether they have finished, is not
+                 * theirs to assert. They still SEE all of it — the queue
+                 * shows "With doctor", "Waiting for pharmacy", "Visit
+                 * completed" — because running a waiting room means knowing
+                 * where everybody is. Seeing is `appointments.view`.
+                 *
+                 * `laboratory.view` so the desk can answer "are my results
+                 * back", which is the question they are asked all day. Not
+                 * `.process` or `.complete`.
+                 */
                 'capabilities' => [
                     'branches.view',
                     'customers.view',
@@ -178,10 +239,45 @@ class RoleTemplates
                     'appointments.view',
                     'appointments.book',
                     'appointments.queue',
+                    'laboratory.view',
                     'documents.view',
                     'documents.upload',
                     'documents.generate',
                     'communication.view',
+                ],
+            ],
+
+            /*
+             * The bench.
+             *
+             * Branch-scoped: a lab is a room at a branch, and a technician at
+             * Gurgaon has no business in Lucknow's worklist.
+             *
+             * Deliberately NARROW. They hold `customers.view` because a
+             * sample has to be matched to a person, and `documents.upload`
+             * because a scanned report is how half of all results actually
+             * arrive. They do not hold `documents.view_clinical`: running a
+             * blood count is not a reason to read somebody's discharge
+             * summary, and that split is the documents module's whole point.
+             *
+             * No `laboratory.order` — ordering is the doctor's.
+             */
+            [
+                'key' => 'lab_technician',
+                'name' => 'Lab technician',
+                'slug' => 'lab-technician',
+                'scope' => Role::SCOPE_BRANCH,
+                'icon' => 'ti ti-flask',
+                'description' => 'Works the lab bench — takes on orders, enters results, signs them off.',
+                'requires' => ['laboratory'],
+                'capabilities' => [
+                    'branches.view',
+                    'customers.view',
+                    'laboratory.view',
+                    'laboratory.process',
+                    'laboratory.complete',
+                    'documents.view',
+                    'documents.upload',
                 ],
             ],
 
@@ -204,6 +300,13 @@ class RoleTemplates
                  * and `.restore` are absent: cancelling a bill and reversing a
                  * dispensing change what the day is recorded as having been,
                  * and plenty of shops want those with somebody senior.
+                 *
+                 * The reports are split the same way the counter itself is:
+                 * what moved (sales, purchases, stock, expiry) is a
+                 * pharmacist's own day. What it MADE (profit) and what it
+                 * OWES the tax office (GST) are the owner's or the branch
+                 * manager's to read — this is the demonstration of why the
+                 * six reports are six capabilities rather than one.
                  */
                 'capabilities' => [
                     'branches.view',
@@ -216,6 +319,10 @@ class RoleTemplates
                     'pharmacy.inward',
                     'pharmacy.adjust',
                     'pharmacy.batches',
+                    'reports.sales',
+                    'reports.purchases',
+                    'reports.stock',
+                    'reports.expiry',
                     'documents.view',
                     /* Bills and receipts come off this counter. */
                     'documents.generate',

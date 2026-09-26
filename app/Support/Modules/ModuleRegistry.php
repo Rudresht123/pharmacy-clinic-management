@@ -226,7 +226,44 @@ class ModuleRegistry
                 'capabilities' => [
                     ['key' => 'appointments.view', 'name' => 'View doctors, availability and the queue', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'appointments.book', 'name' => 'Book appointments and take walk-ins', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'appointments.queue', 'name' => 'Check in, call through and complete', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * THE DESK'S KEY, and it no longer reaches the
+                     * consultation.
+                     *
+                     * It used to be named "Check in, call through and
+                     * complete", and that third verb was the problem: one
+                     * capability let whoever ran the queue start AND finish a
+                     * doctor's consultation, so the receptionist's screen
+                     * carried a Done button that closed a clinical record.
+                     * Reception runs the queue; the two keys below run the
+                     * consultation, and they are held by different people.
+                     */
+                    ['key' => 'appointments.queue', 'name' => 'Check in patients and call them through', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * THE DOCTOR'S TWO KEYS.
+                     *
+                     * Split rather than one `appointments.consult`, because
+                     * the two acts are genuinely different: starting takes
+                     * the patient out of the queue and opens the record, and
+                     * completing closes it and sets the whole visit moving
+                     * downstream. A clinic that wants a junior to open the
+                     * write-up and a consultant to sign it off can now say so.
+                     *
+                     * They live in this module rather than in `prescriptions`
+                     * because a consultation is a visit reaching the room —
+                     * the routes that write it are already behind the
+                     * appointments module, and a clinic that stops running
+                     * OPD stops consulting in the same breath.
+                     *
+                     * Holding either is NOT enough on its own: the controller
+                     * still checks the visit belongs to the signed-in doctor,
+                     * which no capability can know.
+                     */
+                    ['key' => 'appointments.consult_start', 'name' => 'Start a consultation', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'appointments.consult_complete', 'name' => 'Complete and reopen a consultation', 'scope' => self::SCOPE_BRANCH],
+
                     ['key' => 'appointments.cancel', 'name' => 'Cancel and mark no-shows', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'appointments.doctors', 'name' => 'Add and edit doctors', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'appointments.schedule', 'name' => 'Set timings, leave and extra sessions', 'scope' => self::SCOPE_BRANCH],
@@ -263,6 +300,39 @@ class ModuleRegistry
                     ['key' => 'prescriptions.view', 'name' => 'Read prescriptions', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'prescriptions.write', 'name' => 'Write prescriptions', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'prescriptions.cancel', 'name' => 'Cancel prescriptions', 'scope' => self::SCOPE_BRANCH],
+                ],
+            ],
+            [
+                /*
+                 * The other thing a consultation produces.
+                 *
+                 * Sold separately from appointments, and requiring them,
+                 * because a lab order hangs off a visit: there is nothing to
+                 * order against without one. A clinic that refers its bloods
+                 * out never buys this and never sees a technician's queue.
+                 *
+                 * FOUR CAPABILITIES ALONG THE LINE THE WORK ACTUALLY SPLITS.
+                 * Ordering is the doctor's and nobody else's. Reading results
+                 * is wider — the doctor who ordered them, the desk telling a
+                 * patient whether they are back. Processing and completing
+                 * are the bench's, and they are two keys rather than one for
+                 * the same reason `consult_start` and `consult_complete` are:
+                 * signing a result off is what the doctor will act on, and
+                 * plenty of labs want that with somebody senior to whoever
+                 * ran the sample.
+                 */
+                'key' => 'laboratory',
+                'name' => 'Laboratory',
+                'description' => 'Lab orders raised at a visit, and the results that come back.',
+                'icon' => 'ti ti-flask',
+                'group' => self::GROUP_CLINICAL,
+                'is_core' => false,
+                'requires' => ['appointments'],
+                'capabilities' => [
+                    ['key' => 'laboratory.view', 'name' => 'View lab orders and results', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'laboratory.order', 'name' => 'Order tests at a consultation', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'laboratory.process', 'name' => 'Take on lab work and enter results', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'laboratory.complete', 'name' => 'Sign off and cancel lab orders', 'scope' => self::SCOPE_BRANCH],
                 ],
             ],
             [
@@ -393,6 +463,46 @@ class ModuleRegistry
                 ],
             ],
             [
+                /*
+                 * Sold separately from the rest of the pharmacy, and REQUIRES
+                 * it — a superadmin binds this the same way as any other
+                 * module, on its own row, with its own dates.
+                 *
+                 * Six capabilities, one per report, is the whole point of the
+                 * split. Before this, every one of Sales, Purchases, Stock,
+                 * Expiry, Profit and GST hung off `pharmacy.view` — the same
+                 * key that also opens the dashboard, the stock list and the
+                 * settings screen, so there was no way to hand somebody the
+                 * sales report without also handing them the shop's margins.
+                 * Profit and GST in particular are commercially sensitive in
+                 * a way "how much stock is on the shelf" is not, and plenty
+                 * of pharmacies want a cashier to see the first and never the
+                 * second.
+                 */
+                'key' => 'reports',
+                'name' => 'Reports',
+                'description' => 'Sales, purchases, stock, expiry, profit and GST reports for the pharmacy.',
+                'icon' => 'ti ti-report-analytics',
+                'group' => self::GROUP_PHARMACY,
+                'is_core' => false,
+                'requires' => ['pharmacy'],
+                'capabilities' => [
+                    ['key' => 'reports.sales', 'name' => 'View the sales report', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'reports.purchases', 'name' => 'View the purchases report', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'reports.stock', 'name' => 'View the stock report', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'reports.expiry', 'name' => 'View the expiry report', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * Commercially sensitive — what the shop actually makes,
+                     * and what it owes in tax. Held apart from the four above
+                     * so an owner can staff a counter that sees stock and
+                     * sales without seeing margins.
+                     */
+                    ['key' => 'reports.profit', 'name' => 'View the profit report', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'reports.gst', 'name' => 'View the GST report', 'scope' => self::SCOPE_BRANCH],
+                ],
+            ],
+            [
                 'key' => 'communication',
                 'name' => 'Communication',
                 'description' => 'WhatsApp integration, Email and SMS notifications.',
@@ -425,15 +535,27 @@ class ModuleRegistry
      * (the platform binding and the branch screen) ask this, so neither can
      * produce a prescriptions module with no medicines behind it.
      *
+     * CORE MODULES ARE ALWAYS TREATED AS PRESENT, whether or not `$enabledKeys`
+     * names them. Both call sites build that list from a payload of the
+     * TOGGLEABLE modules alone — a core module has no toggle to appear in one,
+     * `ModuleAccess::enabled()` includes every core key for every organization
+     * unconditionally. Before this, a module that required a core one (as
+     * `documents` requires `customers`) could never be switched on: the
+     * requirement read as unmet however things stood, because the one module
+     * that would have satisfied it was structurally never in the list being
+     * checked.
+     *
      * @param  list<string>  $enabledKeys
      * @return array<string, list<string>>
      */
     public static function unmetRequirements(array $enabledKeys): array
     {
+        $satisfied = [...$enabledKeys, ...self::coreKeys()];
+
         $unmet = [];
 
         foreach ($enabledKeys as $key) {
-            $missing = array_values(array_diff(self::requires($key), $enabledKeys));
+            $missing = array_values(array_diff(self::requires($key), $satisfied));
 
             if ($missing !== []) {
                 $unmet[$key] = $missing;
@@ -462,6 +584,22 @@ class ModuleRegistry
             array_keys($unmet),
             $unmet,
         ));
+    }
+
+    /**
+     * Why a branch may not switch these off, as a sentence.
+     *
+     * @param  list<string>  $locked
+     */
+    public static function describeLocked(array $locked): string
+    {
+        $names = array_map(fn (string $key) => self::find($key)['name'] ?? $key, $locked);
+
+        return sprintf(
+            '%s %s required by your organisation and cannot be switched off here.',
+            implode(' and ', $names),
+            count($names) === 1 ? 'is' : 'are',
+        );
     }
 
     /** @return list<string> */
@@ -586,10 +724,26 @@ class ModuleRegistry
      * The catalogue shaped for the role screen: modules, each with its
      * capabilities, limited to what these module keys allow.
      *
-     * `$scope` narrows it further to the capabilities that mean anything at
-     * that scope. A branch role is never offered `settings.manage`, because
-     * there is no version of it that applies at one branch and not another —
-     * offering it would be a choice the software could not honour.
+     * `$scope` narrows it further to the capabilities THAT SCOPE MAY HOLD — and
+     * the rule is asymmetric, the same asymmetry `SaveRoleRequest` enforces on
+     * save:
+     *
+     *   SCOPE_BRANCH        only branch-scoped capabilities. A branch role is
+     *                       never offered `settings.manage`, because there is
+     *                       no version of it that applies at one branch and
+     *                       not another — offering it would be a choice the
+     *                       software could not honour, and ticking it would
+     *                       only fail on save.
+     *   SCOPE_ORGANIZATION  everything, branch-scoped included. An
+     *                       organization-wide role applies everywhere, so a
+     *                       branch capability on it simply applies at every
+     *                       branch — which is what lets head office hold
+     *                       `people.view`.
+     *   null                everything, for a caller that is not asking on
+     *                        behalf of a role of either scope (the validation
+     *                        pool in Permission::grantable(), which checks
+     *                        "does this exist here at all" before scope is
+     *                        judged separately).
      *
      * Modules left with no capabilities after the filter are dropped: an empty
      * heading is worse than an absent one.
@@ -606,12 +760,12 @@ class ModuleRegistry
                 continue;
             }
 
-            $capabilities = $scope === null
-                ? $module['capabilities']
-                : array_values(array_filter(
+            $capabilities = $scope === self::SCOPE_BRANCH
+                ? array_values(array_filter(
                     $module['capabilities'],
-                    fn (array $entry) => $entry['scope'] === $scope,
-                ));
+                    fn (array $entry) => $entry['scope'] === self::SCOPE_BRANCH,
+                ))
+                : $module['capabilities'];
 
             if ($capabilities === []) {
                 continue;

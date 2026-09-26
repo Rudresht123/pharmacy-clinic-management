@@ -8,7 +8,14 @@ import { notify } from '@/shared/utils/notify';
 import { useConfigurableEntities } from '@/core/field-settings/api';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { tenantNavigation } from '@/app/tenant-navigation';
-import { rolesHooks, useGrantable, useRoleMembers, useRoleTemplates } from '../api';
+import {
+    rolesHooks,
+    useBranchRolePermissions,
+    useGrantable,
+    useRoleMembers,
+    useRoleTemplates,
+    useSaveBranchRolePermissions,
+} from '../api';
 import { ROLE_ICONS, type GrantableModule, type Role } from '../types';
 
 /**
@@ -34,6 +41,13 @@ const BLANK = {
     description: '',
     icon: ROLE_ICONS[0] as string,
     capabilities: [] as string[],
+
+    /*
+     * The subset of those a branch may not take away for itself. A second list
+     * rather than a flag per capability, because that is the shape the server
+     * takes and the shape every other permission list in this screen has.
+     */
+    locked: [] as string[],
 };
 
 type Draft = typeof BLANK;
@@ -46,6 +60,7 @@ function toDraft(role: Role): Draft {
         description: role.description ?? '',
         icon: role.icon || ROLE_ICONS[0],
         capabilities: [...role.capabilities],
+        locked: [...(role.locked ?? [])],
     };
 }
 
@@ -66,7 +81,6 @@ export default function RolesPage() {
     const confirm = useConfirm();
 
     const { data: roles, isLoading, isError, refetch } = rolesHooks.useList();
-    const { data: modules, refetch: refetchGrantable } = useGrantable();
 
     const create = rolesHooks.useCreate();
     const update = rolesHooks.useUpdate();
@@ -77,7 +91,8 @@ export default function RolesPage() {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [tab, setTab] = useState<Tab>('permissions');
     const [search, setSearch] = useState('');
-    const [collapsed, setCollapsed] = useState<string[]>([]);
+    /** Which module's table is open on the right — one at a time. */
+    const [focusedModule, setFocusedModule] = useState<string | null>(null);
     const [editingMeta, setEditingMeta] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
 
@@ -95,15 +110,37 @@ export default function RolesPage() {
         [roles, selected],
     );
 
+    /*
+     * Every role written from this screen comes out branch-scoped — the
+     * payload has no scope field, so the server defaults it to `branch`
+     * whoever is asking (RoleController::store). So a NEW role's pool is
+     * branch-only; an EXISTING role's pool follows its own scope, because an
+     * organization-wide role (Head office, Doctor) may hold a branch
+     * capability too and must not have those hidden.
+     */
+    const grantScope = current?.scope ?? 'branch';
+    const { data: modules, refetch: refetchGrantable } = useGrantable(grantScope);
+
+    /*
+     * The WHOLE registry, unscoped — never what is rendered as ticks, only
+     * what "X of Y" and the cross-role spread chart divide by. Those compare
+     * roles of possibly different scopes against one shared ceiling; dividing
+     * by the SELECTED role's own (smaller, scope-filtered) pool would make
+     * that ceiling jump every time a different role was clicked, and would
+     * make an organization role's bar look artificially short next to a
+     * branch role's.
+     */
+    const { data: allModules } = useGrantable();
+
     const { data: members, isLoading: membersLoading } = useRoleMembers(
         current?.id,
         tab === 'members',
     );
 
-    /** How many there are to hold — "4 of 9" says more than "4". */
+    /** How many there are, in total, to hold — "4 of 9" says more than "4". */
     const totalCapabilities = useMemo(
-        () => (modules ?? []).reduce((sum, module) => sum + module.capabilities.length, 0),
-        [modules],
+        () => (allModules ?? []).reduce((sum, module) => sum + module.capabilities.length, 0),
+        [allModules],
     );
 
     const totalMembers = useMemo(
@@ -141,7 +178,7 @@ export default function RolesPage() {
      * that would drift the first time a screen moved, and a preview that lies
      * is worse than none.
      */
-    const { modules: orgModules, user } = useTenantAuth();
+    const { modules: orgModules, user, activeBranch, refreshSession } = useTenantAuth();
     const { data: entities } = useConfigurableEntities();
 
     const labels = useMemo(
@@ -174,6 +211,16 @@ export default function RolesPage() {
             }))
             .filter((module) => module.capabilities.length > 0);
     }, [modules, search]);
+
+    /*
+     * The module whose table is actually on screen.
+     *
+     * Falls back to the first visible one rather than staying on a module a
+     * search just filtered out, or one this role's scope no longer grants —
+     * an empty right-hand panel reads as broken, not as "nothing matched".
+     */
+    const activeModule =
+        visibleModules.find((module) => module.key === focusedModule) ?? visibleModules[0] ?? null;
 
     function choose(role: Role) {
         setSelected(role.id);
@@ -225,7 +272,12 @@ export default function RolesPage() {
                     ? module.capabilities.map((capability) => capability.key)
                     : [key];
 
-            patch({ capabilities: draft.capabilities.filter((held) => !drop.includes(held)) });
+            patch({
+                capabilities: draft.capabilities.filter((held) => !drop.includes(held)),
+                // A lock on something the role no longer holds is a rule about
+                // nothing, waiting to surprise whoever grants it again later.
+                locked: draft.locked.filter((key) => !drop.includes(key)),
+            });
 
             return;
         }
@@ -233,6 +285,15 @@ export default function RolesPage() {
         const add = viewKey && key !== viewKey ? [key, viewKey] : [key];
 
         patch({ capabilities: [...new Set([...draft.capabilities, ...add])] });
+    }
+
+    /** Whether a branch may take this one away — the organization's answer. */
+    function toggleLock(key: string) {
+        patch({
+            locked: draft.locked.includes(key)
+                ? draft.locked.filter((entry) => entry !== key)
+                : [...draft.locked, key],
+        });
     }
 
     function toggleModule(module: GrantableModule) {
@@ -243,6 +304,7 @@ export default function RolesPage() {
             capabilities: all
                 ? draft.capabilities.filter((key) => !keys.includes(key))
                 : [...new Set([...draft.capabilities, ...keys])],
+            locked: all ? draft.locked.filter((key) => !keys.includes(key)) : draft.locked,
         });
     }
 
@@ -260,6 +322,15 @@ export default function RolesPage() {
             description: draft.description.trim() || null,
             icon: draft.icon,
             capabilities: draft.capabilities,
+
+            /*
+             * Omitted entirely rather than sent empty when this screen is not
+             * in a position to set locks. The server reads a missing `locked`
+             * as "leave them alone" and an empty one as "unlock everything" —
+             * so a branch manager editing a role must say nothing, or they
+             * would silently undo the organization's locks by saving a name.
+             */
+            ...(canLock ? { locked: draft.locked } : {}),
         };
 
         try {
@@ -359,6 +430,110 @@ export default function RolesPage() {
      */
     const isOwner = user?.role === 'owner';
     const canWrite = !current || isOwner || current.location_id !== null;
+
+    /*
+     * Whether the lock column means anything here.
+     *
+     * A lock is the organization telling BRANCHES "not this one", so it needs
+     * both a role branches share and somebody speaking for the organization.
+     * A branch's own role has no third party to be locked against, and a new
+     * role written here is organization-wide and branch-assigned, which is
+     * exactly the kind that does.
+     */
+    const canLock = isOwner && (current?.is_customisable_by_branch ?? true);
+
+    /*
+     * The other way to change what a role means here.
+     *
+     * A branch manager cannot edit the organization's role — that would change
+     * it at every branch — but may take capabilities off it FOR THEIR OWN
+     * BRANCH. Before this level existed the only answer was "copy it to this
+     * branch", which is how a chain ends up with five Receptionists that drift
+     * apart; the copy is still offered, for when a branch genuinely wants a
+     * different job rather than a narrower version of the same one.
+     */
+    const branchCustomising = !canWrite && (current?.is_customisable_by_branch ?? false);
+
+    const { data: branchPermissions } = useBranchRolePermissions(
+        branchCustomising ? activeBranch : undefined,
+        branchCustomising ? current?.id : undefined,
+    );
+
+    const saveBranch = useSaveBranchRolePermissions(activeBranch, current?.id);
+
+    /*
+     * What this role actually grants HERE: the organization's set, minus what
+     * this branch has already taken off it. Held in its own state because it
+     * is a different thing being edited from `draft` — the role itself is not
+     * changing at all.
+     */
+    const [branchAllowed, setBranchAllowed] = useState<string[] | null>(null);
+
+    useEffect(() => {
+        setBranchAllowed(
+            branchPermissions
+                ? branchPermissions.inherited.filter(
+                      (key) => !branchPermissions.removed.includes(key),
+                  )
+                : null,
+        );
+    }, [branchPermissions]);
+
+    const branchLocked = branchPermissions?.locked ?? [];
+    const branchDirty =
+        branchAllowed !== null &&
+        branchPermissions !== undefined &&
+        [...branchAllowed].sort().join() !==
+            branchPermissions.inherited
+                .filter((key) => !branchPermissions.removed.includes(key))
+                .sort()
+                .join();
+
+    function toggleForBranch(key: string) {
+        if (branchAllowed === null || branchLocked.includes(key)) {
+            return;
+        }
+
+        setBranchAllowed(
+            branchAllowed.includes(key)
+                ? branchAllowed.filter((entry) => entry !== key)
+                : [...branchAllowed, key],
+        );
+    }
+
+    /** The same "all of this module" switch, bounded by what a branch may touch. */
+    function toggleModuleForBranch(module: GrantableModule) {
+        if (branchAllowed === null) return;
+
+        const mine = module.capabilities
+            .map((capability) => capability.key)
+            .filter(
+                (key) =>
+                    (branchPermissions?.inherited ?? []).includes(key) &&
+                    !branchLocked.includes(key),
+            );
+
+        const all = mine.every((key) => branchAllowed.includes(key));
+
+        setBranchAllowed(
+            all
+                ? branchAllowed.filter((key) => !mine.includes(key))
+                : [...new Set([...branchAllowed, ...mine])],
+        );
+    }
+
+    async function saveForBranch() {
+        if (branchAllowed === null) return;
+
+        try {
+            await saveBranch.mutateAsync(branchAllowed);
+
+            // This may have just changed what the person saving it may do.
+            await refreshSession();
+        } catch (error) {
+            notify.error(resolveErrorMessage(error));
+        }
+    }
 
     function railItem(role: Role) {
         return (
@@ -668,10 +843,25 @@ export default function RolesPage() {
                                                 {!canWrite && (
                                                     <p className="rp-shared">
                                                         <i className="ti ti-lock" />
-                                                        This role belongs to the whole
-                                                        organization, so changing it here would
-                                                        change it at every branch. Copy it to this
-                                                        branch to make your own version.
+                                                        {branchCustomising ? (
+                                                            <>
+                                                                These permissions come from your
+                                                                organisation. You can switch them
+                                                                off for this branch alone — every
+                                                                other branch keeps its own. A
+                                                                padlock means your organisation
+                                                                does not allow that one to be
+                                                                changed here.
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                This role belongs to the whole
+                                                                organization, so changing it here
+                                                                would change it at every branch.
+                                                                Copy it to this branch to make your
+                                                                own version.
+                                                            </>
+                                                        )}
                                                     </p>
                                                 )}
                                             </>
@@ -738,28 +928,6 @@ export default function RolesPage() {
                                                         {draft.capabilities.length} of{' '}
                                                         {totalCapabilities} permissions enabled
                                                     </span>
-
-                                                    <button
-                                                        type="button"
-                                                        className="rp-act"
-                                                        onClick={() => setCollapsed([])}
-                                                    >
-                                                        <i className="ti ti-chevrons-up" />
-                                                        Expand All
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        className="rp-act"
-                                                        onClick={() =>
-                                                            setCollapsed(
-                                                                (modules ?? []).map((m) => m.key),
-                                                            )
-                                                        }
-                                                    >
-                                                        <i className="ti ti-chevrons-down" />
-                                                        Collapse All
-                                                    </button>
                                                 </div>
 
                                                 {draft.capabilities.length === 0 && !search && canWrite && (
@@ -775,168 +943,53 @@ export default function RolesPage() {
                                                         Nothing matches “{search}”.
                                                     </p>
                                                 ) : (
-                                                    visibleModules.map((module) => {
-                                                        const keys = module.capabilities.map(
-                                                            (c) => c.key,
-                                                        );
-                                                        const held = keys.filter((key) =>
-                                                            draft.capabilities.includes(key),
-                                                        ).length;
-                                                        const all = held === keys.length;
-                                                        const shut = collapsed.includes(
-                                                            module.key,
-                                                        );
-                                                        const tone =
-                                                            MODULE_TONE[module.key] ?? 'slate';
-
-                                                        return (
-                                                            <section
-                                                                className={`rp-module${
-                                                                    held > 0 ? ' is-on' : ''
-                                                                }`}
-                                                                key={module.key}
-                                                            >
-                                                                <header>
-                                                                    <span
-                                                                        className={`rp-module-icon is-${tone}`}
-                                                                    >
-                                                                        <i
-                                                                            className={
-                                                                                module.icon ??
-                                                                                'ti ti-puzzle'
-                                                                            }
-                                                                        />
-                                                                    </span>
-
-                                                                    <span className="rp-module-text">
-                                                                        <b>{module.name}</b>
-                                                                        <small>
-                                                                            {held} / {keys.length}{' '}
-                                                                            permissions enabled
-                                                                        </small>
-                                                                    </span>
-
-                                                                    <label className="rp-selectall">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            className="form-check-input"
-                                                                            checked={all}
-                                                                            disabled={!canWrite}
-                                                                            onChange={() =>
-                                                                                toggleModule(
-                                                                                    module,
-                                                                                )
-                                                                            }
-                                                                        />
-                                                                        Select all
-                                                                    </label>
-
-                                                                    <button
-                                                                        type="button"
-                                                                        className="rp-collapse"
-                                                                        aria-expanded={!shut}
-                                                                        aria-label={
-                                                                            shut
-                                                                                ? 'Expand'
-                                                                                : 'Collapse'
-                                                                        }
-                                                                        onClick={() =>
-                                                                            setCollapsed((list) =>
-                                                                                shut
-                                                                                    ? list.filter(
-                                                                                          (k) =>
-                                                                                              k !==
-                                                                                              module.key,
-                                                                                      )
-                                                                                    : [
-                                                                                          ...list,
-                                                                                          module.key,
-                                                                                      ],
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        <i
-                                                                            className={
-                                                                                shut
-                                                                                    ? 'ti ti-chevron-down'
-                                                                                    : 'ti ti-chevron-up'
-                                                                            }
-                                                                        />
-                                                                    </button>
-                                                                </header>
-
-                                                                {!shut && (
-                                                                    <div className="rp-caps">
-                                                                        {module.capabilities.map(
-                                                                            (capability) => {
-                                                                                const on =
-                                                                                    draft.capabilities.includes(
-                                                                                        capability.key,
-                                                                                    );
-
-                                                                                /*
-                                                                                 * Says why this one
-                                                                                 * cannot be unticked
-                                                                                 * alone: the rest of
-                                                                                 * the module rests
-                                                                                 * on it.
-                                                                                 */
-                                                                                const required =
-                                                                                    capability.key.endsWith(
-                                                                                        '.view',
-                                                                                    ) && held > 1;
-
-                                                                                return (
-                                                                                    <label
-                                                                                        className={`rp-cap${
-                                                                                            on
-                                                                                                ? ' is-on'
-                                                                                                : ''
-                                                                                        }`}
-                                                                                        key={
-                                                                                            capability.key
-                                                                                        }
-                                                                                        title={
-                                                                                            capability.key
-                                                                                        }
-                                                                                    >
-                                                                                        <input
-                                                                                            type="checkbox"
-                                                                                            className="form-check-input"
-                                                                                            checked={
-                                                                                                on
-                                                                                            }
-                                                                                            disabled={
-                                                                                                !canWrite
-                                                                                            }
-                                                                                            onChange={() =>
-                                                                                                toggle(
-                                                                                                    capability.key,
-                                                                                                )
-                                                                                            }
-                                                                                        />
-                                                                                        <span>
-                                                                                            {
-                                                                                                capability.name
-                                                                                            }
-                                                                                        </span>
-                                                                                        {required && (
-                                                                                            <em>
-                                                                                                needed
-                                                                                                by
-                                                                                                the
-                                                                                                rest
-                                                                                            </em>
-                                                                                        )}
-                                                                                    </label>
-                                                                                );
-                                                                            },
-                                                                        )}
-                                                                    </div>
-                                                                )}
-                                                            </section>
-                                                        );
-                                                    })
+                                                    <PermissionMatrix
+                                                        modules={visibleModules}
+                                                        active={activeModule}
+                                                        onFocus={setFocusedModule}
+                                                        held={
+                                                            branchCustomising
+                                                                ? (branchAllowed ?? [])
+                                                                : draft.capabilities
+                                                        }
+                                                        locked={
+                                                            branchCustomising
+                                                                ? branchLocked
+                                                                : draft.locked
+                                                        }
+                                                        lockMode={
+                                                            branchCustomising
+                                                                ? 'show'
+                                                                : canLock
+                                                                  ? 'edit'
+                                                                  : 'none'
+                                                        }
+                                                        onToggleLock={toggleLock}
+                                                        /*
+                                                         * In branch mode only what the
+                                                         * organization already grants
+                                                         * this role can be touched —
+                                                         * everything else is not a
+                                                         * choice this branch has.
+                                                         */
+                                                        toggleable={
+                                                            branchCustomising
+                                                                ? (branchPermissions?.inherited ??
+                                                                  [])
+                                                                : null
+                                                        }
+                                                        canWrite={branchCustomising || canWrite}
+                                                        onToggle={
+                                                            branchCustomising
+                                                                ? toggleForBranch
+                                                                : toggle
+                                                        }
+                                                        onToggleModule={
+                                                            branchCustomising
+                                                                ? toggleModuleForBranch
+                                                                : toggleModule
+                                                        }
+                                                    />
                                                 )}
                                             </>
                                         )}
@@ -949,41 +1002,120 @@ export default function RolesPage() {
                                         says what is pending without them
                                         having to remember.
                                     */}
-                                    <footer
-                                        className={`rp-foot${dirty ? ' is-dirty' : ''}`}
-                                        hidden={!canWrite}
-                                    >
-                                        <span className="rp-foot-state">
-                                            {dirty ? (
-                                                <>
-                                                    <i className="ti ti-point-filled" />
-                                                    {changes} unsaved change
-                                                    {changes === 1 ? '' : 's'}
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <i className="ti ti-circle-check" />
-                                                    All changes saved
-                                                </>
+                                    {/*
+                                        The branch's own footer. Says whose
+                                        change this is — the organization's role
+                                        is not being touched — because the same
+                                        table above edits two different things
+                                        depending on who is looking at it.
+                                    */}
+                                    {branchCustomising ? (
+                                        <footer
+                                            className={`rp-foot${branchDirty ? ' is-dirty' : ''}`}
+                                        >
+                                            <span className="rp-foot-state">
+                                                {branchDirty ? (
+                                                    <>
+                                                        <i className="ti ti-point-filled" />
+                                                        Unsaved changes for this branch
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <i className="ti ti-building-store" />
+                                                        {(branchPermissions?.removed.length ?? 0) >
+                                                        0
+                                                            ? `${branchPermissions?.removed.length} switched off for this branch`
+                                                            : 'Using your organisation’s settings'}
+                                                    </>
+                                                )}
+                                            </span>
+
+                                            {/*
+                                                Back to the organisation's own
+                                                answer — every customisation
+                                                this branch has made, dropped.
+                                                Offered only when there is
+                                                something to drop.
+                                            */}
+                                            {(branchPermissions?.removed.length ?? 0) > 0 && (
+                                                <Button
+                                                    variant="light"
+                                                    icon="ti ti-rotate"
+                                                    disabled={saveBranch.isPending}
+                                                    onClick={() =>
+                                                        setBranchAllowed(
+                                                            branchPermissions?.inherited ?? [],
+                                                        )
+                                                    }
+                                                >
+                                                    Use organisation settings
+                                                </Button>
                                             )}
-                                        </span>
 
-                                        <Button
-                                            variant="light"
-                                            disabled={!dirty || saving}
-                                            onClick={discard}
-                                        >
-                                            Discard Changes
-                                        </Button>
+                                            <Button
+                                                variant="light"
+                                                disabled={!branchDirty || saveBranch.isPending}
+                                                onClick={() =>
+                                                    setBranchAllowed(
+                                                        branchPermissions
+                                                            ? branchPermissions.inherited.filter(
+                                                                  (key) =>
+                                                                      !branchPermissions.removed.includes(
+                                                                          key,
+                                                                      ),
+                                                              )
+                                                            : null,
+                                                    )
+                                                }
+                                            >
+                                                Discard Changes
+                                            </Button>
 
-                                        <Button
-                                            loading={saving}
-                                            disabled={!dirty || !draft.name.trim()}
-                                            onClick={onSave}
+                                            <Button
+                                                loading={saveBranch.isPending}
+                                                disabled={!branchDirty}
+                                                onClick={saveForBranch}
+                                            >
+                                                Save for this branch
+                                            </Button>
+                                        </footer>
+                                    ) : (
+                                        <footer
+                                            className={`rp-foot${dirty ? ' is-dirty' : ''}`}
+                                            hidden={!canWrite}
                                         >
-                                            Save Changes
-                                        </Button>
-                                    </footer>
+                                            <span className="rp-foot-state">
+                                                {dirty ? (
+                                                    <>
+                                                        <i className="ti ti-point-filled" />
+                                                        {changes} unsaved change
+                                                        {changes === 1 ? '' : 's'}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <i className="ti ti-circle-check" />
+                                                        All changes saved
+                                                    </>
+                                                )}
+                                            </span>
+
+                                            <Button
+                                                variant="light"
+                                                disabled={!dirty || saving}
+                                                onClick={discard}
+                                            >
+                                                Discard Changes
+                                            </Button>
+
+                                            <Button
+                                                loading={saving}
+                                                disabled={!dirty || !draft.name.trim()}
+                                                onClick={onSave}
+                                            >
+                                                Save Changes
+                                            </Button>
+                                        </footer>
+                                    )}
                                 </>
                             )}
                         </div>
@@ -995,6 +1127,256 @@ export default function RolesPage() {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/**
+ * A module list on the left, one module's permission table on the right.
+ *
+ * Rows are the module's REAL capabilities, exactly as ModuleRegistry names
+ * them — never a fixed View/Create/Edit/Delete grid. Most modules do not fit
+ * one: `pharmacy` has ten differently-named rights, `documents` has a
+ * clinical/administrative split with no "delete" at all. A grid with columns
+ * that stay empty for module after module — a fabricated "Export" nothing in
+ * the system can do — would be exactly the kind of UI this codebase spends
+ * its effort not building: a checkbox that promises a capability that does
+ * not exist.
+ *
+ * `modules` arrives already narrowed to what THIS role's scope may hold (see
+ * `grantScope` in RolesPage) — a branch role's left-hand list never shows an
+ * organization-only module heading with nothing valid inside it.
+ */
+function PermissionMatrix({
+    modules,
+    active,
+    onFocus,
+    held,
+    locked,
+    lockMode,
+    onToggleLock,
+    toggleable,
+    canWrite,
+    onToggle,
+    onToggleModule,
+}: {
+    modules: GrantableModule[];
+    /** The module whose table is on screen; null only when the list is empty. */
+    active: GrantableModule | null;
+    onFocus: (key: string) => void;
+    held: string[];
+    /** Which of those a branch may not take away for itself. */
+    locked: string[];
+    /**
+     * What the lock column is for here, if anything.
+     *
+     *   edit  the organization deciding what branches may not remove
+     *   show  a branch being told which of those it may not remove
+     *   none  neither applies, and the column is absent rather than empty —
+     *         a row of padlocks nobody can press promises a control that is
+     *         not there
+     */
+    lockMode: 'edit' | 'show' | 'none';
+    onToggleLock: (key: string) => void;
+    /**
+     * Which capabilities may be switched at all, or null for "any of them".
+     *
+     * A branch customising the organization's role may only turn OFF what it
+     * already has; a capability the organization never granted is not a choice
+     * this screen has, so its switch is dead rather than misleading.
+     */
+    toggleable: string[] | null;
+    canWrite: boolean;
+    onToggle: (key: string) => void;
+    onToggleModule: (module: GrantableModule) => void;
+}) {
+    if (!active) {
+        return null;
+    }
+
+    const activeKeys = active.capabilities.map((capability) => capability.key);
+    const activeHeld = activeKeys.filter((key) => held.includes(key)).length;
+    const activeAll = activeHeld === activeKeys.length;
+
+    return (
+        <div className="rp-matrix">
+            <aside className="rp-matrix-nav" role="tablist" aria-label="Modules">
+                {modules.map((module) => {
+                    const keys = module.capabilities.map((capability) => capability.key);
+                    const count = keys.filter((key) => held.includes(key)).length;
+                    const tone = MODULE_TONE[module.key] ?? 'slate';
+
+                    return (
+                        <button
+                            type="button"
+                            role="tab"
+                            key={module.key}
+                            aria-selected={active.key === module.key}
+                            className={`rp-matrix-item${active.key === module.key ? ' is-active' : ''}${count > 0 ? ' is-on' : ''}`}
+                            onClick={() => onFocus(module.key)}
+                        >
+                            <span className={`rp-module-icon is-${tone}`}>
+                                <i className={module.icon ?? 'ti ti-puzzle'} />
+                            </span>
+
+                            <span className="rp-matrix-item-text">
+                                <b>{module.name}</b>
+                                <small>
+                                    {count} / {keys.length}
+                                </small>
+                            </span>
+
+                            <i className="ti ti-chevron-right" aria-hidden="true" />
+                        </button>
+                    );
+                })}
+            </aside>
+
+            <section className="rp-matrix-detail">
+                <header className="rp-matrix-head">
+                    <span className={`rp-module-icon is-lg is-${MODULE_TONE[active.key] ?? 'slate'}`}>
+                        <i className={active.icon ?? 'ti ti-puzzle'} />
+                    </span>
+
+                    <div className="rp-matrix-head-text">
+                        <h6>{active.name}</h6>
+                        <p>
+                            {activeHeld} of {activeKeys.length} permissions enabled
+                        </p>
+                    </div>
+
+                    {/*
+                        Ticks or clears the whole module in one move — the same
+                        `toggleModule` a select-all checkbox called before.
+                        Framed as a switch because that is what it reads as:
+                        this module, on or off for this role.
+                    */}
+                    <div className="form-check form-switch rp-matrix-switch">
+                        <input
+                            type="checkbox"
+                            className="form-check-input"
+                            role="switch"
+                            id={`rp-matrix-all-${active.key}`}
+                            checked={activeAll}
+                            disabled={!canWrite}
+                            onChange={() => onToggleModule(active)}
+                        />
+                        <label htmlFor={`rp-matrix-all-${active.key}`}>Enable all</label>
+                    </div>
+                </header>
+
+                <div className="pf-table-wrap">
+                    <table className="pf-table rp-matrix-table">
+                        <thead>
+                            <tr>
+                                <th>Permission</th>
+                                <th className="rp-matrix-grant-col">Grant</th>
+                                {lockMode !== 'none' && (
+                                    <th
+                                        className="rp-matrix-grant-col"
+                                        title="Branches cannot remove a locked permission"
+                                    >
+                                        Locked
+                                    </th>
+                                )}
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {active.capabilities.map((capability) => {
+                                const on = held.includes(capability.key);
+                                const isLocked = locked.includes(capability.key);
+
+                                // Null means every capability is this screen's
+                                // to switch; a list means only those are.
+                                const mine = toggleable === null || toggleable.includes(capability.key);
+
+                                /*
+                                 * Says why this one cannot be unticked alone:
+                                 * the rest of the module rests on it.
+                                 */
+                                const required = capability.key.endsWith('.view') && activeHeld > 1 && on;
+
+                                return (
+                                    <tr key={capability.key} className={on ? 'is-on' : undefined}>
+                                        <td>
+                                            <b>{capability.name}</b>
+                                            <div className="rp-matrix-key">
+                                                <code>{capability.key}</code>
+                                                {required && <em>needed by the rest</em>}
+                                            </div>
+                                        </td>
+
+                                        <td className="rp-matrix-grant-col">
+                                            <div className="form-check form-switch m-0">
+                                                <input
+                                                    type="checkbox"
+                                                    className="form-check-input"
+                                                    role="switch"
+                                                    aria-label={capability.name}
+                                                    checked={on}
+                                                    disabled={
+                                                        !canWrite ||
+                                                        !mine ||
+                                                        (lockMode === 'show' && isLocked)
+                                                    }
+                                                    onChange={() => onToggle(capability.key)}
+                                                />
+                                            </div>
+                                        </td>
+
+                                        {lockMode !== 'none' && (
+                                            <td className="rp-matrix-grant-col">
+                                                {/*
+                                                    A padlock only where it says
+                                                    something: on what the role
+                                                    actually holds for an owner
+                                                    setting them, and only on
+                                                    what is actually locked for
+                                                    a branch being told.
+                                                */}
+                                                {lockMode === 'edit' && on && (
+                                                    <button
+                                                        type="button"
+                                                        className={`rp-lock${isLocked ? ' is-on' : ''}`}
+                                                        aria-pressed={isLocked}
+                                                        aria-label={`Lock ${capability.name} against branch changes`}
+                                                        title={
+                                                            isLocked
+                                                                ? 'Branches cannot remove this'
+                                                                : 'Branches may remove this'
+                                                        }
+                                                        disabled={!canWrite}
+                                                        onClick={() => onToggleLock(capability.key)}
+                                                    >
+                                                        <i
+                                                            className={
+                                                                isLocked
+                                                                    ? 'ti ti-lock'
+                                                                    : 'ti ti-lock-open'
+                                                            }
+                                                            aria-hidden="true"
+                                                        />
+                                                    </button>
+                                                )}
+
+                                                {lockMode === 'show' && isLocked && (
+                                                    <span
+                                                        className="rp-lock is-on"
+                                                        title="Locked by your organisation"
+                                                    >
+                                                        <i className="ti ti-lock" aria-hidden="true" />
+                                                    </span>
+                                                )}
+                                            </td>
+                                        )}
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    );
+}
 
 /**
  * Somewhere to start, offered only while nothing is ticked.

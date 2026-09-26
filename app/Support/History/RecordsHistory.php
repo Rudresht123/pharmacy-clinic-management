@@ -174,6 +174,56 @@ trait RecordsHistory
             return;
         }
 
+        /*
+         * Used once, by the entry that carried it. The save inside a restore
+         * is not that entry — the reason belongs to the `restored` one that
+         * follows, even when the restore also changed other fields.
+         */
+        if (! ($event === 'updated' && $this->historyIsRestoring())) {
+            $this->historyNote = null;
+        }
+
+        $this->recordHistory($event, $before, $after);
+    }
+
+    /**
+     * Record a change to a set this record owns but does not store as a column.
+     *
+     * The capabilities of a role; the modules a branch has switched off. Both
+     * live in their own tables and are written in bulk, so no model event ever
+     * sees them: a mass delete raises nothing at all, which would leave a log
+     * showing every permission ever granted and not one ever taken away.
+     *
+     * Written against the OWNER rather than against the rows, because "who
+     * changed what a Branch Manager may do" is the sentence somebody needs,
+     * and thirty entries naming the ids of a join table is not. `updated` is
+     * the event: the owning record's meaning changed, which is what the log's
+     * four permitted events are about.
+     *
+     * @param  list<string>  $before
+     * @param  list<string>  $after
+     */
+    public function writeHistoryFor(string $field, array $before, array $after): void
+    {
+        sort($before);
+        sort($after);
+
+        // Re-saving the same set is not a change, however it was submitted.
+        if ($before === $after) {
+            return;
+        }
+
+        $this->recordHistory('updated', [$field => $before], [$field => $after]);
+    }
+
+    /**
+     * Write one entry, wherever this model's connection says it belongs.
+     *
+     * @param  array<string, mixed>  $before
+     * @param  array<string, mixed>  $after
+     */
+    private function recordHistory(string $event, array $before, array $after): void
+    {
         $actor = $this->historyActor();
 
         $row = [
@@ -185,15 +235,6 @@ trait RecordsHistory
             'after' => $after ?: null,
             'ip_address' => Request::ip(),
         ];
-
-        /*
-         * Used once, by the entry that carried it. The save inside a restore
-         * is not that entry — the reason belongs to the `restored` one that
-         * follows, even when the restore also changed other fields.
-         */
-        if (! ($event === 'updated' && $this->historyIsRestoring())) {
-            $this->historyNote = null;
-        }
 
         /*
          * A tenant model writes to the tenant's own database. Deciding by

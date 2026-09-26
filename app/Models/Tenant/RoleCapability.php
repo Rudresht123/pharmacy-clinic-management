@@ -30,7 +30,15 @@ class RoleCapability extends Model
     protected $fillable = [
         'role_id',
         'capability',
+        'is_locked',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_locked' => 'boolean',
+        ];
+    }
 
     public function role(): BelongsTo
     {

@@ -108,6 +108,7 @@ class BookableDoctors
                 'starts_at' => $session['starts_at'],
                 'ends_at' => $session['ends_at'],
                 'slots' => $slots,
+                'booked_slots' => array_values($session['taken'] ?? []),
             ];
         }
 

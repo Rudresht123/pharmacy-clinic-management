@@ -46,6 +46,7 @@ class SalesService
         private readonly StockMovementService $stock,
         private readonly SalePricing $pricing,
         private readonly Lots $lots,
+        private readonly Dispensing $dispensing,
     ) {}
 
     /**
@@ -121,6 +122,18 @@ class SalesService
                 'cancellation_reason' => $reason,
             ])->save();
 
+            /*
+             * The prescription's side of the undo.
+             *
+             * The stock has just gone back on the shelf as correcting ledger
+             * rows; without this the prescription would still read
+             * `dispensed` while the patient has nothing, and the visit would
+             * stay closed on the strength of a bill that no longer exists.
+             */
+            if ($prescription = $this->dispensing->lockForReversal($sale->prescription_id)) {
+                $this->dispensing->reverse($prescription, $items);
+            }
+
             return $sale->load(['items.medicine', 'payments', 'customer', 'store']);
         });
     }
@@ -144,18 +157,49 @@ class SalesService
         // Locked before a single quantity is read from them.
         $locked = $this->stock->lock($this->candidateBatchIds($store, $data, $medicines));
 
+        /*
+         * The prescription, if this is a dispensing, locked alongside the
+         * batches and for the same reason: two counters working the same
+         * prescription have to queue, or both will credit the same lines.
+         *
+         * Null for an ordinary counter sale, and every branch below reads as
+         * it always did.
+         */
+        $prescription = $this->dispensing->lock(
+            ! empty($data['prescription_id']) ? (int) $data['prescription_id'] : null
+        );
+
         $lines = [];
+        $claimed = [];
 
         foreach ($data['items'] as $input) {
             $medicine = $medicines[(int) $input['medicine_id']];
 
+            /*
+             * Which prescribed line this fulfils, decided once per REQUESTED
+             * line rather than per allocation: 20 tablets filled from two
+             * batches is two bill lines answering one prescribed line, and
+             * matching twice would let the second allocation claim a
+             * different line of the same medicine.
+             */
+            $fulfils = $prescription
+                ? $this->dispensing->match($prescription, $input, $claimed)
+                : null;
+
+            if ($fulfils !== null) {
+                $claimed[] = $fulfils;
+            }
+
             foreach ($this->allocate($store, $medicine, $input, $locked) as [$batch, $quantity]) {
-                $lines[] = $this->pricing->line(
-                    [...$input, 'quantity' => $quantity],
-                    $batch,
-                    $medicine,
-                    $settings,
-                );
+                $lines[] = [
+                    ...$this->pricing->line(
+                        [...$input, 'quantity' => $quantity],
+                        $batch,
+                        $medicine,
+                        $settings,
+                    ),
+                    'prescription_item_id' => $fulfils,
+                ];
             }
         }
 
@@ -173,6 +217,17 @@ class SalesService
             'walk_in_name' => $customer ? null : ($data['walk_in_name'] ?? 'Walk-in customer'),
             'walk_in_phone' => $customer ? null : ($data['walk_in_phone'] ?? null),
             'prescription_id' => $data['prescription_id'] ?? null,
+
+            /*
+             * Which visit this bill belongs to.
+             *
+             * Taken from the prescription rather than the request: the client
+             * has no business asserting which visit it is billing, and the
+             * prescription already knows. Null for a counter sale, which is
+             * every sale a standalone medical store makes.
+             */
+            'appointment_id' => $prescription?->appointment_id,
+
             'doctor_id' => $data['doctor_id'] ?? null,
             'sale_date' => now(),
             // How this bill was priced, as the settings were at the time.
@@ -213,6 +268,19 @@ class SalesService
                 'paid_at' => now(),
                 'created_by' => $actor instanceof User ? $actor->id : null,
             ]);
+        }
+
+        /*
+         * The prescription's side of the same act, and then the visit's.
+         *
+         * Last, inside the same transaction: the lines have to exist before
+         * anything can be credited against them, and if crediting fails —
+         * over-dispensing, say — the stock movement rolls back with it. A
+         * bill that took stock off the shelf without moving the prescription
+         * is the disagreement this whole path exists to prevent.
+         */
+        if ($prescription) {
+            $this->dispensing->apply($prescription, $sale->items()->get());
         }
 
         return $sale->load(['items.medicine', 'payments', 'customer', 'store']);

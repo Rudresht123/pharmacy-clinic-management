@@ -3,6 +3,7 @@ import { http } from '@/shared/api/http';
 import { resourceKey } from '@/shared/hooks/useResource';
 import { notify } from '@/shared/utils/notify';
 import type { ApiResponse } from '@/shared/types/api';
+import { NEXT_ACTION_STEP } from './workflow';
 import type { Appointment, BookingInput, OpenSession, QueuePayload } from './types';
 
 const ENDPOINT = 'tenant/appointments';
@@ -68,10 +69,16 @@ export function useBookAppointment() {
 }
 
 /**
- * Every status change is its own verb.
+ * THE DESK'S moves. Every one is its own verb.
  *
  * Not a `status` field somebody can set to anything: the state machine is
  * the point, and the server refuses a move that does not follow.
+ *
+ * `start` and `complete` are deliberately NOT in this list any more. They
+ * were, behind the same capability as `check-in`, which is how the
+ * receptionist's queue came to carry a button that closed a doctor's
+ * consultation. They live in useMoveConsultation below, on the doctor's own
+ * endpoints.
  */
 export function useMoveAppointment() {
     return useMutation({
@@ -81,13 +88,7 @@ export function useMoveAppointment() {
             reason,
         }: {
             id: number;
-            action:
-                | 'check-in'
-                | 'start'
-                | 'complete'
-                | 'reopen'
-                | 'cancel'
-                | 'no-show';
+            action: 'check-in' | 'call' | 'cancel' | 'no-show';
             reason?: string;
         }) => {
             const { data } = await http.post<ApiResponse<Appointment>>(
@@ -98,5 +99,57 @@ export function useMoveAppointment() {
             return data;
         },
         onSuccess: (response) => notify.success(response.message ?? 'Updated'),
+    });
+}
+
+/**
+ * THE DOCTOR'S moves, on the consultation's own endpoints.
+ *
+ * A separate hook rather than three more actions on the one above, because
+ * the separation is the feature: these need `appointments.consult_start` or
+ * `appointments.consult_complete`, and the server also checks the visit
+ * belongs to whoever is signed in. A receptionist calling any of them is
+ * refused twice over.
+ *
+ * The response carries the RECOMPUTED visit — `status` and `next_action` as
+ * the server has just worked them out — so the screen learns where to send
+ * the patient from the same request that finished the consultation, rather
+ * than from a second read that could disagree with it.
+ */
+export function useMoveConsultation() {
+    return useMutation({
+        mutationFn: async ({
+            id,
+            action,
+        }: {
+            id: number;
+            action: 'start' | 'complete' | 'reopen';
+        }) => {
+            const { data } = await http.post<ApiResponse<Appointment>>(
+                `/tenant/appointments/${id}/consultation/${action}`,
+            );
+
+            return data;
+        },
+
+        /*
+         * The next step, said out loud, the moment the consultation ends.
+         *
+         * "Consultation completed" on its own leaves the doctor to guess
+         * whether the patient can go home — which is the question the
+         * workflow exists to answer, and the server has just answered it in
+         * the same response. Anything other than `none` is worth a sentence:
+         * it is what the doctor tells the person in front of them.
+         */
+        onSuccess: (response) => {
+            const next = response.data?.next_action;
+            const step = next && next !== 'none' ? NEXT_ACTION_STEP[next].label : null;
+
+            notify.success(
+                step
+                    ? `${response.message ?? 'Updated'} · ${step}`
+                    : (response.message ?? 'Updated'),
+            );
+        },
     });
 }

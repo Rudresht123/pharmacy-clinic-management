@@ -1,7 +1,56 @@
 export type AppointmentType = 'booked' | 'walk_in';
 
+/**
+ * THE VISIT. Where the whole episode has got to.
+ *
+ * The system's column: nobody clicks it, and no screen offers it as a button.
+ * The three `awaiting_*` are what a finished consultation actually produces —
+ * a doctor signing off is not a patient going home.
+ */
 export type AppointmentStatus =
-    'booked' | 'checked_in' | 'in_consultation' | 'completed' | 'cancelled' | 'no_show';
+    | 'booked'
+    | 'checked_in'
+    | 'in_consultation'
+    | 'awaiting_pharmacy'
+    | 'awaiting_lab'
+    | 'awaiting_payment'
+    | 'completed'
+    | 'cancelled'
+    | 'no_show';
+
+/**
+ * THE RECEPTION DESK. Null before they arrive and again once the doctor is
+ * done — somebody who has left the department is not in a queue.
+ */
+export type QueueStatus = 'waiting' | 'called' | 'with_doctor';
+
+/** THE DOCTOR. Never null: every visit has a write-up, started or not. */
+export type ConsultationStatus = 'not_started' | 'in_progress' | 'completed';
+
+/** Where to send the patient once the doctor has finished. */
+export type NextAction = 'pharmacy' | 'laboratory' | 'billing' | 'follow_up' | 'none';
+
+/**
+ * Which workflow verbs this row's STATE allows — one per button.
+ *
+ * Half of button visibility, and deliberately only half: this says what is
+ * possible, `can()` says who may. Both have to be true to render, which is
+ * what stops a receptionist being shown Start consultation and stops a doctor
+ * being shown it on somebody reception has not called.
+ *
+ * It comes from the server because the state machine is the server's, and a
+ * screen that worked out for itself when Complete applies would be a second
+ * implementation that drifts from the first one.
+ */
+export interface AppointmentActions {
+    check_in: boolean;
+    call: boolean;
+    consult_start: boolean;
+    consult_complete: boolean;
+    consult_reopen: boolean;
+    cancel: boolean;
+    no_show: boolean;
+}
 
 /** Somebody intending to see a doctor. An intent, not an outcome. */
 export interface Appointment {
@@ -28,7 +77,12 @@ export interface Appointment {
 
     appointment_date: string;
     type: AppointmentType;
+
+    /** Three columns, three questions. Read whichever one your screen is about. */
     status: AppointmentStatus;
+    queue_status: QueueStatus | null;
+    consultation_status: ConsultationStatus;
+    next_action: NextAction | null;
 
     /** Booked only. A walk-in has no promised time. */
     slot_at: string | null;
@@ -36,8 +90,18 @@ export interface Appointment {
     token_no: number | null;
 
     checked_in_at: string | null;
+    called_at: string | null;
+
+    /** `started_at` / `completed_at` are the CONSULTATION's clocks. */
     started_at: string | null;
     completed_at: string | null;
+    /** When the EPISODE closed, which is not when the doctor finished. */
+    visit_completed_at: string | null;
+
+    /** Sent as names, not ids — the only consumer is a line on a screen. */
+    called_by_name?: string | null;
+    consultation_started_by_name?: string | null;
+    consultation_completed_by_name?: string | null;
 
     /** How long they have been waiting; computed server-side. */
     waiting_minutes: number | null;
@@ -45,8 +109,11 @@ export interface Appointment {
     cancellation_reason: string | null;
     notes: string | null;
 
-    /** What this may become next — the screen offers exactly these. */
+    /** What the VISIT may become next. No longer what buttons are built from. */
     next_states: AppointmentStatus[];
+
+    /** What buttons ARE built from, together with the viewer's capabilities. */
+    available: AppointmentActions;
 
     created_at: string | null;
 }
@@ -54,10 +121,17 @@ export interface Appointment {
 export interface QueuePayload {
     queue: Appointment[];
 
+    /** Nobody has called them yet — the number the desk has to act on. */
     waiting: number;
+    /** Called and not yet taken in. Should be near zero on a good morning. */
+    called: number;
     with_doctor: number;
+    /** Write-ups finished, wherever the patient is now. */
     seen: number;
     expected: number;
+
+    /** Seen, and still in the building for somebody else's queue. */
+    awaiting: { pharmacy: number; laboratory: number; payment: number };
 
     /**
      * The doctors who appear in THIS list, so the filter is built from the

@@ -59,6 +59,17 @@ class SaveRoleRequest extends FormRequest
 
             'capabilities' => ['present', 'array'],
             'capabilities.*' => ['string', 'max:100'],
+
+            /*
+             * Which of those a branch may not take away for itself.
+             *
+             * `sometimes` on purpose: a client that says nothing about locks
+             * leaves them exactly as they were, while an empty array unlocks
+             * everything. Those are different intentions and the difference
+             * matters — see Role::syncCapabilities.
+             */
+            'locked' => ['sometimes', 'array'],
+            'locked.*' => ['string', 'max:100'],
         ];
     }
 

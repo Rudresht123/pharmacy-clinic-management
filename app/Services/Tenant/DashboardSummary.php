@@ -613,7 +613,19 @@ class DashboardSummary
             'date' => $today->toDateString(),
             'waiting' => $waiting,
             'in_consultation' => (clone $todayQuery())->where('status', Appointment::STATUS_IN_CONSULTATION)->count(),
-            'seen' => (clone $todayQuery())->where('status', Appointment::STATUS_COMPLETED)->count(),
+            /*
+             * "Seen" is the doctor having finished, which is what this tile
+             * has always meant and what a desk reads it as.
+             *
+             * Counted off `consultation_status` since the workflow split:
+             * `status` now stays open while the pharmacy, the lab or the
+             * till still has the patient, so counting completed VISITS would
+             * have made a busy clinic with a slow pharmacy look like one
+             * that had seen nobody.
+             */
+            'seen' => (clone $todayQuery())
+                ->where('consultation_status', Appointment::CONSULT_COMPLETED)
+                ->count(),
             'expected' => (clone $todayQuery())->where('status', Appointment::STATUS_BOOKED)->count(),
 
             /*
@@ -734,8 +746,10 @@ class DashboardSummary
             ->where('created_at', '>=', now()->startOfMonth())
             ->count();
 
+        // Appointments the doctor finished this month. `consultation_status`
+        // rather than `status`, for the reason set out on the `seen` tile.
         $completed = $this->scopeToBranches(Appointment::query(), 'location_id', $allowed)
-            ->where('status', Appointment::STATUS_COMPLETED)
+            ->where('consultation_status', Appointment::CONSULT_COMPLETED)
             ->whereBetween('appointment_date', [
                 now()->startOfMonth()->toDateString(),
                 now()->endOfMonth()->toDateString(),

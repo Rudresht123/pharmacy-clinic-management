@@ -100,7 +100,7 @@ export function BranchModulePanel({ locationId }: { locationId: number }) {
 
                         return (
                             <label
-                                className={`bm-item${enabled ? ' is-on' : ''}`}
+                                className={`bm-item${enabled ? ' is-on' : ''}${module.is_locked ? ' is-locked' : ''}`}
                                 key={module.key}
                             >
                                 <span className="rp-module-icon is-slate" aria-hidden="true">
@@ -112,15 +112,30 @@ export function BranchModulePanel({ locationId }: { locationId: number }) {
                                     <small>{module.description}</small>
                                 </span>
 
-                                <span className="ma-switch">
-                                    <input
-                                        type="checkbox"
-                                        checked={enabled}
-                                        aria-label={`Run ${module.name} at this branch`}
-                                        onChange={() => toggle(module.key)}
-                                    />
-                                    <span className="ma-track" aria-hidden="true" />
-                                </span>
+                                {/*
+                                    A padlock instead of a switch for a module
+                                    the organization has made compulsory: a
+                                    control that is always refused on save is
+                                    worse than no control.
+                                */}
+                                {module.is_locked ? (
+                                    <span
+                                        className="rp-lock is-on"
+                                        title="Required by your organisation"
+                                    >
+                                        <i className="ti ti-lock" aria-hidden="true" />
+                                    </span>
+                                ) : (
+                                    <span className="ma-switch">
+                                        <input
+                                            type="checkbox"
+                                            checked={enabled}
+                                            aria-label={`Run ${module.name} at this branch`}
+                                            onChange={() => toggle(module.key)}
+                                        />
+                                        <span className="ma-track" aria-hidden="true" />
+                                    </span>
+                                )}
                             </label>
                         );
                     })}

@@ -17,10 +17,14 @@ use Illuminate\Http\Request;
 /**
  * Bills.
  *
- * Selling is `pharmacy.sell`; cancelling a bill is `pharmacy.sale_cancel`,
- * because it puts stock back and takes money off the day's takings. Both are
- * asked about the store's own branch through PharmacyStorePolicy, not the
- * branch the request happens to be acting at.
+ * A counter sale is `pharmacy.sell`; a dispensing — the same bill carrying a
+ * prescription — is `pharmacy.dispense`, because it credits prescribed lines
+ * and can be the thing that closes a visit. Cancelling is
+ * `pharmacy.sale_cancel`, because it puts stock back and takes money off the
+ * day's takings.
+ *
+ * All three are asked about the store's own branch through
+ * PharmacyStorePolicy, not the branch the request happens to be acting at.
  */
 class PharmacySaleController extends BaseApiController
 {
@@ -85,9 +89,20 @@ class PharmacySaleController extends BaseApiController
     /** Ring up a sale. A repeated Idempotency-Key answers 200 with the first bill. */
     public function store(StorePharmacySaleRequest $request, PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('sell', $store);
-
         $data = $request->validated();
+
+        /*
+         * Two acts, one endpoint, two questions.
+         *
+         * A bill carrying a prescription credits prescribed lines and can
+         * close a visit, which is not the same thing as ringing up a tube of
+         * cream — so it asks `dispense` rather than `sell`. The route admits
+         * either capability; this is where they are told apart.
+         */
+        $this->authorizeTenant(
+            empty($data['prescription_id']) ? 'sell' : 'dispense',
+            $store,
+        );
 
         [$sale, $created] = $this->sales->sell($store, $data, $data['idempotency_key']);
 

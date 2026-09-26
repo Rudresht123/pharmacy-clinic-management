@@ -97,6 +97,11 @@ class OpdBoard
             'flow' => $this->flow($appointments, $date),
             'departments' => $this->departments($appointments),
             'waiting_longest' => $this->waitingLongest($appointments),
+
+            // "Dr Amit has finished — token 13 is next." The whole of the
+            // next-patient notification, and it costs nothing extra.
+            'ready' => $this->ready($appointments),
+
             'doctors' => $this->doctors($appointments),
             'upcoming' => $this->upcoming($appointments),
             'activity' => $this->activity(),
@@ -138,10 +143,32 @@ class OpdBoard
      */
     private function counts(Collection $appointments, Collection $before): array
     {
-        $waiting = $appointments->where('status', Appointment::STATUS_CHECKED_IN);
+        /*
+         * Read off `queue_status` where the question is about the waiting
+         * room, and off `status` where it is about the visit.
+         *
+         * `waiting` is now strictly "nobody has called them" — the people
+         * whose wait is still growing and who somebody has to do something
+         * about. Called patients are counted separately: they are on their
+         * way in, and lumping them back into "waiting" would hide the exact
+         * fact the desk just created.
+         */
+        $waiting = $appointments->where('queue_status', Appointment::QUEUE_WAITING);
+        $called = $appointments->where('queue_status', Appointment::QUEUE_CALLED);
         $withDoctor = $appointments->where('status', Appointment::STATUS_IN_CONSULTATION);
-        $completed = $appointments->where('status', Appointment::STATUS_COMPLETED);
         $expected = $appointments->where('status', Appointment::STATUS_BOOKED);
+
+        /*
+         * Two different "done", and the board shows both.
+         *
+         * `consulted` is the doctors' output — write-ups finished, whatever
+         * is happening downstream. `completed` is visits that are actually
+         * over. Before the split these were the same number; they are not,
+         * and reporting only the second made a busy clinic with a slow
+         * pharmacy look like one that had seen nobody.
+         */
+        $consulted = $appointments->where('consultation_status', Appointment::CONSULT_COMPLETED);
+        $completed = $appointments->where('status', Appointment::STATUS_COMPLETED);
 
         /*
          * Everybody on today's list except the ones called off. A denominator
@@ -164,6 +191,20 @@ class OpdBoard
                 'longest_wait' => (int) $waits->max(),
             ],
 
+            /*
+             * Called and not yet taken in.
+             *
+             * Worth its own tile because a number that stays up is a
+             * specific, fixable problem: somebody was called and has not
+             * gone in. Either they did not hear, or the doctor is not ready.
+             */
+            'called' => [
+                'value' => $called->count(),
+                'longest_wait' => (int) $called
+                    ->map(fn (Appointment $row) => $this->waitedMinutes($row))
+                    ->max(),
+            ],
+
             'in_consultation' => [
                 'value' => $withDoctor->count(),
 
@@ -172,8 +213,9 @@ class OpdBoard
                 'doctors' => $withDoctor->pluck('doctor_id')->unique()->count(),
             ],
 
-            'completed' => [
-                ...$this->withDelta($completed->count(), $wasCompleted->count()),
+            // Write-ups finished today, wherever the patient is now.
+            'consulted' => [
+                'value' => $consulted->count(),
 
                 /*
                  * Measured over consultations that have actually finished. An
@@ -181,6 +223,27 @@ class OpdBoard
                  * patient is called in, which reads as the department speeding
                  * up at the exact moment it is not.
                  */
+                'average_minutes' => $this->averageConsultation($consulted),
+                'of_total' => $onTheList->count(),
+            ],
+
+            /*
+             * Seen, and still in the building.
+             *
+             * The three states the doctor's work hands the patient on to.
+             * Each one is a queue somebody else owns, and a board that did
+             * not show them would let a patient sit in reception while the
+             * pharmacy waited on a prescription nobody had told them about.
+             */
+            'awaiting' => [
+                'pharmacy' => $appointments->where('status', Appointment::STATUS_AWAITING_PHARMACY)->count(),
+                'laboratory' => $appointments->where('status', Appointment::STATUS_AWAITING_LAB)->count(),
+                'payment' => $appointments->where('status', Appointment::STATUS_AWAITING_PAYMENT)->count(),
+            ],
+
+            // Visits that are actually over — everything downstream settled.
+            'completed' => [
+                ...$this->withDelta($completed->count(), $wasCompleted->count()),
                 'average_minutes' => $this->averageConsultation($completed),
                 'of_total' => $onTheList->count(),
             ],
@@ -236,14 +299,33 @@ class OpdBoard
     private function tabs(Collection $appointments): array
     {
         return [
+            /*
+             * "All" means everybody still in play, and the three waiting
+             * rooms are in play: a patient the pharmacy has not finished
+             * with is somebody the department still has, not somebody who
+             * has gone home.
+             */
             'all' => $appointments->whereIn('status', [
                 Appointment::STATUS_BOOKED,
                 Appointment::STATUS_CHECKED_IN,
                 Appointment::STATUS_IN_CONSULTATION,
+                ...Appointment::AWAITING,
             ])->count(),
 
             'checked_in' => $appointments->where('status', Appointment::STATUS_CHECKED_IN)->count(),
+
+            // The desk's own two, split out of `checked_in` above — which
+            // still counts both, because both are in the department.
+            'waiting' => $appointments->where('queue_status', Appointment::QUEUE_WAITING)->count(),
+            'called' => $appointments->where('queue_status', Appointment::QUEUE_CALLED)->count(),
+
             'in_consultation' => $appointments->where('status', Appointment::STATUS_IN_CONSULTATION)->count(),
+
+            // One tab for all three waiting rooms: the desk's question is
+            // "who is still here after seeing the doctor", not which of the
+            // three queues each of them is in.
+            'awaiting' => $appointments->whereIn('status', Appointment::AWAITING)->count(),
+
             'completed' => $appointments->where('status', Appointment::STATUS_COMPLETED)->count(),
             'booked' => $appointments->where('status', Appointment::STATUS_BOOKED)->count(),
         ];
@@ -272,9 +354,21 @@ class OpdBoard
             Appointment::STATUS_CHECKED_IN => 0,
             Appointment::STATUS_IN_CONSULTATION => 1,
             Appointment::STATUS_BOOKED => 2,
-            Appointment::STATUS_COMPLETED => 3,
-            Appointment::STATUS_NO_SHOW => 4,
-            Appointment::STATUS_CANCELLED => 5,
+
+            /*
+             * Above finished work, below anybody still to be seen. These are
+             * the desk's second job — telling a patient where to go next —
+             * and burying them under the morning's completed visits is how
+             * somebody ends up sitting in reception with nobody realising
+             * the pharmacy is waiting on them.
+             */
+            Appointment::STATUS_AWAITING_PHARMACY => 3,
+            Appointment::STATUS_AWAITING_LAB => 3,
+            Appointment::STATUS_AWAITING_PAYMENT => 3,
+
+            Appointment::STATUS_COMPLETED => 4,
+            Appointment::STATUS_NO_SHOW => 5,
+            Appointment::STATUS_CANCELLED => 6,
         ];
 
         return $appointments
@@ -298,13 +392,29 @@ class OpdBoard
                 'gender' => $row->customer?->gender,
 
                 'doctor_name' => $row->doctor?->name,
+
                 'status' => $row->status,
+                'queue_status' => $row->queue_status,
+                'consultation_status' => $row->consultation_status,
+                'next_action' => $row->next_action,
+
                 'type' => $row->type,
                 'slot_at' => $row->slot_at ? substr((string) $row->slot_at, 0, 5) : null,
                 'waiting_minutes' => $row->status === Appointment::STATUS_CHECKED_IN
                     ? $this->waitedMinutes($row)
                     : null,
+                'called_at' => $row->called_at?->toIso8601String(),
+
                 'next_states' => Appointment::TRANSITIONS[$row->status] ?? [],
+
+                // What this row's state allows. The screen renders a button
+                // when this says possible AND the viewer holds the capability.
+                'available' => [
+                    'check_in' => $row->canMoveTo(Appointment::STATUS_CHECKED_IN),
+                    'call' => $row->queueCanMoveTo(Appointment::QUEUE_CALLED),
+                    'cancel' => $row->canMoveTo(Appointment::STATUS_CANCELLED),
+                    'no_show' => $row->canMoveTo(Appointment::STATUS_NO_SHOW),
+                ],
             ])
             ->values()
             ->all();
@@ -473,6 +583,85 @@ class OpdBoard
     }
 
     /**
+     * Which doctors are free, and who should go in next.
+     *
+     * THE NEXT-PATIENT NOTIFICATION, and deliberately built as a fact on the
+     * board rather than as a message pushed anywhere. The desk already polls
+     * this endpoint every few seconds; a doctor finishing changes what it
+     * says, and the screen can raise a toast, a badge, a sound or all three
+     * off the change. Nothing new has to be running for it to work, which is
+     * the difference between a feature that ships and a WebSocket server
+     * somebody has to keep alive.
+     *
+     * A doctor appears here only when BOTH are true: nobody is in their room,
+     * and somebody is in the department for them. A doctor with an empty list
+     * is not "ready", they are finished, and a notification that fires for
+     * them is one the desk learns to ignore.
+     *
+     * `finished_at` is when their last consultation ended. It is what lets
+     * the screen tell "just now" from "this has been true for ten minutes"
+     * and notify once rather than on every poll.
+     *
+     * @param  Collection<int, Appointment>  $appointments
+     * @return list<array<string, mixed>>
+     */
+    private function ready(Collection $appointments): array
+    {
+        return $appointments
+            ->groupBy('doctor_id')
+            ->reject(fn (Collection $theirs) => $theirs->contains(
+                fn (Appointment $row) => $row->status === Appointment::STATUS_IN_CONSULTATION
+            ))
+            ->map(function (Collection $theirs) {
+                /*
+                 * Who to call, in the order the desk would pick.
+                 *
+                 * Already-called first — somebody told them to come, and
+                 * they have not gone in — then the longest wait. NOT the
+                 * lowest token, which would call somebody who booked for
+                 * later ahead of a walk-in who has been sitting there half
+                 * an hour.
+                 */
+                $next = $theirs
+                    ->filter(fn (Appointment $row) => $row->queue_status !== null)
+                    ->sortBy([
+                        fn (Appointment $a, Appointment $b) => ($a->isCalled() ? 0 : 1) <=> ($b->isCalled() ? 0 : 1),
+                        fn (Appointment $a, Appointment $b) => $this->waitedMinutes($b) <=> $this->waitedMinutes($a),
+                    ])
+                    ->first();
+
+                if (! $next) {
+                    return null;
+                }
+
+                $lastDone = $theirs
+                    ->where('consultation_status', Appointment::CONSULT_COMPLETED)
+                    ->max('completed_at');
+
+                return [
+                    'doctor_id' => (int) $next->doctor_id,
+                    'doctor_name' => $next->doctor?->name,
+
+                    'finished_at' => $lastDone?->toIso8601String(),
+
+                    'next' => [
+                        'id' => $next->id,
+                        'token_no' => $next->token_no,
+                        'customer_name' => $next->customer?->name,
+                        'queue_status' => $next->queue_status,
+                        'waiting_minutes' => $this->waitedMinutes($next),
+                    ],
+
+                    'waiting' => $theirs->where('queue_status', Appointment::QUEUE_WAITING)->count(),
+                ];
+            })
+            ->filter()
+            ->sortByDesc('finished_at')
+            ->values()
+            ->all();
+    }
+
+    /**
      * Every doctor with somebody on their list today, and what they are doing.
      *
      * Built from the day's appointments rather than from the roster: a doctor
@@ -491,7 +680,10 @@ class OpdBoard
 
                 $withPatient = $theirs->firstWhere('status', Appointment::STATUS_IN_CONSULTATION);
                 $waiting = $theirs->where('status', Appointment::STATUS_CHECKED_IN);
-                $done = $theirs->where('status', Appointment::STATUS_COMPLETED);
+
+                // Their own output, not visits that happen to have closed —
+                // a patient still at the pharmacy was seen by this doctor.
+                $done = $theirs->where('consultation_status', Appointment::CONSULT_COMPLETED);
 
                 return [
                     'id' => (int) $doctorId,
