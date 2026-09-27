@@ -12,7 +12,7 @@ import {
     useUpdatePrescription,
     useVisitPrescription,
 } from '../api';
-import { blankLine, registerFlush, SLOTS, suggestQuantity, toDraft, toPayload } from '../lines';
+import { blankLine, quantityFormula, registerFlush, SLOTS, suggestQuantity, toDraft, toPayload } from '../lines';
 import {
     AVAILABILITY_LABELS,
     DURATION_LABELS,
@@ -27,11 +27,28 @@ import {
     type Prescription,
 } from '../types';
 
-const SLOT_NAMES: Record<(typeof SLOTS)[number], string> = {
-    morning: 'Morning',
-    afternoon: 'Afternoon',
-    evening: 'Evening',
-    night: 'Night',
+/**
+ * The units a dose actually comes in — a click, not a typo waiting to
+ * happen. `base_unit` has no fixed list in the catalogue (an org can name
+ * its own), so whatever a picked medicine already carries is always added
+ * to this list too, rather than trusted to already be on it.
+ */
+const UNIT_OPTIONS = [
+    'tablet', 'capsule', 'ml', 'mg', 'drop', 'tube', 'sachet',
+    'vial', 'injection', 'application', 'puff', 'strip', 'spoon',
+];
+
+/** What a named frequency means in practice — read under the picker. */
+const FREQUENCY_HINTS: Record<Frequency, string> = {
+    od: 'Once, in the morning',
+    bd: 'Morning and night',
+    tds: 'Morning, afternoon and night',
+    qid: 'Four times through the day',
+    hs: 'At night, before bed',
+    sos: 'Only when needed',
+    stat: 'Right away, just once',
+    weekly: 'The same day each week',
+    custom: 'As directed, in person',
 };
 
 /** The fields a line's errors can name, other than which medicine it is. */
@@ -176,7 +193,12 @@ function MedicinePicker({
     if (line.medicine_id) {
         return (
             <div className="rx-chosen">
-                <span title={line.medicine_name}>{line.medicine_name}</span>
+                <i className="rx-chosen-ico ti ti-pill" aria-hidden="true" />
+
+                <span title={line.medicine_name}>
+                    <b>{line.medicine_name}</b>
+                    {line.category && <small>{line.category}</small>}
+                </span>
                 <button
                     type="button"
                     aria-label="Choose a different medicine"
@@ -313,9 +335,46 @@ function LineEditor({
     const set = (patch: Partial<LineDraft>) => onChange({ ...line, ...patch });
     const number = (value: string) => (value === '' ? null : Number(value));
 
+    /** Folded down to the header once a line is settled — see the toggle below. */
+    const [collapsed, setCollapsed] = useState(false);
+
+    /*
+     * A device or a consumable — a syringe, a glove — has no dose, no
+     * frequency, nothing to take with food. Asking for them anyway is what
+     * "the dose and duration do not say" was actually about: the form was
+     * asking a syringe how many times a day it should be taken. Unlisted
+     * lines (typed by hand, `item_kind` null) are treated as a medicine —
+     * that is what "not in the catalogue yet" almost always means.
+     */
+    const isDosed = line.item_kind === null || line.item_kind === 'medicine';
+
     const suggestion = line.medicine_id ? suggestQuantity(line) : null;
+    const autoQuantity = line.prescribed_quantity === null && suggestion !== null;
+    const formula = autoQuantity ? quantityFormula(line) : null;
+
+    // "20 tablets", not just "20" — a bare count is one more thing to
+    // remember while reading a form back.
+    const effectiveQty = line.prescribed_quantity ?? suggestion;
+    const qtyUnit = (() => {
+        const unit = (line.dose_unit.trim() || line.base_unit || '').replace(/s$/, '');
+
+        if (!unit) return '';
+
+        return effectiveQty === 1 ? unit : `${unit}s`;
+    })();
     const which = error('medicine_id') ?? error('medicine_name');
     const how = LINE_FIELDS.map(error).find(Boolean);
+
+    // The picked medicine's own unit first, in case it is not on the list —
+    // this must never disappear from the dropdown just because it is unusual.
+    const currentUnit = line.dose_unit.trim() || line.base_unit || '';
+    const unitOptions = currentUnit && !UNIT_OPTIONS.includes(currentUnit)
+        ? [currentUnit, ...UNIT_OPTIONS]
+        : UNIT_OPTIONS;
+
+    // A line the server just refused is never the one to collapse — the
+    // reason has to stay on screen next to the field it is about.
+    const effectiveCollapsed = collapsed && !which && !how;
 
     return (
         <li className="rx-line">
@@ -328,13 +387,19 @@ function LineEditor({
                         set({
                             medicine_id: medicine.id,
                             medicine_name: medicine.display_name,
+                            category: medicine.category,
+                            item_kind: medicine.item_kind,
                             base_unit: medicine.base_unit,
                             dose_unit: line.dose_unit || medicine.base_unit,
                             dose_amount: line.dose_amount ?? 1,
                         })
                     }
-                    onType={(name) => set({ medicine_id: null, medicine_name: name, base_unit: null })}
-                    onClear={() => set({ medicine_id: null, medicine_name: '', base_unit: null })}
+                    onType={(name) =>
+                        set({ medicine_id: null, medicine_name: name, category: null, item_kind: null, base_unit: null })
+                    }
+                    onClear={() =>
+                        set({ medicine_id: null, medicine_name: '', category: null, item_kind: null, base_unit: null })
+                    }
                 />
 
                 {line.medicine_id ? (
@@ -348,142 +413,172 @@ function LineEditor({
                 <button type="button" className="cn-drop" aria-label="Remove this medicine" onClick={onRemove}>
                     <i className="ti ti-trash" aria-hidden="true" />
                 </button>
+
+                {/*
+                    Once a line is filled in there is nothing left to check
+                    on it, and a prescription of six medicines is six open
+                    forms competing for the same screen. Collapsing one says
+                    "done with this" without losing it — the header alone
+                    still names the medicine, the dose and the stock.
+                */}
+                <button
+                    type="button"
+                    className="rx-collapse"
+                    aria-label={effectiveCollapsed ? 'Show this line' : 'Collapse this line'}
+                    aria-expanded={!effectiveCollapsed}
+                    onClick={() => setCollapsed((was) => !was)}
+                >
+                    <i
+                        className={effectiveCollapsed ? 'ti ti-chevron-down' : 'ti ti-chevron-up'}
+                        aria-hidden="true"
+                    />
+                </button>
             </div>
 
             {which && <p className="rx-err">{which}</p>}
 
-            <div className="rx-how">
-                <label className="rx-f is-num">
-                    <span>Dose</span>
-                    <input
-                        type="number"
-                        min={0}
-                        step="any"
-                        className="form-control"
-                        placeholder="1"
-                        value={line.dose_amount ?? ''}
-                        onChange={(event) => set({ dose_amount: number(event.target.value) })}
-                    />
-                </label>
-
-                <label className="rx-f is-unit">
-                    <span>Unit</span>
-                    <input
-                        type="text"
-                        className="form-control"
-                        placeholder={line.base_unit ?? 'tablet'}
-                        value={line.dose_unit}
-                        onChange={(event) => set({ dose_unit: event.target.value })}
-                    />
-                </label>
-
-                <div className="rx-f">
-                    <span>M – A – E – N</span>
-                    <div className="rx-pattern">
-                        {SLOTS.map((slot) => (
+            {!effectiveCollapsed && isDosed && (
+                <div className="rx-how">
+                    <div className="rx-f is-dose">
+                        <span>Dose</span>
+                        <div className="rx-dose">
                             <input
-                                key={slot}
                                 type="number"
                                 min={0}
                                 step="any"
                                 className="form-control"
-                                placeholder="0"
-                                aria-label={SLOT_NAMES[slot]}
-                                title={SLOT_NAMES[slot]}
-                                value={line[slot] ?? ''}
-                                onChange={(event) =>
-                                    set({ [slot]: number(event.target.value) } as Partial<LineDraft>)
-                                }
+                                placeholder="1"
+                                aria-label="How much"
+                                value={line.dose_amount ?? ''}
+                                onChange={(event) => set({ dose_amount: number(event.target.value) })}
                             />
-                        ))}
+                            <input
+                                type="text"
+                                className="form-control"
+                                placeholder={line.base_unit ?? 'tablet'}
+                                aria-label="Unit"
+                                value={line.dose_unit}
+                                onChange={(event) => set({ dose_unit: event.target.value })}
+                            />
+                        </div>
                     </div>
-                </div>
 
-                <label className="rx-f">
-                    <span>Or how often</span>
-                    <select
-                        className="form-select"
-                        value={line.frequency}
-                        onChange={(event) => set({ frequency: event.target.value as Frequency | '' })}
-                    >
-                        <option value="">From the pattern</option>
-                        {(Object.keys(FREQUENCY_LABELS) as Frequency[]).map((key) => (
-                            <option key={key} value={key}>
-                                {FREQUENCY_LABELS[key]}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-
-                <label className="rx-f">
-                    <span>Food</span>
-                    <select
-                        className="form-select"
-                        value={line.food_timing}
-                        onChange={(event) => set({ food_timing: event.target.value as FoodTiming | '' })}
-                    >
-                        <option value="">Not said</option>
-                        {(Object.keys(FOOD_LABELS) as FoodTiming[]).map((key) => (
-                            <option key={key} value={key}>
-                                {FOOD_LABELS[key]}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-
-                <div className="rx-f">
-                    <span>For</span>
-                    <div className="rx-pattern">
-                        <input
-                            type="number"
-                            min={1}
-                            className="form-control rx-days"
-                            aria-label="How long"
-                            disabled={line.duration_unit === 'continuous'}
-                            value={line.duration_unit === 'continuous' ? '' : (line.duration ?? '')}
-                            onChange={(event) => set({ duration: number(event.target.value) })}
-                        />
+                    <label className="rx-f is-wide">
+                        <span>
+                            <i className="ti ti-clock" aria-hidden="true" />
+                            Frequency
+                        </span>
                         <select
                             className="form-select"
-                            aria-label="Days, weeks or months"
-                            value={line.duration_unit}
-                            onChange={(event) => set({ duration_unit: event.target.value as DurationUnit })}
+                            value={line.frequency}
+                            onChange={(event) =>
+                                set({ frequency: event.target.value as Frequency | '' })
+                            }
                         >
-                            {(Object.keys(DURATION_LABELS) as DurationUnit[]).map((key) => (
+                            <option value="">Choose…</option>
+                            {(Object.keys(FREQUENCY_LABELS) as Frequency[]).map((key) => (
                                 <option key={key} value={key}>
-                                    {DURATION_LABELS[key]}
+                                    {FREQUENCY_LABELS[key]}
                                 </option>
                             ))}
                         </select>
+                        {line.frequency && <small className="rx-hint">{FREQUENCY_HINTS[line.frequency]}</small>}
+                    </label>
+
+                    <label className="rx-f">
+                        <span>
+                            <i className="ti ti-tools-kitchen-2" aria-hidden="true" />
+                            Food
+                        </span>
+                        <select
+                            className="form-select"
+                            value={line.food_timing}
+                            onChange={(event) =>
+                                set({ food_timing: event.target.value as FoodTiming | '' })
+                            }
+                        >
+                            <option value="">Not said</option>
+                            {(Object.keys(FOOD_LABELS) as FoodTiming[]).map((key) => (
+                                <option key={key} value={key}>
+                                    {FOOD_LABELS[key]}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <div className="rx-f">
+                        <span>Duration</span>
+                        <div className="rx-pattern">
+                            <i className="ti ti-calendar rx-pattern-ico" aria-hidden="true" />
+                            <input
+                                type="number"
+                                min={1}
+                                className="form-control rx-days"
+                                aria-label="How long"
+                                disabled={line.duration_unit === 'continuous'}
+                                value={line.duration_unit === 'continuous' ? '' : (line.duration ?? '')}
+                                onChange={(event) => set({ duration: number(event.target.value) })}
+                            />
+                            <select
+                                className="form-select"
+                                aria-label="Days, weeks or months"
+                                value={line.duration_unit}
+                                onChange={(event) =>
+                                    set({ duration_unit: event.target.value as DurationUnit })
+                                }
+                            >
+                                {(Object.keys(DURATION_LABELS) as DurationUnit[]).map((key) => (
+                                    <option key={key} value={key}>
+                                        {DURATION_LABELS[key]}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
+            )}
 
-                <label
-                    className="rx-f is-num"
-                    title="Worked out from the dose, how often and for how long. Type a number to change it."
-                >
-                    <span>Qty</span>
-                    <input
-                        type="number"
-                        min={1}
-                        className="form-control"
-                        placeholder={suggestion !== null ? String(suggestion) : line.medicine_id ? '?' : '—'}
-                        value={line.prescribed_quantity ?? ''}
-                        onChange={(event) => set({ prescribed_quantity: number(event.target.value) })}
-                    />
-                </label>
+            {!effectiveCollapsed && (
+                <div className="rx-how">
+                    <label
+                        className="rx-f"
+                        title="Worked out from the dose, how often and for how long. Type a number to change it."
+                    >
+                        <span>Quantity</span>
+                        <div className="rx-qty-field">
+                            <input
+                                type="number"
+                                min={1}
+                                className="form-control"
+                                placeholder={suggestion !== null ? String(suggestion) : line.medicine_id ? '?' : '—'}
+                                value={line.prescribed_quantity ?? ''}
+                                onChange={(event) => set({ prescribed_quantity: number(event.target.value) })}
+                            />
+                            {effectiveQty !== null && qtyUnit && (
+                                <span className="rx-qty-unit">{qtyUnit}</span>
+                            )}
+                        </div>
+                        {autoQuantity && (
+                            <small className="rx-auto">
+                                <i className="ti ti-circle-check" aria-hidden="true" />
+                                Auto calculated
+                                {formula && <em>{formula}</em>}
+                            </small>
+                        )}
+                    </label>
 
-                <label className="rx-f is-wide">
-                    <span>Instructions</span>
-                    <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Anything the patient should know"
-                        value={line.instructions}
-                        onChange={(event) => set({ instructions: event.target.value })}
-                    />
-                </label>
-            </div>
+                    <label className="rx-f is-wide">
+                        <span>Instructions (optional)</span>
+                        <input
+                            type="text"
+                            className="form-control"
+                            placeholder="e.g. Take after meals, avoid driving etc."
+                            value={line.instructions}
+                            onChange={(event) => set({ instructions: event.target.value })}
+                        />
+                    </label>
+                </div>
+            )}
 
             {how && <p className="rx-err">{how}</p>}
         </li>

@@ -137,7 +137,7 @@ export default function TenantLoginPage() {
                                 autoFocus
                                 {...register('email', { required: 'Email address is required.' })}
                             />
-                            <label htmlFor="email">Email address</label>
+                            <label htmlFor="email">Login ID / email address</label>
                         </div>
 
                         {errors.email && <small className="hx-err">{errors.email.message}</small>}

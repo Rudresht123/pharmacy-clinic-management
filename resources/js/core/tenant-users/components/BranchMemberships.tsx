@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Button } from '@/shared/components/ui/Button';
 import { Card } from '@/shared/components/ui/Card';
-import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
+import { FormModal } from '@/shared/components/ui/FormModal';
+import { SearchableSelect, type SelectOption } from '@/shared/components/form/SearchableSelect';
 import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
+import { useConfirm } from '@/shared/hooks/useConfirm';
 import { locationsHooks } from '@/core/locations/api';
 import { rolesHooks, useSaveUserBranches } from '@/core/roles/api';
 
@@ -13,20 +15,26 @@ interface Row {
     is_primary: boolean;
 }
 
+/** Which modal is open, and — for editing — which branch it is about. */
+type ModalState = { mode: 'add' } | { mode: 'edit'; locationId: number } | null;
+
 /**
- * Where somebody works, and what they hold at each place.
+ * What somebody does at each branch they work at.
  *
- * The single Branch and Role selects this replaces could describe one
- * placement. A doctor sitting at three clinics could not be entered at all,
- * a transfer overwrote where somebody had always worked, and "receptionist at
- * Lucknow, manager at Delhi" had nowhere to live.
+ * Deliberately not the same screen as the role they hold across the whole
+ * organization (see the Organization Role card on the person's own form) —
+ * a role there and a responsibility here answer two different questions,
+ * and a person can have either without the other. A card per branch, so
+ * "receptionist at Lucknow, manager at Delhi" reads as two separate facts
+ * rather than two rows of one table.
  *
- * One row is still the common case and looks like one row, not a table with a
- * single entry in it.
+ * Every add, edit and remove sends the WHOLE set in one write — the same
+ * `PUT /branches` the row-table version of this screen always used — so a
+ * card here is a view onto one row of that set, not a resource with an id
+ * of its own to save piecemeal.
  *
- * Saved separately from the rest of the form, because it is a different
- * permission: `people.assign_branch` is organization-scoped, so a branch
- * manager who may edit this person may not move them.
+ * Saved as its own permission: `people.assign_branch` is organization-scoped,
+ * so a branch manager who may edit this person may not move them.
  */
 export function BranchMemberships({
     userId,
@@ -41,217 +49,314 @@ export function BranchMemberships({
     const { data: branches } = locationsHooks.useList({ all: 1 });
     const { data: roles } = rolesHooks.useList();
     const save = useSaveUserBranches(userId);
+    const confirm = useConfirm();
 
-    const [rows, setRows] = useState<Row[]>(initial);
-    const [errors, setErrors] = useState<Record<string, string>>({});
-    const [dirty, setDirty] = useState(false);
+    const rows: Row[] = initial;
 
-    useEffect(() => {
-        setRows(initial);
-        setDirty(false);
-    }, [initial]);
+    const [modal, setModal] = useState<ModalState>(null);
+    const [modalBranch, setModalBranch] = useState<number | ''>('');
+    const [modalRole, setModalRole] = useState<number | ''>('');
+    const [modalError, setModalError] = useState<string | null>(null);
+    const [modalBusy, setModalBusy] = useState(false);
+    const [rowBusy, setRowBusy] = useState<number | null>(null);
 
-    /* Only branch-scoped roles can be held at a branch — an organization role
-       applies everywhere and lives on the person, not the membership. */
-    const branchRoles = (roles ?? []).filter((role) => role.scope !== 'organization');
+    const branchName = (locationId: number) =>
+        (branches ?? []).find((branch) => branch.id === locationId)?.name ?? 'Unknown branch';
+
+    const roleName = (roleId: number | null) =>
+        roleId ? (roles ?? []).find((role) => role.id === roleId)?.name ?? null : null;
 
     const unused = (branches ?? []).filter(
         (branch) => !rows.some((row) => row.location_id === branch.id),
     );
 
-    function patch(index: number, changes: Partial<Row>) {
-        setDirty(true);
-        setRows((current) =>
-            current.map((row, position) => (position === index ? { ...row, ...changes } : row)),
-        );
+    /*
+     * Only branch-scoped roles apply here — an organization role sits on the
+     * person, not the membership. Ownership decides how each one reads:
+     * written by the organization (`location_id` null) it is offered at
+     * every branch as "Shared role"; written by one branch it is offered
+     * only there, labelled with that branch's own name. `SearchableSelect`
+     * has no notion of a grouped list, so the hint line is what tells the
+     * two apart — shared roles sort first so the common case is on top.
+     */
+    function roleOptions(locationId: number | ''): SelectOption[] {
+        if (!locationId) return [];
+
+        return (roles ?? [])
+            .filter((role) => role.scope === 'branch' && (role.location_id === null || role.location_id === locationId))
+            .sort(
+                (a, b) =>
+                    Number(a.location_id !== null) - Number(b.location_id !== null) ||
+                    a.name.localeCompare(b.name),
+            )
+            .map((role) => ({
+                value: String(role.id),
+                label: role.name,
+                hint: role.location_id === null ? 'Shared role' : `${role.location ?? 'This branch'} role`,
+            }));
     }
 
-    function add() {
-        if (unused.length === 0) {
+    function openAdd() {
+        setModalBranch('');
+        setModalRole('');
+        setModalError(null);
+        setModal({ mode: 'add' });
+    }
+
+    function openEdit(row: Row) {
+        setModalBranch(row.location_id);
+        setModalRole(row.role_id ?? '');
+        setModalError(null);
+        setModal({ mode: 'edit', locationId: row.location_id });
+    }
+
+    function closeModal() {
+        if (modalBusy) return;
+        setModal(null);
+    }
+
+    /** Read off a thrown validation error what to show beside the field that caused it. */
+    function firstValidationMessage(error: unknown): string {
+        const validation = getValidationErrors(error);
+
+        if (validation) {
+            const first = Object.values(validation)[0]?.[0];
+
+            if (first) return first;
+        }
+
+        return resolveErrorMessage(error);
+    }
+
+    async function submitModal(event: FormEvent) {
+        event.preventDefault();
+
+        if (!modal) return;
+
+        if (!modalBranch) {
+            setModalError('Choose a branch.');
+
             return;
         }
 
-        setDirty(true);
-        setRows((current) => [
-            ...current,
-            {
-                location_id: unused[0].id,
-                role_id: null,
-                // The first one added is where their workspace opens.
-                is_primary: current.length === 0,
-            },
-        ]);
-    }
+        const next: Row[] =
+            modal.mode === 'edit'
+                ? rows.map((row) =>
+                      row.location_id === modal.locationId
+                          ? { ...row, role_id: modalRole ? Number(modalRole) : null }
+                          : row,
+                  )
+                : [
+                      ...rows,
+                      {
+                          location_id: Number(modalBranch),
+                          role_id: modalRole ? Number(modalRole) : null,
+                          // The first branch somebody is given is where their workspace opens.
+                          is_primary: rows.length === 0,
+                      },
+                  ];
 
-    function remove(index: number) {
-        setDirty(true);
-        setRows((current) => current.filter((_, position) => position !== index));
-    }
-
-    /** Exactly one, so the server's rule and the screen cannot disagree. */
-    function makePrimary(index: number) {
-        setDirty(true);
-        setRows((current) =>
-            current.map((row, position) => ({ ...row, is_primary: position === index })),
-        );
-    }
-
-    async function onSave() {
-        setErrors({});
+        setModalError(null);
+        setModalBusy(true);
 
         try {
-            await save.mutateAsync(rows);
-            setDirty(false);
+            await save.mutateAsync(next);
+            setModal(null);
         } catch (error) {
-            const validation = getValidationErrors(error);
-
-            if (validation) {
-                setErrors(
-                    Object.fromEntries(
-                        Object.entries(validation).map(([key, value]) => [key, value[0]]),
-                    ),
-                );
-
-                return;
-            }
-
-            notify.error(resolveErrorMessage(error));
+            setModalError(firstValidationMessage(error));
+        } finally {
+            setModalBusy(false);
         }
     }
 
+    async function removeBranch(row: Row) {
+        const ok = await confirm({
+            title: `Remove ${branchName(row.location_id)}?`,
+            message:
+                'They lose access to this branch and whatever responsibility they held there. This does not touch their organization role.',
+            confirmLabel: 'Remove',
+            danger: true,
+        });
+
+        if (!ok) return;
+
+        setRowBusy(row.location_id);
+
+        try {
+            await save.mutateAsync(rows.filter((r) => r.location_id !== row.location_id));
+        } catch (error) {
+            notify.error(resolveErrorMessage(error));
+        } finally {
+            setRowBusy(null);
+        }
+    }
+
+    async function makePrimary(row: Row) {
+        if (row.is_primary) return;
+
+        setRowBusy(row.location_id);
+
+        try {
+            await save.mutateAsync(
+                rows.map((r) => ({ ...r, is_primary: r.location_id === row.location_id })),
+            );
+        } catch (error) {
+            notify.error(resolveErrorMessage(error));
+        } finally {
+            setRowBusy(null);
+        }
+    }
+
+    const editingRow = modal?.mode === 'edit' ? rows.find((row) => row.location_id === modal.locationId) : undefined;
+    const modalTitle = modal?.mode === 'edit' ? `Edit role at ${branchName(modal.locationId)}` : 'Add Branch Access';
+
     return (
-        <Card
-            title="Branches"
-            icon="ti ti-map-pin"
-            description="Where they work, and what they may do at each place."
-            actions={
-                canAssign && (
-                    <Button
-                        variant={dirty ? undefined : 'light'}
-                        icon="ti ti-device-floppy"
-                        loading={save.isPending}
-                        disabled={!dirty}
-                        onClick={onSave}
-                    >
-                        {dirty ? 'Save branches' : 'Saved'}
-                    </Button>
-                )
-            }
-        >
-            {rows.length === 0 ? (
-                <p className="db-quiet">
-                    <i className="ti ti-building" />
-                    Not at any branch — they work for the organization itself, and their role
-                    applies across the network.
-                </p>
-            ) : (
-                <ul className="bm-rows">
-                    {rows.map((row, index) => (
-                        <li key={`${row.location_id}-${index}`}>
-                            <label className="bm-cell">
-                                <span>Branch</span>
-                                <SearchableSelect
-                                    invalid={Boolean(errors[`branches.${index}.location_id`])}
-                                    disabled={!canAssign}
-                                    ariaLabel="Branch"
-                                    value={String(row.location_id)}
-                                    onChange={(next) =>
-                                        patch(index, { location_id: Number(next) })
-                                    }
-                                    /*
-                                        Branches already spoken for are left
-                                        out rather than shown greyed: a row
-                                        nobody can pick is noise in a list you
-                                        are searching, and somebody may hold
-                                        one membership per branch.
-                                    */
-                                    options={(branches ?? [])
-                                        .filter(
-                                            (branch) =>
-                                                branch.id === row.location_id ||
-                                                !rows.some(
-                                                    (other, position) =>
-                                                        position !== index &&
-                                                        other.location_id === branch.id,
-                                                ),
-                                        )
-                                        .map((branch) => ({
-                                            value: String(branch.id),
-                                            label: branch.name,
-                                        }))}
-                                />
-                            </label>
+        <>
+            <Card
+                title="Branch Access"
+                icon="ti ti-map-pin"
+                description="What they do at each branch they work at."
+                actions={
+                    canAssign &&
+                    unused.length > 0 && (
+                        <Button size="sm" icon="ti ti-plus" onClick={openAdd}>
+                            Add Branch
+                        </Button>
+                    )
+                }
+            >
+                {rows.length === 0 ? (
+                    <p className="db-quiet">
+                        <i className="ti ti-building" />
+                        Not at any branch — they work for the organization itself, and their
+                        organization role (if they have one) applies across the network.
+                    </p>
+                ) : (
+                    <ul className="ba-list">
+                        {rows.map((row) => (
+                            <li className="ba-card" key={row.location_id}>
+                                <span className="ba-card-icon" aria-hidden="true">
+                                    <i className="ti ti-building-store" />
+                                </span>
 
-                            <label className="bm-cell">
-                                <span>Role here</span>
-                                <SearchableSelect
-                                    invalid={Boolean(errors[`branches.${index}.role_id`])}
-                                    disabled={!canAssign}
-                                    ariaLabel="Role at this branch"
-                                    value={row.role_id == null ? '' : String(row.role_id)}
-                                    placeholder="Nothing yet"
-                                    clearable
-                                    onChange={(next) =>
-                                        patch(index, { role_id: next ? Number(next) : null })
-                                    }
-                                    options={branchRoles.map((role) => ({
-                                        value: String(role.id),
-                                        label: role.name,
-                                    }))}
-                                />
-                            </label>
+                                <span className="ba-card-body">
+                                    <b>
+                                        {branchName(row.location_id)}
+                                        {row.is_primary && (
+                                            <span className="ba-primary">
+                                                <i className="ti ti-star-filled" aria-hidden="true" />
+                                                Primary
+                                            </span>
+                                        )}
+                                    </b>
+                                    <span className="ba-role">
+                                        {roleName(row.role_id) ?? 'No responsibility set yet'}
+                                    </span>
+                                </span>
 
-                            <button
-                                type="button"
-                                className={`bm-primary${row.is_primary ? ' is-on' : ''}`}
-                                title="The branch their workspace opens on"
-                                disabled={!canAssign}
-                                onClick={() => makePrimary(index)}
-                            >
-                                <i
-                                    className={
-                                        row.is_primary ? 'ti ti-star-filled' : 'ti ti-star'
-                                    }
-                                />
-                                {row.is_primary ? 'Opens here' : 'Set as default'}
-                            </button>
+                                {canAssign && (
+                                    <span className="ba-card-acts">
+                                        {!row.is_primary && (
+                                            <button
+                                                type="button"
+                                                className="ba-mini"
+                                                disabled={rowBusy === row.location_id}
+                                                onClick={() => void makePrimary(row)}
+                                                title="Make this their default branch"
+                                            >
+                                                <i className="ti ti-star" aria-hidden="true" />
+                                                Make primary
+                                            </button>
+                                        )}
 
-                            {canAssign && (
-                                <button
-                                    type="button"
-                                    className="bm-remove"
-                                    aria-label="Remove this branch"
-                                    onClick={() => remove(index)}
-                                >
-                                    <i className="ti ti-x" />
-                                </button>
-                            )}
+                                        <Button variant="light" size="sm" onClick={() => openEdit(row)}>
+                                            Edit Role
+                                        </Button>
 
-                            {(errors[`branches.${index}.location_id`] ||
-                                errors[`branches.${index}.role_id`] ||
-                                errors[`branches.${index}.is_primary`]) && (
-                                <em className="bm-error">
-                                    {errors[`branches.${index}.location_id`] ??
-                                        errors[`branches.${index}.role_id`] ??
-                                        errors[`branches.${index}.is_primary`]}
-                                </em>
-                            )}
-                        </li>
-                    ))}
-                </ul>
-            )}
+                                        <Button
+                                            variant="light"
+                                            size="sm"
+                                            loading={rowBusy === row.location_id}
+                                            onClick={() => void removeBranch(row)}
+                                        >
+                                            Remove
+                                        </Button>
+                                    </span>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                )}
 
-            {canAssign && (
-                <button
-                    type="button"
-                    className="bm-add"
-                    disabled={unused.length === 0}
-                    onClick={add}
-                >
-                    <i className="ti ti-plus" />
-                    {unused.length === 0 ? 'They are at every branch' : 'Add a branch'}
-                </button>
-            )}
-        </Card>
+                {canAssign && rows.length > 0 && unused.length === 0 && (
+                    <p className="form-hint mb-0 mt-2">They already have access at every branch.</p>
+                )}
+            </Card>
+
+            <FormModal
+                open={modal !== null}
+                onClose={closeModal}
+                title={modalTitle}
+                size="sm"
+                icon={<i className="ti ti-map-pin" />}
+                onSubmit={submitModal}
+                submitting={modalBusy}
+                submitLabel={modal?.mode === 'edit' ? 'Save' : 'Add Branch'}
+            >
+                {modalError && <p className="invalid-feedback d-block mb-3">{modalError}</p>}
+
+                <div className="form-group">
+                    <label className="form-label" htmlFor="ba-branch">
+                        Branch
+                    </label>
+
+                    {modal?.mode === 'edit' ? (
+                        // The branch itself is not editable here — moving somebody
+                        // is Remove, then Add Branch again, so it is never
+                        // ambiguous which membership just changed.
+                        <input
+                            id="ba-branch"
+                            className="form-control"
+                            value={editingRow ? branchName(editingRow.location_id) : ''}
+                            disabled
+                            readOnly
+                        />
+                    ) : (
+                        <SearchableSelect
+                            id="ba-branch"
+                            value={modalBranch === '' ? '' : String(modalBranch)}
+                            onChange={(next) => {
+                                setModalBranch(next ? Number(next) : '');
+                                // A role valid at the old branch may not be at the new one.
+                                setModalRole('');
+                            }}
+                            placeholder="Select branch…"
+                            options={unused.map((branch) => ({
+                                value: String(branch.id),
+                                label: branch.name,
+                            }))}
+                        />
+                    )}
+                </div>
+
+                <div className="form-group mb-0">
+                    <label className="form-label" htmlFor="ba-role">
+                        Responsibility
+                    </label>
+
+                    <SearchableSelect
+                        id="ba-role"
+                        value={modalRole === '' ? '' : String(modalRole)}
+                        onChange={(next) => setModalRole(next ? Number(next) : '')}
+                        disabled={!modalBranch}
+                        clearable
+                        placeholder={modalBranch ? 'Nothing yet' : 'Choose a branch first'}
+                        options={roleOptions(modalBranch)}
+                    />
+
+                    <p className="form-hint">Choose what this person does at this branch.</p>
+                </div>
+            </FormModal>
+        </>
     );
 }

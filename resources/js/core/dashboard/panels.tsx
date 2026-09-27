@@ -101,6 +101,37 @@ function More({ to, children }: { to: string; children: React.ReactNode }) {
     );
 }
 
+/**
+ * A card with nothing real in it yet.
+ *
+ * Every chart-card is stretched to match its row's tallest sibling and its
+ * body centres what it holds (see .card.chart-card in custom.css) — so this
+ * only has to look right at its own size, not fill the space itself. Tone
+ * matches the same headline colour the panel's own figure wears, so an
+ * empty card still reads as "the patients one" or "the branches one".
+ */
+export function Quiet({
+    icon,
+    tone,
+    title,
+    description,
+}: {
+    icon: string;
+    tone: string;
+    title: string;
+    description: string;
+}) {
+    return (
+        <div className="db-quiet" data-tone={tone}>
+            <span className="db-quiet-art" aria-hidden="true">
+                <i className={icon} />
+            </span>
+            <b>{title}</b>
+            <p>{description}</p>
+        </div>
+    );
+}
+
 /* -------------------------------------------------------------------------- */
 
 export function Headline({ cards }: { cards: HeadlineCard[] }) {
@@ -161,10 +192,12 @@ function AppointmentsOverview({ appointments }: { appointments: AppointmentsPane
             actions={<More to="/queue">Open the queue</More>}
         >
             {nothing ? (
-                <p className="db-quiet">
-                    <i className="ti ti-calendar" />
-                    No appointments this month or last. The chart fills in as bookings are taken.
-                </p>
+                <Quiet
+                    icon="ti ti-calendar-stats"
+                    tone="sky"
+                    title="No appointments yet"
+                    description="This month's chart fills in as bookings are taken."
+                />
             ) : (
                 <AreaChart
                     points={appointments.trend.current}
@@ -185,43 +218,65 @@ function PatientsByBranch({ patients, label }: { patients: PatientsPanel; label:
             icon="ti ti-chart-donut"
             description="Distribution across the network"
         >
-            <div className="db-donut">
-                <DonutChart
-                    slices={patients.by_branch.map((row) => ({
-                        label: row.label,
-                        value: row.total,
-                        muted: row.muted,
-                    }))}
-                    centreLabel={label}
+            {patients.by_branch.length === 0 ? (
+                <Quiet
+                    icon="ti ti-chart-donut"
+                    tone="violet"
+                    title={`No ${label.toLowerCase()} yet`}
+                    description={`This chart fills in once ${label.toLowerCase()} are registered against a branch.`}
                 />
-            </div>
+            ) : (
+                <div className="db-donut">
+                    <DonutChart
+                        slices={patients.by_branch.map((row) => ({
+                            label: row.label,
+                            value: row.total,
+                            muted: row.muted,
+                        }))}
+                        centreLabel={label}
+                    />
+                </div>
+            )}
         </Card>
     );
 }
 
 /** The network at a glance, with the one fact that has a deadline. */
-function Branches({ branches, label }: { branches: BranchesPanel; label: string }) {
+function Branches({
+    branches,
+    label,
+    patientsLabel,
+}: {
+    branches: BranchesPanel;
+    label: string;
+    patientsLabel: string;
+}) {
     return (
         <Card
             className="chart-card"
             title={label}
             icon="ti ti-building-store"
+            description={
+                branches.total > 0 ? `${branches.active} of ${branches.total} active` : 'Where your organisation operates'
+            }
             actions={<More to="/locations">View all</More>}
         >
             {branches.rows.length === 0 ? (
-                <p className="db-quiet">
-                    <i className="ti ti-building-store" />
-                    No branches yet. Add one to start recording where things happen.
-                </p>
+                <Quiet
+                    icon="ti ti-building-store"
+                    tone="violet"
+                    title="No branches yet"
+                    description="Add one to start recording where things happen."
+                />
             ) : (
                 <div className="db-scroll">
                     <table className="db-table">
                         <thead>
                             <tr>
-                                <th>Branch</th>
-                                <th>Location</th>
+                                <th>Name</th>
+                                <th>City</th>
                                 <th className="is-num">Staff</th>
-                                <th className="is-num">{label === 'Branches' ? 'Patients' : label}</th>
+                                <th className="is-num">{patientsLabel}</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -282,12 +337,21 @@ function Upcoming({ appointments }: { appointments: AppointmentsPanel }) {
             actions={<More to="/queue">View all</More>}
         >
             {appointments.upcoming.length === 0 ? (
-                <p className="db-quiet">
-                    <i className="ti ti-circle-check" />
-                    {appointments.waiting + appointments.seen > 0
-                        ? 'Everybody booked today has arrived.'
-                        : 'Nothing booked for today.'}
-                </p>
+                appointments.waiting + appointments.seen > 0 ? (
+                    <Quiet
+                        icon="ti ti-circle-check"
+                        tone="emerald"
+                        title="All caught up"
+                        description="Everybody booked today has arrived."
+                    />
+                ) : (
+                    <Quiet
+                        icon="ti ti-clock-hour-4"
+                        tone="sky"
+                        title="Nothing booked yet"
+                        description="Today's bookings will appear here as they come in."
+                    />
+                )
             ) : (
                 <div className="db-scroll">
                     <table className="db-table">
@@ -321,11 +385,9 @@ function Upcoming({ appointments }: { appointments: AppointmentsPanel }) {
 }
 
 /**
- * Departments — a module with no table, model or routes yet.
- *
- * Present only while demo data is on, which is why it is optional like every
- * other panel: when the module ships it arrives from DashboardSummary instead
- * and nothing here changes.
+ * Departments, top level only — a glance at the shape of the organisation.
+ * The full tree, with sub-departments and the tools to edit either, lives on
+ * its own screen; this card links there rather than repeating it.
  */
 function Departments({ departments }: { departments: Department[] }) {
     return (
@@ -334,33 +396,42 @@ function Departments({ departments }: { departments: Department[] }) {
             title="Departments"
             icon="ti ti-layout-grid"
             description="How the work is organised"
+            actions={<More to="/departments">Manage</More>}
         >
-            <div className="db-scroll">
-                <table className="db-table">
-                    <thead>
-                        <tr>
-                            <th>Department</th>
-                            <th>Head</th>
-                            <th className="is-num">Staff</th>
-                            <th className="is-num">Patients</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {departments.map((department) => (
-                            <tr key={department.id}>
-                                <td>{department.name}</td>
-                                <td className="is-muted">{department.head}</td>
-                                <td className="is-num">{department.staff}</td>
-                                <td className="is-num">
-                                    {department.patients > 0
-                                        ? department.patients.toLocaleString()
-                                        : '—'}
-                                </td>
+            {departments.length === 0 ? (
+                <Quiet
+                    icon="ti ti-layout-grid"
+                    tone="indigo"
+                    title="No departments yet"
+                    description="Add departments to group your doctors and staff."
+                />
+            ) : (
+                <div className="db-scroll">
+                    <table className="db-table">
+                        <thead>
+                            <tr>
+                                <th>Department</th>
+                                <th className="is-num">Sub-departments</th>
+                                <th className="is-num">Doctors</th>
+                                <th className="is-num">Staff</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            {departments.map((department) => (
+                                <tr key={department.id}>
+                                    <td>
+                                        {department.name}
+                                        {department.code && <span className="is-muted"> · {department.code}</span>}
+                                    </td>
+                                    <td className="is-num">{department.children_count}</td>
+                                    <td className="is-num">{department.doctors_count}</td>
+                                    <td className="is-num">{department.staff_count}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </Card>
     );
 }
@@ -501,10 +572,12 @@ function Activity({ entries }: { entries: ActivityEntry[] }) {
             actions={<More to="/activity">View all</More>}
         >
             {entries.length === 0 ? (
-                <p className="db-quiet">
-                    <i className="ti ti-history" />
-                    Nothing recorded yet.
-                </p>
+                <Quiet
+                    icon="ti ti-history"
+                    tone="muted"
+                    title="Nothing recorded yet"
+                    description="Changes will show up here as they happen."
+                />
             ) : (
                 <ul className="db-activity">
                     {entries.map((entry) => (
@@ -565,7 +638,7 @@ export function dashboardPanels(labels: Record<string, string>): PanelDefinition
             column: 'main',
             span: 5,
             render: (summary) =>
-                summary.patients && summary.patients.by_branch.length > 0 ? (
+                summary.patients ? (
                     <PatientsByBranch patients={summary.patients} label={patients} />
                 ) : null,
         },
@@ -575,7 +648,7 @@ export function dashboardPanels(labels: Record<string, string>): PanelDefinition
             span: 6,
             render: (summary) =>
                 summary.branches ? (
-                    <Branches branches={summary.branches} label={branches} />
+                    <Branches branches={summary.branches} label={branches} patientsLabel={patients} />
                 ) : null,
         },
         {
@@ -590,13 +663,21 @@ export function dashboardPanels(labels: Record<string, string>): PanelDefinition
             column: 'main',
             span: 12,
             render: (summary) =>
-                summary.departments?.length ? (
-                    <Departments departments={summary.departments} />
-                ) : null,
+                summary.departments ? <Departments departments={summary.departments} /> : null,
         },
         {
+            /*
+             * `main`, not `full`. A full-bleed row sits below the WHOLE
+             * .db-layout grid, so its start is gated on the taller of the
+             * two columns finishing — on a quiet organization whose rail
+             * outgrows its main column, that left a gap the height of
+             * nothing hanging under this card. Main's own flow doesn't
+             * have that problem: this row starts the moment the row above
+             * it (Departments) ends, full stop.
+             */
             key: 'insights',
-            column: 'full',
+            column: 'main',
+            span: 12,
             render: (summary) =>
                 summary.insights ? <Insights insights={summary.insights} /> : null,
         },

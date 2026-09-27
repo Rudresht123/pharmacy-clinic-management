@@ -26,6 +26,16 @@ class PrescriptionItemResource extends JsonResource
             'strength' => $this->strength_snapshot,
             'dosage_form' => $this->dosage_form_snapshot,
             'base_unit' => $this->whenLoaded('medicine', fn () => $this->medicine?->base_unit),
+            'category' => $this->whenLoaded('medicine', fn () => $this->medicine?->category),
+
+            /*
+             * Not a medicine — a device or a consumable — has no dose, no
+             * frequency and no food timing, so the editor asks only how many
+             * and what to note. Null for a line typed by hand: the catalogue
+             * was never consulted, and treating it as a medicine is the safe
+             * default for what "not listed yet" almost always is.
+             */
+            'item_kind' => $this->whenLoaded('medicine', fn () => $this->medicine?->item_kind),
 
             'dose_amount' => $number($this->dose_amount),
             'dose_unit' => $this->dose_unit,

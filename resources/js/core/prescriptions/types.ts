@@ -38,6 +38,8 @@ export interface PrescriptionItem {
     strength: string | null;
     dosage_form: string | null;
     base_unit?: string | null;
+    category?: string | null;
+    item_kind?: 'medicine' | 'consumable' | 'device' | 'other' | null;
     dose_amount: number | null;
     dose_unit: string | null;
     morning: number | null;
@@ -116,6 +118,16 @@ export interface LineDraft {
     medicine_id: number | null;
     /** The catalogue name when chosen, the doctor's own words when unlisted. */
     medicine_name: string;
+    /** The catalogue's own grouping — "Antiemetic", say — shown under the name. */
+    category: string | null;
+    /**
+     * What kind of thing this is. A dose, a frequency and food timing are
+     * questions about a MEDICINE; a syringe or a glove has none of them, so
+     * the editor asks only how many and what to note. Null for a line typed
+     * by hand rather than picked from the catalogue, which is treated as a
+     * medicine — that is what "not in it yet" almost always means.
+     */
+    item_kind: 'medicine' | 'consumable' | 'device' | 'other' | null;
     base_unit: string | null;
     dose_amount: number | null;
     dose_unit: string;

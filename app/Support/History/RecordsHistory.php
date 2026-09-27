@@ -40,6 +40,7 @@ trait RecordsHistory
     private const NEVER_LOG = [
         'password',
         'password_confirmation',
+        'owner_password_hash',
         'remember_token',
         'api_token',
         'two_factor_secret',

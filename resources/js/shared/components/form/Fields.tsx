@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
-import { useController, type Control, type FieldErrors, type FieldValues, type Path, type UseFormRegister } from 'react-hook-form';
+import {
+    useController,
+    type Control,
+    type FieldErrors,
+    type FieldValues,
+    type Path,
+    type RegisterOptions,
+    type UseFormRegister,
+} from 'react-hook-form';
 import { SearchableSelect } from './SearchableSelect';
 import { PreviewableImage } from '@/shared/components/ui/PreviewableImage';
 import { formatBytes } from '@/shared/utils/format';
@@ -21,6 +29,7 @@ interface BaseFieldProps<T extends FieldValues> {
     register: UseFormRegister<T>;
     errors: FieldErrors<T>;
     required?: boolean;
+    rules?: RegisterOptions<T, Path<T>>;
     hint?: string;
     className?: string;
 }
@@ -66,6 +75,7 @@ export function TextField<T extends FieldValues>({
     register,
     errors,
     required,
+    rules,
     hint,
     className,
     type = 'text',
@@ -96,7 +106,7 @@ export function TextField<T extends FieldValues>({
                 autoFocus={autoFocus}
                 autoComplete={autoComplete}
                 className={cn('form-control', error && 'is-invalid')}
-                {...register(name)}
+                {...register(name, rules)}
             />
         </FieldShell>
     );

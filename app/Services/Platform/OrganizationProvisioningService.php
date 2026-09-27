@@ -3,6 +3,7 @@
 namespace App\Services\Platform;
 
 use App\Models\Platform\Organization;
+use App\Models\Tenant\User as TenantUser;
 use App\Repositories\Platform\Contracts\DbClusterRepositoryInterface;
 use App\Repositories\Platform\Contracts\OrganizationRepositoryInterface;
 use App\Repositories\Platform\Contracts\TenantDatabaseRepositoryInterface;
@@ -16,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
@@ -25,7 +27,8 @@ use Illuminate\Support\Str;
  *   2. insert the organization   (master database)
  *   3. create the tenant database
  *   4. migrate the tenant database
- *   5. email the setup link
+ *   5. create the owner's tenant account
+ *   6. email the owner a sign-in link (or a setup link for legacy callers)
  *
  * Steps 3-5 are tracked one row at a time in `tenant_provision_events`. A
  * step already marked `completed` there is skipped on the next attempt, so
@@ -52,17 +55,27 @@ class OrganizationProvisioningService
      */
     public function provision(array $data, ?UploadedFile $logo = null): Organization
     {
+        $password = $data['password'] ?? null;
+        unset($data['password'], $data['password_confirmation']);
+
+        if (is_string($password) && $password !== '') {
+            // Keep only a one-way hash in the master database while the tenant
+            // is being provisioned, so a failed attempt can still be retried.
+            $data['owner_password_hash'] = Hash::make($password);
+        } else {
+            // Older API clients still use the original emailed setup flow.
+            $data['setup_token'] = Str::random(64);
+            $data['setup_token_expires_at'] = now()->addDays(
+                config('organization.setup_token_ttl_days', 7)
+            );
+        }
+
         $uploadedFileId = null;
 
         if ($logo) {
             $uploadedFileId = uploadFile($logo, 'organizations');
             $data['profile_image'] = $uploadedFileId;
         }
-
-        $data['setup_token'] = Str::random(64);
-        $data['setup_token_expires_at'] = now()->addDays(
-            config('organization.setup_token_ttl_days', 7)
-        );
 
         // §5: a new organization starts pending and is moved along by the
         // steps below, so its status always reflects how far it got.
@@ -157,15 +170,20 @@ class OrganizationProvisioningService
 
             $this->runStep(
                 $organization,
+                'create_owner_account',
+                fn () => $this->createOwnerAccount($organization),
+            );
+
+            $this->runStep(
+                $organization,
                 'send_setup_email',
                 fn () => $this->sendSetupEmail($organization),
             );
 
             /*
              * Provisioned and reachable — §7 ends here with the organization
-             * active, even though the owner has not chosen a password yet.
-             * That happens when they follow the emailed link, which flips
-             * is_setup_completed rather than the status.
+             * active and its owner able to sign in using the credentials
+             * entered during creation.
              */
             $organization = $this->organizations->changeStatus(
                 $organization,
@@ -276,12 +294,81 @@ class OrganizationProvisioningService
     }
 
     /**
+     * Create the owner account in the tenant and consume the temporary hash.
+     *
+     * An existing owner is accepted so a retry can finish the master-database
+     * update if the tenant insert succeeded immediately before a failure.
+     */
+    private function createOwnerAccount(Organization $organization): void
+    {
+        $this->tenants->run($organization->database_name, function () use ($organization): void {
+            $user = TenantUser::query()->where('email', $organization->email)->first();
+
+            if (! $user) {
+                if (! $organization->owner_password_hash) {
+                    // Organizations created before direct credentials were
+                    // added still use their original emailed setup link.
+                    if ($organization->setup_token && ! $organization->is_setup_completed) {
+                        return;
+                    }
+
+                    throw new \RuntimeException('The owner password is unavailable for account creation.');
+                }
+
+                $user = TenantUser::query()->create([
+                    'name' => $organization->contact_person_name ?: $organization->organization_name,
+                    'email' => $organization->email,
+                    'password' => $organization->owner_password_hash,
+                    'is_active' => true,
+                    'role' => TenantUser::OWNER,
+                ]);
+            }
+
+            if ($user->role !== TenantUser::OWNER) {
+                throw new \RuntimeException('The organization login ID is already assigned to a non-owner account.');
+            }
+
+            $organization->forceFill([
+                'owner_password_hash' => null,
+                'is_setup_completed' => true,
+                'setup_completed_at' => now(),
+                'setup_token' => null,
+                'setup_token_expires_at' => null,
+            ])->save();
+        });
+    }
+
+    /**
      * @throws \RuntimeException if the email genuinely fails to send — a
      *                           missing/inactive template should be a retryable provisioning
-     *                           failure, not a silently skipped invite.
+     *                           failure, not a silently skipped notification.
      */
     private function sendSetupEmail(Organization $organization): void
     {
+        if ($organization->is_setup_completed) {
+            $domain = config('organization.main_domain');
+            $loginUrl = $domain
+                ? request()->getScheme().'://'.$organization->subdomain.'.'.$domain.'/login'
+                : url('/login');
+
+            $sent = EmailService::send(
+                'organization_setup_completed',
+                $organization->email,
+                [
+                    'user_name' => $organization->contact_person_name ?: $organization->organization_name,
+                    'email' => $organization->email,
+                    'organization_name' => $organization->organization_name,
+                    'login_button' => emailButton($loginUrl, 'Login To Your Account'),
+                ],
+            );
+
+            if (! $sent) {
+                throw new \RuntimeException('Failed to send the organization account-ready email.');
+            }
+
+            return;
+        }
+
         $setupUrl = url("/organization/setup/{$organization->setup_token}");
 
         $sent = EmailService::send(

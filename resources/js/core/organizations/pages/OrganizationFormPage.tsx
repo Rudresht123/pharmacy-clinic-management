@@ -33,6 +33,8 @@ const EMPTY: OrganizationFormValues = {
     legal_name: '',
     gstin: '',
     drug_license_no: '',
+    password: '',
+    password_confirmation: '',
 };
 
 export default function OrganizationFormPage() {
@@ -65,6 +67,7 @@ export default function OrganizationFormPage() {
         control,
         handleSubmit,
         reset,
+        getValues,
         submit,
         formState: { errors, isSubmitting },
     } = useApiForm<OrganizationFormValues>({ defaultValues: EMPTY });
@@ -85,15 +88,18 @@ export default function OrganizationFormPage() {
                 legal_name: organization.legal_name ?? '',
                 gstin: organization.gstin ?? '',
                 drug_license_no: organization.drug_license_no ?? '',
+                password: '',
+                password_confirmation: '',
             });
         }
     }, [organization, reset]);
 
     const onSubmit = handleSubmit(async (values) => {
-        const { profile_image, ...rest } = values;
+        const { profile_image, password, password_confirmation, ...rest } = values;
 
         const payload = toFormData({
             ...rest,
+            ...(!isEdit ? { password, password_confirmation } : {}),
             profile_image: profile_image?.[0],
         });
 
@@ -216,7 +222,7 @@ export default function OrganizationFormPage() {
 
                             <TextField
                                 name="email"
-                                label="Email Address"
+                                label="Login ID / Email Address"
                                 type="email"
                                 required
                                 register={register}
@@ -225,7 +231,7 @@ export default function OrganizationFormPage() {
                                 hint={
                                     isEdit
                                         ? undefined
-                                        : 'The account setup link is sent to this address.'
+                                        : 'This email address is the login ID for the organization.'
                                 }
                             />
 
@@ -238,6 +244,41 @@ export default function OrganizationFormPage() {
                                 placeholder="Shop 14, MG Road, Bengaluru 560001"
                             />
                         </Card>
+
+                        {!isEdit && (
+                            <Card
+                                title="Owner Login"
+                                icon="ti ti-lock"
+                                description="Set the password the organization owner will use to sign in."
+                            >
+                                <TextField
+                                    name="password"
+                                    label="Password"
+                                    type="password"
+                                    required
+                                    rules={{ required: 'Password is required.' }}
+                                    autoComplete="new-password"
+                                    register={register}
+                                    errors={errors}
+                                    hint="At least 8 characters, including upper and lower case, a number and a symbol."
+                                />
+
+                                <TextField
+                                    name="password_confirmation"
+                                    label="Confirm Password"
+                                    type="password"
+                                    required
+                                    rules={{
+                                        required: 'Please confirm the password.',
+                                        validate: (value) =>
+                                            value === getValues('password') || 'The passwords do not match.',
+                                    }}
+                                    autoComplete="new-password"
+                                    register={register}
+                                    errors={errors}
+                                />
+                            </Card>
+                        )}
 
                         {/* §5: nullable at creation, required before the
                             organization is allowed to go live. */}
@@ -349,7 +390,7 @@ export default function OrganizationFormPage() {
                         ) : (
                             <>
                                 <i className="ti ti-info-circle me-1" />
-                                Creating provisions a tenant database and emails the setup link.
+                                Creating provisions the workspace and owner login. Sign in with the email and password above.
                             </>
                         )}
                     </span>

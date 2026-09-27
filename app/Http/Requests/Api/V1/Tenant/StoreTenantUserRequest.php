@@ -9,6 +9,7 @@ use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
+use App\Services\Tenancy\TenantBranchAccess;
 use App\Support\Fields\UserFields;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -137,7 +138,35 @@ class StoreTenantUserRequest extends FormRequest
             }
 
             $this->validateRoleGrant($validator);
+            $this->validateBranchReach($validator);
         });
+    }
+
+    /**
+     * A branch the assigner does not themselves work at.
+     *
+     * The same rule `SaveUserBranchesRequest` already applies once somebody
+     * exists — without it here too, `people.create` could post a brand new
+     * hire straight into a branch the creator has nothing to do with, which
+     * is exactly what naming a branch on THIS screen is meant to prevent
+     * having to fix up afterwards.
+     */
+    private function validateBranchReach(Validator $validator): void
+    {
+        $locationId = $this->input('location_id');
+
+        if (! $locationId) {
+            return;
+        }
+
+        $actor = Auth::guard('web')->user();
+
+        if ($actor && ! app(TenantBranchAccess::class)->canUse($actor, (int) $locationId)) {
+            $validator->errors()->add(
+                'location_id',
+                'You cannot post somebody to a branch you do not work at.'
+            );
+        }
     }
 
     /**

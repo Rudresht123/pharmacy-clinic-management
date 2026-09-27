@@ -6,6 +6,7 @@ use App\Models\Platform\Organization;
 use App\Support\Platform\OrganizationCode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class StoreOrganizationRequest extends FormRequest
 {
@@ -38,6 +39,13 @@ class StoreOrganizationRequest extends FormRequest
 
             'contact_person_name' => ['nullable', 'string', 'max:191'],
             'email' => ['required', 'email', 'max:191'],
+            'password' => [
+                'sometimes',
+                'required',
+                'string',
+                'confirmed',
+                Password::min(8)->mixedCase()->numbers()->symbols(),
+            ],
             'phone_number' => ['nullable', 'digits_between:10,15'],
             'address' => ['nullable', 'string', 'max:1000'],
             'profile_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
@@ -58,7 +66,9 @@ class StoreOrganizationRequest extends FormRequest
             'subdomain.required' => 'Please enter a subdomain.',
             'subdomain.alpha_dash' => 'The subdomain may only contain letters, numbers, dashes and underscores.',
             'subdomain.unique' => 'This subdomain is already assigned to another organization.',
-            'email.required' => 'An email address is required to send the setup link.',
+            'email.required' => 'An email address is required for the organization login ID.',
+            'password.required' => 'An owner account password is required.',
+            'password.confirmed' => 'The password confirmation does not match.',
             'phone_number.digits_between' => 'The phone number must be between 10 and 15 digits.',
             'profile_image.max' => 'The organization logo may not exceed 2 MB.',
         ];

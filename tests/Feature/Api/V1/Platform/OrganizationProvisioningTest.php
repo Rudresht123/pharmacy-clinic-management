@@ -62,6 +62,8 @@ class OrganizationProvisioningTest extends TestCase
             'organization_type_id' => $type->id,
             'subdomain' => 'provision-test-'.$unique,
             'email' => "owner-{$unique}@example.com",
+            'password' => 'OwnerPass1!',
+            'password_confirmation' => 'OwnerPass1!',
         ];
     }
 
@@ -79,6 +81,11 @@ class OrganizationProvisioningTest extends TestCase
 
         (new TenantConnectionService)->connect($organization->database_name);
         $this->assertTrue(Schema::connection('organization')->hasTable('users'));
+        $owner = \App\Models\Tenant\User::query()->where('email', $organization->email)->sole();
+        $this->assertSame(\App\Models\Tenant\User::OWNER, $owner->role);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('OwnerPass1!', $owner->password));
+        $this->assertTrue($organization->is_setup_completed);
+        $this->assertNull($organization->owner_password_hash);
 
         $tenantDatabase = $organization->tenantDatabase;
         $this->assertNotNull($tenantDatabase);
@@ -100,14 +107,35 @@ class OrganizationProvisioningTest extends TestCase
          * migration cannot read.
          */
         $this->assertSame(
-            ['create_database', 'migrate_tenant', 'seed_default_roles', 'send_setup_email'],
+            ['create_database', 'create_owner_account', 'migrate_tenant', 'seed_default_roles', 'send_setup_email'],
             $completedSteps,
         );
+
+        $this->postJson("http://{$organization->subdomain}.hms.local/api/v1/tenant/auth/login", [
+            'email' => $organization->email,
+            'password' => 'OwnerPass1!',
+        ])->assertOk()
+            ->assertJsonPath('data.user.role', \App\Models\Tenant\User::OWNER);
+    }
+
+    public function test_creation_rejects_a_weak_owner_password(): void
+    {
+        $payload = array_merge($this->validPayload(), [
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ]);
+
+        $this->actingAsAdmin()
+            ->postJson('/api/v1/admin/organizations', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('password');
+
+        $this->assertDatabaseCount('organizations', 0);
     }
 
     public function test_a_failed_step_leaves_the_organization_and_database_intact_for_retry(): void
     {
-        EmailTemplate::where('template_key', 'organization_setup')->update(['is_active' => false]);
+        EmailTemplate::where('template_key', 'organization_setup_completed')->update(['is_active' => false]);
 
         $this->actingAsAdmin()
             ->postJson('/api/v1/admin/organizations', $this->validPayload())
@@ -142,7 +170,7 @@ class OrganizationProvisioningTest extends TestCase
 
     public function test_retrying_resumes_instead_of_restarting(): void
     {
-        EmailTemplate::where('template_key', 'organization_setup')->update(['is_active' => false]);
+        EmailTemplate::where('template_key', 'organization_setup_completed')->update(['is_active' => false]);
 
         $client = $this->actingAsAdmin();
 
@@ -152,7 +180,7 @@ class OrganizationProvisioningTest extends TestCase
         $organization = Organization::sole();
         $this->createdDatabases[] = $organization->database_name;
 
-        EmailTemplate::where('template_key', 'organization_setup')->update(['is_active' => true]);
+        EmailTemplate::where('template_key', 'organization_setup_completed')->update(['is_active' => true]);
 
         $client->postJson("/api/v1/admin/organizations/{$organization->uuid}/retry-provisioning")
             ->assertOk()

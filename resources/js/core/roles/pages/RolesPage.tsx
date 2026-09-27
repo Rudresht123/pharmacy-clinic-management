@@ -8,6 +8,8 @@ import { notify } from '@/shared/utils/notify';
 import { useConfigurableEntities } from '@/core/field-settings/api';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { tenantNavigation } from '@/app/tenant-navigation';
+import { locationsHooks } from '@/core/locations/api';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import {
     rolesHooks,
     useBranchRolePermissions,
@@ -420,16 +422,52 @@ export default function RolesPage() {
     const saving = create.isPending || update.isPending;
     const editing = selected !== null;
 
+    const isOwner = user?.role === 'owner';
+
+    /*
+     * A role written by the organization but assignable per branch — "Branch
+     * manager", "Receptionist" and the like. Editing it outright changes what
+     * every branch's holders may do; customising it is the alternative that
+     * touches one branch alone.
+     */
+    const branchScoped = Boolean(current) && current?.location_id === null
+        && (current?.is_customisable_by_branch ?? false);
+
+    /*
+     * Which branch a BRANCH MANAGER is customising for — always their own,
+     * the one the header switcher already says they are working at.
+     *
+     * The owner has no such branch: the header switcher hides itself for
+     * them (they work across the network, not at one counter), so they pick
+     * one explicitly below instead of it being implied by where they are.
+     */
+    const { data: branchList } = locationsHooks.useList({ all: 1 });
+    const [ownerBranch, setOwnerBranch] = useState<number | ''>('');
+
+    // A role picked on the previous screen must not leave a branch silently
+    // selected on this one — that would customise the WRONG role the moment
+    // somebody chose a new one without noticing the picker was still set.
+    useEffect(() => {
+        setOwnerBranch('');
+    }, [current?.id]);
+
+    const effectiveBranch = isOwner ? (ownerBranch || null) : activeBranch;
+
     /*
      * Whether this person may change THIS role, rather than roles in general.
      *
-     * The owner may change any. Anybody else may change only their own
-     * branch's: an organization role is shared by every branch, so editing one
-     * here would quietly change what a receptionist may do everywhere — which
-     * is the whole reason a branch writes its own instead.
+     * The owner may change any — but while they have picked a branch to
+     * customise below, that picker is what they mean to edit, not the
+     * organization's own copy, so writing here is turned off exactly as it
+     * would be for a branch manager doing the same thing.
+     *
+     * Anybody else may change only their own branch's: an organization role
+     * is shared by every branch, so editing one here would quietly change
+     * what a receptionist may do everywhere — which is the whole reason a
+     * branch writes its own instead.
      */
-    const isOwner = user?.role === 'owner';
-    const canWrite = !current || isOwner || current.location_id !== null;
+    const canWrite =
+        !current || (isOwner ? effectiveBranch === null : false) || current.location_id !== null;
 
     /*
      * Whether the lock column means anything here.
@@ -440,7 +478,7 @@ export default function RolesPage() {
      * role written here is organization-wide and branch-assigned, which is
      * exactly the kind that does.
      */
-    const canLock = isOwner && (current?.is_customisable_by_branch ?? true);
+    const canLock = isOwner && effectiveBranch === null && (current?.is_customisable_by_branch ?? true);
 
     /*
      * The other way to change what a role means here.
@@ -451,15 +489,19 @@ export default function RolesPage() {
      * branch", which is how a chain ends up with five Receptionists that drift
      * apart; the copy is still offered, for when a branch genuinely wants a
      * different job rather than a narrower version of the same one.
+     *
+     * The owner reaches the same screen by picking a branch below, rather
+     * than by being refused the direct edit — they are never refused
+     * anything, they are choosing to act on one branch instead of all of them.
      */
-    const branchCustomising = !canWrite && (current?.is_customisable_by_branch ?? false);
+    const branchCustomising = branchScoped && effectiveBranch !== null;
 
     const { data: branchPermissions } = useBranchRolePermissions(
-        branchCustomising ? activeBranch : undefined,
+        branchCustomising ? effectiveBranch : undefined,
         branchCustomising ? current?.id : undefined,
     );
 
-    const saveBranch = useSaveBranchRolePermissions(activeBranch, current?.id);
+    const saveBranch = useSaveBranchRolePermissions(effectiveBranch, current?.id);
 
     /*
      * What this role actually grants HERE: the organization's set, minus what
@@ -563,10 +605,18 @@ export default function RolesPage() {
                     branch it is the difference between a role they may change
                     and one they may only copy, and reading that off the list
                     is faster than clicking each to find out.
+
+                    "Shared", not "Organization": this says who WROTE the
+                    role, not where it may be ASSIGNED (that's `role.scope`,
+                    shown nowhere in this list). "Branch manager" is written
+                    by the organization — offered at every branch as a
+                    starting point — but is itself branch-scoped; labelling
+                    that "Organization" read as a contradiction of the role's
+                    own name.
                 */}
                 {!isOwner && (
                     <span className={`rp-owner${role.location_id === null ? ' is-shared' : ''}`}>
-                        {role.location_id === null ? 'Organization' : (role.location ?? 'Branch')}
+                        {role.location_id === null ? 'Shared' : (role.location ?? 'Branch')}
                     </span>
                 )}
 
@@ -853,7 +903,7 @@ export default function RolesPage() {
                                                                 does not allow that one to be
                                                                 changed here.
                                                             </>
-                                                        ) : (
+                                        ) : (
                                                             <>
                                                                 This role belongs to the whole
                                                                 organization, so changing it here
@@ -863,6 +913,36 @@ export default function RolesPage() {
                                                             </>
                                                         )}
                                                     </p>
+                                                )}
+
+                                                {/*
+                                                    The owner's way into the same per-branch
+                                                    screen a branch manager gets automatically.
+                                                    Without this an owner could only ever edit
+                                                    the organization's own copy — there was no
+                                                    button that meant "just at Gorakhpur".
+                                                */}
+                                                {isOwner && branchScoped && (
+                                                    <label className="rp-field rp-branch-pick">
+                                                        <span>Editing</span>
+                                                        <SearchableSelect
+                                                            value={ownerBranch === '' ? '' : String(ownerBranch)}
+                                                            onChange={(next) =>
+                                                                setOwnerBranch(next ? Number(next) : '')
+                                                            }
+                                                            clearable
+                                                            placeholder="The whole organisation"
+                                                            options={(branchList ?? []).map((branch) => ({
+                                                                value: String(branch.id),
+                                                                label: branch.name,
+                                                            }))}
+                                                        />
+                                                        <small className="form-hint">
+                                                            {branchCustomising
+                                                                ? 'Changes here apply only at this branch — every other branch keeps the organisation’s own copy.'
+                                                                : 'Leave this on "the whole organisation" to change what every branch inherits, or pick one branch to switch a permission off there alone.'}
+                                                        </small>
+                                                    </label>
                                                 )}
                                             </>
                                         )}

@@ -316,6 +316,39 @@ export default function MyQueuePage() {
                                                         : 'Completed'}
                                                 </span>
                                             )}
+
+                                            {/*
+                                                Still in the waiting room —
+                                                booked or checked in, but the
+                                                desk has not called them
+                                                through, so there is nothing
+                                                to start yet. Shown disabled
+                                                rather than left blank: an
+                                                empty cell next to rows that
+                                                DO have a button reads as
+                                                broken, and a doctor should
+                                                not have to guess whether the
+                                                row loaded correctly.
+                                            */}
+                                            {!row.available?.consult_start &&
+                                                !row.available?.consult_complete &&
+                                                row.consultation_status !== 'completed' &&
+                                                (row.status === 'checked_in' ||
+                                                    row.status === 'booked') &&
+                                                can('appointments.consult_start') && (
+                                                    <button
+                                                        type="button"
+                                                        className="md-call"
+                                                        disabled
+                                                        title={
+                                                            row.status === 'booked'
+                                                                ? 'Not checked in yet'
+                                                                : 'Waiting for the desk to call them through'
+                                                        }
+                                                    >
+                                                        Start consultation
+                                                    </button>
+                                                )}
                                         </td>
                                     </tr>
                                 ))}

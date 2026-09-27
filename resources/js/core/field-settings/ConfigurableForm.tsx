@@ -35,6 +35,15 @@ interface ConfigurableFormProps<T extends FieldValues> {
     getValues?: UseFormGetValues<T>;
     /** Extra content appended inside a particular group's card. */
     extras?: Record<string, ReactNode>;
+    /**
+     * Field keys to leave out of the generic render entirely.
+     *
+     * For a field the schema still owns (so the field-settings screen and
+     * the server both keep working from it) but whose copy a particular
+     * screen needs full control over — a label or hint the flat schema has
+     * no room for. The caller renders it itself, typically through `extras`.
+     */
+    exclude?: string[];
 }
 
 /**
@@ -57,8 +66,10 @@ export function ConfigurableForm<T extends FieldValues>({
     setValue,
     getValues,
     extras,
+    exclude,
 }: ConfigurableFormProps<T>) {
-    const visible = (fields ?? []).filter((field) => field.show_in_form);
+    const skip = new Set(exclude ?? []);
+    const visible = (fields ?? []).filter((field) => field.show_in_form && !skip.has(field.key));
 
     // Which fields are on this form, so a lookup fills only those.
     const visibleKeys = new Set(visible.map((field) => field.key));

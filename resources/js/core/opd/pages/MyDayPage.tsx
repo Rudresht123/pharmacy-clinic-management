@@ -358,6 +358,39 @@ export default function MyDayPage() {
                                                                 Reopen
                                                             </button>
                                                         )}
+
+                                                    {/*
+                                                        Still in the waiting
+                                                        room — booked or
+                                                        checked in, but not yet
+                                                        called through, so
+                                                        there is nothing to
+                                                        start. Shown disabled
+                                                        rather than left blank:
+                                                        an empty cell next to
+                                                        rows that DO have a
+                                                        button reads as broken.
+                                                    */}
+                                                    {!row.available?.consult_start &&
+                                                        !row.available?.consult_complete &&
+                                                        !row.available?.consult_reopen &&
+                                                        row.consultation_status !== 'completed' &&
+                                                        (row.status === 'checked_in' ||
+                                                            row.status === 'booked') &&
+                                                        can('appointments.consult_start') && (
+                                                            <button
+                                                                type="button"
+                                                                className="md-call"
+                                                                disabled
+                                                                title={
+                                                                    row.status === 'booked'
+                                                                        ? 'Not checked in yet'
+                                                                        : 'Waiting for the desk to call them through'
+                                                                }
+                                                            >
+                                                                Start consultation
+                                                            </button>
+                                                        )}
                                                 </td>
                                             </tr>
                                         ))}
@@ -366,60 +399,9 @@ export default function MyDayPage() {
                             </div>
                         )}
                     </Card>
-
-                    <CurrentPatient
-                        current={data.current}
-                        nextCalled={
-                            data.queue.find((row) => row.queue_status === 'called') ?? null
-                        }
-                        advancing={move.isPending}
-                        onDone={(id) => move.mutate({ id, action: 'complete' })}
-                    />
                 </div>
 
                 <aside className="md-side">
-                    <Card
-                        title={
-                            <span className="opd-card-title">
-                                My schedule today
-                            </span>
-                        }
-                        actions={
-                            <Link className="md-viewall" to="/my-schedule">
-                                View full schedule
-                            </Link>
-                        }
-                    >
-                        {data.schedule.length === 0 ? (
-                            <p className="md-quiet">No sitting here today.</p>
-                        ) : (
-                            <ul className="md-sched">
-                                {data.schedule.map((session, index) => (
-                                    <li key={index} className={`is-${session.state}`}>
-                                        <i aria-hidden="true" />
-
-                                        <span>
-                                            <b>
-                                                {spoken(session.starts_at)} –{' '}
-                                                {spoken(session.ends_at)}
-                                            </b>
-                                            <small>
-                                                {session.name ?? 'OPD'}
-                                                {session.location_name
-                                                    ? ` · ${session.location_name}`
-                                                    : ''}
-                                            </small>
-                                        </span>
-
-                                        {session.state === 'now' && (
-                                            <em className="md-now">Ongoing</em>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </Card>
-
                     <Card
                         title={
                             <span className="opd-card-title">
@@ -455,34 +437,25 @@ export default function MyDayPage() {
                             </ul>
                         )}
                     </Card>
-
-                    <Card
-                        title={
-                            <span className="opd-card-title">
-                                Quick actions
-                            </span>
-                        }
-                    >
-                        <div className="md-quick">
-                            {(
-                                [
-                                    ['/customers/create', 'ti ti-user-plus', 'New patient', 'blue'],
-                                    ['/customers', 'ti ti-users', 'View patients', 'violet'],
-                                    ['/my-queue', 'ti ti-list-numbers', 'My queue', 'green'],
-                                    ['/my-schedule', 'ti ti-clock-hour-4', 'My schedule', 'amber'],
-                                    ['/opd/queue', 'ti ti-clipboard-list', 'Department queue', 'blue'],
-                                    ['/availability', 'ti ti-calendar-time', 'Availability', 'violet'],
-                                ] as const
-                            ).map(([to, icon, label, tone]) => (
-                                <Link className={`md-quick-one is-${tone}`} to={to} key={to}>
-                                    <i className={icon} aria-hidden="true" />
-                                    {label}
-                                </Link>
-                            ))}
-                        </div>
-                    </Card>
                 </aside>
             </div>
+
+            {/*
+                Full width, below the queue and the rail rather than beside
+                either of them. Writing up a visit is the actual work of the
+                day, not a sidebar to it, and squeezed into the main column's
+                share of the split it left the clinical panel narrower than
+                the queue table sitting above it for no reason.
+            */}
+            <CurrentPatient
+                current={data.current}
+                nextCalled={data.queue.find((row) => row.queue_status === 'called') ?? null}
+                advancing={move.isPending}
+                onDone={(id) => move.mutate({ id, action: 'complete' })}
+                onFinish={async (id) => {
+                    await move.mutateAsync({ id, action: 'complete', silent: true });
+                }}
+            />
         </>
     );
 }
@@ -501,6 +474,7 @@ function CurrentPatient({
     nextCalled,
     advancing,
     onDone,
+    onFinish,
 }: {
     current: MyDay['current'];
     /**
@@ -512,7 +486,17 @@ function CurrentPatient({
      */
     nextCalled: MyRow | null;
     advancing: boolean;
+    /**
+     * The header's "End consultation" — abandoning without writing up is a
+     * real, deliberate act, so it stays fire-and-forget with a toast.
+     */
     onDone: (id: number) => void;
+    /**
+     * The write-up form's own "Complete consultation" — awaited, so a
+     * refusal can be shown beside the fields it is about instead of in a
+     * toast the form itself would then repeat.
+     */
+    onFinish: (id: number) => Promise<void>;
 }) {
     /*
      * Which tab, held here rather than in the panel.
@@ -608,7 +592,7 @@ function CurrentPatient({
                         history={current.history}
                         suggestions={current.suggestions}
                         completing={advancing}
-                        onComplete={() => onDone(current.id)}
+                        onComplete={() => onFinish(current.id)}
                         tab={tab}
                         onTab={setTab}
                     />

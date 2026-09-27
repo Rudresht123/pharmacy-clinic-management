@@ -158,18 +158,17 @@ export interface Insight {
 }
 
 /**
- * A department — a module with no table, model or routes yet.
- *
- * Present only under demo mode, which is why the panel is optional like every
- * other: when the module ships it arrives from DashboardSummary instead and
- * nothing on this side changes.
+ * A department, top level only — the dashboard's glance at the shape of the
+ * organisation, not the tree the Departments screen itself shows. A
+ * sub-department's doctors and staff already count toward its parent here.
  */
 export interface Department {
     id: number;
     name: string;
-    head: string;
-    staff: number;
-    patients: number;
+    code: string | null;
+    doctors_count: number;
+    staff_count: number;
+    children_count: number;
 }
 
 export interface PlanPanel {

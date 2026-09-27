@@ -59,8 +59,14 @@ class UserFields
                 'options' => self::roleOptions(),
             ],
             [
+                /*
+                 * Their default branch, not where they may work — that is
+                 * Branch Access, held separately as memberships. A person
+                 * with no branch works for the organization itself (head
+                 * office), which is why this stays optional.
+                 */
                 'key' => 'location_id',
-                'label' => 'Branch',
+                'label' => 'Primary Branch',
                 'type' => 'select',
                 'group' => self::GROUP_ACCESS,
                 'required' => false,

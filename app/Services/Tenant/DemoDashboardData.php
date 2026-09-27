@@ -8,9 +8,11 @@ use Illuminate\Support\Carbon;
  * The dashboard, filled in with sample figures.
  *
  * EVERY NUMBER IN THIS FILE IS INVENTED. It exists so the whole screen can be
- * seen and judged before the modules behind it ship — billing, departments,
- * reports and an HR record of leavers do not exist, and the panels that need
- * them would otherwise be empty boxes nobody could evaluate.
+ * seen and judged before the modules behind it ship — billing, reports and an
+ * HR record of leavers do not exist, and the panels that need them would
+ * otherwise be empty boxes nobody could evaluate. Departments shipped and
+ * left this file: `departments()` below now mirrors DashboardSummary's real
+ * shape rather than standing in for it.
  *
  * HOW TO TURN IT OFF
  *
@@ -201,20 +203,19 @@ class DemoDashboardData
     }
 
     /**
-     * Departments — a module that does not exist at all yet.
-     *
-     * No table, no model, no routes. Shown so the shape of the screen is
-     * complete; delete this method and the panel disappears.
+     * Departments, in the shape DashboardSummary's real panel now sends —
+     * kept in step with it so demo mode fills the same columns rather than
+     * ones the real card does not have.
      *
      * @return list<array<string, mixed>>
      */
     private function departments(): array
     {
         return [
-            ['id' => 1, 'name' => 'General Medicine', 'head' => 'Dr. Anjali Sharma', 'staff' => 14, 'patients' => 1240],
-            ['id' => 2, 'name' => 'Paediatrics', 'head' => 'Dr. Vikram Rao', 'staff' => 9, 'patients' => 860],
-            ['id' => 3, 'name' => 'Pharmacy', 'head' => 'Rahul Mehta', 'staff' => 11, 'patients' => 0],
-            ['id' => 4, 'name' => 'Diagnostics', 'head' => 'Dr. Sneha Patel', 'staff' => 8, 'patients' => 512],
+            ['id' => 1, 'name' => 'General Medicine', 'code' => 'GM', 'doctors_count' => 6, 'staff_count' => 14, 'children_count' => 0],
+            ['id' => 2, 'name' => 'Paediatrics', 'code' => null, 'doctors_count' => 3, 'staff_count' => 9, 'children_count' => 0],
+            ['id' => 3, 'name' => 'Cardiology', 'code' => 'CARD', 'doctors_count' => 4, 'staff_count' => 11, 'children_count' => 1],
+            ['id' => 4, 'name' => 'Diagnostics', 'code' => null, 'doctors_count' => 2, 'staff_count' => 8, 'children_count' => 0],
         ];
     }
 

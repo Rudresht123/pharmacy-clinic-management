@@ -36,12 +36,35 @@ use App\Support\Modules\ModuleRegistry;
  * never sold is refused to them exactly as to anybody else, and a branch that
  * does not run OPD does not start running it because the owner asked.
  *
+ * One deliberate exception: `DESK_CAPABILITIES` below. Checking a patient in
+ * and calling them through are the desk's job, not the account holder's, and
+ * the owner holds no role to do it under — so for these, and only these, the
+ * owner is asked the same question as anybody else (see `heldBy()`), which
+ * they answer with an empty set. Everything else about being the owner —
+ * seeing the queue, booking, cancelling, running reports, managing staff — is
+ * untouched.
+ *
  * Branch-level DATA scope is a different question and stays with
  * App\Services\Tenancy\TenantBranchAccess. This says what may be done; that
  * says where. Both are needed on a write and neither substitutes for the other.
  */
 class Permission
 {
+    /**
+     * Capabilities the owner does not bypass level 3 for.
+     *
+     * The OPD front desk, specifically: an owner may watch any branch's queue
+     * but not work it, so a real receptionist is never confused for the
+     * account holder standing in. Kept to a named list rather than a blanket
+     * "owner may not write" rule, because booking, cancelling and every other
+     * write in the product stays exactly as bypassable as before — this is
+     * about who mans the counter, not about owners and writes in general.
+     *
+     * @var list<string>
+     */
+    private const DESK_CAPABILITIES = [
+        'appointments.queue',
+    ];
     /**
      * Modules already worked out for a branch this request.
      *
@@ -171,7 +194,7 @@ class Permission
             return false;
         }
 
-        if ($user->isOwner()) {
+        if ($user->isOwner() && ! in_array($capability, self::DESK_CAPABILITIES, true)) {
             return true;
         }
 
@@ -336,7 +359,9 @@ class Permission
         $pool = ModuleRegistry::capabilitiesFor($this->modulesAt($organization, $branch));
 
         if ($user->isOwner()) {
-            return $pool;
+            // Same carve-out as allows(): the desk is not the owner's to work,
+            // so the client is never handed a button `allows()` would refuse.
+            return array_values(array_diff($pool, self::DESK_CAPABILITIES));
         }
 
         // Intersected rather than returned outright: a role may still hold a

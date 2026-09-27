@@ -6,6 +6,7 @@ use App\Models\Platform\Organization;
 use App\Models\Tenant\ActivityLog;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Customer;
+use App\Models\Tenant\Department;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
 use App\Services\Modules\ModuleAccess;
@@ -91,16 +92,10 @@ class DashboardSummary
                 'resolve' => fn (?array $allowed) => $this->appointments($allowed),
             ],
             [
-                /*
-                 * A module with no table, model or routes yet. Declared so it
-                 * is a panel the permission model knows about — without an
-                 * entry here it was not "empty", it was forbidden, and demo
-                 * data correctly refused to fill it.
-                 */
                 'key' => 'departments',
                 'module' => null,
                 'capability' => 'people.view',
-                'resolve' => fn (?array $allowed) => [],
+                'resolve' => fn (?array $allowed) => $this->departments(),
             ],
             [
                 'key' => 'insights',
@@ -585,6 +580,42 @@ class DashboardSummary
 
             'licences_needing_attention' => $expiring,
         ];
+    }
+
+    /* ---------------------------------------------------------------------
+     | Departments
+     |------------------------------------------------------------------- */
+
+    /**
+     * The shape of the organisation, top level only.
+     *
+     * Not the whole tree DepartmentsSection shows — this card is a glance,
+     * and a sub-department's doctors and staff already count toward the
+     * total somebody reads on its parent's row. Organisation-wide by design
+     * (App\Models\Tenant\Department), so this is not branch-scoped like the
+     * panels above it.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function departments(): array
+    {
+        return Department::query()
+            ->topLevel()
+            ->where('is_active', true)
+            ->withCount(['doctors', 'staff', 'children'])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->limit(6)
+            ->get()
+            ->map(fn (Department $department) => [
+                'id' => $department->id,
+                'name' => $department->name,
+                'code' => $department->code,
+                'doctors_count' => $department->doctors_count,
+                'staff_count' => $department->staff_count,
+                'children_count' => $department->children_count,
+            ])
+            ->all();
     }
 
     /* ---------------------------------------------------------------------

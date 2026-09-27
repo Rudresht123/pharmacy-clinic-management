@@ -6678,7 +6678,7 @@ html::-webkit-scrollbar-track {
     .cp-acts{ width:100%; }
     .cp-end{ flex:1 1 auto; justify-content:center; }
     .md-current{ gap:14px; }
-    .md-main > .card:last-child{ min-height:0; }
+    .md-room{ min-height:0; }
 }
 
 .cp-title{ display:flex; align-items:center; gap:11px; }
@@ -7475,6 +7475,25 @@ html::-webkit-scrollbar-track {
 .cn-value > .form-control{ height:34px; font-size:12.5px; }
 .cn-value em{ display:block; margin-top:4px; font-size:11.5px; font-style:normal; color:#c92a3a; }
 
+/* Why "Complete consultation" was just refused — not one field's worth,
+   since any of four different rows below would have satisfied it. */
+.cn-complete-error{
+    display:flex;
+    gap:8px;
+    align-items:flex-start;
+    margin:0 0 10px;
+    padding:9px 12px;
+    border:1px solid #f3c2c7;
+    border-left:3px solid #c92a3a;
+    border-radius:8px;
+    background:#fdeaec;
+    color:#8a1f2c;
+    font-size:12.5px;
+    line-height:1.5;
+}
+
+.cn-complete-error i{ margin-top:1px; font-size:15px; color:#c92a3a; }
+
 /* A count and a way in, until somebody is actually changing the list. */
 /* A filled strip, so "nothing yet" reads as a field rather than a gap. */
 .cn-summary{
@@ -7784,6 +7803,7 @@ html::-webkit-scrollbar-track {
 }
 
 .cn-chips:focus-within{ border-color:rgb(var(--brand)); }
+.cn-chips.is-invalid{ border-color:#c92a3a; }
 
 .cn-chip{
     display:inline-flex;
@@ -7904,58 +7924,165 @@ html::-webkit-scrollbar-track {
 .rx-note{ display:flex; align-items:center; gap:7px; margin:0; font-size:11.5px; color:var(--muted); }
 .rx-note i{ flex:0 0 auto; font-size:14px; }
 
-.rx-lines{ display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+.rx-lines{ display:grid; gap:16px; margin:0; padding:0; list-style:none; }
 
 .rx-line{
     display:grid;
-    gap:8px;
-    padding:10px;
-    border:1px solid var(--line);
-    border-radius:10px;
+    gap:12px;
+    padding:16px;
+    border:1px solid rgba(var(--brand), .16);
+    border-radius:14px;
     background:var(--surface);
+    box-shadow:0 1px 2px rgba(16, 24, 40, .04);
 }
 
-.rx-top{ display:grid; grid-template-columns:minmax(0,1fr) auto 32px; align-items:center; gap:8px; }
+.rx-top{ display:grid; grid-template-columns:minmax(0,1fr) auto 32px 32px; align-items:center; gap:8px; }
 
-.rx-how{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 10px; }
+.rx-collapse{
+    display:grid;
+    place-items:center;
+    width:32px;
+    height:34px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--surface);
+    font-size:14px;
+    color:var(--ink-2);
+    cursor:pointer;
+}
+
+.rx-collapse:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
+
+.rx-how{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px 18px; }
 
 .rx-f{ display:grid; gap:3px; margin:0; }
 .rx-f > span{ font-size:10.5px; font-weight:600; letter-spacing:.02em; color:var(--muted); white-space:nowrap; }
 .rx-f .form-control,
-.rx-f .form-select{ height:32px; padding-top:0; padding-bottom:0; font-size:12.5px; }
+.rx-f .form-select{ height:36px; padding-top:0; padding-bottom:0; font-size:13px; }
 .rx-f .form-control{ padding-left:8px; padding-right:8px; }
-.rx-f.is-num .form-control{ width:66px; }
-.rx-f.is-unit .form-control{ width:82px; }
 .rx-f.is-wide{ flex:1 1 180px; }
 
-.rx-pattern{ display:flex; gap:4px; }
+.rx-pattern{ display:flex; align-items:center; gap:4px; }
 .rx-pattern .form-control{ width:40px; padding:0 4px; text-align:center; }
 .rx-pattern .rx-days{ width:54px; }
 .rx-pattern .form-select{ width:auto; }
+.rx-pattern-ico{ font-size:14px; color:var(--muted); }
+
+/* Amount and unit, side by side under one "Dose" label rather than two —
+   the split into separate fields was two labels for one fact. */
+.rx-f.is-dose .rx-dose{ display:flex; gap:6px; }
+.rx-f.is-dose .rx-dose .form-control:first-child{ width:56px; text-align:center; }
+.rx-f.is-dose .rx-dose .form-control:last-child{ width:90px; }
+
+/* A small icon beside the label rather than inside the select itself — a
+   native select's own padding fights back too unpredictably across
+   browsers to trust an icon overlaid on top of it not to collide with the
+   text (Chrome and Firefox box a select's content differently). */
+.rx-f > span i{ margin-right:3px; font-size:11px; color:var(--muted); }
+
+/* What a named frequency actually means — "Twice a day" alone still leaves
+   "when, exactly" unanswered. */
+.rx-hint{ font-size:10.5px; color:var(--muted); }
+
+/* The quantity the server would use if the field is left alone. */
+.rx-auto{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:3px 6px;
+    font-size:10.5px;
+    font-weight:600;
+    color:#15803d;
+}
+.rx-auto i{ font-size:12px; }
+
+/* The arithmetic behind the number, on its own line beneath the label. */
+.rx-auto em{
+    flex:0 0 100%;
+    font-style:normal;
+    font-weight:500;
+    color:var(--muted);
+}
+
+/* "20 tablets", not a bare "20" beside a label that already said Quantity. */
+.rx-qty-field{ display:flex; align-items:center; gap:6px; }
+.rx-qty-field .form-control{ width:70px; text-align:center; }
+.rx-qty-unit{ font-size:12px; font-weight:500; color:var(--muted); white-space:nowrap; }
 
 .rx-err{ margin:0; font-size:11.5px; color:#c92a3a; }
 
 .rx-pick{ min-width:0; }
 .rx-pick .form-control{ height:34px; font-size:12.5px; }
 
+/*
+ * No box of its own — it sits directly on the header, the way the icon and
+ * name do in the reference design. A bordered chip here, inside a header
+ * that is itself already a card, read as a box inside a box, and stretched
+ * the width of the whole row it left a dead gap between the name and the
+ * "choose a different medicine" cross.
+ */
 .rx-chosen{
     display:flex;
     align-items:center;
-    gap:8px;
+    gap:9px;
     min-width:0;
-    min-height:34px;
-    padding:0 6px 0 11px;
-    border:1px solid var(--line);
-    border-radius:8px;
-    background:var(--surface-2);
-    font-size:12.5px;
+    max-width:100%;
+}
+
+/* The pill on a two-tone disc — every line reads as "a medicine" at a
+   glance, the way the stock chip and trash icon already do. The gradient
+   is the closest an icon font gets to the red-and-blue capsule itself. */
+.rx-chosen-ico{
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    width:34px;
+    height:34px;
+    border-radius:9px;
+    background:linear-gradient(135deg, #ff8a9b, rgb(var(--brand)));
+    color:#fff;
+    font-size:16px;
+}
+
+.rx-chosen span{
+    display:flex;
+    flex-direction:column;
+    gap:1px;
+    /* Sized to the name, not stretched to fill the row — that stretch is
+       what put daylight between the text and the button beside it. */
+    flex:0 1 auto;
+    min-width:0;
+}
+
+.rx-chosen span b{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:13.5px;
     font-weight:600;
     color:var(--ink);
 }
 
-.rx-chosen span{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.rx-chosen button{ flex:0 0 auto; border:0; background:transparent; font-size:14px; color:var(--muted); cursor:pointer; }
-.rx-chosen button:hover{ color:#c92a3a; }
+.rx-chosen span small{
+    font-size:11.5px;
+    font-weight:500;
+    color:var(--muted);
+}
+
+.rx-chosen button{
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    width:22px;
+    height:22px;
+    border:0;
+    border-radius:6px;
+    background:transparent;
+    font-size:13px;
+    color:var(--muted);
+    cursor:pointer;
+}
+.rx-chosen button:hover{ background:#fdeaec; color:#c92a3a; }
 
 /* Fixed to the viewport, so the card's clipping cannot cut it off. */
 .rx-pop{
@@ -8066,8 +8193,8 @@ html::-webkit-scrollbar-track {
 .rx-btn:disabled{ opacity:.55; cursor:not-allowed; }
 
 @media (max-width:575.98px){
-    .rx-top{ grid-template-columns:minmax(0,1fr) 32px; }
-    .rx-top > .rx-stock{ grid-column:1; grid-row:2; justify-self:start; }
+    .rx-top{ grid-template-columns:minmax(0,1fr) 32px 32px; }
+    .rx-top > .rx-stock{ grid-column:1 / -1; grid-row:2; justify-self:start; }
 }
 
 /* --- organisation setup ------------------------------------- */
@@ -8415,6 +8542,16 @@ html::-webkit-scrollbar-track {
 .dpt-search .form-control{ height:36px; padding-left:34px; font-size:13px; }
 .dpt-tools-acts{ display:flex; gap:6px; }
 
+/* The checkbox column lives inside the existing first cell rather than a
+   column of its own, so the phone layout that hides columns 2-6 never has
+   to know it exists. */
+.dpt-check{ width:16px; height:16px; margin:0; flex:0 0 auto; accent-color:rgb(var(--brand)); cursor:pointer; }
+.dpt-th-select{ display:inline-flex; align-items:center; gap:8px; }
+
+.dpt-bulkbar{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; padding:9px 14px; border:1px solid rgba(var(--brand), .25); border-radius:10px; background:rgba(var(--brand), .06); }
+.dpt-bulk-count{ font-size:12.5px; font-weight:600; color:var(--ink); }
+.dpt-bulk-acts{ display:flex; gap:6px; }
+
 /* Inset in its own frame, like every table. */
 .dpt-frame{ overflow-x:auto; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
 .dpt-table{ width:100%; margin:0; border-collapse:collapse; font-size:13px; }
@@ -8602,6 +8739,7 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 @media (max-width:575.98px){
     .dpt-search{ max-width:none; }
     .dpt-tools-acts{ width:100%; }
+    .dpt-bulk-acts{ width:100%; }
 }
 
 /* --- end departments ------------------------------------------ */
@@ -9214,17 +9352,11 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     grid-template-columns:minmax(0,1fr) 320px;
 }
 
-.md-main{ display:grid; gap:14px; min-width:0; grid-template-rows:auto 1fr; }
+.md-main{ display:grid; gap:14px; min-width:0; }
 
-/*
- * The three cards share the extra room; the last one does not swallow it.
- *
- * `auto auto 1fr` gave every spare pixel to whatever came last, so a short
- * schedule and two appointments left Quick actions three times the height of
- * either. `minmax(min-content, 1fr)` gives each row an equal share of what is
- * spare while never shrinking one below what is in it.
- */
-.md-side{ display:grid; gap:14px; grid-auto-rows:minmax(min-content, 1fr); }
+/* Just the one card now (Upcoming appointments) — stretched to match the
+   queue table beside it, rather than sized to its own short content. */
+.md-side{ display:grid; gap:14px; }
 
 /* Grid items stretch; the card inside has to be told to follow. */
 .md-main > *,
@@ -9238,8 +9370,6 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
      * fill a row that is only as tall as itself is just a card.
      */
     .md-split{ grid-template-columns:minmax(0,1fr); }
-    .md-main{ grid-template-rows:none; }
-    .md-side{ grid-auto-rows:auto; }
     .md-main > .card,
     .md-side > .card{ height:auto; }
 }
@@ -9467,8 +9597,15 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     min-height:0;
 }
 
-/* A floor, so a quiet right-hand column cannot squash it to nothing. */
-.md-main > .card:last-child{ min-height:520px; }
+/*
+ * A floor, so the write-up never reads as a sliver.
+ *
+ * Full width now (see MyDayPage), not the main column's share of a split —
+ * this used to be a floor against a quiet sidebar squashing it; now it is
+ * just a sensible minimum for a card that can otherwise be as short as an
+ * empty state.
+ */
+.md-room{ min-height:520px; margin-top:14px; }
 
 /* A rule between the two halves, so the write-up reads as its own thing. */
 @media (min-width:992px){
@@ -9487,13 +9624,15 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
  * was given never has anything to scroll.
  */
 .md-main > .card > .card-body,
-.md-side > .card > .card-body{
+.md-side > .card > .card-body,
+.md-room > .card-body{
     display:flex;
     flex-direction:column;
     min-height:0;
 }
 .md-main > .card > .card-body > .org-pending,
-.md-side > .card > .card-body > .org-pending{ margin:auto 0; }
+.md-side > .card > .card-body > .org-pending,
+.md-room > .card-body > .org-pending{ margin:auto 0; }
 
 @media (max-width:991.98px){
     .md-current{ grid-template-columns:minmax(0,1fr); }
@@ -9664,50 +9803,6 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 
 .md-later span i{ flex:0 0 auto; font-size:14px; color:var(--muted); }
 .md-later em{ flex:0 0 auto; font-style:normal; }
-
-.md-quick{
-    display:grid;
-    grid-template-columns:repeat(3, minmax(0,1fr));
-    gap:9px;
-
-    /* Grows with the card, so a taller row is six taller tiles rather than
-       six small ones and a gap. */
-    flex:1 1 auto;
-    align-content:stretch;
-}
-
-.md-quick-one{
-    display:grid;
-    place-items:center;
-    gap:8px;
-    padding:13px 6px;
-    border:1px solid var(--line);
-    border-radius:11px;
-    background:var(--surface);
-    font-size:11px;
-    font-weight:600;
-    line-height:1.3;
-    color:var(--ink-2);
-    text-align:center;
-    text-decoration:none;
-}
-
-/* The icon on a tinted disc, so six tiles read as six things. */
-.md-quick-one i{
-    display:grid;
-    place-items:center;
-    width:38px;
-    height:38px;
-    border-radius:11px;
-    font-size:19px;
-}
-
-.md-quick-one.is-blue i{ background:#e8f0fe; color:#1d4ed8; }
-.md-quick-one.is-green i{ background:#e7f7ed; color:#15803d; }
-.md-quick-one.is-amber i{ background:#fdf0e0; color:#b45309; }
-.md-quick-one.is-violet i{ background:rgba(var(--brand), .1); color:rgb(var(--brand)); }
-
-.md-quick-one:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
 
 /* ==========================================================
    Setting a doctor's week
@@ -12661,6 +12756,16 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 
 .rp-shared i{ margin-top:1px; font-size:15px; color:rgb(var(--brand)); }
 
+/* The owner's way into per-branch customising: a plain field, not a banner
+   like .rp-shared above, since choosing a branch here is an action rather
+   than a fact being explained. */
+.rp-branch-pick{
+    margin:12px 0 0;
+    max-width:320px;
+}
+
+.rp-branch-pick .form-hint{ margin:2px 0 0; }
+
 /* The footer is display:flex, which beats the [hidden] attribute on
    its own — a read-only role has to actually lose its save bar. */
 .rp-foot[hidden]{ display:none; }
@@ -14004,12 +14109,20 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     grid-template-columns:minmax(0,1fr) 330px;
     gap:16px;
     /*
-       Stretch, so the rail is as tall as the main column and its last card
-       can take the slack. Declared once — there were two rules here fighting
-       over this, `start` and `stretch`, and which won depended on their order
-       in the file rather than on anyone's decision.
+       `start`, not `stretch`. Stretch forced BOTH columns' outer box to the
+       row's full height, and neither the main column's own grid nor the
+       page has anything to paint in the part of that box its cards do not
+       reach — so whichever column was shorter left a dead, cardless block
+       the width of that column. A new organization's rail (three stacked
+       cards) commonly outgrows its main column (two, before it has taken
+       any bookings or added patients), and that direction has no graceful
+       "last card grows" answer the way `.db-rail` gives the opposite one —
+       a CSS grid row does not have a last-child to hand the slack to.
+       `start` accepts an uneven bottom edge between the two columns rather
+       than manufacturing empty space to avoid one; a page ending ragged
+       reads as normal, a page with a blank rectangle in it reads as broken.
     */
-    align-items:stretch;
+    align-items:start;
 }
 
 .db-layout.is-single{ grid-template-columns:minmax(0,1fr); }
@@ -14024,7 +14137,6 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     display:grid;
     grid-template-columns:repeat(12,minmax(0,1fr));
     gap:16px;
-    align-content:start;
     /* Every card in a row ends level. A ragged bottom edge reads as
        unfinished, and one short table drags the whole row out of line. */
     align-items:stretch;
@@ -14048,20 +14160,26 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 
 /*
    The rail is a column of its own, so its cards cannot match the grid's.
-   What matters is that the two COLUMNS end level: the last card takes
-   whatever height is left, rather than leaving the page with one side
-   hanging below the other.
+   No stretch and no growing last card: that was the mechanism meant to
+   end the two columns level, and on an uneven organization it did the
+   opposite of what it looked like it should — a grid row is sized by its
+   tallest item regardless of `.db-layout`'s `align-items`, so whichever
+   column was SHORTER still got a box that size, with nothing of its own
+   to fill it. On main that showed as a dead grey block; here, given to
+   the last card specifically, it showed as that one card's own list
+   floating in the middle of a card stretched far taller than its five
+   rows need. Each card in the rail is simply its own height now, same as
+   every card in main — a ragged edge between the two columns instead of
+   a card that does not look like what it is holding.
 */
 .db-rail{
     display:flex;
     flex-direction:column;
     gap:16px;
     min-width:0;
-    height:100%;
 }
 
 .db-rail > *{ flex:0 0 auto; display:flex; flex-direction:column; }
-.db-rail > *:last-child{ flex:1 1 auto; }
 .db-rail > * > *{ flex:1 1 auto; margin:0; }
 
 
@@ -14433,21 +14551,42 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 /*
    An empty card says what empty means. "No bookings today"
    and "the diary is broken" look identical otherwise.
+
+   A miniature of the shared .state shell (layout.css) rather than that
+   shell itself: a chart-card is a third of the page at most, and .state's
+   84px medallion and 54px padding are sized for a whole card or table on
+   their own. Same medallion-plus-halo language, same [data-tone] system,
+   scaled down so it sits comfortably in a compact card — and since
+   .card.chart-card .card-body already centres its content vertically, this
+   only has to look right at its own size; the surrounding space is handled
+   for it.
 */
 .db-quiet{
     display:flex;
-    align-items:flex-start;
-    gap:9px;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
     margin:0;
-    padding:14px 15px;
-    border-radius:11px;
-    background:var(--surface-2);
-    font-size:13px;
-    line-height:1.5;
-    color:var(--muted);
+    padding:20px 14px;
+    text-align:center;
 }
 
-.db-quiet i{ flex:0 0 auto; font-size:16px; color:var(--ink-3); }
+.db-quiet-art{
+    position:relative;
+    display:grid;
+    place-items:center;
+    width:50px;
+    height:50px;
+    flex:0 0 auto;
+    border-radius:15px;
+    font-size:21px;
+    color:rgb(var(--tone));
+    background:linear-gradient(140deg, rgba(var(--tone), .16), rgba(var(--tone), .06));
+    box-shadow:inset 0 0 0 1px rgba(var(--tone), .12);
+}
+
+.db-quiet b{ font-size:13.5px; font-weight:700; color:var(--ink); }
+.db-quiet p{ margin:0; max-width:30ch; font-size:12px; line-height:1.55; color:var(--muted); }
 
 /* --- the comparison line on the area chart --------------- */
 
@@ -15031,8 +15170,8 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
    table with a single entry in it.
    --------------------------------------------------------- */
 
-.bm-rows{
-    margin:0 0 12px;
+.ba-list{
+    margin:0;
     padding:0;
     list-style:none;
     display:flex;
@@ -15040,104 +15179,89 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     gap:10px;
 }
 
-.bm-rows li{
-    display:grid;
-    grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto;
-    align-items:end;
+.ba-card{
+    display:flex;
+    align-items:center;
     gap:12px;
-    padding:13px 14px;
+    padding:12px 14px;
     border:1px solid var(--line-2);
     border-radius:12px;
     background:var(--surface);
+    flex-wrap:wrap;
 }
 
-.bm-cell{
+.ba-card-icon{
+    display:grid;
+    place-items:center;
+    width:38px;
+    height:38px;
+    flex:0 0 auto;
+    border-radius:10px;
+    background:rgba(var(--brand), .1);
+    font-size:17px;
+    color:rgb(var(--brand));
+}
+
+.ba-card-body{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1 1 200px; }
+
+.ba-card-body > b{
     display:flex;
-    flex-direction:column;
-    gap:5px;
-    min-width:0;
+    align-items:center;
+    gap:8px;
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--ink);
 }
 
-.bm-cell > span{
-    font-size:10.5px;
-    font-weight:700;
-    letter-spacing:.04em;
-    text-transform:uppercase;
-    color:var(--ink-3);
-}
-
-/* Exactly one, so the screen cannot disagree with the server. */
-.bm-primary{
+/* The one branch their workspace opens on — a fact about the set, not a
+   style choice, so it wears a mark rather than a colour alone. */
+.ba-primary{
     display:inline-flex;
     align-items:center;
-    gap:6px;
-    height:38px;
-    padding:0 12px;
-    border:1px solid var(--line-2);
-    border-radius:9px;
-    background:var(--surface);
-    font-size:12.5px;
-    font-weight:600;
-    color:var(--ink-3);
-    white-space:nowrap;
-    cursor:pointer;
-    transition:border-color .14s ease,background .14s ease,color .14s ease;
-}
-
-.bm-primary:hover:not(:disabled){ border-color:var(--ink-3); }
-.bm-primary:disabled{ cursor:default; opacity:.7; }
-
-.bm-primary.is-on{
-    border-color:rgba(217,119,6,.4);
-    background:rgba(217,119,6,.09);
+    gap:4px;
+    padding:1px 8px;
+    border-radius:999px;
+    background:rgba(217,119,6,.1);
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.02em;
     color:#b45309;
 }
 
-.bm-remove{
-    width:38px;
-    height:38px;
-    display:grid;
-    place-items:center;
-    border:1px solid var(--line-2);
-    border-radius:9px;
-    background:var(--surface);
-    font-size:16px;
-    color:var(--ink-3);
-    cursor:pointer;
+.ba-primary i{ font-size:10px; }
+
+.ba-role{ font-size:12.5px; color:var(--muted); }
+
+.ba-card-acts{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex:0 0 auto;
+    margin-left:auto;
 }
 
-.bm-remove:hover{
-    border-color:rgba(191,39,64,.4);
-    background:rgba(191,39,64,.07);
-    color:#bf2740;
-}
-
-.bm-error{
-    grid-column:1 / -1;
-    font-style:normal;
-    font-size:12px;
-    color:#dc3545;
-}
-
-.bm-add{
+.ba-mini{
     display:inline-flex;
     align-items:center;
-    gap:7px;
-    padding:9px 14px;
-    border:1px dashed var(--line-2);
-    border-radius:10px;
+    gap:5px;
+    padding:6px 10px;
+    border:1px solid transparent;
+    border-radius:8px;
     background:transparent;
-    font-size:12.5px;
+    font-size:12px;
     font-weight:600;
-    color:rgb(var(--brand));
+    color:var(--muted);
+    white-space:nowrap;
     cursor:pointer;
 }
 
-.bm-add:hover:not(:disabled){ border-color:rgb(var(--brand)); background:rgba(var(--brand),.05); }
-.bm-add:disabled{ color:var(--muted); cursor:default; }
+.ba-mini:hover:not(:disabled){ border-color:var(--line-2); color:var(--ink-2); background:var(--surface-2); }
+.ba-mini:disabled{ cursor:default; opacity:.6; }
+.ba-mini i{ font-size:13px; }
 
-@media (max-width:767.98px){
-    .bm-rows li{ grid-template-columns:minmax(0,1fr); }
+@media (max-width:575.98px){
+    .ba-card{ align-items:flex-start; }
+    .ba-card-acts{ width:100%; margin-left:0; justify-content:flex-end; }
 }
 
 /* The plan card wearing a tier, which only demo mode supplies. */

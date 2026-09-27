@@ -20,7 +20,21 @@ import { tenantUsersHooks, useTenantUserFields } from '../api';
 // signature the resource API's payload requires.
 type UserFormValues = Record<string, unknown>;
 
-/** Which card each group of fields lands in. */
+/**
+ * Which card each group of fields lands in.
+ *
+ * `access` and `primary_branch` are two different questions and used to be
+ * one card that answered both badly: "What may they do everywhere?" and
+ * "Where is their desk?" are unrelated, and a person with a role but no
+ * branch (head office) or a branch but no role (ordinary branch staff) made
+ * one combined card read like a form half filled in either way.
+ *
+ * `primary_branch` has no field of its own in the schema — `location_id` is
+ * rendered by hand below, in `extras.primary_branch` — but a group with
+ * nothing but extras still gets its own card (see ConfigurableForm), which
+ * is what keeps it visually separate from `access` without a second copy of
+ * the field-settings schema to maintain.
+ */
 const GROUPS: FieldGroup[] = [
     {
         key: 'person',
@@ -36,9 +50,16 @@ const GROUPS: FieldGroup[] = [
     },
     {
         key: 'access',
-        title: 'Access',
-        icon: 'ti ti-shield-lock',
-        description: 'What they are allowed to do.',
+        title: 'Organization Role',
+        icon: 'ti ti-building',
+        description: 'What they may do across the whole organization.',
+        rail: true,
+    },
+    {
+        key: 'primary_branch',
+        title: 'Primary Branch',
+        icon: 'ti ti-map-pin',
+        description: 'Where their workspace opens by default.',
         rail: true,
     },
 ];
@@ -73,6 +94,18 @@ export default function TenantUserFormPage({
     const update = tenantUsersHooks.useUpdate();
 
     const { data: roles } = rolesHooks.useList();
+
+    /*
+     * This field is `users.role_id` — the role somebody holds ACROSS the
+     * network — and the server only ever accepts an organization-scoped
+     * role there (StoreTenantUserRequest, `role_id.exists`). A branch role
+     * sits on a membership instead, assigned on the Branches panel once the
+     * person exists. Offering both scopes here used to let anybody pick a
+     * branch role that would always be refused after a full round trip, with
+     * a validation message from a field they never even see this list came
+     * from.
+     */
+    const organizationRoles = (roles ?? []).filter((role) => role.scope === 'organization');
     const { data: departments } = departmentsHooks.useList();
     const { can } = useTenantAuth();
 
@@ -85,11 +118,30 @@ export default function TenantUserFormPage({
         watch,
         formState: { errors, isSubmitting },
     } = useApiForm<UserFormValues>({
-        defaultValues: { role: 'staff', role_id: '', department_id: '', is_active: true },
+        defaultValues: {
+            role: 'staff',
+            role_id: '',
+            department_id: '',
+            location_id: '',
+            is_active: true,
+        },
     });
 
     // An owner bypasses roles, so the picker only means anything for staff.
     const isStaff = watch('role') === 'staff';
+
+    // Which hint reads more true right now — assigned, or deliberately empty.
+    const hasOrganizationRole = Boolean(watch('role_id'));
+
+    /*
+     * `location_id`'s own options, read off the schema rather than fetched
+     * again — it is excluded from ConfigurableForm's generic render (see
+     * GROUPS) so this screen can give it its own label and hint, not from
+     * a second source of branches.
+     */
+    const locationOptions = ((fields ?? []).find((field) => field.key === 'location_id')?.options ?? []).map(
+        (option) => ({ value: option.value, label: option.label }),
+    );
 
     useEffect(() => {
         if (!person) {
@@ -102,6 +154,7 @@ export default function TenantUserFormPage({
             role: person.role,
             role_id: person.role_id ?? '',
             department_id: person.department_id ?? '',
+            location_id: person.location_id ?? '',
             is_active: person.is_active,
             password: '',
             password_confirmation: '',
@@ -127,6 +180,13 @@ export default function TenantUserFormPage({
 
         // Nobody has to belong to one — somebody who works across the clinic belongs to none.
         payload.department_id = Number(payload.department_id) || null;
+
+        /*
+         * Same reasoning as role_id: an owner works across every branch and
+         * has no default one, so promoting somebody clears it here rather
+         * than sending a value the server's `prohibited_if` would refuse.
+         */
+        payload.location_id = payload.role === 'staff' ? Number(payload.location_id) || null : null;
 
         const result = await submit(payload, async () =>
             isEdit && id ? update.mutateAsync({ id, payload }) : create.mutateAsync(payload),
@@ -218,11 +278,16 @@ export default function TenantUserFormPage({
          * somebody holds is not a configurable field an organization can
          * rename or remove, and it has to disappear the moment they become an
          * owner — which no field setting can express.
+         *
+         * Genuinely optional — most branch staff hold nothing here at all,
+         * their access comes entirely from a branch role instead — so unlike
+         * every other field on this form it carries no required mark and
+         * offers an explicit empty option rather than only a placeholder.
          */
         access: isStaff ? (
             <div className="form-group">
                 <label className="form-label" htmlFor="role_id">
-                    Role <span className="req">*</span>
+                    Organization Role
                 </label>
 
                 <Controller
@@ -234,8 +299,9 @@ export default function TenantUserFormPage({
                             value={field.value == null ? '' : String(field.value)}
                             onChange={field.onChange}
                             invalid={Boolean(errors.role_id)}
-                            placeholder="Choose a role…"
-                            options={(roles ?? []).map((role) => ({
+                            placeholder="No organization-wide role"
+                            clearable
+                            options={organizationRoles.map((role) => ({
                                 value: String(role.id),
                                 label: role.name,
                             }))}
@@ -249,7 +315,14 @@ export default function TenantUserFormPage({
                     </p>
                 ) : (
                     <p className="form-hint">
-                        What they may do. Manage the list under Roles &amp; Permissions.
+                        {hasOrganizationRole ? (
+                            'Organization roles apply across the organization and are not limited to a single branch.'
+                        ) : (
+                            <>
+                                Most branch-level staff do not need an organization role. You can
+                                assign their branch responsibility after creating them.
+                            </>
+                        )}
                     </p>
                 )}
             </div>
@@ -257,6 +330,52 @@ export default function TenantUserFormPage({
             <p className="form-hint">
                 An owner is not limited by a role, and works across every branch.
             </p>
+        ),
+
+        /*
+         * A separate card from `access` on purpose (see GROUPS): this
+         * answers "where is their desk", not "what may they do" — a role and
+         * a branch are independent choices, and a person can hold either one
+         * without the other. No field of its own in the schema; `location_id`
+         * is rendered here by hand so its label and hint can say exactly
+         * this, which the flat field-settings schema has no room for.
+         */
+        primary_branch: isStaff ? (
+            <div className="form-group">
+                <label className="form-label" htmlFor="location_id">
+                    Primary Branch
+                </label>
+
+                <Controller
+                    name="location_id"
+                    control={control}
+                    render={({ field }) => (
+                        <SearchableSelect
+                            id="location_id"
+                            value={field.value == null ? '' : String(field.value)}
+                            onChange={field.onChange}
+                            invalid={Boolean(errors.location_id)}
+                            placeholder="Works for the organization itself"
+                            clearable
+                            options={locationOptions}
+                        />
+                    )}
+                />
+
+                {errors.location_id ? (
+                    <p className="invalid-feedback d-block">
+                        {String(errors.location_id.message ?? '')}
+                    </p>
+                ) : (
+                    <p className="form-hint">
+                        This is the person&rsquo;s default branch — where their workspace opens.
+                        You can give them access to more branches under Branch Access once
+                        they&rsquo;re created.
+                    </p>
+                )}
+            </div>
+        ) : (
+            <p className="form-hint">An owner works across every branch, not one default.</p>
         ),
     };
 
@@ -285,6 +404,7 @@ export default function TenantUserFormPage({
                     errors={errors}
                     control={control}
                     extras={extras}
+                    exclude={['location_id']}
                 />
 
                 {/*

@@ -1,14 +1,16 @@
-import { Fragment, useEffect, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/shared/components/ui/Button';
 import { FormModal } from '@/shared/components/ui/FormModal';
 import { Tabs, type TabItem } from '@/shared/components/ui/Tabs';
 import { EmptyState, ErrorState, LoadingBlock, StatusBadge } from '@/shared/components/ui/Feedback';
 import { FormError, TextareaField, TextField } from '@/shared/components/form/Fields';
 import { useApiForm } from '@/shared/components/form/useApiForm';
-import { resolveErrorMessage } from '@/shared/api/http';
+import { http, resolveErrorMessage } from '@/shared/api/http';
+import { notify } from '@/shared/utils/notify';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { ReasonDialog } from '@/core/medicines/components/ReasonDialog';
-import { departmentsHooks, useRemoveDepartment } from '../api';
+import { departmentsApi, departmentsHooks, useRemoveDepartment } from '../api';
 import type { Department, DepartmentPayload } from '../types';
 
 type View = 'list' | 'chart';
@@ -60,6 +62,36 @@ function initials(name: string): string {
 
 function plural(count: number, one: string, many = `${one}s`): string {
     return `${count} ${count === 1 ? one : many}`;
+}
+
+/** The header checkbox: selects/clears every id currently on screen, indeterminate while some but not all are picked. */
+function SelectAllCheckbox({
+    ids,
+    selected,
+    onToggleAll,
+}: {
+    ids: number[];
+    selected: Set<number>;
+    onToggleAll: (ids: number[]) => void;
+}) {
+    const ref = useRef<HTMLInputElement>(null);
+    const checkedCount = ids.filter((id) => selected.has(id)).length;
+    const all = ids.length > 0 && checkedCount === ids.length;
+
+    useEffect(() => {
+        if (ref.current) ref.current.indeterminate = checkedCount > 0 && !all;
+    }, [checkedCount, all]);
+
+    return (
+        <input
+            ref={ref}
+            type="checkbox"
+            className="dpt-check"
+            checked={all}
+            onChange={() => onToggleAll(ids)}
+            aria-label={all ? 'Deselect all departments' : 'Select all departments'}
+        />
+    );
 }
 
 /**
@@ -239,17 +271,39 @@ function RowActions({ department, child, actions }: { department: Department; ch
  * as rows with the counts in columns. Searching opens every department that
  * holds a match.
  */
-function DepartmentList({ departments, actions }: { departments: Department[]; actions: Actions }) {
+function DepartmentList({
+    departments,
+    actions,
+    selected,
+    onToggle,
+    onToggleAll,
+}: {
+    departments: Department[];
+    actions: Actions;
+    selected: Set<number>;
+    onToggle: (id: number) => void;
+    onToggleAll: (ids: number[]) => void;
+}) {
     const [query, setQuery] = useState('');
     const [collapsed, setCollapsed] = useState<number[]>([]);
+    // Off by default: a deactivated department stopped being offered
+    // elsewhere, so a list that keeps showing it looks like it did nothing.
+    const [showInactive, setShowInactive] = useState(false);
+
+    const inactiveCount = departments.reduce(
+        (sum, department) =>
+            sum + (department.is_active ? 0 : 1) + (department.children ?? []).filter((child) => !child.is_active).length,
+        0,
+    );
 
     const needle = query.trim().toLowerCase();
     const hit = (department: Department) =>
         department.name.toLowerCase().includes(needle) || (department.code ?? '').toLowerCase().includes(needle);
 
     const rows = departments
+        .filter((department) => showInactive || department.is_active)
         .map((department) => {
-            const children = department.children ?? [];
+            const children = (department.children ?? []).filter((child) => showInactive || child.is_active);
 
             if (!needle || hit(department)) return { department, children };
 
@@ -258,6 +312,11 @@ function DepartmentList({ departments, actions }: { departments: Department[]; a
             return found.length ? { department, children: found } : null;
         })
         .filter((row): row is { department: Department; children: Department[] } => row !== null);
+
+    const visibleIds = rows.flatMap(({ department, children }) => [
+        department.id,
+        ...children.map((child) => child.id),
+    ]);
 
     return (
         <>
@@ -275,6 +334,16 @@ function DepartmentList({ departments, actions }: { departments: Department[]; a
                 </div>
 
                 <div className="dpt-tools-acts">
+                    {inactiveCount > 0 && (
+                        <Button
+                            variant="light"
+                            size="sm"
+                            icon={showInactive ? 'ti ti-eye-off' : 'ti ti-eye'}
+                            onClick={() => setShowInactive((was) => !was)}
+                        >
+                            {showInactive ? 'Hide inactive' : `Show inactive (${inactiveCount})`}
+                        </Button>
+                    )}
                     <Button variant="light" size="sm" icon="ti ti-arrows-maximize" onClick={() => setCollapsed([])}>
                         Expand all
                     </Button>
@@ -293,7 +362,14 @@ function DepartmentList({ departments, actions }: { departments: Department[]; a
                 <table className="dpt-table">
                     <thead>
                         <tr>
-                            <th>Department</th>
+                            <th>
+                                <span className="dpt-th-select">
+                                    {actions.editable && (
+                                        <SelectAllCheckbox ids={visibleIds} selected={selected} onToggleAll={onToggleAll} />
+                                    )}
+                                    Department
+                                </span>
+                            </th>
                             <th>Code</th>
                             <th className="text-end">Sub-departments</th>
                             <th className="text-end">Doctors</th>
@@ -313,6 +389,16 @@ function DepartmentList({ departments, actions }: { departments: Department[]; a
                                     <tr className={`dpt-parent${department.is_active ? '' : ' is-inactive'}`} style={tone(department.name)}>
                                         <td>
                                             <div className="dpt-cell">
+                                                {actions.editable && (
+                                                    <input
+                                                        type="checkbox"
+                                                        className="dpt-check"
+                                                        checked={selected.has(department.id)}
+                                                        onChange={() => onToggle(department.id)}
+                                                        aria-label={`Select ${department.name}`}
+                                                    />
+                                                )}
+
                                                 {total > 0 ? (
                                                     <button
                                                         type="button"
@@ -369,6 +455,15 @@ function DepartmentList({ departments, actions }: { departments: Department[]; a
                                             >
                                                 <td>
                                                     <div className="dpt-cell">
+                                                        {actions.editable && (
+                                                            <input
+                                                                type="checkbox"
+                                                                className="dpt-check"
+                                                                checked={selected.has(child.id)}
+                                                                onChange={() => onToggle(child.id)}
+                                                                aria-label={`Select ${child.name}`}
+                                                            />
+                                                        )}
                                                         <span className="dpt-caret-space" />
                                                         <span className="dpt-elbow" aria-hidden="true" />
                                                         <span className="dpt-dot" aria-hidden="true" />
@@ -400,7 +495,15 @@ function DepartmentList({ departments, actions }: { departments: Department[]; a
                     </tbody>
                 </table>
 
-                {rows.length === 0 && <p className="dpt-none">Nothing matches &ldquo;{query}&rdquo;.</p>}
+                {rows.length === 0 && (
+                    <p className="dpt-none">
+                        {needle ? (
+                            <>Nothing matches &ldquo;{query}&rdquo;.</>
+                        ) : (
+                            <>Everything here is deactivated — turn on &ldquo;Show inactive&rdquo; above to see it.</>
+                        )}
+                    </p>
+                )}
             </div>
         </>
     );
@@ -565,9 +668,13 @@ export function DepartmentManager() {
     const [form, setForm] = useState<FormState>(null);
     const [removing, setRemoving] = useState<Department | null>(null);
     const [removeError, setRemoveError] = useState<string | null>(null);
+    const [selected, setSelected] = useState<Set<number>>(new Set());
+    const [bulkRemoveOpen, setBulkRemoveOpen] = useState(false);
+    const [bulkRemoveError, setBulkRemoveError] = useState<string | null>(null);
 
     const departments = tree ?? [];
     const everything = departments.flatMap((department) => [department, ...(department.children ?? [])]);
+    const selectedDepartments = everything.filter((department) => selected.has(department.id));
 
     const totals = {
         departments: departments.length,
@@ -610,6 +717,101 @@ export function DepartmentManager() {
         }
     }
 
+    function toggleSelected(id: number) {
+        setSelected((was) => {
+            const next = new Set(was);
+
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+
+            return next;
+        });
+    }
+
+    function toggleAllSelected(ids: number[]) {
+        setSelected((was) => {
+            const allSelected = ids.length > 0 && ids.every((id) => was.has(id));
+            const next = new Set(was);
+
+            ids.forEach((id) => (allSelected ? next.delete(id) : next.add(id)));
+
+            return next;
+        });
+    }
+
+    /**
+     * Deactivating already-off departments would be a no-op the count still
+     * has to explain, so only the ones actually on are sent.
+     */
+    const bulkDeactivate = useMutation({
+        mutationFn: async (targets: Department[]) => {
+            const results = await Promise.allSettled(
+                targets.map((department) =>
+                    departmentsApi.update(department.id, {
+                        name: department.name,
+                        code: department.code,
+                        description: department.description,
+                        parent_id: department.parent_id,
+                        is_active: false,
+                    }),
+                ),
+            );
+
+            return { total: targets.length, failed: results.filter((r) => r.status === 'rejected').length };
+        },
+        onSuccess: ({ total, failed }) => {
+            const done = total - failed;
+
+            notify.success(
+                failed > 0
+                    ? `${done} of ${total} deactivated — ${failed} failed.`
+                    : `${plural(done, 'department')} deactivated`,
+            );
+            setSelected(new Set());
+        },
+    });
+
+    /**
+     * Loops the same single-reason delete the row action uses. A department
+     * still holding doctors, staff or sub-departments is refused by the
+     * server (409) — that failure is expected here, not exceptional, so the
+     * count is reported rather than thrown.
+     */
+    const bulkRemove = useMutation({
+        mutationFn: async ({ targets, reason }: { targets: Department[]; reason: string }) => {
+            const results = await Promise.allSettled(
+                targets.map((department) =>
+                    http.delete(`/tenant/departments/${department.id}`, { data: { reason }, silent: true }),
+                ),
+            );
+
+            return { total: targets.length, failed: results.filter((r) => r.status === 'rejected').length };
+        },
+        onSuccess: ({ total, failed }) => {
+            const done = total - failed;
+
+            if (failed > 0) {
+                setBulkRemoveError(
+                    `${done} of ${total} removed. ${failed} still have doctors, staff or sub-departments in them — deactivate those instead.`,
+                );
+
+                return;
+            }
+
+            notify.success(`${plural(done, 'department')} removed`);
+            setBulkRemoveOpen(false);
+            setSelected(new Set());
+        },
+    });
+
+    async function confirmBulkRemove(reason: string) {
+        setBulkRemoveError(null);
+        await bulkRemove.mutateAsync({ targets: selectedDepartments, reason });
+    }
+
     if (isLoading) {
         return <LoadingBlock label="Loading departments…" />;
     }
@@ -649,6 +851,43 @@ export function DepartmentManager() {
                 )}
             </div>
 
+            {actions.editable && selected.size > 0 && (
+                <div className="dpt-bulkbar" role="toolbar" aria-label="Bulk actions">
+                    <span className="dpt-bulk-count">{selected.size} selected</span>
+
+                    <div className="dpt-bulk-acts">
+                        <Button variant="light" size="sm" onClick={() => setSelected(new Set())}>
+                            Clear
+                        </Button>
+                        <Button
+                            variant="light"
+                            size="sm"
+                            icon="ti ti-eye-off"
+                            disabled={!selectedDepartments.some((department) => department.is_active)}
+                            loading={bulkDeactivate.isPending}
+                            onClick={() =>
+                                bulkDeactivate.mutate(
+                                    selectedDepartments.filter((department) => department.is_active),
+                                )
+                            }
+                        >
+                            Deactivate
+                        </Button>
+                        <Button
+                            variant="light"
+                            size="sm"
+                            icon="ti ti-trash"
+                            onClick={() => {
+                                setBulkRemoveError(null);
+                                setBulkRemoveOpen(true);
+                            }}
+                        >
+                            Remove
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {departments.length === 0 ? (
                 <EmptyState
                     icon="ti ti-layout-grid"
@@ -656,7 +895,13 @@ export function DepartmentManager() {
                     description="Add the departments your doctors and staff belong to, then any sub-departments under them."
                 />
             ) : view === 'list' ? (
-                <DepartmentList departments={departments} actions={actions} />
+                <DepartmentList
+                    departments={departments}
+                    actions={actions}
+                    selected={selected}
+                    onToggle={toggleSelected}
+                    onToggleAll={toggleAllSelected}
+                />
             ) : (
                 <DepartmentChart
                     departments={departments}
@@ -677,6 +922,18 @@ export function DepartmentManager() {
                 error={removeError}
                 onClose={() => setRemoving(null)}
                 onSubmit={(reason) => void confirmRemove(reason)}
+            />
+
+            <ReasonDialog
+                open={bulkRemoveOpen}
+                title={`Remove ${selected.size} department${selected.size === 1 ? '' : 's'}?`}
+                subtitle="Only empty departments can be removed. Ones still in use are skipped and can be deactivated instead."
+                submitLabel="Remove"
+                danger
+                submitting={bulkRemove.isPending}
+                error={bulkRemoveError}
+                onClose={() => setBulkRemoveOpen(false)}
+                onSubmit={(reason) => void confirmBulkRemove(reason)}
             />
         </div>
     );

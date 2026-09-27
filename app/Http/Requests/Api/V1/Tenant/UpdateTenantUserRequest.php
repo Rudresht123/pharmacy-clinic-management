@@ -10,6 +10,7 @@ use App\Models\Tenant\Location;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
 use App\Repositories\Tenant\Contracts\TenantUserRepositoryInterface;
+use App\Services\Tenancy\TenantBranchAccess;
 use App\Support\Fields\UserFields;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -158,6 +159,7 @@ class UpdateTenantUserRequest extends FormRequest
             }
 
             $this->validateRoleGrant($validator);
+            $this->validateBranchReach($validator, $target);
 
             // Even with another owner around, locking yourself out mid-edit
             // is almost never what was meant.
@@ -168,6 +170,31 @@ class UpdateTenantUserRequest extends FormRequest
                 );
             }
         });
+    }
+
+    /**
+     * A branch the assigner does not themselves work at — only when they are
+     * actually CHANGING it. The form resends the person's current branch on
+     * every save, and refusing that unchanged value would block an unrelated
+     * edit (their email, say) the moment the editor's own reach did not cover
+     * wherever this person already was posted.
+     */
+    private function validateBranchReach(Validator $validator, User $target): void
+    {
+        $locationId = $this->input('location_id');
+
+        if (! $locationId || (int) $locationId === $target->location_id) {
+            return;
+        }
+
+        $actor = Auth::guard('web')->user();
+
+        if ($actor && ! app(TenantBranchAccess::class)->canUse($actor, (int) $locationId)) {
+            $validator->errors()->add(
+                'location_id',
+                'You cannot move somebody to a branch you do not work at.'
+            );
+        }
     }
 
     /**

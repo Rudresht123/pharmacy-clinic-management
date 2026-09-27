@@ -148,8 +148,15 @@ export function ConsultationPanel({
     history: PastConsultation[];
     /** This doctor's own recent wording, most used first. */
     suggestions: { complaints: string[]; diagnoses: string[] };
-    /** Ends the visit. Lives here so it sits beside Save rather than under it. */
-    onComplete: () => void;
+    /**
+     * Ends the visit. Lives here so it sits beside Save rather than under it.
+     *
+     * Rejects rather than swallowing a refusal — this button is the one
+     * place a "write something up first" answer can be shown beside the
+     * fields it is actually about, so it catches its own error instead of
+     * leaving it to a toast with nothing to point at.
+     */
+    onComplete: () => Promise<void>;
     completing: boolean;
     /** Held by the card, so the patient panel can open History. */
     tab: Tab;
@@ -165,6 +172,9 @@ export function ConsultationPanel({
     const [draft, setDraft] = useState<Consultation>(saved);
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const [diagnosis, setDiagnosis] = useState('');
+
+    /** Why the last attempt to finish the visit was refused, if it was. */
+    const [completeError, setCompleteError] = useState<string | null>(null);
 
     /*
      * Which of the two list editors is open, if either.
@@ -186,11 +196,16 @@ export function ConsultationPanel({
         setErrors({});
         setDiagnosis('');
         setOpen(null);
+        setCompleteError(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [appointmentId]);
 
     function patch(next: Partial<Consultation>) {
         setDraft((was) => ({ ...was, ...next }));
+
+        // Typing is somebody acting on the refusal below — it should not
+        // still be on screen once they have started to fix it.
+        if (completeError) setCompleteError(null);
     }
 
     function addDiagnosis() {
@@ -292,6 +307,20 @@ export function ConsultationPanel({
             <div className="cn-swap" key={tab}>
             {tab === 'clinical' && (
                 <div className="cn-rows">
+                    {/*
+                        Where "write something up first" actually lands.
+                        Not on one field — any of the four is enough, so
+                        pinning it to Chief complaint alone would read as
+                        "this one specifically", which is not what the rule
+                        says.
+                    */}
+                    {completeError && (
+                        <p className="cn-complete-error">
+                            <i className="ti ti-alert-triangle" aria-hidden="true" />
+                            {completeError}
+                        </p>
+                    )}
+
                     <div className="cn-row">
                         <i className="cn-icon is-rose ti ti-file-description" aria-hidden="true" />
                         <span className="cn-label">Chief complaint</span>
@@ -299,7 +328,7 @@ export function ConsultationPanel({
                         <div className="cn-value">
                             <input
                                 type="text"
-                                className={`form-control${line('chief_complaint') ? ' is-invalid' : ''}`}
+                                className={`form-control${line('chief_complaint') || completeError ? ' is-invalid' : ''}`}
                                 placeholder="Chest pain since 2 days"
                                 value={draft.chief_complaint ?? ''}
                                 onChange={(event) => patch({ chief_complaint: event.target.value })}
@@ -331,7 +360,7 @@ export function ConsultationPanel({
                             A comma-separated line reads back as one diagnosis
                             with commas in it.
                         */}
-                        <div className="cn-value cn-chips">
+                        <div className={`cn-value cn-chips${completeError ? ' is-invalid' : ''}`}>
                             {draft.diagnoses.map((entry) => (
                                 <span className="cn-chip" key={entry}>
                                     {entry}
@@ -579,7 +608,7 @@ export function ConsultationPanel({
                         <div className="cn-value">
                             <textarea
                                 rows={2}
-                                className="form-control"
+                                className={`form-control${completeError ? ' is-invalid' : ''}`}
                                 placeholder="Anything else worth keeping…"
                                 value={draft.notes ?? ''}
                                 onChange={(event) => patch({ notes: event.target.value })}
@@ -726,9 +755,43 @@ export function ConsultationPanel({
                     <button
                         type="button"
                         className="cn-finish"
-                        disabled={completing}
+                        disabled={completing || save.isPending}
                         onClick={async () => {
-                            if (await flushPrescription(appointmentId)) onComplete();
+                            if (!(await flushPrescription(appointmentId))) return;
+
+                            setErrors({});
+                            setCompleteError(null);
+
+                            /*
+                             * Completing is not a second button somebody
+                             * remembers to pair with Save — it saves what is
+                             * on screen itself. Without this, typing a
+                             * complaint and going straight to Complete sent
+                             * the server a consultation with nothing on it,
+                             * because nothing had been written yet.
+                             */
+                            try {
+                                await save.mutateAsync(draft);
+                            } catch (error) {
+                                const found = getValidationErrors(error);
+
+                                if (found) setErrors(found);
+                                else notify.error(resolveErrorMessage(error));
+
+                                if (tab !== 'clinical') onTab('clinical');
+
+                                return;
+                            }
+
+                            try {
+                                await onComplete();
+                            } catch (error) {
+                                setCompleteError(resolveErrorMessage(error));
+
+                                // The refusal is about the write-up, so that
+                                // is what has to be on screen to read it.
+                                if (tab !== 'clinical') onTab('clinical');
+                            }
                         }}
                     >
                         <i className="ti ti-check" aria-hidden="true" />

@@ -76,6 +76,7 @@ class Organization extends Record
         'setup_token_expires_at',
         'is_setup_completed',
         'setup_completed_at',
+        'owner_password_hash',
         'status',
         'plan_id',
         'trial_ends_at',
@@ -102,6 +103,7 @@ class Organization extends Record
 
     protected $hidden = [
         'setup_token',
+        'owner_password_hash',
     ];
 
     protected static function booted(): void

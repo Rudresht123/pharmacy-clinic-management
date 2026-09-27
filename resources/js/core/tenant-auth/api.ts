@@ -26,6 +26,9 @@ export interface TenantUser {
     /** Their department or sub-department, when they belong to one. */
     department_id?: number | null;
 
+    /** Their default branch — where their workspace opens. Null for an owner, and for staff who work for the organization itself rather than one branch. */
+    location_id?: number | null;
+
     /**
      * Where they work, and what they hold at each place.
      *

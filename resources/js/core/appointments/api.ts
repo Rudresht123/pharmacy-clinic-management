@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { http } from '@/shared/api/http';
+import { http, resolveErrorMessage } from '@/shared/api/http';
 import { resourceKey } from '@/shared/hooks/useResource';
 import { notify } from '@/shared/utils/notify';
 import type { ApiResponse } from '@/shared/types/api';
@@ -99,6 +99,16 @@ export function useMoveAppointment() {
             return data;
         },
         onSuccess: (response) => notify.success(response.message ?? 'Updated'),
+
+        /*
+         * The server refuses a move that does not follow with a 422 and a
+         * plain message — "that patient is already with the doctor", say.
+         * The global interceptor stays quiet on every 422 on purpose,
+         * because a form renders that shape inline. There is no form here,
+         * so without this the desk clicks a button and nothing visibly
+         * happens — no error, no move, just silence.
+         */
+        onError: (error) => notify.error(resolveErrorMessage(error)),
     });
 }
 
@@ -124,6 +134,14 @@ export function useMoveConsultation() {
         }: {
             id: number;
             action: 'start' | 'complete' | 'reopen';
+            /**
+             * Skip the toast below — the caller is the write-up form itself,
+             * and it is about to show this same refusal beside the fields it
+             * is actually about ("a complaint, a diagnosis, vitals or a note
+             * is enough"), which a toast floating over the page cannot point
+             * at.
+             */
+            silent?: boolean;
         }) => {
             const { data } = await http.post<ApiResponse<Appointment>>(
                 `/tenant/appointments/${id}/consultation/${action}`,
@@ -150,6 +168,16 @@ export function useMoveConsultation() {
                     ? `${response.message ?? 'Updated'} · ${step}`
                     : (response.message ?? 'Updated'),
             );
+        },
+
+        /*
+         * Same silence as useMoveAppointment, and the same reason — except
+         * where the caller passed `silent`, because THAT one screen (the
+         * write-up form) does render it inline and a toast on top would
+         * only say the same sentence twice.
+         */
+        onError: (error, variables) => {
+            if (!variables?.silent) notify.error(resolveErrorMessage(error));
         },
     });
 }

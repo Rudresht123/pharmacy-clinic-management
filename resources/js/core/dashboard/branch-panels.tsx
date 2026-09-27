@@ -4,7 +4,7 @@ import { TrendBars } from '@/shared/components/ui/TrendBars';
 import { DonutChart } from '@/shared/components/ui/DonutChart';
 import { formatRelative } from '@/shared/utils/format';
 import type { DashboardSummary } from './api';
-import type { PanelDefinition } from './panels';
+import { Quiet, type PanelDefinition } from './panels';
 
 /** Rupees, grouped the Indian way — 12,48,500 rather than 1,248,500. */
 function money(amount: number): string {
@@ -39,10 +39,12 @@ function Visits({ summary }: { summary: DashboardSummary }) {
             description="Arrivals through the day"
         >
             {points.length === 0 ? (
-                <p className="db-quiet">
-                    <i className="ti ti-clock" />
-                    Nobody has arrived yet today.
-                </p>
+                <Quiet
+                    icon="ti ti-clock"
+                    tone="sky"
+                    title="Nobody yet today"
+                    description="Arrivals will fill this chart in through the day."
+                />
             ) : (
                 <TrendBars points={points} />
             )}
@@ -62,10 +64,12 @@ function ByType({ summary }: { summary: DashboardSummary }) {
             description="Today"
         >
             {slices.length === 0 ? (
-                <p className="db-quiet">
-                    <i className="ti ti-calendar" />
-                    Nothing booked today yet.
-                </p>
+                <Quiet
+                    icon="ti ti-chart-donut"
+                    tone="violet"
+                    title="Nothing booked yet"
+                    description="Today's appointment types will fill in this chart."
+                />
             ) : (
                 <div className="db-donut">
                     <DonutChart
@@ -94,10 +98,12 @@ function TodaysAppointments({ summary }: { summary: DashboardSummary }) {
             actions={<More to="/queue">View all</More>}
         >
             {rows.length === 0 ? (
-                <p className="db-quiet">
-                    <i className="ti ti-circle-check" />
-                    Nothing left in today’s book.
-                </p>
+                <Quiet
+                    icon="ti ti-circle-check"
+                    tone="emerald"
+                    title="Nothing left today"
+                    description="Today's book will show up here as bookings come in."
+                />
             ) : (
                 <div className="db-scroll">
                     <table className="db-table">
@@ -148,10 +154,12 @@ function RecentPatients({ summary }: { summary: DashboardSummary }) {
             actions={<More to="/customers">View all</More>}
         >
             {rows.length === 0 ? (
-                <p className="db-quiet">
-                    <i className="ti ti-user-plus" />
-                    Nobody registered here yet.
-                </p>
+                <Quiet
+                    icon="ti ti-user-plus"
+                    tone="violet"
+                    title="Nobody registered yet"
+                    description="People registered at this branch will show up here."
+                />
             ) : (
                 <div className="db-scroll">
                     <table className="db-table">

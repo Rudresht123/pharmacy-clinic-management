@@ -81,7 +81,23 @@ class AppointmentTest extends TenantTestCase
             return [$doctor->id, $branch->id, $patient->id];
         });
 
-        $this->signInAsOwner($organization);
+        /*
+         * The desk, not the owner — check-in and calling a patient through
+         * are `appointments.queue`, which the owner deliberately does not
+         * bypass (see Permission::DESK_CAPABILITIES). Booking, cancelling and
+         * no-show stay on the seeded staff role's defaults.
+         */
+        $this->placeStaffAt($organization, $branchId);
+        $this->setStaffCapabilities($organization, [
+            'branches.view',
+            'customers.view',
+            'customers.manage',
+            'appointments.view',
+            'appointments.book',
+            'appointments.queue',
+            'appointments.cancel',
+        ]);
+        $this->signInAsStaff($organization);
 
         return [$organization, $doctorId, $branchId, $patientId];
     }

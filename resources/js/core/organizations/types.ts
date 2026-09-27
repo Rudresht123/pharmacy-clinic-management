@@ -107,6 +107,10 @@ export interface OrganizationFormValues {
     legal_name: string;
     gstin: string;
     drug_license_no: string;
+
+    /** Required only when creating an organization. */
+    password: string;
+    password_confirmation: string;
 }
 
 /**

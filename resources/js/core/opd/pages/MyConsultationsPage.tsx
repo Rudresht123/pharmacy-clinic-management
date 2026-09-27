@@ -380,9 +380,13 @@ export default function MyConsultationsPage() {
                                         }
                                     }
                                     completing={move.isPending}
-                                    onComplete={() =>
-                                        move.mutate({ id: open.id, action: 'complete' })
-                                    }
+                                    onComplete={async () => {
+                                        await move.mutateAsync({
+                                            id: open.id,
+                                            action: 'complete',
+                                            silent: true,
+                                        });
+                                    }}
                                     tab={panelTab}
                                     onTab={setPanelTab}
                                 />

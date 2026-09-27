@@ -1,4 +1,4 @@
-import type { DurationUnit, Frequency, LineDraft, PrescriptionItem } from './types';
+import { DURATION_LABELS, type DurationUnit, type Frequency, type LineDraft, type PrescriptionItem } from './types';
 
 /** The pattern slots, in the order they are written: 1–0–0–1. */
 export const SLOTS = ['morning', 'afternoon', 'evening', 'night'] as const;
@@ -48,6 +48,35 @@ export function suggestQuantity(line: LineDraft): number | null {
     return perDay === null ? null : Math.max(1, Math.ceil(perDay * days));
 }
 
+/**
+ * The arithmetic behind `suggestQuantity`, spelled out rather than trusted —
+ * "20" on its own is a number to double-check by hand; "1 tablet × 2 times
+ * × 10 days = 20 tablets" is one a doctor can glance at and move on from.
+ *
+ * Null exactly when the quantity itself is: explaining nothing helps nobody.
+ */
+export function quantityFormula(line: LineDraft): string | null {
+    const suggestion = suggestQuantity(line);
+
+    if (suggestion === null) return null;
+
+    const dose = line.dose_amount || 1;
+    const unit = (line.dose_unit.trim() || line.base_unit || 'unit').replace(/s$/, '');
+    const plural = (count: number) => (count === 1 ? '' : 's');
+
+    if (line.frequency === 'stat') {
+        return `${dose} ${unit}${plural(dose)} = ${suggestion} ${unit}${plural(suggestion)}`;
+    }
+
+    const pattern = SLOTS.reduce((sum, slot) => sum + (line[slot] ?? 0), 0);
+    const perDay = pattern > 0 ? pattern : dose * (PER_DAY[line.frequency as Frequency] ?? 0);
+
+    return (
+        `${dose} ${unit}${plural(dose)} × ${perDay} time${plural(perDay)} × `
+        + `${line.duration} ${DURATION_LABELS[line.duration_unit]} = ${suggestion} ${unit}${plural(suggestion)}`
+    );
+}
+
 let fresh = 0;
 
 export function blankLine(): LineDraft {
@@ -57,6 +86,8 @@ export function blankLine(): LineDraft {
         key: `new-${fresh}`,
         medicine_id: null,
         medicine_name: '',
+        category: null,
+        item_kind: null,
         base_unit: null,
         dose_amount: null,
         dose_unit: '',
@@ -85,6 +116,8 @@ export function toDraft(item: PrescriptionItem): LineDraft {
         key: `rx-${item.id}`,
         medicine_id: item.medicine_id,
         medicine_name: item.medicine_name,
+        category: item.category ?? null,
+        item_kind: item.item_kind ?? null,
         base_unit: item.base_unit ?? null,
         dose_amount: item.dose_amount,
         dose_unit: item.dose_unit ?? '',
