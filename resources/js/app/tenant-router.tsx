@@ -47,6 +47,15 @@ const PharmacyDashboardPage = lazy(() => import('@/core/pharmacy/pages/PharmacyD
 const PharmacyReportsPage = lazy(() => import('@/core/pharmacy/pages/PharmacyReportsPage'));
 const PosPage = lazy(() => import('@/core/pharmacy/pages/PosPage'));
 const SalesListPage = lazy(() => import('@/core/pharmacy/pages/SalesListPage'));
+const BillingOverviewPage = lazy(() => import('@/core/billing/pages/BillingOverviewPage'));
+const InvoiceListPage = lazy(() => import('@/core/billing/pages/InvoiceListPage'));
+const InvoicePage = lazy(() => import('@/core/billing/pages/InvoicePage'));
+const NewInvoicePage = lazy(() => import('@/core/billing/pages/NewInvoicePage'));
+const PaymentsPage = lazy(() => import('@/core/billing/pages/PaymentsPage'));
+const OutstandingPage = lazy(() => import('@/core/billing/pages/OutstandingPage'));
+const ServicesPage = lazy(() => import('@/core/billing/pages/ServicesPage'));
+const BillingSettingsPage = lazy(() => import('@/core/billing/pages/BillingSettingsPage'));
+const DocumentTemplatesPage = lazy(() => import('@/core/documents/pages/DocumentTemplatesPage'));
 const WhatsAppPage = lazy(() => import('@/core/communication/pages/WhatsAppPage'));
 const EmailPage = lazy(() => import('@/core/communication/pages/EmailPage'));
 const CampaignWizardPage = lazy(() => import('@/core/communication/pages/CampaignWizardPage'));
@@ -455,6 +464,69 @@ export function TenantAppRoutes() {
                                     <Route
                                         path="/pharmacy/settings"
                                         element={<PharmacySettingsPage />}
+                                    />
+                                </Route>
+                            </Route>
+
+                            {/*
+                                The letterhead. Behind the documents module
+                                and the read capability; what somebody may
+                                then DO on the screen — edit, publish, lock —
+                                is decided inside it from their own
+                                capabilities, because the three are held by
+                                three different people.
+                             */}
+                            <Route element={<RequireModule module="documents" />}>
+                                <Route
+                                    element={<RequireCapability capability="documents.template_view" />}
+                                >
+                                    <Route
+                                        path="/settings/document-templates"
+                                        element={<DocumentTemplatesPage />}
+                                    />
+                                </Route>
+                            </Route>
+
+                            {/*
+                                Billing. Core module — always mounted, but
+                                every route inside asks for the capability
+                                too, so the sidebar and the URL agree.
+                             */}
+                            <Route element={<RequireModule module="billing" />}>
+                                {/*
+                                    Raising a bill by hand is its own
+                                    capability, and the literal path sits
+                                    before `invoices/:id` so it is not read
+                                    as an invoice called "new".
+                                */}
+                                <Route element={<RequireCapability capability="billing.create" />}>
+                                    <Route
+                                        path="/billing/invoices/new"
+                                        element={<NewInvoicePage />}
+                                    />
+                                </Route>
+
+                                <Route element={<RequireCapability capability="billing.view" />}>
+                                    {/* The counter's own screens, in the order
+                                        the menu lists them. */}
+                                    <Route path="/billing" element={<BillingOverviewPage />} />
+                                    <Route
+                                        path="/billing/invoices"
+                                        element={<InvoiceListPage />}
+                                    />
+                                    <Route path="/billing/payments" element={<PaymentsPage />} />
+                                    <Route
+                                        path="/billing/outstanding"
+                                        element={<OutstandingPage />}
+                                    />
+                                    <Route path="/billing/services" element={<ServicesPage />} />
+                                    <Route
+                                        path="/billing/settings"
+                                        element={<BillingSettingsPage />}
+                                    />
+                                    <Route
+                                        path="/billing/invoices/:id"
+                                        element={<InvoicePage />}
                                     />
                                 </Route>
                             </Route>

@@ -86,7 +86,24 @@ class TemplateConfig
                 'margin_mm' => $receipt
                     ? ['top' => 4, 'right' => 4, 'bottom' => 4, 'left' => 4]
                     : ['top' => 14, 'right' => 12, 'bottom' => 14, 'left' => 12],
-                'font_size' => $receipt ? 9 : 11,
+                /*
+                 * A tax invoice carries seven columns — number, item, HSN,
+                 * quantity, rate, tax, amount — and at 11pt on A5 that runs
+                 * onto a second page for a bill of six lines. 9pt is what
+                 * fits a real counter's invoice on one sheet; the prose
+                 * documents keep the larger, more readable size.
+                 */
+                /*
+                 * An invoice carries seven columns — number, item, HSN,
+                 * quantity, rate, tax, amount — and sets tighter than the
+                 * prose documents so a real bill's worth of lines fits on
+                 * one sheet.
+                 */
+                'font_size' => match (true) {
+                    $receipt => 9,
+                    in_array($typeKey, ['clinic_invoice', 'pharmacy_invoice'], true) => 10,
+                    default => 11,
+                },
                 'font_family' => 'sans-serif',
                 'accent' => '#2e37a4',
             ],
@@ -105,6 +122,13 @@ class TemplateConfig
     {
         return match ($typeKey) {
             'prescription' => [['token' => 'prescription_items', 'title' => 'Medicines']],
+            /*
+             * The clinic's own bill prints "Charges" rather than "Items":
+             * what is on it is a consultation, a test and a procedure as
+             * often as it is a box of tablets, and "Items" reads as a
+             * shopping list of the one case it is not.
+             */
+            'clinic_invoice' => [['token' => 'invoice_items', 'title' => 'Charges']],
             'pharmacy_invoice', 'payment_receipt' => [['token' => 'invoice_items', 'title' => 'Items']],
             'document_cover' => [['token' => 'document_list', 'title' => 'Documents on file']],
             default => [],

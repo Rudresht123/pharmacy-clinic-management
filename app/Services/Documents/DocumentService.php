@@ -6,6 +6,7 @@ use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\File;
+use App\Models\Tenant\Invoice;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\PatientDocument;
 use App\Models\Tenant\PharmacySale;
@@ -201,6 +202,13 @@ class DocumentService
             $subject instanceof Appointment => [$subject->customer_id, $subject->getKey()],
             $subject instanceof Prescription => [$subject->customer_id, $subject->appointment_id],
             $subject instanceof PharmacySale => [$subject->customer_id, null],
+            /*
+             * A clinic invoice: the patient is direct, and the visit hangs
+             * off `appointment_id` when the invoice came from a
+             * consultation-trigger (a manual invoice has no visit and lands
+             * against the patient alone).
+             */
+            $subject instanceof Invoice => [$subject->customer_id, $subject->appointment_id],
             default => [null, null],
         };
     }
@@ -218,6 +226,7 @@ class DocumentService
         return match (true) {
             $subject instanceof Prescription => $subject->prescription_number,
             $subject instanceof PharmacySale => $subject->sale_number,
+            $subject instanceof Invoice => $subject->invoice_number,
             default => null,
         };
     }

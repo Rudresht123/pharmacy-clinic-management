@@ -350,7 +350,7 @@ export default function PatientPage() {
 
                     {section === 'labs' && <LabsTable rows={file.labs} go={go} />}
 
-                    {section === 'billing' && <BillingPanel />}
+                    {section === 'billing' && <BillingPanel patientId={patient.id} />}
 
                     {section === 'documents' && hasDocuments && id && (
                         <DocumentsPanel customerId={Number(id)} />

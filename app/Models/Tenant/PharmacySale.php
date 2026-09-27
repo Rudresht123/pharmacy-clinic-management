@@ -33,7 +33,25 @@ class PharmacySale extends Model
 
     public const UNPAID = 'unpaid';
 
-    public const PAYMENT_STATUSES = [self::PAID, self::PARTIAL, self::UNPAID];
+    /**
+     * The clinic is collecting this, not the counter.
+     *
+     * A dispensing that belongs to a visit is billed on that visit's
+     * consolidated invoice — consultation, lab and medicines on one document
+     * — so the till must not also ask for it. The sale row still exists, and
+     * still moved the stock; what it no longer does is own the money.
+     *
+     * Reports read this as "not outstanding here": the pharmacy is owed
+     * nothing, because the billing counter is.
+     */
+    public const BILLED_VIA_INVOICE = 'billed_via_invoice';
+
+    public const PAYMENT_STATUSES = [
+        self::PAID,
+        self::PARTIAL,
+        self::UNPAID,
+        self::BILLED_VIA_INVOICE,
+    ];
 
     protected $connection = 'organization';
 

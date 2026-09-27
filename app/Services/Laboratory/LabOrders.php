@@ -6,7 +6,9 @@ use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Consultation;
 use App\Models\Tenant\LabOrder;
 use App\Models\Tenant\LabOrderItem;
+use App\Models\Tenant\LabTestCatalog;
 use App\Models\Tenant\User;
+use App\Services\Billing\BillingTriggerResolver;
 use App\Services\Opd\VisitWorkflow;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -28,6 +30,12 @@ class LabOrders
 {
     public function __construct(
         private readonly VisitWorkflow $visits,
+        /*
+         * Nullable to keep a directly-constructed instance (a test, a
+         * seeder) working. In an HTTP request the container populates it,
+         * and a completed order's priced tests join the visit's bill.
+         */
+        private readonly ?BillingTriggerResolver $billingTrigger = null,
     ) {}
 
     /**
@@ -305,7 +313,31 @@ class LabOrders
                 'sort_order' => $index,
             ];
 
+            /*
+             * What this test costs, taken NOW and kept.
+             *
+             * A catalogue entry is looked up once, at order time, and its
+             * price copied onto the line — because the catalogue is edited
+             * and a bill is not. A test repriced next month must not rewrite
+             * what this patient was charged today.
+             *
+             * Freehand ordering is untouched: no catalogue id means no
+             * snapshot, and the line is run exactly as before and bills
+             * nothing. The catalogue is a price list, not a gate.
+             */
+            $values = [...$values, ...$this->priceFrom($line, $order->location_id)];
+
             if ($item) {
+                /*
+                 * An existing line keeps the price it was ordered at unless
+                 * the test itself is being changed to a different catalogue
+                 * entry — repricing a line somebody already agreed to is the
+                 * thing the snapshot exists to prevent.
+                 */
+                if (($line['lab_test_catalog_id'] ?? null) === null) {
+                    unset($values['price_snapshot'], $values['tax_percent_snapshot'], $values['lab_test_catalog_id']);
+                }
+
                 $item->fill($values)->save();
             } else {
                 $item = $order->items()->create($values);
@@ -320,19 +352,69 @@ class LabOrders
     }
 
     /**
+     * The catalogue price for a line, as a snapshot.
+     *
+     * Resolved by explicit id first, then by `test_code` — a doctor picking
+     * "CBC" from a dropdown sends the id, and an integration posting a code
+     * still gets priced. Neither found means a freehand test: no id, no
+     * price, no charge.
+     *
+     * @param  array<string, mixed>  $line
+     * @return array<string, mixed>
+     */
+    private function priceFrom(array $line, ?int $locationId): array
+    {
+        $entry = null;
+
+        if (! empty($line['lab_test_catalog_id'])) {
+            $entry = LabTestCatalog::query()
+                ->forBranch($locationId)
+                ->find((int) $line['lab_test_catalog_id']);
+        } elseif (! empty($line['test_code'])) {
+            $entry = LabTestCatalog::query()
+                ->active()
+                ->forBranch($locationId)
+                ->where('code', $line['test_code'])
+                /* A branch's own price beats the organisation default. */
+                ->orderByRaw('location_id IS NULL')
+                ->first();
+        }
+
+        if (! $entry) {
+            return [];
+        }
+
+        return [
+            'lab_test_catalog_id' => $entry->id,
+            'price_snapshot' => $entry->price,
+            'tax_percent_snapshot' => $entry->tax_percent,
+        ];
+    }
+
+    /**
      * Tell the visit that something changed here.
      *
-     * Guarded on the visit still existing, because an order can outlive the
-     * appointment being soft-deleted, and a missing visit is not a reason to
-     * fail a result the lab has already produced.
+     * Two things, in order. The lab's charges go onto the visit's
+     * consolidated invoice FIRST — so that when the workflow then asks "is
+     * this visit finished", the bill it reads already includes the tests.
+     * Doing it the other way round would close a visit a moment before it
+     * acquired something to pay for.
+     *
+     * Both guarded on the visit still existing, because an order can outlive
+     * the appointment being soft-deleted, and a missing visit is not a reason
+     * to fail a result the lab has already produced.
      */
     private function closeVisitIfReady(LabOrder $order): void
     {
         $appointment = Appointment::on('organization')->find($order->appointment_id);
 
-        if ($appointment) {
-            $this->visits->refresh($appointment);
+        if (! $appointment) {
+            return;
         }
+
+        $this->billingTrigger?->onLaboratoryCompleted($appointment);
+
+        $this->visits->refresh($appointment);
     }
 
     private function assertCanMoveTo(LabOrder $order, string $status): void

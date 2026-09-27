@@ -13,15 +13,21 @@ namespace App\Support\Documents;
  * lying.
  *
  * So each type declares `requires`, and a type whose module is not running
- * here does not appear at all. Three of the types the brief asked for are
+ * here does not appear at all. The remaining ones the brief asked for are
  * DELIBERATELY ABSENT until their modules exist:
  *
- *   Invoice (clinic)   needs a billing module
  *   Lab report         needs a lab module
  *   Discharge summary  needs an admissions concept
  *
  * Adding them later is adding an entry here, not a rewrite — which is the
  * point of the registry.
+ *
+ * `clinic_invoice` was added when Billing shipped: it is the clinic's own
+ * invoice — a consultation, a lab charge, a procedure — printed against an
+ * Invoice row rather than a PharmacySale. `pharmacy_invoice` and
+ * `payment_receipt` are the shop's own bills and stay pointed at
+ * PharmacySale; the two document types coexist for the same visit if both
+ * modules run.
  *
  * `category` is the OTHER half, and a different question: it decides who may
  * READ the generated file, through DocumentCategories. A generated
@@ -39,6 +45,9 @@ class DocumentTypes
     public const SUBJECT_PRESCRIPTION = 'prescription';
 
     public const SUBJECT_SALE = 'pharmacy_sale';
+
+    /** The clinic's own invoice — an Invoice row from the billing module. */
+    public const SUBJECT_INVOICE = 'invoice';
 
     /** Paper sizes the renderer knows. */
     public const PAPER_A4 = 'a4';
@@ -102,6 +111,37 @@ class DocumentTypes
                 'paper' => self::PAPER_A4,
                 'requires' => ['appointments'],
                 'groups' => ['organization', 'branch', 'patient', 'visit', 'clinical'],
+            ],
+            [
+                /*
+                 * The CLINIC's invoice — an OPD consultation, a procedure, an
+                 * added service. Requires the billing module (a core module,
+                 * so effectively always available); prints from an Invoice
+                 * row rather than a PharmacySale.
+                 *
+                 * Placed BEFORE pharmacy_invoice in the registry so the
+                 * template list shows the clinic bill first, which is the
+                 * common case in an OPD.
+                 */
+                'key' => 'clinic_invoice',
+                'name' => 'Clinic invoice',
+                'description' => 'The bill for a consultation, procedure or service — for the patient.',
+                'icon' => 'ti ti-receipt',
+                'subject' => self::SUBJECT_INVOICE,
+                'category' => 'invoice',
+                /*
+                 * A4, unlike the pharmacy's own bill.
+                 *
+                 * A consolidated clinic invoice is a tax document carrying
+                 * seven columns and a heading per department — registration,
+                 * consultation, laboratory, pharmacy. On A5 a six-line bill
+                 * already spills onto a second sheet that holds the payment
+                 * panel and nothing else, and a real one runs longer. A5
+                 * suits a prescription slip; this is not one.
+                 */
+                'paper' => self::PAPER_A4,
+                'requires' => ['billing'],
+                'groups' => ['organization', 'branch', 'patient', 'visit', 'invoice'],
             ],
             [
                 'key' => 'pharmacy_invoice',

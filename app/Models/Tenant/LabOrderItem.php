@@ -12,9 +12,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * One test on a lab order, and what it came back as.
  *
- * Free text rather than a catalogue entry: there is no test master, and
- * inventing one here would be a second thing nobody maintains. A doctor
- * typing "CBC" must not be blocked because nobody has set a catalogue up.
+ * Free text FIRST, catalogue second. A doctor typing "CBC" must not be
+ * blocked because nobody has set a catalogue up, and that is still true —
+ * `lab_test_catalog_id` is nullable forever. What the catalogue adds is a
+ * price: a line that came from it carries `price_snapshot`, which is what
+ * the visit's invoice charges for. A freehand line carries none and bills
+ * nothing.
+ *
+ * SNAPSHOT, not a lookup. The catalogue is edited; a bill is not. A test
+ * repriced next month must not silently rewrite what a patient was charged
+ * last week — the same rule `pharmacy_sale_items` follows with its own
+ * snapshot columns.
  *
  * `status`, the result fields and `completed_at` are the technician's to
  * write, never a doctor's and never a request's.
@@ -46,6 +54,15 @@ class LabOrderItem extends Model
         'test_code',
         'specimen',
         'sort_order',
+
+        /*
+         * Set by LabOrders when the doctor picked a catalogue entry. The
+         * price is copied at that moment and never read back off the
+         * catalogue — see the class docblock.
+         */
+        'lab_test_catalog_id',
+        'price_snapshot',
+        'tax_percent_snapshot',
     ];
 
     protected function casts(): array
@@ -55,7 +72,20 @@ class LabOrderItem extends Model
             'is_abnormal' => 'boolean',
             'completed_at' => 'datetime',
             'sort_order' => 'integer',
+            'price_snapshot' => 'decimal:2',
+            'tax_percent_snapshot' => 'decimal:2',
         ];
+    }
+
+    /** Whether this line puts anything on the bill. */
+    public function isBillable(): bool
+    {
+        return $this->price_snapshot !== null && (float) $this->price_snapshot > 0;
+    }
+
+    public function catalogEntry(): BelongsTo
+    {
+        return $this->belongsTo(LabTestCatalog::class, 'lab_test_catalog_id');
     }
 
     /**

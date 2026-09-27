@@ -190,9 +190,41 @@ export function tenantNavigation(
 
     }
 
-    // Departments and their sub-departments, kept by whoever keeps the settings.
+    /*
+     * SETTINGS, WHOLE.
+     *
+     * Everything that configures the software rather than does the day's work
+     * hangs off this one entry — what a patient record is called, what a
+     * printed bill looks like, when the clinic bills, how the pharmacy
+     * prices. They used to be scattered: field settings and departments up
+     * here, the letterhead beside them, billing's own settings buried inside
+     * the Billing group and the pharmacy's inside Pharmacy. Somebody looking
+     * for "where do I change this" had four places to look and no way to
+     * guess which.
+     *
+     * Each child still carries its OWN capability and module, so the group
+     * shows only what this person may actually open — and the two settings
+     * rows that used to live inside the Pharmacy and Billing groups are gone
+     * from there, because a row appearing in two menus reads as two
+     * different screens.
+     *
+     * The parent opens the first child rather than a landing page: there is
+     * no "settings overview" screen, and a lid that leads nowhere is worse
+     * than one that leads to the commonest thing under it.
+     */
+    const settings: NavItem[] = [];
+
     if (can('settings.manage')) {
-        organization.push({
+        settings.push({
+            label: 'Fields & naming',
+            to: '/settings/fields',
+            icon: 'ti ti-forms',
+            // Keeps it highlighted on every entity tab.
+            match: '/settings/fields',
+        });
+
+        // Departments and their sub-departments — the doctor form's own list.
+        settings.push({
             label: 'Departments',
             to: '/departments',
             icon: 'ti ti-layout-grid',
@@ -200,13 +232,63 @@ export function tenantNavigation(
         });
     }
 
-    if (can('settings.manage')) {
+    /*
+     * The letterhead. A different capability from `settings.manage` on
+     * purpose — a branch manager may redesign their own branch's printed
+     * documents while holding none of the organisation's field settings.
+     */
+    if (hasModule('documents') && can('documents.template_view')) {
+        settings.push({
+            label: 'Document templates',
+            to: '/settings/document-templates',
+            icon: 'ti ti-file-text',
+            match: '/settings/document-templates',
+        });
+    }
+
+    /*
+     * Billing's own settings are NOT here — they sit inside the Billing
+     * group, beside the price list, because what a clinic charges for is
+     * part of billing rather than part of configuring the software. The
+     * person who edits them works that menu all day; sending them here would
+     * be sending them somewhere they never otherwise go.
+     *
+     * The same row in two menus reads as two different screens, so it is in
+     * one of them only.
+     */
+
+    /*
+     * How the shop prices, rounds and warns.
+     *
+     * The condition is spelled out rather than reusing the `pharmacy` const
+     * below — that one is declared further down, with the clinical group it
+     * belongs to, and a `const` read before its declaration is a runtime
+     * ReferenceError rather than an undefined.
+     */
+    const runsPharmacy = hasModule('pharmacy') && can('pharmacy.view');
+
+    if (runsPharmacy) {
+        settings.push({
+            label: 'Pharmacy',
+            to: '/pharmacy/settings',
+            icon: 'ti ti-pill',
+            match: '/pharmacy/settings',
+        });
+    }
+
+    if (settings.length > 0) {
         organization.push({
             label: 'Settings',
-            to: '/settings/fields',
+            /* Opens the commonest thing under it — there is no settings
+               overview screen to land on. */
+            to: settings[0].to,
             icon: 'ti ti-settings',
-            // Keeps the entry highlighted on every tab.
-            match: '/settings/fields',
+            match: [
+                '/settings',
+                ...(can('settings.manage') ? ['/departments'] : []),
+                ...(runsPharmacy ? ['/pharmacy/settings'] : []),
+            ],
+            children: settings,
         });
     }
 
@@ -578,12 +660,15 @@ export function tenantNavigation(
                     icon: 'ti ti-building-store',
                     match: '/pharmacy/stores',
                 },
-                {
-                    label: 'Settings',
-                    to: '/pharmacy/settings',
-                    icon: 'ti ti-adjustments',
-                    match: '/pharmacy/settings',
-                },
+
+                /*
+                 * The pharmacy's own settings used to sit here. They now live
+                 * under the one Settings group with every other thing that
+                 * configures the software — somebody looking for "where do I
+                 * change this" should have one place to look, not four. The
+                 * row is not repeated here, because the same link in two
+                 * menus reads as two different screens.
+                 */
             ],
         });
     }
@@ -600,6 +685,72 @@ export function tenantNavigation(
             to: '/pharmacy/reports',
             icon: 'ti ti-report-analytics',
             match: '/pharmacy/reports',
+        });
+    }
+
+    /*
+     * Billing. Core module: always available, but the menu only shows when
+     * this person may look at an invoice. The screen inside decides what
+     * they may then do — take payment, cancel, refund — from their own
+     * capability list, same as the pharmacy.
+     */
+    if (hasModule('billing') && can('billing.view')) {
+        clinical.push({
+            label: 'Billing',
+            to: '/billing',
+            icon: 'ti ti-receipt',
+            match: '/billing',
+            /*
+             * In the order somebody at the counter works through them: what
+             * is the state of the money, what has been billed, what came in,
+             * what is still owed — then the two set-up screens behind it.
+             *
+             * Services and Settings live HERE rather than in the global
+             * Settings group, because what a clinic charges for is part of
+             * billing rather than part of configuring the software: the
+             * person who edits the price list is the person who works this
+             * menu all day.
+             */
+            children: [
+                { label: 'Overview', to: '/billing', icon: 'ti ti-layout-dashboard' },
+                {
+                    label: 'Invoices',
+                    to: '/billing/invoices',
+                    icon: 'ti ti-file-invoice',
+                    match: '/billing/invoices',
+                },
+                {
+                    label: 'Payments',
+                    to: '/billing/payments',
+                    icon: 'ti ti-cash',
+                    match: '/billing/payments',
+                },
+                {
+                    label: 'Outstanding',
+                    to: '/billing/outstanding',
+                    icon: 'ti ti-clock-dollar',
+                    match: '/billing/outstanding',
+                },
+                /*
+                 * The price list is not a menu row.
+                 *
+                 * It is set up once and then read by the software rather than
+                 * by a person — nobody at the counter opens it during a
+                 * shift, and a permanent row for it crowded the four screens
+                 * that are worked all day. It is reachable from Settings,
+                 * where the rest of the once-and-forget configuration lives.
+                 */
+                ...(can('billing.manage_settings')
+                    ? [
+                          {
+                              label: 'Settings',
+                              to: '/billing/settings',
+                              icon: 'ti ti-adjustments',
+                              match: '/billing/settings',
+                          },
+                      ]
+                    : []),
+            ],
         });
     }
 
@@ -685,7 +836,12 @@ export function tenantNavigation(
             ...(hasModule('pharmacy')
                 ? []
                 : [{ label: 'Pharmacy', to: '/pharmacy', icon: 'ti ti-vaccine', soon: true }]),
-            { label: 'Billing', to: '/billing', icon: 'ti ti-receipt', soon: true },
+            /*
+             * Billing was here as "coming soon" — it is real now, and it is
+             * a CORE module, so it is always available; whether the row shows
+             * depends only on this person's capability, handled above. It
+             * therefore never appears in this "coming soon" list at all.
+             */
             /*
              * Reports is built now, sold as its own module (see `reports`
              * above) — "coming soon" described the product's build status,

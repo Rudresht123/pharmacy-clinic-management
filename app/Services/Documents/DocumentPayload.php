@@ -4,7 +4,10 @@ namespace App\Services\Documents;
 
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
+use App\Models\Tenant\BillableService;
 use App\Models\Tenant\Customer;
+use App\Models\Tenant\Invoice;
+use App\Models\Tenant\InvoiceItem;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\PatientDocument;
 use App\Models\Tenant\PharmacySale;
@@ -63,6 +66,7 @@ class DocumentPayload
             DocumentTypes::SUBJECT_APPOINTMENT => $this->fromAppointment($subject, $values),
             DocumentTypes::SUBJECT_PRESCRIPTION => $this->fromPrescription($subject, $values, $tables),
             DocumentTypes::SUBJECT_SALE => $this->fromSale($subject, $values, $tables),
+            DocumentTypes::SUBJECT_INVOICE => $this->fromInvoice($subject, $values, $tables),
             default => null,
         };
 
@@ -317,7 +321,7 @@ class DocumentPayload
             return;
         }
 
-        $sale->loadMissing(['customer', 'items', 'payments', 'doctor']);
+        $sale->loadMissing(['customer', 'items.service', 'payments', 'doctor']);
 
         $values = [...$values, ...$this->patientValues($sale->customer)];
 
@@ -357,6 +361,133 @@ class DocumentPayload
             'columns' => ['Item', 'Batch', 'Qty', 'Rate', 'Amount'],
             'rows' => $rows,
         ];
+    }
+
+    /**
+     * Fill in a CLINIC invoice — a consultation, a procedure, a service.
+     *
+     * A different subject from a pharmacy sale: the same `invoice`
+     * placeholder group, but the row is `invoices` (with `invoice_items` on
+     * it), and the columns on the printed table are what a doctor's bill
+     * shows — no batch, no medicine, just what was charged for.
+     *
+     * @param  array<string, string>  $values
+     * @param  array<string, mixed>  $tables
+     */
+    private function fromInvoice(mixed $subject, array &$values, array &$tables): void
+    {
+        $invoice = $subject instanceof Invoice
+            ? $subject
+            : Invoice::with(['customer', 'items', 'payments', 'doctor'])->find($subject);
+
+        if (! $invoice) {
+            return;
+        }
+
+        $invoice->loadMissing(['customer', 'items.service', 'payments', 'doctor']);
+
+        $values = [...$values, ...$this->patientValues($invoice->customer)];
+
+        // A walk-in with no register record — the bill still names them.
+        if (! $invoice->customer && $invoice->walk_in_name) {
+            $values['patient_name'] = (string) $invoice->walk_in_name;
+            $values['patient_mobile'] = (string) ($invoice->walk_in_phone ?? '');
+        }
+
+        $paid = (float) $invoice->paid_amount;
+        $total = (float) $invoice->total_amount;
+
+        $values['invoice_number'] = (string) ($invoice->invoice_number ?? '');
+        $values['invoice_date'] = $invoice->invoice_date?->format('d M Y') ?? '';
+        $values['doctor_name'] = (string) ($invoice->doctor?->name ?? '');
+        $values['subtotal'] = $this->money($invoice->subtotal);
+        $values['discount'] = $this->money($invoice->discount_amount);
+        $values['tax'] = $this->money($invoice->tax_amount);
+        $values['total'] = $this->money($total);
+        $values['amount_paid'] = $this->money($paid);
+        $values['balance'] = $this->money(max(0, $total - $paid));
+
+        /*
+         * Lines GROUPED BY WHERE THEY CAME FROM, with a heading per group.
+         *
+         * A consolidated bill carries a consultation, a test and a strip of
+         * tablets, and a flat list of them reads as a shopping receipt. The
+         * headings are what let somebody check "was I charged for the lab?"
+         * without reading every row — which is the question a patient
+         * actually asks at the counter.
+         *
+         * A group with nothing in it is absent rather than empty: a clinic
+         * with no pharmacy should not print a "Pharmacy" heading over
+         * nothing.
+         */
+        $groups = [
+            'registration' => ['title' => 'Registration', 'rows' => []],
+            'consultation' => ['title' => 'Consultation', 'rows' => []],
+            'laboratory' => ['title' => 'Laboratory', 'rows' => []],
+            'procedure' => ['title' => 'Procedures', 'rows' => []],
+            'pharmacy' => ['title' => 'Pharmacy', 'rows' => []],
+            'other' => ['title' => 'Other services', 'rows' => []],
+        ];
+
+        $index = 0;
+
+        foreach ($invoice->items as $item) {
+            $index++;
+
+            $key = match ($item->source_type) {
+                InvoiceItem::SOURCE_CONSULTATION => 'consultation',
+                InvoiceItem::SOURCE_LAB_TEST => 'laboratory',
+                InvoiceItem::SOURCE_PHARMACY_SALE_ITEM => 'pharmacy',
+                InvoiceItem::SOURCE_PROCEDURE => 'procedure',
+                default => $item->service?->kind === BillableService::KIND_REGISTRATION
+                    ? 'registration'
+                    : 'other',
+            };
+
+            $groups[$key]['rows'][] = [
+                (string) $index,
+                (string) $item->description,
+                /* HSN/SAC where the line has one. Pharmacy lines carry it
+                   from the sale; a consultation has no such code, and an
+                   invented one on a tax document is worse than a blank. */
+                (string) ($item->hsn_code ?? ''),
+                rtrim(rtrim(number_format((float) $item->quantity, 2, '.', ''), '0'), '.'),
+                $this->money($item->unit_price),
+                (float) $item->tax_percent > 0
+                    ? rtrim(rtrim(number_format((float) $item->tax_percent, 2, '.', ''), '0'), '.').'%'
+                    : '0%',
+                $this->money($item->line_total),
+            ];
+        }
+
+        $tables['invoice_items'] = [
+            'columns' => ['#', 'Service / item', 'HSN/SAC', 'Qty', 'Rate', 'Tax', 'Amount'],
+            'rows' => array_merge(...array_map(
+                fn (array $group) => $group['rows'],
+                array_values($groups),
+            )),
+            /* The renderer draws a heading row before each group's first
+               line; a flat `rows` is still there for anything that cannot. */
+            'groups' => array_values(array_filter(
+                $groups,
+                fn (array $group) => $group['rows'] !== [],
+            )),
+        ];
+
+        /* The payment panel: how it was settled, and whether it is. */
+        $settled = $invoice->payments->where('is_refund', false)->sortByDesc('paid_at')->first();
+
+        if ($settled) {
+            $values['payment_method'] = ucfirst(str_replace('_', ' ', (string) $settled->method));
+            $values['payment_reference'] = (string) ($settled->reference ?? '');
+            $values['payment_date'] = $settled->paid_at?->format('d M Y, g:i A') ?? '';
+        }
+
+        $values['payment_state'] = match ($invoice->payment_status) {
+            Invoice::PAID => 'PAID',
+            Invoice::PARTIAL => 'PART PAID',
+            default => 'UNPAID',
+        };
     }
 
     private function money(mixed $amount): string

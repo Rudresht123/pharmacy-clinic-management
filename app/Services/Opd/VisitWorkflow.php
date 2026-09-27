@@ -4,10 +4,12 @@ namespace App\Services\Opd;
 
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Consultation;
+use App\Models\Tenant\Invoice;
 use App\Models\Tenant\LabOrder;
 use App\Models\Tenant\PharmacySale;
 use App\Models\Tenant\Prescription;
 use App\Models\Tenant\User;
+use App\Services\Billing\BillingTriggerResolver;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -46,6 +48,17 @@ use Illuminate\Support\Facades\Auth;
  */
 class VisitWorkflow
 {
+    /*
+     * The trigger resolver decides whether finishing a consultation, a
+     * dispensing or a lab result draws an invoice — the billing settings say
+     * WHEN a bill is drawn, and this asks. Injected rather than fetched from
+     * the container so a test can swap it out.
+     */
+    public function __construct(
+        private readonly ?BillingTriggerResolver $billingTrigger = null,
+    ) {}
+
+
     /**
      * Where a patient goes next, in the order the department asks.
      *
@@ -223,8 +236,22 @@ class VisitWorkflow
                 'consultation_completed_by' => $this->actorId($actor),
             ])->save();
 
+            /*
+             * Ask the billing settings whether this is the point where a
+             * visit becomes a bill.
+             *
+             * Inside the same transaction so a failure to draw the invoice
+             * rolls the completion back with it — a visit that closed and
+             * left no charge would be worse than one that has to be finished
+             * again. Idempotent: reopening and re-completing does not draw
+             * a second invoice (the resolver checks for one against the
+             * appointment first).
+             */
+            $this->billingTrigger?->onConsultationCompleted($locked);
+
             // What the visit becomes is decided from what the doctor made,
-            // never from what anybody chose.
+            // never from what anybody chose. Runs AFTER the invoice attempt,
+            // so `pending().billing` sees the row that was just written.
             $this->settle($locked);
 
             return $locked;
@@ -342,17 +369,36 @@ class VisitWorkflow
             /*
              * Money owed on a bill that stands.
              *
-             * A cancelled bill owes nothing — the stock went back and the
-             * charge with it — so only `completed` sales are asked. A visit
-             * with no bill at all is not awaiting payment: what it is
-             * awaiting is the pharmacy, which is a different queue and a
-             * different screen.
+             * Two sources, and the split between them is the consolidation
+             * rule made visible:
+             *
+             *   THE PHARMACY'S OWN BILL, for a counter sale with no visit
+             *   behind it. `billed_via_invoice` is deliberately NOT counted:
+             *   a dispensing that belongs to this visit has had its money
+             *   moved onto the visit's invoice, and counting it here as well
+             *   would hold the visit open for a debt that is already
+             *   represented below.
+             *
+             *   THE VISIT'S CONSOLIDATED INVOICE, which holds the visit open
+             *   in two different states. A DRAFT is still collecting charges
+             *   — the doctor is done but the lab is not, say — and the visit
+             *   plainly is not finished. A finalized one that still owes
+             *   money is the ordinary "go and pay" case. Either way the
+             *   patient has something left to do at the counter.
+             *
+             * A cancelled bill owes nothing — the stock or the charge went
+             * with it — so cancelled rows are excluded from both.
              */
             'billing' => PharmacySale::on('organization')
                 ->where('appointment_id', $appointment->id)
                 ->where('status', PharmacySale::COMPLETED)
                 ->whereIn('payment_status', [PharmacySale::UNPAID, PharmacySale::PARTIAL])
-                ->exists(),
+                ->exists()
+                || Invoice::on('organization')
+                    ->where('appointment_id', $appointment->id)
+                    ->where('kind', Invoice::KIND_VISIT)
+                    ->whereIn('status', [Invoice::STATUS_DRAFT, ...Invoice::OWES_MONEY])
+                    ->exists(),
         ];
     }
 

@@ -12,6 +12,8 @@ use App\Models\Tenant\PharmacySetting;
 use App\Models\Tenant\PharmacyStore;
 use App\Models\Tenant\StockMovement;
 use App\Models\Tenant\User;
+use App\Models\Tenant\Appointment;
+use App\Services\Billing\BillingTriggerResolver;
 use App\Services\Pharmacy\Inventory\Lots;
 use App\Services\Pharmacy\Inventory\StockConflict;
 use App\Services\Pharmacy\Inventory\StockMovementService;
@@ -47,6 +49,13 @@ class SalesService
         private readonly SalePricing $pricing,
         private readonly Lots $lots,
         private readonly Dispensing $dispensing,
+        /*
+         * Nullable to keep older callers/tests working. In an HTTP request the
+         * container populates it, and a dispensing tied to a visit — with the
+         * organisation's trigger set to `pharmacy` — draws a clinic invoice
+         * for the whole visit right after the sale row goes in.
+         */
+        private readonly ?BillingTriggerResolver $billingTrigger = null,
     ) {}
 
     /**
@@ -206,7 +215,21 @@ class SalesService
         $totals = $this->pricing->totals($lines, $settings);
         $paid = round(array_sum(array_map(fn (array $p) => (float) $p['amount'], $data['payments'] ?? [])), 2);
 
-        $this->assertSettled($paid, $totals['total_amount'], $customer, $settings);
+        /*
+         * A dispensing that belongs to a visit is not settled HERE.
+         *
+         * Its money goes onto the visit's consolidated invoice and is
+         * collected at the billing counter, so the usual "this bill is not
+         * paid in full and credit sales are off" refusal would be refusing a
+         * sale that was never meant to take money. A plain counter sale — no
+         * visit behind it — is still held to the settings exactly as before.
+         */
+        $billedOnTheVisit = $this->billingTrigger !== null
+            && $prescription?->appointment_id !== null;
+
+        if (! $billedOnTheVisit) {
+            $this->assertSettled($paid, $totals['total_amount'], $customer, $settings);
+        }
 
         $actor = Auth::guard('web')->user();
 
@@ -281,6 +304,45 @@ class SalesService
          */
         if ($prescription) {
             $this->dispensing->apply($prescription, $sale->items()->get());
+        }
+
+        /*
+         * The clinic's side of the same act.
+         *
+         * A dispensing that belongs to a VISIT is billed on that visit's
+         * consolidated invoice — consultation, lab and medicines on one
+         * document the patient pays once. So the medicines go onto the
+         * invoice and this sale stops owning the money: `billed_via_invoice`
+         * is what stops the till asking for it as well, and what keeps the
+         * pharmacy's own "still owed" report honest.
+         *
+         * A plain counter sale — no appointment, which is every sale a
+         * standalone medical store makes — is untouched by all of this and
+         * takes its money at the counter exactly as before.
+         *
+         * Inside the same transaction: a dispensed strip that failed to
+         * reach a bill is the disagreement this whole path exists to
+         * prevent.
+         */
+        if ($this->billingTrigger && $sale->appointment_id) {
+            $appointment = Appointment::query()->find($sale->appointment_id);
+
+            if ($appointment) {
+                $invoice = $this->billingTrigger->onPharmacyDispensed($appointment);
+
+                /*
+                 * Only once the invoice actually took the charge. If billing
+                 * is switched off at this branch the resolver returns null,
+                 * and the sale keeps its own payment status — the counter is
+                 * still the till.
+                 */
+                if ($invoice !== null) {
+                    $sale->forceFill([
+                        'paid_amount' => 0,
+                        'payment_status' => PharmacySale::BILLED_VIA_INVOICE,
+                    ])->save();
+                }
+            }
         }
 
         return $sale->load(['items.medicine', 'payments', 'customer', 'store']);

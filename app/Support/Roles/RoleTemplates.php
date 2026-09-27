@@ -31,11 +31,11 @@ use App\Support\Modules\ModuleRegistry;
  * nothing honours is how a permission screen starts lying. The `laboratory`
  * module and its four routes are what made the role buildable.
  *
- * ACCOUNTANT IS STILL ABSENT, for exactly the reason Lab Technician used to
- * be: there is no billing module. What money a visit owes is read off the
- * pharmacy's own bills, so the person who collects it is the pharmacist or
- * the branch manager, both of whom already hold `pharmacy.sell`. A separate
- * Accountant role would hold nothing the other two do not.
+ * ACCOUNTANT NOW EXISTS. The billing module ships, and with it a separate
+ * counter that raises invoices for the whole visit — consultation fee, custom
+ * services, and (where the pharmacy sells) the medicine line — rather than
+ * reading money off the pharmacy's own bills. The role holds `billing.*`
+ * without holding anything a shop counter does.
  */
 class RoleTemplates
 {
@@ -141,6 +141,23 @@ class RoleTemplates
                     'documents.template_view',
                     'documents.template_edit',
                     'documents.template_publish',
+                    /*
+                     * The branch's own books. They may raise, edit, cancel and
+                     * take payment on any invoice at their branch — running the
+                     * counter as well as the shop is why the role exists.
+                     * `billing.refund` too: a manager who cannot undo a wrong
+                     * charge has to escalate the correction to head office.
+                     * Not the organisation-scoped `manage_settings` /
+                     * `manage_services`, which stay with head office so the
+                     * numbering, prefix and named services read the same at
+                     * every branch.
+                     */
+                    'billing.view',
+                    'billing.create',
+                    'billing.edit',
+                    'billing.cancel',
+                    'billing.collect_payment',
+                    'billing.refund',
                     'communication.view',
                 ],
             ],
@@ -243,6 +260,16 @@ class RoleTemplates
                     'documents.view',
                     'documents.upload',
                     'documents.generate',
+                    /*
+                     * The desk sees a bill and can take payment — the same
+                     * counter as check-in, so the same person answers "please
+                     * pay for your visit". They do not raise, edit, cancel or
+                     * refund; the software draws the invoice from the
+                     * consultation, and corrections are the accountant's or
+                     * the branch manager's.
+                     */
+                    'billing.view',
+                    'billing.collect_payment',
                     'communication.view',
                 ],
             ],
@@ -326,6 +353,54 @@ class RoleTemplates
                     'documents.view',
                     /* Bills and receipts come off this counter. */
                     'documents.generate',
+                    /*
+                     * The clinic's own invoice, for the medicine line the shop
+                     * dispensed. Reading and taking payment only — a
+                     * pharmacist is not raising a consultation charge, and
+                     * cancelling a clinic invoice is a step senior to
+                     * cancelling a shop bill (which stays under
+                     * `pharmacy.sale_cancel`, held apart from `pharmacy.sell`
+                     * on this same list).
+                     */
+                    'billing.view',
+                    'billing.collect_payment',
+                ],
+            ],
+
+            /*
+             * The books.
+             *
+             * Branch-scoped: an accountant sits at a branch and reads that
+             * branch's invoices. The organisation-wide numbering, prefix and
+             * named services stay with head office.
+             *
+             * Deliberately narrow outside billing. They hold `customers.view`
+             * because an invoice is somebody's, and `documents.generate` to
+             * print a receipt or a bill from the letterhead. They do NOT hold
+             * `documents.view_clinical` — reading a discharge summary is not
+             * part of collecting money — and they do not hold
+             * `appointments.consult_*` or any pharmacy action; billing is
+             * about what was owed, not what was done or dispensed.
+             */
+            [
+                'key' => 'accountant',
+                'name' => 'Accountant',
+                'slug' => 'accountant',
+                'scope' => Role::SCOPE_BRANCH,
+                'icon' => 'ti ti-calculator',
+                'description' => 'Runs the branch\'s billing counter — invoices, payments and receipts.',
+                'requires' => ['billing'],
+                'capabilities' => [
+                    'branches.view',
+                    'customers.view',
+                    'billing.view',
+                    'billing.create',
+                    'billing.edit',
+                    'billing.cancel',
+                    'billing.collect_payment',
+                    'billing.refund',
+                    'documents.view',
+                    'documents.generate',
                 ],
             ],
 
@@ -364,6 +439,25 @@ class RoleTemplates
                     'documents.template_publish',
                     /* Every branch's letterhead, and the locks on it. */
                     'documents.template_org',
+                    /*
+                     * The books, the way head office holds them: the two
+                     * organisation-scoped keys that decide how EVERY branch
+                     * bills — the trigger, tax, numbering prefix and terms;
+                     * and the named services (Consultation, Injection…) an
+                     * invoice pulls from. The four branch-scoped acts
+                     * (view/create/edit/collect) come along by scope-lift, so
+                     * head office can also work an invoice at any branch —
+                     * this is deliberate, and mirrors how `people.view` at
+                     * organisation scope reaches every branch's staff.
+                     */
+                    'billing.manage_settings',
+                    'billing.manage_services',
+                    'billing.view',
+                    'billing.create',
+                    'billing.edit',
+                    'billing.cancel',
+                    'billing.collect_payment',
+                    'billing.refund',
                     'settings.audit',
                 ],
             ],

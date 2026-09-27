@@ -11,6 +11,11 @@ use App\Http\Controllers\Api\V1\Platform\OrganizationTypeController;
 use App\Http\Controllers\Api\V1\Platform\MessagingSettingsController;
 use App\Http\Controllers\Api\V1\Tenant\AppointmentController;
 use App\Http\Controllers\Api\V1\Tenant\AutomationRuleController;
+use App\Http\Controllers\Api\V1\Tenant\BillableServiceController;
+use App\Http\Controllers\Api\V1\Tenant\BillingOverviewController;
+use App\Http\Controllers\Api\V1\Tenant\BillingSettingController;
+use App\Http\Controllers\Api\V1\Tenant\InvoiceController;
+use App\Http\Controllers\Api\V1\Tenant\InvoicePaymentController;
 use App\Http\Controllers\Api\V1\Tenant\CampaignController;
 use App\Http\Controllers\Api\V1\Tenant\CommunicationController;
 use App\Http\Controllers\Api\V1\Tenant\MessageTemplateController;
@@ -31,6 +36,7 @@ use App\Http\Controllers\Api\V1\Tenant\EffectivePermissionController;
 use App\Http\Controllers\Api\V1\Tenant\LocationModuleController;
 use App\Http\Controllers\Api\V1\Tenant\ModuleLockController;
 use App\Http\Controllers\Api\V1\Tenant\LabOrderController;
+use App\Http\Controllers\Api\V1\Tenant\LabTestCatalogController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineAvailabilityController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineBatchController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineController;
@@ -618,6 +624,122 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 ->withTrashed()
                 ->middleware('permission:pharmacy.restore')
                 ->name('batches.restore');
+        });
+
+        /*
+        | Billing.
+        |
+        | Core module — an organisation always has it — and independent of
+        | pharmacy and lab. A clinic that dispenses nothing still bills for
+        | its consultations; a shop's own bills stay under `pharmacy.sell`.
+        |
+        | Reading is `billing.view`; drawing an invoice is `billing.create`;
+        | rewriting an unpaid one is `billing.edit`; cancelling is
+        | `billing.cancel`; taking money is `billing.collect_payment`;
+        | refunding is `billing.refund`. Settings and the named-services
+        | catalogue are organisation-scoped, so they live at head office
+        | (`billing.manage_settings` / `billing.manage_services`).
+        */
+        Route::middleware('module:billing')->group(function () {
+            Route::middleware('permission:billing.view')->group(function () {
+                /*
+                | The counter's own two screens. `overview` is the dashboard —
+                | cards, trend, status breakdown and recent bills in one
+                | request, because they are read together. `payments` is the
+                | register a till reconciles a drawer against.
+                |
+                | Both before `invoices/{invoice}`, though neither collides
+                | with it — kept adjacent so the group reads as one screen's
+                | worth of endpoints.
+                */
+                Route::get('billing/overview', [BillingOverviewController::class, 'show'])
+                    ->name('billing.overview');
+                Route::get('billing/payments', [BillingOverviewController::class, 'payments'])
+                    ->name('billing.payments');
+
+                Route::get('invoices', [InvoiceController::class, 'index'])
+                    ->name('invoices.index');
+                Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])
+                    ->name('invoices.show');
+                Route::get('billable-services', [BillableServiceController::class, 'index'])
+                    ->name('billable-services.index');
+                Route::get('billing/settings', [BillingSettingController::class, 'show'])
+                    ->name('billing.settings.show');
+            });
+
+            Route::post('invoices', [InvoiceController::class, 'store'])
+                ->middleware('permission:billing.create')
+                ->name('invoices.store');
+
+            /*
+            | Closing a visit's bill. `bill-visit` gathers a visit's charges
+            | and finalizes in one step (for the manual-trigger clinic);
+            | `finalize` closes a draft that a trigger already opened. Both
+            | are `billing.create` — deciding a bill is complete is the same
+            | authority as raising one.
+            |
+            | Literal paths before {invoice}, else they read as invoice ids.
+            */
+            Route::post('invoices/bill-visit', [InvoiceController::class, 'billVisit'])
+                ->middleware('permission:billing.create')
+                ->name('invoices.bill-visit');
+            Route::post('invoices/{invoice}/finalize', [InvoiceController::class, 'finalize'])
+                ->middleware('permission:billing.create')
+                ->name('invoices.finalize');
+            Route::put('invoices/{invoice}', [InvoiceController::class, 'update'])
+                ->middleware('permission:billing.edit')
+                ->name('invoices.update');
+            Route::post('invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])
+                ->middleware('permission:billing.cancel')
+                ->name('invoices.cancel');
+
+            Route::post('invoices/{invoice}/payments', [InvoicePaymentController::class, 'store'])
+                ->middleware('permission:billing.collect_payment')
+                ->name('invoices.payments.store');
+            Route::post('invoices/{invoice}/payments/{payment}/refund', [InvoicePaymentController::class, 'refund'])
+                ->middleware('permission:billing.refund')
+                ->name('invoices.payments.refund');
+
+            Route::put('billing/settings', [BillingSettingController::class, 'update'])
+                ->middleware('permission:billing.manage_settings')
+                ->name('billing.settings.update');
+
+            Route::middleware('permission:billing.manage_services')->group(function () {
+                Route::post('billable-services', [BillableServiceController::class, 'store'])
+                    ->name('billable-services.store');
+                Route::put('billable-services/{service}', [BillableServiceController::class, 'update'])
+                    ->name('billable-services.update');
+                Route::delete('billable-services/{service}', [BillableServiceController::class, 'destroy'])
+                    ->name('billable-services.destroy');
+
+                /*
+                | The lab's price list lives under BILLING, not the lab.
+                |
+                | What the clinic charges for a test is a billing decision —
+                | the same organisation-wide key that owns every other price.
+                | A technician who may sign a result off has no business
+                | repricing it. Reading the list is the doctor's, below.
+                */
+                Route::post('lab-test-catalog', [LabTestCatalogController::class, 'store'])
+                    ->name('lab-test-catalog.store');
+                Route::put('lab-test-catalog/{test}', [LabTestCatalogController::class, 'update'])
+                    ->name('lab-test-catalog.update');
+                Route::delete('lab-test-catalog/{test}', [LabTestCatalogController::class, 'destroy'])
+                    ->name('lab-test-catalog.destroy');
+            });
+        });
+
+        /*
+        | Reading the lab's price list — the order screen picks from it.
+        |
+        | Outside the billing group on purpose: a doctor orders tests without
+        | holding any billing capability, and the list is what they choose
+        | from. Behind the laboratory module, because a clinic that refers its
+        | bloods out has no list to read.
+        */
+        Route::middleware(['module:laboratory', 'permission:laboratory.order'])->group(function () {
+            Route::get('lab-test-catalog', [LabTestCatalogController::class, 'index'])
+                ->name('lab-test-catalog.index');
         });
 
         /*

@@ -187,6 +187,35 @@ export function useRemoveDocument(customerId: number | undefined) {
  * immediately after the click — a blob held open is the tab's memory until the
  * tab closes.
  */
+/**
+ * Print a document from a template and file it against the patient.
+ *
+ * The controller decides WHICH record the id belongs to from the document
+ * type — so a caller cannot ask for a prescription to be rendered from an
+ * invoice, and cannot name a table the endpoint does not serve. Silent: the
+ * caller shows failures inline (a missing template, an unreachable branch)
+ * rather than as a corner toast.
+ */
+export function useGenerateDocument() {
+    return useMutation({
+        mutationFn: async ({
+            document_type,
+            subject_id,
+        }: {
+            document_type: string;
+            subject_id: number;
+        }): Promise<PatientDocument> => {
+            const { data } = await http.post<ApiResponse<PatientDocument>>(
+                '/tenant/documents/generate',
+                { document_type, subject_id },
+                { silent: true },
+            );
+
+            return data.data;
+        },
+    });
+}
+
 export async function openDocument(document_: PatientDocument, download = false): Promise<void> {
     const { data } = await http.get<Blob>(document_.download_path, { responseType: 'blob' });
 

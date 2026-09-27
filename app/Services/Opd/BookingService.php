@@ -5,6 +5,7 @@ namespace App\Services\Opd;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\User;
+use App\Services\Billing\BillingTriggerResolver;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +22,11 @@ class BookingService
 {
     public function __construct(
         private readonly AvailabilityService $availability,
+        /*
+         * Nullable so a directly-constructed instance still books. Only an
+         * advance-payment clinic (trigger `checkin`) uses it at all.
+         */
+        private readonly ?BillingTriggerResolver $billingTrigger = null,
     ) {}
 
     /**
@@ -220,6 +226,16 @@ class BookingService
                         'checked_in_at' => now(),
                         'checked_in_by' => $actor instanceof User ? $actor->id : null,
                     ])->save();
+
+                    /*
+                     * An advance-payment clinic bills here.
+                     *
+                     * Only where the organisation's trigger is `checkin` —
+                     * the resolver checks that itself and does nothing
+                     * otherwise, so every other clinic's check-in is
+                     * unchanged.
+                     */
+                    $this->billingTrigger?->onCheckedIn($appointment);
 
                     return $appointment;
                 });

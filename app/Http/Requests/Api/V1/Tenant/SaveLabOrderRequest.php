@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\Tenant;
 
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\LabOrderItem;
+use App\Models\Tenant\LabTestCatalog;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -50,6 +51,23 @@ class SaveLabOrderRequest extends FormRequest
             'items.*.test_name' => ['required', 'string', 'max:191'],
             'items.*.test_code' => ['nullable', 'string', 'max:40'],
             'items.*.specimen' => ['nullable', Rule::in(LabOrderItem::SPECIMENS)],
+
+            /*
+             * Which priced test this line is, when the doctor picked one from
+             * the catalogue rather than typing. Optional forever: a freehand
+             * test is ordered and run exactly as before, and simply carries
+             * no charge to the visit's bill.
+             *
+             * The PRICE is never accepted from the request — the service
+             * reads it off the catalogue itself and snapshots it, because a
+             * client that could name its own price could bill whatever it
+             * liked.
+             */
+            'items.*.lab_test_catalog_id' => [
+                'nullable',
+                'integer',
+                Rule::exists(LabTestCatalog::class, 'id')->whereNull('deleted_at'),
+            ],
         ];
     }
 

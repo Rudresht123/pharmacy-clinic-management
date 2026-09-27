@@ -123,7 +123,11 @@ export function SearchableSelect({
             }
         }
 
-        function shut() {
+        function shut(event: Event) {
+            // Scrolling the list itself is not a reason to close it — only
+            // the page moving underneath the pinned panel is.
+            if (panel.current?.contains(event.target as Node)) return;
+
             setOpen(false);
         }
 

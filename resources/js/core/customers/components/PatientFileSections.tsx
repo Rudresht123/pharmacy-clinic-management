@@ -5,6 +5,11 @@ import { DonutChart } from '@/shared/components/ui/DonutChart';
 import { cn } from '@/shared/utils/cn';
 import { formatDate } from '@/shared/utils/format';
 import { fileSize, usePatientDocuments } from '@/core/documents/api';
+import {
+    INVOICE_STATUS_LABELS,
+    PAYMENT_STATUS_LABELS,
+    useInvoices,
+} from '@/core/billing/api';
 import type { ConfigurableField } from '@/core/field-settings/types';
 import type { Customer } from '../types';
 import {
@@ -606,14 +611,119 @@ function DocumentsPreview({ customerId, go }: { customerId: number; go: Go }) {
     );
 }
 
-export function BillingPanel({ preview }: { preview?: boolean }) {
+/**
+ * The patient's own invoices, newest first.
+ *
+ * A section that used to be permanently "coming soon" — now that Billing is
+ * a core module and every visit either draws an invoice or does not (the
+ * organisation's setting decides), this is where the answer lives per
+ * patient.
+ *
+ * The `preview` mode shows the first five as a tight strip on the Overview;
+ * the full tab lists them all. Both share the same query — React Query
+ * dedupes.
+ */
+export function BillingPanel({
+    patientId,
+    preview,
+}: {
+    patientId: number;
+    preview?: boolean;
+}) {
+    const { data: page, isLoading, isError } = useInvoices({
+        customer_id: patientId,
+        per_page: preview ? PREVIEW : 25,
+        sort: 'invoice_date',
+        direction: 'desc',
+    });
+
+    const invoices = page?.data ?? [];
+    const outstanding = invoices.reduce((sum, i) => sum + (i.outstanding || 0), 0);
+
+    if (isLoading) {
+        return (
+            <Panel title="Billing & Payments" icon={preview ? undefined : 'ti ti-receipt'}>
+                <p className="text-muted fs-13 mb-0">Loading invoices…</p>
+            </Panel>
+        );
+    }
+
+    if (isError) {
+        return (
+            <Panel title="Billing & Payments" icon={preview ? undefined : 'ti ti-receipt'}>
+                <NoneYet
+                    icon="ti ti-receipt-off"
+                    title="Could not load billing"
+                    line="This may mean billing is not enabled at your branch."
+                />
+            </Panel>
+        );
+    }
+
+    if (invoices.length === 0) {
+        return (
+            <Panel title="Billing & Payments" icon={preview ? undefined : 'ti ti-receipt'}>
+                <NoneYet
+                    icon="ti ti-receipt-off"
+                    title="No invoices yet"
+                    line="Invoices appear here as soon as a visit is billed, or one is drawn by hand."
+                />
+            </Panel>
+        );
+    }
+
     return (
         <Panel title="Billing & Payments" icon={preview ? undefined : 'ti ti-receipt'}>
-            <NoneYet
-                icon="ti ti-receipt-off"
-                title="No bills yet"
-                line="Invoices and payments appear here once billing is switched on for your clinic."
-            />
+            {outstanding > 0 && (
+                <p className="fs-13 mb-2">
+                    <b className="text-danger">₹{outstanding.toFixed(2)} outstanding</b> across{' '}
+                    {invoices.filter((i) => i.outstanding > 0).length} unpaid or part-paid invoice(s).
+                </p>
+            )}
+
+            <ul className="list-unstyled mb-0 fs-13">
+                {invoices.map((invoice) => {
+                    const tone =
+                        invoice.status === 'cancelled'
+                            ? 'danger'
+                            : invoice.payment_status === 'paid'
+                              ? 'success'
+                              : invoice.payment_status === 'partial'
+                                ? 'warning'
+                                : 'secondary';
+
+                    return (
+                        <li
+                            key={invoice.id}
+                            className="d-flex justify-content-between align-items-start py-2 border-bottom"
+                        >
+                            <div>
+                                <Link to={`/billing/invoices/${invoice.id}`} className="text-decoration-none">
+                                    <b>{invoice.invoice_number}</b>
+                                </Link>
+                                <span className="dr-sub d-block">
+                                    {formatDate(invoice.invoice_date)}
+                                    {' · '}
+                                    <span className={`badge bg-${tone}-subtle text-${tone}`}>
+                                        {invoice.status === 'cancelled'
+                                            ? INVOICE_STATUS_LABELS.cancelled
+                                            : (PAYMENT_STATUS_LABELS[invoice.payment_status] ??
+                                              invoice.payment_status)}
+                                    </span>
+                                </span>
+                            </div>
+                            <div className="text-end">
+                                <b className="tabular-nums">₹{invoice.total_amount.toFixed(2)}</b>
+                                {invoice.outstanding > 0 && (
+                                    <span className="dr-sub d-block text-danger">
+                                        ₹{invoice.outstanding.toFixed(2)} owed
+                                    </span>
+                                )}
+                            </div>
+                        </li>
+                    );
+                })}
+            </ul>
         </Panel>
     );
 }
@@ -825,7 +935,7 @@ export function Overview({
             </div>
 
             <div className="pf-grid is-3">
-                <BillingPanel preview />
+                <BillingPanel patientId={patient.id} preview />
                 <ServicesPanel file={file} preview />
                 <NotesPanel rows={file.notes} preview go={go} />
             </div>

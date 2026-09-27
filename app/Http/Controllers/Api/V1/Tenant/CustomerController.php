@@ -12,6 +12,7 @@ use App\Models\Tenant\Customer;
 use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\User;
 use App\Repositories\Tenant\Contracts\CustomerRepositoryInterface;
+use App\Services\Billing\BillingTriggerResolver;
 use App\Services\Fields\FieldSchema;
 use App\Services\Permissions\Permission;
 use App\Support\Fields\CustomerFields;
@@ -33,6 +34,12 @@ class CustomerController extends BaseApiController
     public function __construct(
         private readonly CustomerRepositoryInterface $customers,
         private readonly Permission $permission,
+        /*
+         * Only used where the organisation charges a registration fee, which
+         * most do not. Nullable so nothing about registering a patient
+         * depends on the billing module resolving.
+         */
+        private readonly ?BillingTriggerResolver $billingTrigger = null,
     ) {}
 
     /**
@@ -268,7 +275,38 @@ class CustomerController extends BaseApiController
 
         $customer = $this->customers->create($data);
 
-        return $this->created(CustomerResource::make($customer), 'Customer added successfully.');
+        /*
+         * The registration fee, where the organisation charges one.
+         *
+         * Its OWN invoice, deliberately — not part of any visit. The patient
+         * is standing at the desk now and walks away with the receipt; a
+         * visit they may not make for another week is the wrong thing to
+         * hold their money against.
+         *
+         * Silent when nothing is configured, which is most clinics. A
+         * failure to bill must not lose the patient record that has already
+         * been written, so the refusal is swallowed and the desk can raise
+         * the charge by hand — the alternative is a 500 on a successful
+         * registration.
+         */
+        $registrationInvoiceId = null;
+
+        if ($this->billingTrigger !== null && $customer->registered_location_id !== null) {
+            try {
+                $registrationInvoiceId = $this->billingTrigger
+                    ->onPatientRegistered($customer, (int) $customer->registered_location_id)
+                    ?->id;
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return $this->created(
+            CustomerResource::make($customer)->additional([
+                'registration_invoice_id' => $registrationInvoiceId,
+            ]),
+            'Customer added successfully.',
+        );
     }
 
     public function update(UpdateCustomerRequest $request, Customer $customer): JsonResponse

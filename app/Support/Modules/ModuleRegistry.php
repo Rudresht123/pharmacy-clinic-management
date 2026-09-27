@@ -41,6 +41,8 @@ class ModuleRegistry
 
     public const GROUP_COMMERCE = 'commerce';
 
+    public const GROUP_BILLING = 'billing';
+
     public const GROUP_COMMUNICATION = 'communication';
 
     /**
@@ -190,6 +192,64 @@ class ModuleRegistry
                 'capabilities' => [
                     ['key' => 'settings.manage', 'name' => 'Change field settings and naming', 'scope' => self::SCOPE_ORGANIZATION],
                     ['key' => 'settings.audit', 'name' => 'Read the organization-wide activity log', 'scope' => self::SCOPE_ORGANIZATION],
+                ],
+            ],
+            /*
+             * Billing is core, and it is INDEPENDENT.
+             *
+             * Every clinic charges for something, whether it dispenses medicine
+             * or not — a bare consultation is enough — so this cannot sit as an
+             * optional add-on the way pharmacy or laboratory do. It requires
+             * nothing: an invoice can carry a consultation fee, a lab charge, a
+             * pharmacy line or a custom service, whichever modules are on. The
+             * organisation's chosen trigger (in `billing_settings`) decides
+             * WHEN a bill is drawn; this module's job is that a bill exists
+             * at all.
+             *
+             * Separate from `pharmacy.sell`, which is the shop's own counter.
+             * A clinic without a pharmacy still bills; a shop that only sells
+             * medicine can keep `pharmacy.sell` and ignore this. Both exist so
+             * that neither becomes a prerequisite for the other.
+             */
+            [
+                'key' => 'billing',
+                'name' => 'Billing & Payments',
+                'description' => 'Invoices for consultations and services, payments and receipts.',
+                'icon' => 'ti ti-receipt',
+                'group' => self::GROUP_BILLING,
+                'is_core' => true,
+                'capabilities' => [
+                    ['key' => 'billing.view', 'name' => 'View invoices and payments', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * Drawing an invoice is one act; editing an unpaid one is
+                     * another. A cashier that may take a payment is not
+                     * necessarily somebody who may reprice what is being paid
+                     * for — the same split every module here uses.
+                     */
+                    ['key' => 'billing.create', 'name' => 'Create invoices', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'billing.edit', 'name' => 'Edit an invoice before payment', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * Cancelling changes what the day is recorded as having
+                     * been, and refunding moves money back. Both kept apart
+                     * from `billing.create`/`edit`; plenty of clinics want
+                     * those with somebody senior.
+                     */
+                    ['key' => 'billing.cancel', 'name' => 'Cancel an invoice', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'billing.collect_payment', 'name' => 'Record a payment', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'billing.refund', 'name' => 'Refund a payment', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * Organisation-scoped: the trigger, the tax rules, the
+                     * numbering prefix and the terms are one setting for
+                     * everybody. Named services (Consultation, Injection…) are
+                     * an organisation catalogue for the same reason the
+                     * medicine master is — an invoice reads the same at every
+                     * branch that raises it.
+                     */
+                    ['key' => 'billing.manage_settings', 'name' => 'Change billing settings', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'billing.manage_services', 'name' => 'Manage billable services', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
 

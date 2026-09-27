@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Http\Resources\Tenant\PatientDocumentResource;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Customer;
+use App\Models\Tenant\Invoice;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\PharmacySale;
 use App\Models\Tenant\Prescription;
@@ -104,6 +105,7 @@ class DocumentGenerationController extends BaseApiController
             DocumentTypes::SUBJECT_APPOINTMENT => Appointment::with(['customer', 'doctor', 'consultation'])->find($id),
             DocumentTypes::SUBJECT_PRESCRIPTION => Prescription::with(['customer', 'doctor', 'items'])->find($id),
             DocumentTypes::SUBJECT_SALE => PharmacySale::with(['customer', 'items', 'payments'])->find($id),
+            DocumentTypes::SUBJECT_INVOICE => Invoice::with(['customer', 'items', 'payments', 'doctor'])->find($id),
             default => null,
         };
     }
@@ -120,7 +122,8 @@ class DocumentGenerationController extends BaseApiController
         $locationId = match (true) {
             $subject instanceof Appointment,
             $subject instanceof Prescription,
-            $subject instanceof PharmacySale => $subject->location_id,
+            $subject instanceof PharmacySale,
+            $subject instanceof Invoice => $subject->location_id,
             default => null,
         };
 
