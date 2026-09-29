@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
     ACCENT_PRESETS,
+    CONTENT_BACKGROUND_IMAGES,
     useAppSettings,
     type Density,
     type PageHead,
@@ -248,6 +249,54 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                                     <b>{option.label}</b>
                                 </button>
                             ))}
+                        </div>
+                    </section>
+
+                    <section className="settings-group">
+                        <h6>Main content background</h6>
+                        <p className="settings-hint">
+                            Behind the cards. Light mode only — dark mode keeps its own
+                            background whichever one you pick here.
+                        </p>
+
+                        <div className="settings-bg-swatches">
+                            <button
+                                type="button"
+                                className={cn(
+                                    'settings-bg-swatch settings-bg-swatch--white',
+                                    settings.contentBackground === 'white' && 'is-active',
+                                )}
+                                onClick={() => update('contentBackground', 'white')}
+                                aria-pressed={settings.contentBackground === 'white'}
+                            >
+                                <span>Default</span>
+                                {settings.contentBackground === 'white' && (
+                                    <i className="ti ti-check" />
+                                )}
+                            </button>
+
+                            {CONTENT_BACKGROUND_IMAGES.map((image) => {
+                                const active =
+                                    settings.contentBackground === 'image' &&
+                                    settings.contentImage === image.file;
+
+                                return (
+                                    <button
+                                        key={image.file}
+                                        type="button"
+                                        className={cn('settings-bg-swatch', active && 'is-active')}
+                                        style={{ backgroundImage: `url(/images/${image.file})` }}
+                                        onClick={() => {
+                                            update('contentImage', image.file);
+                                            update('contentBackground', 'image');
+                                        }}
+                                        aria-pressed={active}
+                                    >
+                                        <span>{image.label}</span>
+                                        {active && <i className="ti ti-check" />}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </section>
 

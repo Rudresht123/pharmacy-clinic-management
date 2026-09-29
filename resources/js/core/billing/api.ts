@@ -23,6 +23,8 @@ export interface InvoiceItem {
 /** A row against an invoice — payment or refund. */
 export interface InvoicePayment {
     id: number;
+    /** GGN/RCP/26-27/00001 for a payment, GGN/RFD/… for a refund. */
+    receipt_number: string;
     method: string;
     amount: number;
     reference: string | null;
@@ -47,6 +49,7 @@ export interface Invoice {
     appointment_id: number | null;
     consultation_id: number | null;
     doctor_id: number | null;
+    doctor_name: string | null;
 
     status: 'draft' | 'pending' | 'partially_paid' | 'paid' | 'cancelled' | 'refunded';
     payment_status: 'unpaid' | 'partial' | 'paid';
@@ -327,6 +330,25 @@ export function useRefundPayment() {
 
 /* ---- Overview ------------------------------------------------------------ */
 
+export interface CategorySplit {
+    consultation: number;
+    pharmacy: number;
+    laboratory: number;
+    procedure: number;
+    other: number;
+}
+
+export interface OutstandingPatient {
+    patient: string;
+    customer_id: number | null;
+    phone: string | null;
+    last_visit: string;
+    total: number;
+    paid: number;
+    due: number;
+    days: number;
+}
+
 export interface BillingOverview {
     totals: {
         invoiced: number;
@@ -335,11 +357,15 @@ export interface BillingOverview {
         paid_count: number;
         outstanding: number;
         outstanding_count: number;
+        /** Distinct patients with an open balance right now. */
+        outstanding_patients: number;
+        /** Distinct patients billed in this window. */
+        billed_patients: number;
         today_count: number;
         today_amount: number;
     };
     /** The same window, one window earlier — for the deltas on each card. */
-    previous: { invoiced: number; paid: number; count: number };
+    previous: { invoiced: number; paid: number; count: number; billed_patients: number };
     /** `unit` is day, week or month — the server buckets to fit the window. */
     trend: {
         date: string;
@@ -347,6 +373,10 @@ export interface BillingOverview {
         invoiced: number;
         paid: number;
         outstanding: number;
+        /** How many bills that bucket held — the count tile's own sparkline. */
+        invoices: number;
+        /** The same bucket, split by where it came from — the stacked bars. */
+        by_category: CategorySplit;
     }[];
     statuses: {
         paid: number;
@@ -359,6 +389,8 @@ export interface BillingOverview {
     methods: { method: string; amount: number; share: number }[];
     /** Open debt, bucketed by how long it has been open. */
     ageing: { key: string; label: string; amount: number; invoices: number }[];
+    /** Who owes money, most recently seen first. */
+    outstanding_patients_list: OutstandingPatient[];
     /** Visits still collecting charges — not money, but what the desk watches. */
     open_visits: number;
     recent: Invoice[];
@@ -388,6 +420,7 @@ export function useBillingOverview(params?: {
 
 export interface PaymentRow {
     id: number;
+    receipt_number: string;
     invoice_id: number;
     invoice_number: string | null;
     patient_name: string | null;
@@ -450,6 +483,61 @@ export function useSaveBillingSettings() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: resourceKey('tenant/billing', 'settings') });
+        },
+    });
+}
+
+/* ---- Numbering ----------------------------------------------------------- */
+
+export type NumberedDocument = 'invoice' | 'receipt' | 'refund';
+
+export interface NumberSeries {
+    prefix: string;
+    /** What the next document in this series will be called, this year. */
+    next: string;
+    /** Just its running number — 00043 — so a prefix being typed can be previewed. */
+    next_sequence: string;
+}
+
+export interface BranchNumbering {
+    location_id: number;
+    name: string;
+    code: string;
+    series: Record<NumberedDocument, NumberSeries>;
+}
+
+export interface BillingNumbering {
+    /** 26-27 — every series restarts on 1 April. */
+    financial_year: string;
+    branches: BranchNumbering[];
+}
+
+export interface NumberSeriesInput {
+    location_id: number;
+    document_type: NumberedDocument;
+    prefix: string;
+}
+
+export function useBillingNumbering() {
+    return useQuery({
+        queryKey: resourceKey('tenant/billing', 'numbering'),
+        queryFn: async (): Promise<BillingNumbering> => {
+            const { data } = await http.get<ApiResponse<BillingNumbering>>('/tenant/billing/numbering');
+
+            return data.data;
+        },
+    });
+}
+
+export function useSaveBillingNumbering() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (series: NumberSeriesInput[]): Promise<void> => {
+            await http.put('/tenant/billing/numbering', { series }, { silent: true });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: resourceKey('tenant/billing', 'numbering') });
         },
     });
 }

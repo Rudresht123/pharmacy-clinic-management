@@ -400,6 +400,29 @@ body {
     transition: margin-left 0.22s ease;
 }
 
+/*
+   Content background — the soft default tint or a photo, light mode only.
+   Dark mode always keeps --bg regardless of this choice, so toggling the
+   theme never fights it (two attribute selectors beats one, so this wins
+   over the rules above without depending on source order).
+*/
+:root[data-content-bg='white'] .app-content {
+    background: #e9f1fb;
+}
+
+:root[data-content-bg='image'] .app-content {
+    background-image: var(--content-bg-image);
+    background-repeat: no-repeat;
+    background-position: top center;
+    background-size: cover;
+}
+
+:root[data-theme='dark'][data-content-bg='white'] .app-content,
+:root[data-theme='dark'][data-content-bg='image'] .app-content {
+    background: var(--bg);
+    background-image: none;
+}
+
 /* ---------------------------------------------------------
    Mobile
    --------------------------------------------------------- */
@@ -1357,10 +1380,30 @@ body {
 
 /* Switch */
 
+/*
+ * THE GUTTER HAS TO MATCH THE SWITCH THIS THEME DRAWS.
+ *
+ * Bootstrap reserves `padding-left: 2.5em` for a switch it draws `2em` wide,
+ * and pulls the input back into that gutter with `margin-left: -2.5em`. The
+ * rule below widens the switch to 38px and left both of those alone — so at a
+ * 13.5px label, 2.5em is 33.75px of reserved space for a 38px control, and
+ * every label in the application started 4px BEFORE its own switch had
+ * finished and sat on top of it.
+ *
+ * Stated in px because the switch is in px. An em gutter against a px control
+ * is the bug, not the fix.
+ */
+.app-content .form-switch {
+    /* 38px of switch, then 8px of air before the label. */
+    padding-left: 46px;
+    min-height: 21px;
+}
+
 .app-content .form-switch .form-check-input {
     width: 38px;
     height: 21px;
     margin-top: 1px;
+    margin-left: -46px;
     border-color: var(--line-2);
     cursor: pointer;
     transition:
@@ -1382,6 +1425,76 @@ body {
     font-size: 13.5px;
     color: var(--ink-2);
     cursor: pointer;
+}
+
+/*
+ * SETTINGS ROW — what the switch does on the left, the switch on the right.
+ *
+ * The inline form-check is right in a modal, where a switch is one field among
+ * several and reads as part of a sentence. It is wrong on a settings card,
+ * where every row is the same shape and a reader is scanning down the column
+ * of controls asking "which of these are on?". Inline, that column zig-zags by
+ * the length of each label, and the explanatory line under each one runs the
+ * rows together into a wall.
+ *
+ * So: the control in a fixed column on the right, the rules between rows doing
+ * the separating that blank space was failing to do.
+ */
+.switch-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.switch-row:first-child {
+    padding-top: 0;
+}
+
+.switch-row:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+/* min-width: 0 so a long hint wraps instead of pushing the switch off. */
+.switch-row-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.switch-row-label {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.switch-row-hint {
+    display: block;
+    margin-top: 2px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+/* The control keeps the themed switch and gives back Bootstrap's gutter —
+   there is no label beside it to make room for. */
+.switch-row .form-check {
+    flex: 0 0 auto;
+    min-height: 0;
+    margin: 1px 0 0;
+    padding-left: 0;
+}
+
+.app-content .switch-row .form-switch {
+    padding-left: 0;
+}
+
+.app-content .switch-row .form-switch .form-check-input {
+    float: none;
+    margin-left: 0;
 }
 
 /* Card-level form rhythm */
@@ -1630,6 +1743,75 @@ body {
         inset 0 0 0 1px rgba(17, 22, 51, 0.08),
         0 0 0 3px #fff,
         0 0 0 5px currentColor;
+}
+
+/* Content background — white plus a grid of photo thumbnails */
+
+.settings-bg-swatches {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.settings-bg-swatch {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    padding: 0;
+    overflow: hidden;
+
+    border: 1.5px solid var(--line-2);
+    border-radius: 11px;
+    background-color: #fff;
+    background-size: cover;
+    background-position: center;
+    cursor: pointer;
+
+    transition:
+        border-color 0.16s ease,
+        transform 0.16s ease;
+}
+
+.settings-bg-swatch:hover {
+    transform: translateY(-2px);
+}
+
+.settings-bg-swatch.is-active {
+    border-color: rgb(var(--brand));
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.18);
+}
+
+.settings-bg-swatch span {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 5px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(to top, rgba(15, 19, 45, 0.55), transparent);
+}
+
+.settings-bg-swatch--white {
+    background-color: #e9f1fb;
+}
+
+.settings-bg-swatch--white span {
+    color: var(--ink);
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.92), transparent);
+}
+
+.settings-bg-swatch .ti-check {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+
+    border-radius: 50%;
+    background: rgb(var(--brand));
+    color: #fff;
+    font-size: 11px;
 }
 
 /* Segmented choices */
@@ -2901,6 +3083,13 @@ body {
     }
 }
 
+/*
+   Cards float on white with a shadow instead of a border in light mode.
+   Only border-color changes — width/style stay 1px solid from the theme
+   base, so the border still reserves its space (no layout shift) and dark
+   mode's own border-color rule below still has something to colour in.
+*/
+
 /* =========================================================
    Dark theme — Bootstrap and theme surfaces
    ---------------------------------------------------------
@@ -3043,4 +3232,14 @@ body {
 [data-theme='dark'] .app-brand img.app-brand-full {
     filter: brightness(0) invert(1);
     opacity: 0.92;
+}
+
+.app-content {
+    position: relative;
+    min-height: 100vh;
+    background-image: url('/images/backgroundImage6.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
 }

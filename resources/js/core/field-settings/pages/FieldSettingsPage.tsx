@@ -31,23 +31,87 @@ const TYPES: Record<string, { label: string; icon: string }> = {
  * Each entity names its own groups; anything unrecognised falls back to the
  * raw key rather than being dropped, so a new group on the server shows up
  * here without a frontend change.
+ *
+ * The note is what the group is FOR, not a restatement of its name. A column
+ * of bare headings tells somebody scanning the page nothing they could not
+ * read off the fields themselves.
  */
-const GROUP_TITLES: Record<string, string> = {
-    identity: 'Identity',
-    address: 'Address & Contact',
-    compliance: 'Compliance',
-    person: 'Person',
-    access: 'Access',
-    contact: 'Contact',
-    practice: 'Practice',
-    clinical: 'Prescribing',
-    stock: 'Stock unit',
-    supply: 'Supply',
-    other: 'Other',
-    custom: 'Your Own Fields',
+const GROUPS: Record<string, { title: string; icon: string; note: string }> = {
+    identity: {
+        title: 'Identity',
+        icon: 'ti ti-id-badge-2',
+        note: 'What this record is called, and how it is found',
+    },
+    person: { title: 'Person', icon: 'ti ti-user', note: 'Who they are' },
+    address: {
+        title: 'Address & Contact',
+        icon: 'ti ti-map-pin',
+        note: 'Where they are, and how to reach them',
+    },
+    access: {
+        title: 'Access',
+        icon: 'ti ti-lock',
+        note: 'What they may sign in to and do',
+    },
+    compliance: {
+        title: 'Compliance',
+        icon: 'ti ti-certificate',
+        note: 'Registrations, licences and tax numbers',
+    },
+    contact: { title: 'Contact', icon: 'ti ti-address-book', note: 'How to reach them' },
+    practice: {
+        title: 'Practice',
+        icon: 'ti ti-stethoscope',
+        note: 'Where and how they practise',
+    },
+    clinical: {
+        title: 'Prescribing',
+        icon: 'ti ti-prescription',
+        note: 'What appears on a prescription',
+    },
+    stock: { title: 'Stock unit', icon: 'ti ti-package', note: 'How this is counted and stored' },
+    supply: {
+        title: 'Supply',
+        icon: 'ti ti-truck-delivery',
+        note: 'Where it is bought, and at what price',
+    },
+    other: { title: 'Other', icon: 'ti ti-dots', note: 'Anything that does not fit above' },
+    custom: {
+        title: 'Your Own Fields',
+        icon: 'ti ti-sparkles',
+        note: 'Fields your organisation added',
+    },
+};
+
+function groupMeta(group: string) {
+    return GROUPS[group] ?? { title: group, icon: 'ti ti-dots', note: '' };
+}
+
+/**
+ * A tab that looks like what it configures.
+ *
+ * Every tab carried `ti-list-details`, so the strip was five identical icons
+ * and the only thing telling them apart was the word — which is the icon doing
+ * no work at all.
+ */
+const ENTITY_ICONS: Record<string, string> = {
+    location: 'ti ti-building-store',
+    user: 'ti ti-user',
+    customer: 'ti ti-users',
+    doctor: 'ti ti-stethoscope',
+    medicine: 'ti ti-pill',
 };
 
 const GROUP_ORDER = ['identity', 'person', 'address', 'access', 'compliance', 'custom'];
+
+/** Types that take the full width of the preview rather than half of it. */
+const WIDE = new Set(['textarea', 'multiselect']);
+
+/** The icon a real input of this type carries inside it. */
+const LEADING: Record<string, string> = {
+    email: 'ti ti-mail',
+    date: 'ti ti-calendar',
+};
 
 interface Row extends FieldSettingInput {
     /** Carried through from the server so the row can render its own type. */
@@ -125,30 +189,42 @@ function newCustomRow(sortOrder: number): Row {
     };
 }
 
-/** One of the three on/off decisions, as a chip rather than a bare checkbox. */
+/**
+ * One of the three on/off decisions, as a chip rather than a bare checkbox.
+ *
+ * `tone` because the three are not the same KIND of decision. "On form" and
+ * "In table" say where a field appears; "Required" says somebody cannot finish
+ * without it, which is the one that makes a screen refuse to save. In the same
+ * blue as its neighbours it read as a third placement option.
+ *
+ * The box glyph is the state, said twice — the chip's own fill carries it too,
+ * and on a print-out or a bad monitor the fill is the half that disappears.
+ */
 function Toggle({
     on,
     icon,
     label,
+    tone = 'brand',
     disabled,
     onClick,
 }: {
     on: boolean;
     icon: string;
     label: string;
+    tone?: 'brand' | 'danger';
     disabled?: boolean;
     onClick: () => void;
 }) {
     return (
         <button
             type="button"
-            className={`lf-toggle${on ? ' is-on' : ''}`}
+            className={`lf-toggle lf-toggle--${tone}${on ? ' is-on' : ''}`}
             disabled={disabled}
             onClick={onClick}
             aria-pressed={on}
             title={disabled ? `${label} is fixed by the system` : label}
         >
-            <i className={icon} />
+            <i className={on ? icon : 'ti ti-square'} />
             {label}
         </button>
     );
@@ -168,6 +244,8 @@ export default function FieldSettingsPage() {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [expanded, setExpanded] = useState<number | null>(null);
     const [dirty, setDirty] = useState(false);
+    const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+    const [width, setWidth] = useState<'desktop' | 'mobile'>('desktop');
     const [singular, setSingular] = useState('');
     const [plural, setPlural] = useState('');
 
@@ -188,6 +266,17 @@ export default function FieldSettingsPage() {
         setRows((current) =>
             current.map((row, position) => (position === index ? { ...row, ...changes } : row)),
         );
+    }
+
+    /* Folding a group is a view preference, not an edit — it must never make
+       the page look unsaved. */
+    function toggleGroup(group: string) {
+        setCollapsed((current) => {
+            const next = new Set(current);
+            next.has(group) ? next.delete(group) : next.add(group);
+
+            return next;
+        });
     }
 
     function move(index: number, by: number) {
@@ -332,6 +421,24 @@ export default function FieldSettingsPage() {
         );
     }, [rows]);
 
+    /*
+     * The preview's own grouping — built from what is ON THE FORM, in saved
+     * order, rather than reusing `grouped`. That one carries every field
+     * including the ones switched off, and a preview that shows a field the
+     * form will not is not a preview.
+     */
+    const previewGroups = useMemo(() => {
+        const buckets = new Map<string, Row[]>();
+
+        onForm.forEach((row) => {
+            const bucket = buckets.get(row.group) ?? [];
+            bucket.push(row);
+            buckets.set(row.group, bucket);
+        });
+
+        return [...buckets.entries()].map(([group, items]) => ({ group, items }));
+    }, [onForm]);
+
     if (isLoading) {
         return <LoadingBlock label="Loading field settings…" />;
     }
@@ -358,7 +465,7 @@ export default function FieldSettingsPage() {
                 tabs={(entities ?? []).map((tab) => ({
                     value: tab.entity,
                     label: tab.label,
-                    icon: 'ti ti-list-details',
+                    icon: ENTITY_ICONS[tab.entity] ?? 'ti ti-list-details',
                 }))}
             />
 
@@ -366,7 +473,7 @@ export default function FieldSettingsPage() {
                 <div className="col-lg-8">
                     <div className="lf-naming">
                         <div className="lf-naming-head">
-                            <i className="ti ti-tag" />
+                            <i className="ti ti-bulb" />
                             <div>
                                 <b>What do you call these?</b>
                                 <span>
@@ -378,7 +485,7 @@ export default function FieldSettingsPage() {
 
                         <div className="lf-naming-fields">
                             <label>
-                                One
+                                Singular label
                                 <input
                                     className="form-control form-control-sm"
                                     value={singular}
@@ -391,7 +498,7 @@ export default function FieldSettingsPage() {
                             </label>
 
                             <label>
-                                Many
+                                Plural label
                                 <input
                                     className="form-control form-control-sm"
                                     value={plural}
@@ -405,14 +512,45 @@ export default function FieldSettingsPage() {
                         </div>
                     </div>
 
-                    {grouped.map(({ group, items }) => (
-                        <section className="lf-group" key={group}>
-                            <header className="lf-group-head">
-                                <h6>{GROUP_TITLES[group] ?? group}</h6>
-                                <span>{items.length} fields</span>
-                            </header>
+                    {grouped.map(({ group, items }) => {
+                        const meta = groupMeta(group);
+                        const shut = collapsed.has(group);
 
-                            <div className="lf-list">
+                        return (
+                        <section className={`lf-group${shut ? ' is-shut' : ''}`} key={group}>
+                            {/*
+                             * The whole header is the collapse control. A page
+                             * with eight groups and forty fields is one a
+                             * reader wants to fold down to the part they came
+                             * to change, and a chevron nobody can find is a
+                             * fold nobody uses.
+                             */}
+                            <button
+                                type="button"
+                                className="lf-group-head"
+                                onClick={() => toggleGroup(group)}
+                                aria-expanded={!shut}
+                            >
+                                <span className="lf-group-icon" aria-hidden="true">
+                                    <i className={meta.icon} />
+                                </span>
+
+                                <span className="lf-group-text">
+                                    <h6>{meta.title}</h6>
+                                    {meta.note && <span>{meta.note}</span>}
+                                </span>
+
+                                <span className="lf-group-count">
+                                    {items.length} {items.length === 1 ? 'field' : 'fields'}
+                                </span>
+
+                                <i
+                                    className={`lf-group-chevron ti ${shut ? 'ti-chevron-down' : 'ti-chevron-up'}`}
+                                    aria-hidden="true"
+                                />
+                            </button>
+
+                            <div className="lf-list" hidden={shut}>
                                 {items.map(({ row, index }) => {
                                     const type = TYPES[row.resolvedType] ?? TYPES.text;
                                     const keyError = errors[`fields.${index}.field_key`];
@@ -443,6 +581,20 @@ export default function FieldSettingsPage() {
                                                     <i className="ti ti-chevron-down" />
                                                 </button>
                                             </div>
+
+                                            {/*
+                                                Where the field actually sits,
+                                                said as a number. The arrows
+                                                move a row but never told
+                                                anybody where it landed, and on
+                                                a form of forty fields "it went
+                                                up one" is not an answer to
+                                                "is the phone number above the
+                                                address yet?".
+                                            */}
+                                            <span className="lf-position" aria-hidden="true">
+                                                {index + 1}
+                                            </span>
 
                                             <span className="lf-type" title={type.label}>
                                                 <i className={type.icon} />
@@ -506,6 +658,7 @@ export default function FieldSettingsPage() {
                                                     on={row.is_required}
                                                     icon="ti ti-asterisk"
                                                     label="Required"
+                                                    tone="danger"
                                                     disabled={row.locked}
                                                     onClick={() =>
                                                         patch(index, {
@@ -515,7 +668,7 @@ export default function FieldSettingsPage() {
                                                 />
                                                 <Toggle
                                                     on={row.show_in_form}
-                                                    icon="ti ti-forms"
+                                                    icon="ti ti-square-check"
                                                     label="On form"
                                                     disabled={row.locked}
                                                     onClick={() =>
@@ -526,7 +679,7 @@ export default function FieldSettingsPage() {
                                                 />
                                                 <Toggle
                                                     on={row.show_in_table}
-                                                    icon="ti ti-table"
+                                                    icon="ti ti-square-check"
                                                     label="In table"
                                                     onClick={() =>
                                                         patch(index, {
@@ -740,7 +893,8 @@ export default function FieldSettingsPage() {
                                 })}
                             </div>
                         </section>
-                    ))}
+                        );
+                    })}
 
                     <button type="button" className="lf-add" onClick={addCustom}>
                         <i className="ti ti-plus" />
@@ -749,14 +903,47 @@ export default function FieldSettingsPage() {
                 </div>
 
                 <div className="col-lg-4 form-rail">
-                    <div className="lf-preview">
+                    <div className={`lf-preview is-${width}`}>
                         <header>
-                            <i className="ti ti-eye" />
+                            <span className="lf-preview-icon" aria-hidden="true">
+                                <i className="ti ti-eye" />
+                            </span>
+
                             <div>
                                 <b>Form preview</b>
                                 <span>
-                                    {onForm.length} on the form · {inTable.length} table columns
+                                    {onForm.length} {onForm.length === 1 ? 'field' : 'fields'}{' '}
+                                    arranged in {inTable.length}{' '}
+                                    {inTable.length === 1 ? 'table column' : 'table columns'}
                                 </span>
+                            </div>
+
+                            {/*
+                             * The same form is filled in at a counter on a
+                             * desktop and on a phone in a ward, and a two-up
+                             * grid that works on one wraps badly on the other.
+                             * Showing which is being previewed is the only way
+                             * the layout below means anything.
+                             */}
+                            <div className="lf-preview-width" role="group" aria-label="Preview width">
+                                <button
+                                    type="button"
+                                    className={width === 'desktop' ? 'is-on' : ''}
+                                    onClick={() => setWidth('desktop')}
+                                    aria-pressed={width === 'desktop'}
+                                    title="Desktop"
+                                >
+                                    <i className="ti ti-device-desktop" />
+                                </button>
+                                <button
+                                    type="button"
+                                    className={width === 'mobile' ? 'is-on' : ''}
+                                    onClick={() => setWidth('mobile')}
+                                    aria-pressed={width === 'mobile'}
+                                    title="Phone"
+                                >
+                                    <i className="ti ti-device-mobile" />
+                                </button>
                             </div>
                         </header>
 
@@ -766,24 +953,67 @@ export default function FieldSettingsPage() {
                                     Every field is switched off. Turn at least one back on.
                                 </p>
                             ) : (
-                                onForm.map((row, index) => (
-                                    <div className="lf-mock" key={`${row.field_key}-${index}`}>
-                                        <span className="lf-mock-label">
-                                            {row.label || row.field_key || 'Untitled'}
-                                            {row.is_required && <i>*</i>}
-                                        </span>
+                                /*
+                                 * GROUPED AND TWO-UP, the way the real form
+                                 * renders it. A flat column of grey bars showed
+                                 * the ORDER of the fields and nothing else —
+                                 * not which section they land in, not that a
+                                 * date sits beside a code, not that turning
+                                 * one off leaves a gap in a row. Which is most
+                                 * of what somebody is on this screen to decide.
+                                 */
+                                previewGroups.map(({ group, items }) => {
+                                    const meta = groupMeta(group);
 
-                                        {row.resolvedType === 'boolean' ? (
-                                            <span className="lf-mock-switch" />
-                                        ) : (
-                                            <span
-                                                className={`lf-mock-input${row.resolvedType === 'textarea' ? ' is-tall' : ''}`}
-                                            >
-                                                {row.placeholder ?? ''}
-                                            </span>
-                                        )}
-                                    </div>
-                                ))
+                                    return (
+                                        <section className="lf-mock-group" key={group}>
+                                            <h6>
+                                                <i className={meta.icon} />
+                                                {meta.title}
+                                            </h6>
+
+                                            <div className="lf-mock-grid">
+                                                {items.map((row, index) => (
+                                                    <div
+                                                        className={`lf-mock${WIDE.has(row.resolvedType) ? ' is-wide' : ''}`}
+                                                        key={`${row.field_key}-${index}`}
+                                                    >
+                                                        <span className="lf-mock-label">
+                                                            {row.label || row.field_key || 'Untitled'}
+                                                            {row.is_required && <i>*</i>}
+                                                        </span>
+
+                                                        {row.resolvedType === 'boolean' ? (
+                                                            <span className="lf-mock-switch" />
+                                                        ) : (
+                                                            <span
+                                                                className={`lf-mock-input${
+                                                                    row.resolvedType === 'textarea'
+                                                                        ? ' is-tall'
+                                                                        : ''
+                                                                }`}
+                                                            >
+                                                                {LEADING[row.resolvedType] && (
+                                                                    <i
+                                                                        className={`lf-mock-lead ${LEADING[row.resolvedType]}`}
+                                                                    />
+                                                                )}
+
+                                                                <em>{row.placeholder ?? ''}</em>
+
+                                                                {(row.resolvedType === 'select' ||
+                                                                    row.resolvedType ===
+                                                                        'multiselect') && (
+                                                                    <i className="lf-mock-caret ti ti-chevron-down" />
+                                                                )}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </section>
+                                    );
+                                })
                             )}
                         </div>
                     </div>

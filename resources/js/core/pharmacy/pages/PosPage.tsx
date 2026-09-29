@@ -360,7 +360,7 @@ export default function PosPage() {
         <>
             <PageHeader
                 title="Counter"
-                icon="ti ti-cash-register"
+                icon="ti ti-building-store"
                 tone="teal"
                 crumbs={[{ label: 'Pharmacy' }, { label: 'Counter' }]}
                 actions={<StorePicker stores={stores} value={store} onChange={choose} />}

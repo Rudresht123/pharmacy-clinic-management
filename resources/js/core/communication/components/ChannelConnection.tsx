@@ -84,7 +84,7 @@ export function ChannelConnection({
 
                             {account.is_verified && (
                                 <i
-                                    className="ti ti-rosette-discount-check-filled"
+                                    className="ti ti-discount-check-filled"
                                     title="Verified business"
                                 />
                             )}

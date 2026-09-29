@@ -6,12 +6,9 @@ use App\Models\Platform\Organization;
 use App\Models\Tenant\ActivityLog;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Customer;
-use App\Models\Tenant\LabOrder;
 use App\Models\Tenant\Location;
-use App\Models\Tenant\PharmacySale;
 use App\Models\Tenant\Prescription;
 use App\Models\Tenant\Role;
-use App\Services\Tenancy\TenantConnectionService;
 use App\Support\Opd\Weekday;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TenantTestCase;
@@ -51,9 +48,18 @@ class VisitWorkflowTest extends TenantTestCase
      *
      * @return array{0: Organization, 1: int, 2: int, 3: int} org, doctor, branch, patient
      */
+    /**
+     * The clinic under test, so `checkedIn()` can reach it.
+     *
+     * Every test destructures the organisation out of `clinic()` anyway; this
+     * is the same value, kept where the shared helper can borrow the desk
+     * without twenty-four call sites having to pass it along.
+     */
+    private Organization $clinic;
+
     private function clinic(): array
     {
-        $organization = $this->provisionOrganization('VW');
+        $organization = $this->clinic = $this->provisionOrganization('VW');
 
         foreach (['appointments', 'medicines', 'prescriptions', 'pharmacy', 'laboratory'] as $module) {
             $this->grantModule($organization, $module);
@@ -119,7 +125,22 @@ class VisitWorkflowTest extends TenantTestCase
             'slot_at' => $slot,
         ])->assertCreated()->json('data.id');
 
-        $this->postJson("/api/v1/tenant/appointments/{$id}/check-in")->assertOk();
+        /*
+         * Booked by whoever the test signed in as; ARRIVED BY THE DESK, and
+         * THE SESSION IS LEFT THERE.
+         *
+         * `appointments.queue` is the one capability the owner does not
+         * bypass (Permission::DESK_CAPABILITIES) — running the waiting room
+         * is reception's job, not the account holder's, and calling the
+         * patient through is the same capability as arriving them. Handing
+         * the session back to the owner here would only mean every caller
+         * that goes on to call the patient had to take it again.
+         *
+         * This is also what actually happens in a clinic: the desk arrives
+         * somebody and calls them in, then the doctor takes over — which is
+         * exactly what `consult()` below does.
+         */
+        $this->checkInAtDesk($this->clinic, $branchId, (int) $id);
 
         return (int) $id;
     }
@@ -194,6 +215,70 @@ class VisitWorkflowTest extends TenantTestCase
 
         $this->assertNotNull($visit->called_at);
         $this->assertNotNull($visit->called_by);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | The desk boundary
+    |--------------------------------------------------------------------------
+    |
+    | `appointments.queue` is the ONE capability the owner does not bypass
+    | (Permission::DESK_CAPABILITIES), so it is asserted from both sides.
+    | Without the third test here the rule is only held up by the rest of this
+    | file happening to arrive patients as the desk, which would keep passing
+    | if somebody quietly handed the capability back to the owner.
+    */
+
+    /** The person who mans the counter arrives a patient. */
+    public function test_the_desk_checks_a_patient_in(): void
+    {
+        [$organization, $doctorId, $branchId, $patientId] = $this->clinic();
+
+        $id = $this->postJson('/api/v1/tenant/appointments', [
+            'customer_id' => $patientId,
+            'doctor_id' => $doctorId,
+            'location_id' => $branchId,
+            'appointment_date' => self::MONDAY,
+            'type' => Appointment::BOOKED,
+            'slot_at' => '10:00',
+        ])->assertCreated()->json('data.id');
+
+        $this->signInAsReceptionist($organization, $branchId);
+
+        $this->postJson("/api/v1/tenant/appointments/{$id}/check-in")
+            ->assertOk()
+            ->assertJsonPath('data.status', Appointment::STATUS_CHECKED_IN)
+            ->assertJsonPath('data.queue_status', Appointment::QUEUE_WAITING);
+    }
+
+    /** The account holder watches the waiting room — seeing is not working. */
+    public function test_the_owner_sees_the_queue(): void
+    {
+        [, $doctorId, $branchId, $patientId] = $this->clinic();
+
+        $this->checkedIn($doctorId, $branchId, $patientId);
+
+        $this->signInAsOwner($this->clinic);
+
+        $this->getJson('/api/v1/tenant/opd/today?location_id='.$branchId)->assertOk();
+    }
+
+    /** ...and does not work it. */
+    public function test_the_owner_cannot_check_a_patient_in(): void
+    {
+        [, $doctorId, $branchId, $patientId] = $this->clinic();
+
+        // Booking is the owner's to do; arriving somebody is not.
+        $id = $this->postJson('/api/v1/tenant/appointments', [
+            'customer_id' => $patientId,
+            'doctor_id' => $doctorId,
+            'location_id' => $branchId,
+            'appointment_date' => self::MONDAY,
+            'type' => Appointment::BOOKED,
+            'slot_at' => '10:00',
+        ])->assertCreated()->json('data.id');
+
+        $this->postJson("/api/v1/tenant/appointments/{$id}/check-in")->assertForbidden();
     }
 
     /** A called patient appears on the doctor's own list, marked as called. */
@@ -647,6 +732,14 @@ class VisitWorkflowTest extends TenantTestCase
             'type' => Appointment::BOOKED,
             'slot_at' => '10:00',
         ])->assertCreated()->json('data.id');
+
+        /*
+         * Asked by the desk, because calling somebody through is the desk's
+         * capability. Asking as the owner would be refused for holding no
+         * `appointments.queue` at all — a 403 that would pass a looser
+         * assertion while proving nothing about the queue's own rule.
+         */
+        $this->signInAsReceptionist($this->clinic, $branchId);
 
         $this->postJson("/api/v1/tenant/appointments/{$id}/call")
             ->assertStatus(422)

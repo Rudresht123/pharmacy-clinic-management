@@ -14,6 +14,7 @@ use App\Models\Tenant\Role;
 use App\Models\Tenant\User as TenantUser;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
+use App\Services\Tenant\DefaultRoleSeeder;
 use App\Support\Platform\OrganizationCode;
 
 /**
@@ -32,6 +33,11 @@ abstract class TenantTestCase extends TestCase
     protected const PASSWORD = 'password';
 
     protected const STAFF_EMAIL = 'staff@example.com';
+
+    protected const RECEPTIONIST_EMAIL = 'reception@example.com';
+
+    /** The slug RoleTemplates seeds the front desk under. */
+    protected const RECEPTIONIST_ROLE = 'receptionist';
 
     protected function tearDown(): void
     {
@@ -154,6 +160,82 @@ abstract class TenantTestCase extends TestCase
     protected function signInAsStaff(Organization $organization): void
     {
         $this->signIn($organization, self::STAFF_EMAIL);
+    }
+
+    /**
+     * The front desk, on the seeded `receptionist` role.
+     *
+     * WHY THIS EXISTS AT ALL. `appointments.queue` is the one capability the
+     * owner does not bypass — see Permission::DESK_CAPABILITIES. Checking a
+     * patient in is the desk's job, not the account holder's, so a test whose
+     * subject is the workflow rather than the permission still has to arrive
+     * the patient as somebody who actually mans the counter.
+     *
+     * A SEPARATE USER ON A SEPARATE ROLE, deliberately. Borrowing the staff
+     * member would mean handing them `appointments.queue` through
+     * `setStaffCapabilities()`, which replaces the whole set — so every test
+     * asserting what staff hold would start asserting against a set this
+     * helper had quietly rewritten.
+     *
+     * The role is the real one from RoleTemplates, not a bag of capabilities
+     * assembled here: if the product ever takes `appointments.queue` off the
+     * receptionist, these tests should fail rather than keep passing against
+     * a receptionist only the test suite believes in.
+     */
+    protected function signInAsReceptionist(Organization $organization, int $locationId): void
+    {
+        $this->onTenant($organization, function () use ($organization, $locationId) {
+            /*
+             * Seeded here, not at provisioning, because the receptionist
+             * template `requires` the appointments module — and a test grants
+             * its modules after the organisation exists, by which time the
+             * provisioning seeder has already run and skipped the role. The
+             * seeder is idempotent and only ever adds, so calling it again is
+             * free and never touches a role somebody has edited.
+             */
+            app(DefaultRoleSeeder::class)->seed($organization);
+
+            $role = Role::on(TenantConnectionService::CONNECTION)
+                ->where('slug', self::RECEPTIONIST_ROLE)
+                ->firstOrFail();
+
+            $user = TenantUser::on(TenantConnectionService::CONNECTION)->firstOrCreate(
+                ['email' => self::RECEPTIONIST_EMAIL],
+                [
+                    'name' => 'Reception',
+                    'password' => bcrypt(self::PASSWORD),
+                    'is_active' => true,
+                    'role' => TenantUser::STAFF,
+                    /* Branch-scoped role, so it lives on the membership below
+                       rather than on the user — see placeStaffAt(). */
+                    'role_id' => null,
+                ],
+            );
+
+            BranchMembership::on(TenantConnectionService::CONNECTION)->updateOrCreate(
+                ['user_id' => $user->id, 'location_id' => $locationId],
+                ['role_id' => $role->id],
+            );
+        });
+
+        $this->signIn($organization, self::RECEPTIONIST_EMAIL);
+    }
+
+    /**
+     * Arrive a patient at the desk, then hand the session back.
+     *
+     * The session is restored explicitly by the caller passing who they were,
+     * because a helper that silently changes who you are and changes back is
+     * what makes the next unrelated failure unreadable.
+     */
+    protected function checkInAtDesk(
+        Organization $organization,
+        int $locationId,
+        int $appointmentId,
+    ): void {
+        $this->signInAsReceptionist($organization, $locationId);
+
+        $this->postJson("/api/v1/tenant/appointments/{$appointmentId}/check-in")->assertOk();
     }
 
     /**

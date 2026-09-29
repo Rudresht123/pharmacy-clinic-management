@@ -135,8 +135,9 @@ class OrganizationModuleTest extends TestCase
             'module_id' => Module::where('key', 'prescriptions')->value('id'),
         ]);
 
+        // Billing is core — every clinic charges for something — so it stays.
         $this->assertSame(
-            ['branches', 'people', 'customers', 'settings', 'appointments'],
+            ['branches', 'people', 'customers', 'settings', 'billing', 'appointments'],
             app(ModuleAccess::class)->enabled($organization),
         );
     }

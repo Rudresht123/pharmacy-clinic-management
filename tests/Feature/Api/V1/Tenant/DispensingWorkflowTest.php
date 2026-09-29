@@ -9,6 +9,7 @@ use App\Models\Tenant\Location;
 use App\Models\Tenant\Medicine;
 use App\Models\Tenant\MedicineBatch;
 use App\Models\Tenant\PharmacySale;
+use App\Models\Tenant\PharmacySetting;
 use App\Models\Tenant\PharmacyStore;
 use App\Models\Tenant\Prescription;
 use App\Models\Tenant\PrescriptionItem;
@@ -194,7 +195,9 @@ class DispensingWorkflowTest extends TenantTestCase
             'slot_at' => '10:00',
         ])->assertCreated()->json('data.id');
 
-        $this->postJson("/api/v1/tenant/appointments/{$appointmentId}/check-in")->assertOk();
+        // Arrived and called through by the desk: `appointments.queue` is the
+        // one capability the owner does not bypass (DESK_CAPABILITIES).
+        $this->checkInAtDesk($this->organization, $this->branch, (int) $appointmentId);
         $this->postJson("/api/v1/tenant/appointments/{$appointmentId}/call")->assertOk();
 
         $this->signInAsDoctor();
@@ -336,7 +339,13 @@ class DispensingWorkflowTest extends TenantTestCase
 
         [$appointmentId, $prescription] = $this->visitWithPrescription(quantity: 20);
 
-        $this->dispense($prescription, 8, paid: 89.6);
+        /*
+         * What each bill comes to, not tablets × 11.20: the store rounds to
+         * the rupee (on by default), so 89.60 is a ₹90 bill and 134.40 a ₹134
+         * one. Paying the unrounded figure leaves the first short and the
+         * second over — both refused, and neither what this test is about.
+         */
+        $this->dispense($prescription, 8, paid: 90.0);
 
         $this->assertSame(
             Prescription::PARTIALLY_DISPENSED,
@@ -350,7 +359,7 @@ class DispensingWorkflowTest extends TenantTestCase
         );
 
         // The rest, later. That is what closes it.
-        $this->dispense($prescription, 12, paid: 134.4);
+        $this->dispense($prescription, 12, paid: 134.0);
 
         $this->assertSame(Appointment::STATUS_COMPLETED, $this->visit($appointmentId)->status);
     }
@@ -441,7 +450,9 @@ class DispensingWorkflowTest extends TenantTestCase
             'slot_at' => '10:15',
         ])->assertCreated()->json('data.id');
 
-        $this->postJson("/api/v1/tenant/appointments/{$appointmentId}/check-in")->assertOk();
+        // Arrived and called through by the desk: `appointments.queue` is the
+        // one capability the owner does not bypass (DESK_CAPABILITIES).
+        $this->checkInAtDesk($this->organization, $this->branch, (int) $appointmentId);
         $this->postJson("/api/v1/tenant/appointments/{$appointmentId}/call")->assertOk();
 
         $this->signInAsDoctor();
@@ -496,7 +507,7 @@ class DispensingWorkflowTest extends TenantTestCase
     private function allowCredit(): void
     {
         $this->onTenant($this->organization, function () {
-            $settings = \App\Models\Tenant\PharmacySetting::current();
+            $settings = PharmacySetting::current();
 
             $settings->forceFill(['credit_sales_enabled' => true])->save();
         });

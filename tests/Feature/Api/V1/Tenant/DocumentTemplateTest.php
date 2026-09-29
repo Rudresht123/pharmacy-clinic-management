@@ -198,7 +198,10 @@ class DocumentTemplateTest extends TenantTestCase
              * prescription already printed was made from.
              */
             $this->assertCount(2, $template->versions);
-            $this->assertSame([], $template->versions->last()->config['footer']['lines']);
+            $this->assertSame(
+                TemplateConfig::defaultsFor('prescription')['footer']['lines'],
+                $template->versions->last()->config['footer']['lines'],
+            );
             $this->assertSame(['Open 9am – 7pm'], $template->versions->first()->config['footer']['lines']);
 
             // And the published version is still the one in use.
@@ -402,9 +405,13 @@ class DocumentTemplateTest extends TenantTestCase
                 (int) $after->document_template_version_id,
             );
 
-            // And V1's config was never rewritten.
+            // And V1's config was never rewritten — it still carries what the
+            // defaults gave it, not the footer V2 was saved with.
             $v1 = DocumentTemplateVersion::on('organization')->find($firstVersion);
-            $this->assertSame([], $v1->config['footer']['lines']);
+            $this->assertSame(
+                TemplateConfig::defaultsFor('prescription')['footer']['lines'],
+                $v1->config['footer']['lines'],
+            );
         });
     }
 

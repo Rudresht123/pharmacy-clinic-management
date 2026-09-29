@@ -130,7 +130,7 @@ export default function OrganizationFormPage() {
         <>
             <PageHeader
                 title={isEdit ? 'Edit Organization' : 'Create Organization'}
-                icon={isEdit ? 'ti ti-edit' : 'ti ti-building-plus'}
+                icon={isEdit ? 'ti ti-edit' : 'ti ti-building'}
                 tone={isEdit ? 'amber' : 'emerald'}
                 crumbs={[
                     { label: 'Global Settings' },

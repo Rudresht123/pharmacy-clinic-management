@@ -6,6 +6,7 @@ use App\Support\Documents\DocumentTypes;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use Illuminate\Support\Arr;
+use Throwable;
 
 /**
  * HTML in, PDF bytes out. Nothing else.
@@ -54,7 +55,24 @@ class PdfRenderer
         // do not, and a bill printing "?1,200.00" is not a bill.
         $options->set('defaultMediaType', 'print');
 
+        /*
+         * The one local file the renderer is allowed to open.
+         *
+         * `chroot` is what dompdf checks before reading anything off disk, and
+         * its default is dompdf's own package directory — which is why the
+         * icon font would not load until it was named here. Everything else a
+         * document needs, the logo included, arrives as a data URI, so this
+         * stays a single directory rather than the application root.
+         */
+        $options->setChroot([dirname(Icons::file())]);
+
         $dompdf = new Dompdf($options);
+
+        // No icon font means no icons, rather than a row of .notdef boxes
+        // down the side of somebody's bill. See Icons.
+        if (! $this->registerIcons($dompdf)) {
+            $html = Icons::strip($html);
+        }
 
         $paper = (string) Arr::get($layout, 'paper', DocumentTypes::PAPER_A4);
 
@@ -78,6 +96,28 @@ class PdfRenderer
         }
 
         return (string) $dompdf->output();
+    }
+
+    /**
+     * Make the icon glyphs available to this render.
+     *
+     * dompdf converts and caches a copy of the font inside its own package
+     * directory the first time, so this is cheap on every render after the
+     * first — and it returns false rather than throwing when that directory
+     * is read-only, which is the normal state of a deployed vendor tree.
+     */
+    private function registerIcons(Dompdf $dompdf): bool
+    {
+        try {
+            return $dompdf->getFontMetrics()->registerFont(
+                ['family' => Icons::FAMILY, 'style' => 'normal', 'weight' => 'normal'],
+                Icons::file(),
+            );
+        } catch (Throwable $e) {
+            report($e);
+
+            return false;
+        }
     }
 
     /**

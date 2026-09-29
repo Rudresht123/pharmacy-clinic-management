@@ -481,7 +481,7 @@ function QuickActions({ summary }: { summary: DashboardSummary }) {
     const actions = [
         summary.branches && {
             to: '/locations/create',
-            icon: 'ti ti-building-plus',
+            icon: 'ti ti-map-pin-plus',
             title: 'Add a branch',
             hint: 'Somewhere new to work from',
         },

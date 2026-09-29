@@ -18,6 +18,15 @@
         </include>
     </source>
     <php>
+        <!--
+            The whole suite runs in one process, and memory it has used is not
+            all handed back between tests. One PDF render sits comfortably
+            inside PHP's default 128M — dompdf's font parsing is the heavy part
+            — but hundreds of tests later the suite died in php-font-lib's
+            cmap.php. Production renders one document per request and never
+            sees this; the limit is the test runner's only.
+        -->
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

@@ -7,7 +7,14 @@ import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
-import { useBillingSettings, useSaveBillingSettings, type BillingSettings } from '../api';
+import {
+    useBillingNumbering,
+    useBillingSettings,
+    useSaveBillingNumbering,
+    useSaveBillingSettings,
+    type BillingSettings,
+    type NumberedDocument,
+} from '../api';
 
 /**
  * How the organisation bills.
@@ -53,6 +60,15 @@ const PAYMENT_BEHAVIOUR_LABELS: Record<string, { label: string; description: str
 
 const ALL_METHODS = ['cash', 'card', 'upi', 'bank_transfer', 'online', 'cheque', 'other'];
 
+const NUMBERED: { type: NumberedDocument; label: string }[] = [
+    { type: 'invoice', label: 'Invoice' },
+    { type: 'receipt', label: 'Receipt' },
+    { type: 'refund', label: 'Refund' },
+];
+
+/** One branch's one series, as the prefix map keys it. */
+const seriesKey = (locationId: number, type: NumberedDocument) => `${locationId}:${type}`;
+
 const METHOD_LABELS: Record<string, string> = {
     cash: 'Cash',
     card: 'Card',
@@ -72,12 +88,45 @@ export default function BillingSettingsPage() {
     const { data: settings, isLoading } = useBillingSettings();
     const save = useSaveBillingSettings();
 
+    const { data: numbering } = useBillingNumbering();
+    const saveNumbering = useSaveBillingNumbering();
+
     const [form, setForm] = useState<BillingSettings | null>(null);
     const [errorText, setErrorText] = useState<string | null>(null);
+
+    // Every branch's prefix per document, as typed — keyed by seriesKey().
+    const [prefixes, setPrefixes] = useState<Record<string, string>>({});
 
     useEffect(() => {
         if (settings) setForm(settings);
     }, [settings]);
+
+    useEffect(() => {
+        if (!numbering) return;
+
+        setPrefixes(
+            Object.fromEntries(
+                numbering.branches.flatMap((branch) =>
+                    NUMBERED.map(({ type }) => [
+                        seriesKey(branch.location_id, type),
+                        branch.series[type].prefix,
+                    ]),
+                ),
+            ),
+        );
+    }, [numbering]);
+
+    /** Only the series somebody actually changed — the rest are left alone. */
+    const changedSeries = (numbering?.branches ?? []).flatMap((branch) =>
+        NUMBERED.filter(
+            ({ type }) =>
+                (prefixes[seriesKey(branch.location_id, type)] ?? '') !== branch.series[type].prefix,
+        ).map(({ type }) => ({
+            location_id: branch.location_id,
+            document_type: type,
+            prefix: prefixes[seriesKey(branch.location_id, type)] ?? '',
+        })),
+    );
 
     if (isLoading || !form) {
         return <LoadingBlock label="Loading settings…" />;
@@ -109,6 +158,12 @@ export default function BillingSettingsPage() {
             void _triggers;
             void _payment_behaviours;
             await save.mutateAsync(payload);
+
+            // One Save for the whole page; the numbers go only if touched.
+            if (changedSeries.length > 0) {
+                await saveNumbering.mutateAsync(changedSeries);
+            }
+
             notify.success('Billing settings saved');
         } catch (failure) {
             setErrorText(resolveErrorMessage(failure));
@@ -125,8 +180,12 @@ export default function BillingSettingsPage() {
                 crumbs={[{ label: 'Settings' }, { label: 'Billing' }]}
                 actions={
                     canManage ? (
-                        <Button type="submit" icon="ti ti-check" disabled={save.isPending}>
-                            {save.isPending ? 'Saving…' : 'Save'}
+                        <Button
+                            type="submit"
+                            icon="ti ti-check"
+                            disabled={save.isPending || saveNumbering.isPending}
+                        >
+                            {save.isPending || saveNumbering.isPending ? 'Saving…' : 'Save'}
                         </Button>
                     ) : undefined
                 }
@@ -256,24 +315,89 @@ export default function BillingSettingsPage() {
                             ))}
                         </div>
                     </Card>
+
+                    {/*
+                        Branch-wise, because a GST series belongs to a GSTIN
+                        and two branches in two states have two. The number
+                        itself is the database's, taken as the bill is saved;
+                        all anybody chooses here is what it starts with.
+                    */}
+                    <Card className="mt-3">
+                        <h6 className="mb-2">Invoice &amp; receipt numbers</h6>
+                        <p className="text-muted fs-13 mb-3">
+                            Every branch numbers its own bills, and each series starts again on 1 April.
+                            A new prefix applies from the next bill — nothing already issued is renumbered.
+                        </p>
+
+                        {!numbering ? (
+                            <LoadingBlock label="Loading numbering…" />
+                        ) : numbering.branches.length === 0 ? (
+                            <p className="dpt-none">No branches yet.</p>
+                        ) : (
+                            <div className="dpt-frame">
+                                <table className="dpt-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Branch</th>
+                                            {NUMBERED.map(({ type, label }) => (
+                                                <th key={type}>{label} prefix</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {numbering.branches.map((branch) => (
+                                            <tr key={branch.location_id}>
+                                                <td>
+                                                    <b>{branch.name}</b>
+                                                    <span className="dr-sub d-block">{branch.code}</span>
+                                                </td>
+
+                                                {NUMBERED.map(({ type, label }) => {
+                                                    const key = seriesKey(branch.location_id, type);
+                                                    const prefix = prefixes[key] ?? '';
+                                                    const series = branch.series[type];
+
+                                                    return (
+                                                        <td key={type}>
+                                                            <input
+                                                                type="text"
+                                                                className="form-control form-control-sm"
+                                                                value={prefix}
+                                                                onChange={(event) =>
+                                                                    setPrefixes((current) => ({
+                                                                        ...current,
+                                                                        [key]: event.target.value.toUpperCase(),
+                                                                    }))
+                                                                }
+                                                                maxLength={20}
+                                                                disabled={!canManage}
+                                                                aria-label={`${branch.name} ${label.toLowerCase()} prefix`}
+                                                            />
+                                                            <small className="text-muted dpt-num">
+                                                                Next: {prefix || '…'}/{numbering.financial_year}/
+                                                                {series.next_sequence}
+                                                            </small>
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </Card>
                 </div>
 
                 <div className="col-lg-4">
+                    {/*
+                        The organisation-wide prefix that used to sit here is
+                        gone from the screen: numbering is per branch now, in
+                        its own card. The stored value still seeds the invoice
+                        part of a new branch's default (CODE/INV).
+                    */}
                     <Card>
-                        <h6 className="mb-3">Invoice format</h6>
-
-                        <div className="mb-3">
-                            <label className="form-label fs-13">Prefix</label>
-                            <input
-                                type="text"
-                                className="form-control"
-                                value={form.invoice_prefix}
-                                onChange={(event) => set('invoice_prefix', event.target.value.toUpperCase())}
-                                maxLength={12}
-                                disabled={!canManage}
-                            />
-                            <small className="text-muted">Invoices will read as PREFIX-00001.</small>
-                        </div>
+                        <h6 className="mb-3">Currency</h6>
 
                         <div className="row g-2">
                             <div className="col-8">

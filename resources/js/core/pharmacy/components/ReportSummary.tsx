@@ -117,7 +117,8 @@ export function ReportSummaryView({
                             className="chart-card"
                             key={split.title}
                             title={split.title}
-                            icon={split.kind === 'donut' ? 'ti ti-chart-donut' : 'ti ti-chart-bar-horizontal'}
+                            icon={split.kind === 'donut' ? 'ti ti-chart-donut' : 'ti ti-list-numbers'}
+                            description={`${rows.length} ${rows.length === 1 ? 'item' : 'items'}`}
                         >
                             {split.kind === 'donut' ? (
                                 <DonutChart

@@ -123,7 +123,7 @@ export function ReviewSection({ status, step, nav }: SectionProps) {
 
                     {problem && <p className="su-error">{problem}</p>}
 
-                    <Button icon="ti ti-rosette-discount-check" loading={complete.isPending} onClick={() => void finish()}>
+                    <Button icon="ti ti-discount-check" loading={complete.isPending} onClick={() => void finish()}>
                         Complete Organisation Setup
                     </Button>
                 </div>

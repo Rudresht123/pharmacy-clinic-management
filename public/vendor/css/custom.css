@@ -1809,13 +1809,45 @@ rect.legend-mouseover-inactive,
 
 .lf-group{ margin-bottom:22px; }
 
+/*
+ * THE WHOLE HEADER IS THE COLLAPSE CONTROL.
+ *
+ * Forty fields across eight groups is a page somebody wants to fold down to
+ * the part they came to change, and a chevron on its own in a corner is a fold
+ * nobody finds. Laid out as a button so the keyboard gets it for free.
+ */
 .lf-group-head{
     display:flex;
-    align-items:baseline;
-    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    width:100%;
     margin-bottom:10px;
-    padding:0 2px;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface-2);
+    text-align:left;
+    cursor:pointer;
+    transition:border-color .16s ease,background .16s ease;
 }
+
+.lf-group-head:hover{ border-color:var(--line-2); background:var(--surface-3); }
+
+.lf-group-icon{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:32px;
+    height:32px;
+    flex:0 0 auto;
+    border-radius:9px;
+    background:rgba(var(--brand),.1);
+    color:rgb(var(--brand));
+    font-size:16px;
+}
+
+/* min-width:0 so a long note wraps instead of shoving the count off the end */
+.lf-group-text{ flex:1 1 auto; min-width:0; }
 
 .lf-group-head h6{
     margin:0;
@@ -1823,17 +1855,39 @@ rect.legend-mouseover-inactive,
     font-weight:700;
     letter-spacing:.08em;
     text-transform:uppercase;
-    color:var(--ink-2);
+    color:var(--ink);
 }
 
-.lf-group-head span{ font-size:12px; color:var(--muted); }
+.lf-group-text span{
+    display:block;
+    margin-top:1px;
+    font-size:11.5px;
+    color:var(--muted);
+}
+
+.lf-group-count{
+    flex:0 0 auto;
+    padding:3px 10px;
+    border-radius:100px;
+    background:rgba(var(--brand),.1);
+    color:rgb(var(--brand));
+    font-size:11px;
+    font-weight:600;
+    white-space:nowrap;
+}
+
+.lf-group-chevron{ flex:0 0 auto; font-size:15px; color:var(--muted); }
+
+/* A folded group keeps its header and gives back the gap under it. */
+.lf-group.is-shut{ margin-bottom:10px; }
+.lf-group.is-shut .lf-group-head{ margin-bottom:0; }
 
 .lf-list{ display:flex; flex-direction:column; gap:8px; }
 
 .lf-row{
     position:relative;
     display:grid;
-    grid-template-columns:26px 38px 1fr auto auto;
+    grid-template-columns:26px 24px 38px 1fr auto auto;
     align-items:center;
     gap:12px;
     padding:12px 14px;
@@ -1880,6 +1934,22 @@ rect.legend-mouseover-inactive,
 }
 
 .lf-order button:disabled{ opacity:.35; cursor:not-allowed; }
+
+/* Where the field actually sits on the form, as a number. */
+.lf-position{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:24px;
+    height:24px;
+    border-radius:100px;
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:11px;
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+}
 
 .lf-type{
     display:flex;
@@ -1979,6 +2049,20 @@ rect.legend-mouseover-inactive,
     background:rgba(var(--brand),.12);
     border-color:rgba(var(--brand),.35);
     color:rgb(var(--brand));
+}
+
+/*
+ * REQUIRED IS NOT A THIRD PLACEMENT OPTION.
+ *
+ * "On form" and "In table" say where a field appears; this one says the screen
+ * will refuse to save without it. In the same blue as its neighbours it read
+ * as one more box to tick, which is how a form ends up demanding a licence
+ * number from a walk-in.
+ */
+.lf-toggle--danger.is-on{
+    background:rgba(220,53,69,.1);
+    border-color:rgba(220,53,69,.3);
+    color:#dc3545;
 }
 
 .lf-toggle:disabled{ opacity:.55; cursor:not-allowed; }
@@ -2099,14 +2183,96 @@ rect.legend-mouseover-inactive,
     border-bottom:1px solid var(--line);
 }
 
-.lf-preview header > i{ font-size:18px; color:rgb(var(--brand)); }
+.lf-preview-icon{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:32px;
+    height:32px;
+    flex:0 0 auto;
+    border-radius:9px;
+    background:rgba(var(--brand),.1);
+    color:rgb(var(--brand));
+    font-size:16px;
+}
+
+.lf-preview header > div{ flex:1 1 auto; min-width:0; }
 .lf-preview header b{ display:block; font-size:13.5px; color:var(--ink); }
-.lf-preview header span{ display:block; font-size:11.5px; color:var(--muted); }
+.lf-preview header > div span{ display:block; font-size:11.5px; color:var(--muted); }
+
+/* desktop / phone, as a segmented pair */
+.lf-preview-width{
+    display:flex;
+    flex:0 0 auto;
+    gap:2px;
+    padding:2px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--surface);
+}
+
+.lf-preview-width button{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:28px;
+    height:24px;
+    padding:0;
+    border:0;
+    border-radius:7px;
+    background:transparent;
+    color:var(--muted);
+    font-size:14px;
+    cursor:pointer;
+    transition:background .15s ease,color .15s ease;
+}
+
+.lf-preview-width button:hover{ color:var(--ink-2); }
+
+.lf-preview-width button.is-on{
+    background:rgba(var(--brand),.12);
+    color:rgb(var(--brand));
+}
 
 .lf-preview-body{ padding:16px; max-height:560px; overflow-y:auto; }
 .lf-preview-empty{ margin:0; font-size:12.5px; color:var(--muted); }
 
-.lf-mock{ margin-bottom:12px; }
+/* ---- the mocked-up form ------------------------------------------------ */
+
+.lf-mock-group + .lf-mock-group{ margin-top:16px; }
+
+.lf-mock-group h6{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin:0 0 8px;
+    padding-bottom:6px;
+    border-bottom:1px solid var(--line);
+    font-size:11.5px;
+    font-weight:700;
+    color:var(--ink);
+}
+
+.lf-mock-group h6 i{ font-size:14px; color:rgb(var(--brand)); }
+
+/*
+ * TWO UP, because the real form is.
+ *
+ * A single column of grey bars showed the ORDER of the fields and nothing
+ * else — not that a code sits beside a name, and not that switching one off
+ * leaves a hole in a row. Which is most of what somebody is on this screen to
+ * decide.
+ */
+.lf-mock-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+}
+
+.lf-preview.is-mobile .lf-mock-grid{ grid-template-columns:1fr; }
+
+.lf-mock{ min-width:0; }
+.lf-mock.is-wide{ grid-column:1 / -1; }
 
 .lf-mock-label{
     display:block;
@@ -2119,7 +2285,9 @@ rect.legend-mouseover-inactive,
 .lf-mock-label i{ margin-left:2px; font-style:normal; color:#dc3545; }
 
 .lf-mock-input{
-    display:block;
+    display:flex;
+    align-items:center;
+    gap:6px;
     padding:7px 10px;
     border:1px solid var(--line);
     border-radius:8px;
@@ -2128,6 +2296,22 @@ rect.legend-mouseover-inactive,
     font-size:12.5px;
     min-height:32px;
 }
+
+/* min-width:0 so a long placeholder is clipped rather than widening the
+   column and breaking the two-up grid. */
+.lf-mock-input em{
+    flex:1 1 auto;
+    min-width:0;
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+    font-style:normal;
+}
+
+.lf-mock-lead{ flex:0 0 auto; font-size:13px; color:var(--muted); }
+.lf-mock-caret{ flex:0 0 auto; font-size:13px; color:var(--muted); }
+
+.lf-mock-input.is-tall{ align-items:flex-start; }
 
 .lf-mock-input.is-tall{ min-height:56px; }
 
@@ -2426,6 +2610,68 @@ html::-webkit-scrollbar-track {
     color:var(--muted);
 }
 
+/*
+   Every filter control the same box, whichever element renders it. Bootstrap's
+   .form-control-sm and a native <input type="date"> each bring their own
+   height, so left alone the row does not line up — a select at 34px next to
+   a date box the browser insists on drawing taller.
+*/
+.filter-field .form-control{
+    height:34px;
+    padding:0 11px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--surface);
+    font-size:12.5px;
+    color:var(--ink);
+    box-sizing:border-box;
+}
+
+.filter-field .form-control:focus{
+    outline:0;
+    border-color:rgb(var(--brand));
+    box-shadow:0 0 0 3px rgba(var(--brand), .14);
+}
+
+.filter-field input[type='date']{
+    /* The native calendar glyph sits flush against Chrome's own padding;
+       a hair less on the right keeps it level with the text on the left. */
+    padding-right:8px;
+}
+
+/* Without this the native calendar POPUP still paints itself light even
+   when the page is dark — color-scheme is what tells the browser which
+   chrome to draw it with. */
+[data-theme='dark'] .filter-field input[type='date']{
+    color-scheme:dark;
+}
+
+.filter-field input[type='date']::-webkit-calendar-picker-indicator{
+    opacity:.55;
+    cursor:pointer;
+}
+
+.filter-field input[type='date']::-webkit-calendar-picker-indicator:hover{
+    opacity:.9;
+}
+
+.filter-daterange{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.filter-daterange input{
+    min-width:0;
+    flex:1 1 auto;
+}
+
+.filter-daterange-sep{
+    color:var(--muted);
+    flex:0 0 auto;
+    font-size:12.5px;
+}
+
 .filter-clear{
     display:inline-flex;
     align-items:center;
@@ -2672,18 +2918,50 @@ html::-webkit-scrollbar-track {
 .bar-list{
     display:flex;
     flex-direction:column;
-    gap:10px;
+    gap:6px;
 }
 
 .bar-list-row{
     display:grid;
-    grid-template-columns:minmax(70px,1fr) 2.4fr auto;
+    grid-template-columns:22px minmax(70px,1fr) 2.4fr auto;
     align-items:center;
-    gap:10px;
+    gap:12px;
+    padding:6px 8px;
+    margin:0 -8px;
+    border-radius:10px;
+    transition:background .16s ease;
+}
+
+/* The leader gets a quiet highlight and a filled rank badge — the same
+   "read the winner first" cue the reference dashboard uses, without
+   needing a colour per row (this list has no per-item icon data to draw
+   one honestly). */
+.bar-list-row.is-lead{
+    background:rgba(var(--brand), 0.06);
+}
+
+.bar-list-rank{
+    display:grid;
+    place-items:center;
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    background:var(--surface-3);
+    color:var(--ink-3);
+    font-size:11px;
+    font-weight:700;
+    flex-shrink:0;
+    font-variant-numeric:tabular-nums;
+}
+
+.bar-list-row.is-lead .bar-list-rank{
+    background:rgb(var(--brand));
+    color:var(--brand-fg, #fff);
 }
 
 .bar-list-label{
-    font-size:12.5px;
+    font-size:13px;
+    font-weight:600;
     color:var(--ink-2);
     overflow:hidden;
     text-overflow:ellipsis;
@@ -2691,7 +2969,7 @@ html::-webkit-scrollbar-track {
 }
 
 .bar-list-track{
-    height:10px;
+    height:9px;
     border-radius:100px;
     background:var(--chart-track);
     overflow:hidden;
@@ -2701,8 +2979,7 @@ html::-webkit-scrollbar-track {
     display:block;
     height:100%;
     background:var(--chart-mark);
-    /* Rounded at the data end, square at the baseline. */
-    border-radius:0 4px 4px 0;
+    border-radius:100px;
     transition:width .3s cubic-bezier(.22,1,.36,1);
 }
 
@@ -2712,9 +2989,9 @@ html::-webkit-scrollbar-track {
 }
 
 .bar-list-value{
-    min-width:32px;
+    min-width:36px;
     text-align:right;
-    font-size:12.5px;
+    font-size:13.5px;
     font-weight:700;
     color:var(--ink);
     font-variant-numeric:tabular-nums;
@@ -2865,10 +3142,14 @@ html::-webkit-scrollbar-track {
     cursor:pointer;
 
     transition:background .16s ease, color .16s ease,
-        border-color .16s ease, box-shadow .16s ease;
+        border-color .16s ease, box-shadow .16s ease, transform .12s ease;
 }
 
-.app-tab i{ font-size:17px; opacity:.75; }
+.app-tab i{
+    font-size:17px;
+    opacity:.75;
+    transition:opacity .16s ease;
+}
 
 .app-tab:hover{
     border-color:rgba(var(--brand),.4);
@@ -2877,18 +3158,37 @@ html::-webkit-scrollbar-track {
 
 .app-tab:hover i{ opacity:1; }
 
+.app-tab:active{ transform:scale(.96); }
+
 .app-tab.is-active{
     background:var(--sb-bg);
     border-color:var(--sb-accent);
     color:var(--sb-hover-fg);
+    animation:app-tab-land .28s cubic-bezier(.34,1.56,.64,1);
     /* box-shadow:0 6px 16px -10px rgba(16,24,40,.55); */
 }
 
 .app-tab.is-active i{ opacity:1; }
 
+/* A tab just landed on — a quick, springy overshoot rather than a linear
+   snap, so picking one carries a little life without adding any extra
+   element to the strip (that was tried as a sliding underline and just
+   looked like a stray bar under an already-solid chip). */
+@keyframes app-tab-land{
+    0%{ transform:scale(.94); }
+    60%{ transform:scale(1.03); }
+    100%{ transform:scale(1); }
+}
+
 .app-tab:focus-visible{
     outline:none;
     box-shadow:0 0 0 3px rgba(var(--brand),.25);
+}
+
+@media (prefers-reduced-motion: reduce){
+    .app-tab{ transition:background .16s ease, color .16s ease, border-color .16s ease; }
+    .app-tab:active{ transform:none; }
+    .app-tab.is-active{ animation:none; }
 }
 
 /* a count riding a tab, e.g. how many rows the listing holds */
@@ -16339,7 +16639,7 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
  * tells nobody which monitor. The bar gives up width to it, since a bar's
  * job here is only to rank, and the figure beside it is exact anyway.
  */
-.pd-week .bar-list-row{ grid-template-columns:minmax(120px, 1.6fr) 1fr auto; }
+.pd-week .bar-list-row{ grid-template-columns:22px minmax(120px, 1.6fr) 1fr auto; }
 
 /*
  * The three cards keep one rhythm.
@@ -18763,6 +19063,44 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 
 /* --- Billing Overview Redesign (.bo-) --- */
 
+/* REVENUE BY SERVICE — the share bar under each tile. */
+.bo-cat-count {
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+.bo-cat-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.bo-cat-bar {
+    flex: 1 1 auto;
+    height: 6px;
+    border-radius: 100px;
+    background: var(--line-2);
+    overflow: hidden;
+}
+
+.bo-cat-bar-fill {
+    height: 100%;
+    border-radius: 100px;
+}
+
+.bo-cat-bar-fill.is-purple { background: #9333ea; }
+.bo-cat-bar-fill.is-green { background: #059669; }
+.bo-cat-bar-fill.is-orange { background: #f59e0b; }
+.bo-cat-bar-fill.is-blue { background: #2563eb; }
+
+.bo-cat-pct {
+    flex: 0 0 auto;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--ink-2);
+}
+
 .bo-container {
     display: flex;
     flex-direction: column;
@@ -18770,14 +19108,123 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 }
 
 .bo-header-card {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    /*
+     * TOP-ALIGNED, and with headroom. The date control sits at the top right
+     * and the illustration is anchored bottom right; centred in a short band
+     * the two landed on top of each other, with the calculator behind the
+     * select.
+     */
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 118px;
+    padding: 18px 22px;
+    background: #ffffff;
+    background-image: linear-gradient(100deg, #ffffff 42%, rgba(219, 234, 254, 0.35) 100%);
+    border: 1px solid transparent;
+    border-radius: 16px;
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+[data-theme='dark'] .bo-header-card {
+    background: var(--surface);
+    background-image: linear-gradient(100deg, var(--surface) 42%, rgba(219, 234, 254, 0.08) 100%);
+    border-color: var(--line);
+}
+
+/*
+ * THE ILLUSTRATION, ANCHORED TO THE BOTTOM-RIGHT AND ALLOWED TO BE CROPPED.
+ *
+ * It sits BEHIND the banner's own content rather than in a column of its own,
+ * so a long clinic name or a translated subtitle simply runs over it instead
+ * of squeezing it into a sliver. `pointer-events: none` keeps it from eating
+ * clicks meant for the date control that overlaps it at narrow widths.
+ */
+.bo-header-art {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    height: 94%;
+    max-width: 40%;
+    object-fit: contain;
+    object-position: right bottom;
+    pointer-events: none;
+    user-select: none;
+    z-index: 0;
+}
+
+/* Everything the reader needs sits above the art. */
+.bo-header-title-group,
+.bo-range-select {
+    position: relative;
+    z-index: 1;
+}
+
+/* Below the art it is decoration; on a phone it is a thing in the way. */
+@media (max-width: 767.98px) {
+    .bo-header-art {
+        display: none;
+    }
+}
+
+.bo-crumbs {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.bo-crumbs a {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    text-decoration: none;
+}
+
+.bo-crumbs a:hover {
+    color: rgb(var(--brand));
+}
+
+.bo-crumbs i {
+    font-size: 13px;
+}
+
+.bo-crumbs b {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+/* The window every figure on the page is counted over. */
+.bo-range-select {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    padding: 0 12px;
+    height: 38px;
     background: var(--surface);
     border: 1px solid var(--line-2);
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(var(--shadow), 0.03);
+    border-radius: 10px;
+    color: var(--muted);
+    box-shadow: 0 1px 2px rgba(var(--shadow), 0.04);
+}
+
+.bo-range-select select {
+    border: 0;
+    background: transparent;
+    outline: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
 }
 
 .bo-header-title-group {
@@ -18811,6 +19258,35 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     color: var(--muted);
 }
 
+/* A card's own heading: a tinted icon, the title, and what it is for. */
+.bo-card-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.bo-card-icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    border-radius: 9px;
+    font-size: 16px;
+}
+
+.bo-card-icon.is-blue { background: rgba(37, 99, 235, 0.1); color: #2563eb; }
+.bo-card-icon.is-green { background: rgba(5, 150, 105, 0.1); color: #059669; }
+.bo-card-icon.is-orange { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+.bo-card-icon.is-purple { background: rgba(147, 51, 234, 0.1); color: #9333ea; }
+
+.bo-card-sub {
+    margin: 1px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
 /* KPI CARDS GRID */
 .bo-kpi-grid {
     display: grid;
@@ -18818,16 +19294,59 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     gap: 16px;
 }
 
+/*
+ * A STAT TILE, WITH THE SHAPE OF THE NUMBER UNDER IT.
+ *
+ * `padding-bottom: 0` and a sparkline that runs to the card's own edges: the
+ * curve is a footnote to the figure, and insetting it turns it into a second
+ * chart sitting in a box. `overflow: hidden` lets it take the card's bottom
+ * radius instead of squaring the corners off.
+ */
 .bo-kpi-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+    padding: 16px 18px 0;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(var(--shadow), 0.03);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bo-kpi-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    padding: 18px 20px;
-    background: var(--surface);
-    border: 1px solid var(--line-2);
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(var(--shadow), 0.03);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    gap: 10px;
+}
+
+.bo-kpi-foot {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    min-height: 22px;
+}
+
+/* The status split on the invoice-count tile, which has no delta to show. */
+.bo-kpi-split {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+/*
+ * SCOPED TO THE TILE. `.spark` is shared with the trend rows elsewhere in the
+ * application, and bleeding a full-bleed width and negative margins onto those
+ * would drag every one of them out through the side of its own table cell.
+ */
+.bo-kpi-card .spark {
+    display: block;
+    width: calc(100% + 36px);
+    margin: 4px -18px 0;
+    height: 34px;
 }
 
 .bo-kpi-card:hover {
@@ -18909,13 +19428,30 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     gap: 20px;
 }
 
-/* SECTION CARDS */
+/* SECTION CARDS — every one the same fixed height, so a row never wobbles
+   between a tall table and a short chart. Content that runs long scrolls
+   inside the body rather than stretching the card.
+
+   Borderless with a shadow in light mode, same as the app's base .card —
+   dark mode keeps its border below, for the same reason .card does: the
+   border is what separates a card from the page once there is no white
+   left to do that job. */
 .bo-card {
-    background: var(--surface);
-    border: 1px solid var(--line-2);
+    display: flex;
+    flex-direction: column;
+    height: 380px;
+    background: #ffffff;
+    border: 1px solid transparent;
     border-radius: 12px;
     padding: 20px;
-    box-shadow: 0 1px 3px rgba(var(--shadow), 0.03);
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+[data-theme='dark'] .bo-card {
+    background: var(--surface);
+    border-color: var(--line);
 }
 
 .bo-card-title-row {
@@ -18923,6 +19459,20 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     align-items: center;
     justify-content: space-between;
     margin-bottom: 16px;
+    flex: 0 0 auto;
+}
+
+.bo-card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* A donut or an empty state has no reason to hug the top of a tall card. */
+.bo-card-body.is-center {
+    justify-content: center;
 }
 
 .bo-card-title {
@@ -19040,18 +19590,17 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 }
 
 .bo-table th {
-    background: var(--surface-2);
+    background: transparent;
     color: var(--muted);
-    font-weight: 700;
-    font-size: 11.5px;
-    text-transform: uppercase;
-    padding: 10px 12px;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 9px 10px;
     border-bottom: 1px solid var(--line-2);
     white-space: nowrap;
 }
 
 .bo-table td {
-    padding: 12px;
+    padding: 10px;
     border-bottom: 1px solid var(--line);
     color: var(--ink-2);
     vertical-align: middle;
@@ -19061,6 +19610,27 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 .bo-table tr:hover td {
     background: var(--surface-2);
 }
+
+/* Patient / Doctor-service names truncate instead of forcing the table
+   wider than the card — a long name is a tooltip away, not a scrollbar. */
+.bo-table-truncate {
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The actions column stays reachable without scrolling all the way right —
+   pinned so it is never the reason a row needs a horizontal scrollbar. */
+.bo-table th:last-child,
+.bo-table td:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+}
+
+.bo-table th:last-child { background: var(--surface); }
+.bo-table td:last-child { background: var(--surface); }
+.bo-table tr:hover td:last-child { background: var(--surface-2); }
 
 .bo-inv-num {
     font-weight: 700;
@@ -19160,10 +19730,90 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 }
 
 /* AGING BUCKETS GRID */
+/* Four abreast: the buckets are a sequence from fresh to bad debt, and a 2x2
+   grid breaks that reading in the middle. They drop to 2x2 only when the
+   column is genuinely too narrow for the figures. */
 .bo-aging-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+@media (max-width: 1399.98px) {
+    .bo-aging-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* PAYMENT METHOD TILES
+   Four abreast rather than four stacked rows: they are compared against each
+   other, and a column of full-width bars is read one at a time. */
+.bo-method-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.bo-method-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px;
+    min-width: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+}
+
+.bo-method-icon {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    margin-bottom: 3px;
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.bo-method-name {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bo-method-tile .bo-method-amount {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+}
+
+.bo-method-tile .bo-method-pct {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.bo-method-tile .bo-method-bar {
+    height: 5px;
+    margin-top: 2px;
+    border-radius: 100px;
+    background: var(--line-2);
+    overflow: hidden;
+}
+
+.bo-method-tile .bo-method-bar-fill {
+    height: 100%;
+    border-radius: 100px;
+}
+
+@media (max-width: 991.98px) {
+    .bo-method-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 .bo-aging-card {
@@ -19239,6 +19889,289 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 .bo-act-btn.is-blue { background: rgba(var(--brand), 0.12); color: rgb(var(--brand)); }
 .bo-act-btn.is-blue:hover { background: rgba(var(--brand), 0.2); }
 
+/* --- Billing Dashboard v2: tinted KPIs, quick-action row, collection trend --- */
+
+.bod-create-dd {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.bod-create-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 10px;
+    background: rgb(var(--brand));
+    color: #fff;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.bod-create-btn:hover { filter: brightness(1.06); }
+
+.bod-create-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 20;
+    min-width: 190px;
+    padding: 6px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(var(--shadow), 0.14);
+}
+
+.bod-create-menu a {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+    text-decoration: none;
+}
+
+.bod-create-menu a:hover {
+    background: var(--surface-2);
+    color: rgb(var(--brand));
+}
+
+.bod-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+@media (max-width: 1199.98px) {
+    .bod-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 575.98px) {
+    .bod-kpi-grid { grid-template-columns: 1fr; }
+}
+
+.bod-kpi-card {
+    padding: 14px 18px;
+    border-radius: 14px;
+    border: 1px solid transparent;
+}
+
+.bod-kpi-card.is-blue { background: rgba(var(--brand), 0.1); }
+.bod-kpi-card.is-green { background: rgba(16, 185, 129, 0.12); }
+.bod-kpi-card.is-orange { background: rgba(245, 158, 11, 0.12); }
+.bod-kpi-card.is-purple { background: rgba(147, 51, 234, 0.1); }
+
+/* Icon, then the label beside it — not the icon pushed to the far
+   corner. The two read as one unit naming what the card is. */
+.bod-kpi-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.bod-kpi-icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    font-size: 15px;
+    color: #fff;
+    flex: 0 0 auto;
+}
+
+.bod-kpi-icon.is-blue { background: rgb(var(--brand)); }
+.bod-kpi-icon.is-green { background: #10b981; }
+.bod-kpi-icon.is-orange { background: #f59e0b; }
+.bod-kpi-icon.is-purple { background: #a855f7; }
+
+.bod-kpi-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+/* The value and its delta sit on the same baseline — the delta reads as
+   the value's own qualifier, not a separate fact below it. */
+.bod-kpi-value-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.bod-kpi-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+.bod-kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.bod-kpi-delta.is-up { color: #10b981; }
+.bod-kpi-delta.is-down { color: #ef4444; }
+.bod-kpi-delta.is-up-danger { color: #ef4444; }
+
+.bod-kpi-sub {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--ink-3);
+}
+
+/* Collection trend — the stacked-bar chart's own legend and tooltip */
+
+.ct-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.ct-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+.ct-legend-item i {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.ct-tip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    white-space: nowrap;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--ink);
+    color: var(--surface);
+    font-size: 12px;
+}
+
+/* Recent Invoices / Outstanding Patients — checkbox column, type tag */
+
+.bod-check {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.bod-type-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.bod-type-tag.is-blue { background: rgba(var(--brand), 0.12); color: rgb(var(--brand)); }
+.bod-type-tag.is-green { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.bod-type-tag.is-purple { background: rgba(147, 51, 234, 0.12); color: #a855f7; }
+.bod-type-tag.is-orange { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+.bod-type-tag.is-muted { background: var(--surface-3); color: var(--muted); }
+.bod-type-tag.is-rose { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+
+/* Inventory movements — medicine cell, reference text, "by" avatar */
+
+.mv-medicine {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mv-medicine-icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    border-radius: 8px;
+    background: var(--surface-3);
+    color: var(--muted);
+    font-size: 15px;
+}
+
+.mv-reference {
+    font-weight: 600;
+    color: rgb(var(--brand));
+}
+
+.mv-reason {
+    display: inline-block;
+    max-width: 220px;
+    white-space: normal;
+}
+
+.mv-reason-toggle {
+    display: inline;
+    margin-left: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: rgb(var(--brand));
+    font-size: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.mv-reason-toggle:hover {
+    text-decoration: underline;
+}
+
+.mv-by {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mv-avatar {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: rgba(var(--brand), 0.12);
+    color: rgb(var(--brand));
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.bod-days-tag {
+    display: inline-flex;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: rgba(245, 158, 11, 0.12);
+    color: #d97706;
+}
+
 /* --- Document Templates Settings Redesign (.dt-) --- */
 
 .dt-container {
@@ -19296,11 +20229,66 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 }
 
 /* 3-COLUMN LAYOUT */
+/*
+ * THREE COLUMNS, ONE HEIGHT, EACH SCROLLING ITSELF.
+ *
+ * Left to grow naturally the editor column runs far past the document list and
+ * the sheet beside it, and the page scrolls as a whole — which drags the
+ * preview off screen exactly when somebody is changing the thing it previews.
+ * The row is pinned to the viewport instead and each column carries its own
+ * scrollbar, so the sheet stays put while the sections move under it.
+ */
 .dt-layout {
     display: grid;
     grid-template-columns: 240px minmax(0, 1fr) minmax(0, 1.2fr);
     gap: 20px;
-    align-items: start;
+    align-items: stretch;
+    height: calc(100vh - var(--dt-chrome, 230px));
+    min-height: 480px;
+}
+
+.dt-sidebar-card,
+.dt-editor-col,
+.dt-preview-col {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* The list scrolls; the "Documents" heading above it does not. */
+.dt-doc-list {
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: 4px;
+}
+
+/* The tab strip stays; the sections under it scroll. */
+.dt-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1;
+    padding-right: 4px;
+}
+
+.dt-sections .dt-accordion-card {
+    flex: 0 0 auto;
+}
+
+/* Quiet scrollbars — three of them on one screen is three too many to notice. */
+.dt-doc-list::-webkit-scrollbar,
+.dt-sections::-webkit-scrollbar,
+.dt-preview-sheet::-webkit-scrollbar {
+    width: 6px;
+}
+
+.dt-doc-list::-webkit-scrollbar-thumb,
+.dt-sections::-webkit-scrollbar-thumb,
+.dt-preview-sheet::-webkit-scrollbar-thumb {
+    background: var(--line-2);
+    border-radius: 3px;
 }
 
 /* DOCS SIDEBAR */
@@ -19387,23 +20375,39 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     border-radius: 8px;
     gap: 2px;
     margin-bottom: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.dt-tabs-group::-webkit-scrollbar {
+    display: none;
 }
 
 .dt-tab-btn {
-    flex: 1;
+    /* Never two lines. Four labels sharing a narrow middle column will wrap
+       and double the strip's height unless they are told not to; they shrink
+       and the strip scrolls instead. */
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
     border: 0;
     background: transparent;
-    padding: 8px 12px;
+    padding: 8px 10px;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--muted);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 5px;
     transition: all 0.15s ease;
+}
+
+.dt-tab-btn i {
+    font-size: 14px;
+    flex: 0 0 auto;
 }
 
 .dt-tab-btn.is-active {
@@ -19478,10 +20482,13 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 }
 
 /* LOGO CARD BOX */
+/* Stacked, not side by side. The box shares its row with the two selects, so
+   a logo and a pair of buttons on one line runs out of width and the last
+   button hangs outside the border. */
 .dt-logo-box {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: stretch;
     padding: 14px;
     border: 1px dashed var(--line-2);
     border-radius: 10px;
@@ -19493,6 +20500,11 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
+}
+
+.dt-logo-preview > div {
+    min-width: 0;
 }
 
 .dt-logo-img {
@@ -19504,6 +20516,7 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 .dt-logo-actions {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
 }
 
@@ -19610,15 +20623,22 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     border-radius: 12px;
     padding: 16px;
     box-shadow: 0 1px 3px rgba(var(--shadow), 0.03);
-    position: sticky;
-    top: 80px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
 }
 
 .dt-preview-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     margin-bottom: 12px;
+}
+
+.dt-preview-header > div:first-child {
+    min-width: 0;
 }
 
 .dt-preview-sheet {
@@ -19630,6 +20650,11 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     font-family: inherit;
     font-size: 11.5px;
     color: #1e293b;
+    /* The header above it stays; the PDF fills what is left of the card. */
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
+    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -19758,11 +20783,690 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     border-radius: 8px;
 }
 
+/* BREADCRUMB */
+.dt-crumbs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 12px;
+}
+
+.dt-crumbs a {
+    color: var(--muted);
+    text-decoration: none;
+}
+
+.dt-crumbs a:hover {
+    color: rgb(var(--brand));
+}
+
+.dt-crumbs i {
+    font-size: 13px;
+    opacity: 0.6;
+}
+
+.dt-crumbs .is-current {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+/* A select styled as one of our inputs still needs its caret back — the
+   browser only draws one for the appearance it is losing here. */
+select.dt-input {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 30px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2364748b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    background-size: 14px 14px;
+}
+
+.dt-textarea {
+    height: auto;
+    min-height: 74px;
+    padding: 8px 10px;
+    line-height: 1.5;
+}
+
+.dt-input-color {
+    padding: 3px;
+    cursor: pointer;
+}
+
+.dt-input:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+/* TOGGLE ROW */
+.dt-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding-left: 0;
+    cursor: pointer;
+}
+
+.dt-toggle .form-check-input {
+    float: none;
+    margin: 0;
+    flex: 0 0 auto;
+}
+
+.dt-toggle .form-check-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+/* LOGO CARD — the placeholder tile when there is no image to show */
+.dt-logo-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    background: var(--surface-3);
+    color: var(--muted);
+    font-size: 22px;
+    flex: 0 0 auto;
+}
+
+.dt-logo-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dt-logo-box .dt-btn-outline {
+    text-decoration: none;
+}
+
+/* ADDRESS / FOOTER LINE ROWS */
+.dt-line-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.dt-line-remove:hover:not(:disabled) {
+    border-color: rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+}
+
+.dt-line-remove:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.dt-add-line-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: var(--surface);
+}
+
+.dt-add-line-btn:hover {
+    text-decoration: none;
+    border-color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.06);
+}
+
+/* --- Live Sheet Preview Themes (OPD, Pharmacy, Lab) --- */
+
+.dt-preview-sheet {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    font-family: inherit;
+    font-size: 11.5px;
+    color: #1e293b;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Header */
+.dt-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.dt-sheet-brand-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.dt-sheet-logo-mark {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    color: #ffffff;
+    font-size: 22px;
+    flex: 0 0 auto;
+}
+
+.is-opd .dt-sheet-logo-mark { background: linear-gradient(135deg, #1e40af, #2563eb); }
+.is-pharmacy .dt-sheet-logo-mark { background: linear-gradient(135deg, #15803d, #16a34a); }
+.is-lab .dt-sheet-logo-mark { background: linear-gradient(135deg, #6d28d9, #7c3aed); }
+
+.dt-sheet-brand-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.dt-sheet-clinic-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+}
+
+.is-opd .dt-sheet-clinic-title { color: #1e40af; }
+.is-pharmacy .dt-sheet-clinic-title { color: #15803d; }
+.is-lab .dt-sheet-clinic-title { color: #6d28d9; }
+
+.dt-sheet-clinic-sub {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.is-opd .dt-sheet-clinic-sub { color: #2563eb; }
+.is-pharmacy .dt-sheet-clinic-sub { color: #16a34a; }
+.is-lab .dt-sheet-clinic-sub { color: #7c3aed; }
+
+.dt-sheet-contact-right {
+    text-align: right;
+    font-size: 10.5px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+/* Title Banner */
+.dt-sheet-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: 8px;
+    color: #ffffff;
+}
+
+.is-opd .dt-sheet-banner { background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%); }
+.is-pharmacy .dt-sheet-banner { background: linear-gradient(135deg, #15803d 0%, #16a34a 100%); }
+.is-lab .dt-sheet-banner { background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%); }
+
+.dt-sheet-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dt-sheet-banner-icon {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    font-size: 16px;
+}
+
+.dt-sheet-banner-title {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.dt-sheet-banner-sub {
+    font-size: 10.5px;
+    opacity: 0.9;
+}
+
+/* Metadata Row + Paid Badge */
+.dt-sheet-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.dt-sheet-meta-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 3px 10px;
+    font-size: 11px;
+}
+
+.dt-sheet-meta-grid span {
+    color: #64748b;
+    font-weight: 600;
+}
+
+.dt-sheet-meta-grid strong {
+    color: #0f172a;
+}
+
+.dt-sheet-paid-stamp {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+    padding: 6px 12px;
+    border-radius: 8px;
+}
+
+.dt-sheet-paid-text {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #15803d;
+}
+
+.dt-sheet-paid-sub {
+    font-size: 10px;
+    color: #166534;
+}
+
+/* Section Header Bar */
+.dt-sheet-section-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.is-opd .dt-sheet-section-bar { background: #eff6ff; color: #1d4ed8; }
+.is-pharmacy .dt-sheet-section-bar { background: #f0fdf4; color: #15803d; }
+.is-lab .dt-sheet-section-bar { background: #faf5ff; color: #6d28d9; }
+
+/* Patient Grid */
+.dt-sheet-patient-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 16px;
+    font-size: 11px;
+    padding: 0 4px;
+}
+
+.dt-sheet-patient-grid div {
+    display: flex;
+    gap: 6px;
+}
+
+.dt-sheet-patient-grid span {
+    color: #64748b;
+    width: 80px;
+    flex: 0 0 auto;
+}
+
+.dt-sheet-patient-grid strong {
+    color: #0f172a;
+}
+
+/* Itemized Table */
+.dt-sheet-item-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+
+.dt-sheet-item-table th {
+    color: #ffffff;
+    font-weight: 700;
+    padding: 6px 8px;
+    text-transform: uppercase;
+    font-size: 10.5px;
+}
+
+.is-opd .dt-sheet-item-table th { background: #1e40af; }
+.is-pharmacy .dt-sheet-item-table th { background: #15803d; }
+.is-lab .dt-sheet-item-table th { background: #6d28d9; }
+
+.dt-sheet-item-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1e293b;
+}
+
+.dt-sheet-item-table tr:nth-child(even) td {
+    background: #f8fafc;
+}
+
+/* Grand Total Banner */
+.dt-sheet-grand-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 800;
+    margin-top: 6px;
+}
+
+.is-opd .dt-sheet-grand-banner { background: #eff6ff; color: #1e40af; }
+.is-pharmacy .dt-sheet-grand-banner { background: #dcfce7; color: #15803d; }
+.is-lab .dt-sheet-grand-banner { background: #f3e8ff; color: #6d28d9; }
+
+/* Payment Info Flex Box */
+.dt-sheet-pay-flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.dt-sheet-pay-details {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 3px 10px;
+    font-size: 11px;
+}
+
+.dt-sheet-qr-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 6px 10px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.dt-sheet-qr-box small {
+    font-size: 9px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+/* Signatures */
+.dt-sheet-signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 4px;
+}
+
+.dt-sheet-sig-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+    font-size: 11px;
+}
+
+.dt-sheet-sig-title {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    color: #475569;
+}
+
+.dt-sheet-sig-line {
+    border-bottom: 1px solid #94a3b8;
+    height: 24px;
+    margin-bottom: 2px;
+}
+
+/* Wave Footer */
+.dt-sheet-wave-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 6px;
+}
+
+.is-opd .dt-sheet-wave-footer { background: #eff6ff; color: #1e40af; }
+.is-pharmacy .dt-sheet-wave-footer { background: #f0fdf4; color: #15803d; }
+.is-lab .dt-sheet-wave-footer { background: #faf5ff; color: #6d28d9; }
+
+.dt-sheet-wave-footer strong {
+    font-size: 12px;
+}
+
+.dt-sheet-wave-footer small {
+    font-size: 10px;
+    opacity: 0.85;
+}
+
+.dt-add-line-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* PLACEHOLDER CHIPS */
+.dt-chip {
+    padding: 5px 10px;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.dt-chip:hover {
+    border-color: rgb(var(--brand));
+    color: rgb(var(--brand));
+}
+
+.dt-chip.is-copied {
+    border-color: #16a34a;
+    background: rgba(22, 163, 74, 0.1);
+    color: #15803d;
+}
+
+/* An open section reads as the one being worked on. */
+.dt-accordion-card.is-open {
+    border-color: rgba(var(--brand), 0.35);
+}
+
+/* PREVIEW HEADER CONTROLS */
+.dt-preview-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.dt-preview-size {
+    /* Wide enough that the caret sits beside the label rather than on it. */
+    height: 32px;
+    width: 112px;
+    font-size: 12px;
+    background-color: var(--surface);
+}
+
+.dt-preview-print {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--ink-2);
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.dt-preview-print:hover:not(:disabled) {
+    border-color: rgb(var(--brand));
+    color: rgb(var(--brand));
+}
+
+.dt-preview-print:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* THE PREVIEW FRAME — the real PDF, filling the card under its header. */
+.dt-preview-frame {
+    width: 100%;
+    height: 100%;
+    min-height: 420px;
+    border: 0;
+    border-radius: 6px;
+    background: #ffffff;
+    display: block;
+}
+
+.dt-preview-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 1;
+    min-height: 320px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.dt-preview-empty i {
+    font-size: 26px;
+    opacity: 0.5;
+}
+
+/* Shown over the previous render while the next one is building, so the pane
+   never blanks out between keystrokes. */
+.dt-preview-busy {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(var(--shadow), 0.75);
+    color: #ffffff;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+/* The sketch's QR stands in for the real one the PDF carries. */
+.dt-sheet-qr {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    margin: 4px auto 2px;
+    border: 1px solid var(--line-2);
+    border-radius: 4px;
+    background: var(--surface-2);
+    color: var(--ink);
+    font-size: 30px;
+}
+
+/* Stacked, the columns are no longer side by side, so pinning the row to the
+   viewport would only squash three full-width panels into one screen. */
 @media (max-width: 1199px) {
     .dt-layout {
         grid-template-columns: 1fr;
+        height: auto;
+        min-height: 0;
     }
+
+    .dt-doc-list,
+    .dt-sections,
+    .dt-preview-sheet {
+        overflow-y: visible;
+        max-height: none;
+    }
+
     .dt-preview-card {
         position: static;
     }
+}
+
+/* =========================================================
+   Project-wide card style: borderless + shadow
+   ---------------------------------------------------------
+   Every plain "floating" content card (border + var(--surface)
+   background + a faint shadow, the same shell .card and .bo-card
+   use) gets the same light-mode treatment: white, no border, a
+   brand-tinted shadow instead. Dark mode keeps its border back,
+   the same as .card and .bo-card, since there is no white left
+   to separate a card from the page.
+
+   Deliberately NOT swept in: cards with their own accent border
+   (.dc-card's coloured left stripe), recessed sub-panels
+   (.rp-card), small inline field chips (.rx-timing-card,
+   .dt-sheet-sig-card), and the login/marketing glass cards —
+   none of those are the "floating card on the page" this is for.
+   ========================================================= */
+
+.su-card,
+.ob-card,
+.db-card,
+.dt-header-card,
+.dt-sidebar-card,
+.dt-accordion-card,
+.dt-preview-card {
+    background: #ffffff;
+    border-color: transparent;
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+[data-theme='dark'] .su-card,
+[data-theme='dark'] .ob-card,
+[data-theme='dark'] .db-card,
+[data-theme='dark'] .dt-header-card,
+[data-theme='dark'] .dt-sidebar-card,
+[data-theme='dark'] .dt-accordion-card,
+[data-theme='dark'] .dt-preview-card {
+    background: var(--surface);
+    border-color: var(--line);
 }

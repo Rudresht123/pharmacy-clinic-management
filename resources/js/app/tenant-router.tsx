@@ -520,9 +520,17 @@ export function TenantAppRoutes() {
                                         element={<OutstandingPage />}
                                     />
                                     <Route path="/billing/services" element={<ServicesPage />} />
+                                    {/* Under /settings with the rest of the
+                                        set-up screens, so only the Settings
+                                        menu lights up on it. The old address
+                                        still lands there for bookmarks. */}
+                                    <Route
+                                        path="/settings/billing"
+                                        element={<BillingSettingsPage />}
+                                    />
                                     <Route
                                         path="/billing/settings"
-                                        element={<BillingSettingsPage />}
+                                        element={<Navigate to="/settings/billing" replace />}
                                     />
                                     <Route
                                         path="/billing/invoices/:id"

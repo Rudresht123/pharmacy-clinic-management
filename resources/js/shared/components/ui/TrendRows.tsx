@@ -45,6 +45,12 @@ export function TrendRows({
                     </span>
 
                     <span className="trend-row-plot">
+                        {/*
+                            No `color`: Sparkline's own note says a row inside
+                            a table should take its hue from the stylesheet, so
+                            the whole column looks the same. `.is-muted` on the
+                            row handles the greying.
+                        */}
                         <Sparkline points={row.points} />
                     </span>
 

@@ -531,6 +531,8 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('pharmacy-stores.batches');
                 Route::get('pharmacy-stores/{store}/movements', [StockMovementController::class, 'index'])
                     ->name('pharmacy-stores.movements');
+                Route::get('pharmacy-stores/{store}/movements/summary', [StockMovementController::class, 'summary'])
+                    ->name('pharmacy-stores.movements.summary');
                 Route::get('pharmacy-stores/{store}/inwards', [StockInwardController::class, 'index'])
                     ->name('pharmacy-stores.inwards.index');
                 Route::get('pharmacy-stores/{store}/adjustments', [StockAdjustmentController::class, 'index'])
@@ -1257,6 +1259,18 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             ->name('locations.destroy');
 
         /*
+        | A branch's letterhead mark is part of maintaining the branch, so it
+        | sits behind the same capability rather than inventing one nobody
+        | would think to grant.
+        */
+        Route::post('locations/{location}/logo', [LocationController::class, 'uploadLogo'])
+            ->middleware('permission:branches.edit')
+            ->name('locations.logo.store');
+        Route::delete('locations/{location}/logo', [LocationController::class, 'deleteLogo'])
+            ->middleware('permission:branches.edit')
+            ->name('locations.logo.destroy');
+
+        /*
         | Who runs a branch.
         |
         | Its own capability, ORGANISATION-SCOPED, and deliberately not
@@ -1459,6 +1473,16 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             Route::get('setup', [SetupController::class, 'show'])->name('setup.show');
             Route::put('setup/organization', [SetupController::class, 'updateOrganization'])
                 ->name('setup.organization');
+
+            /*
+            | The organisation's letterhead mark. Its own routes rather than a
+            | field on the update above, because a file is not sent as JSON and
+            | replacing one has to clean up the old bytes.
+            */
+            Route::post('setup/organization/logo', [SetupController::class, 'uploadLogo'])
+                ->name('setup.organization.logo.store');
+            Route::delete('setup/organization/logo', [SetupController::class, 'deleteLogo'])
+                ->name('setup.organization.logo.destroy');
             Route::post('setup/steps/{step}/confirm', [SetupController::class, 'confirm'])
                 ->whereIn('step', OrganizationSetup::CONFIRMABLE)
                 ->name('setup.confirm');

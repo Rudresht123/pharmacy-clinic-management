@@ -64,6 +64,8 @@ interface DataTableProps<TRow> {
     emptyAction?: ReactNode;
     pageSize?: number;
     toolbar?: ReactNode;
+    /** The page already has its own search field (e.g. inside a FilterPanel row) — don't draw a second one. */
+    hideSearch?: boolean;
     /**
      * Present = the server handles search, sort and paging; the component
      * renders exactly the rows it is given. Absent = everything is done in
@@ -136,6 +138,7 @@ export function DataTable<TRow>({
     emptyAction,
     pageSize = 25,
     toolbar,
+    hideSearch = false,
     server,
 }: DataTableProps<TRow>) {
     const [sorting, setSorting] = useState<SortingState>([]);
@@ -250,17 +253,19 @@ export function DataTable<TRow>({
                 <div className="d-flex align-items-center gap-2">
                     {toolbar}
 
-                    <div className="dt-search">
-                        <i className="ti ti-search" />
+                    {!hideSearch && (
+                        <div className="dt-search">
+                            <i className="ti ti-search" />
 
-                        <input
-                            type="search"
-                            placeholder={searchPlaceholder}
-                            value={searchValue}
-                            onChange={(event) => setSearchValue(event.target.value)}
-                            aria-label="Search table"
-                        />
-                    </div>
+                            <input
+                                type="search"
+                                placeholder={searchPlaceholder}
+                                value={searchValue}
+                                onChange={(event) => setSearchValue(event.target.value)}
+                                aria-label="Search table"
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 

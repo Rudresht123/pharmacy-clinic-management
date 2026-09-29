@@ -243,13 +243,19 @@ class DoctorPostingTest extends TenantTestCase
                 'is_active' => true,
             ]);
 
-            return Appointment::on('organization')->create([
+            /*
+             * A finished visit, whole. `forceCreate` because the consultation
+             * status is the workflow's to set and so not fillable — and the
+             * database refuses a completed visit whose consultation is not.
+             */
+            return Appointment::on('organization')->forceCreate([
                 'customer_id' => $patient->id,
                 'doctor_id' => $doctor['id'],
                 'location_id' => $branches['GGN'],
                 'appointment_date' => now()->subWeek()->toDateString(),
                 'type' => Appointment::WALK_IN,
                 'status' => Appointment::STATUS_COMPLETED,
+                'consultation_status' => Appointment::CONSULT_COMPLETED,
                 'token_no' => 1,
                 'checked_in_at' => now()->subWeek(),
                 'started_at' => now()->subWeek()->addMinutes(10),

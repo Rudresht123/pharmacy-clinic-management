@@ -247,15 +247,24 @@ export function tenantNavigation(
     }
 
     /*
-     * Billing's own settings are NOT here — they sit inside the Billing
-     * group, beside the price list, because what a clinic charges for is
-     * part of billing rather than part of configuring the software. The
-     * person who edits them works that menu all day; sending them here would
-     * be sending them somewhere they never otherwise go.
+     * When the clinic bills, what a patient may leave owing, which methods
+     * the till takes. Set once and then left alone, like everything else
+     * here — which is why it is here and no longer inside the Billing group,
+     * whose rows are the screens a counter works all day.
      *
-     * The same row in two menus reads as two different screens, so it is in
-     * one of them only.
+     * `billing.manage_settings` rather than `billing.view`: the route still
+     * lets a reader open the page, but a menu row is an invitation, and the
+     * page only lets its holder save. The price list is not a row of its
+     * own; the page links to it.
      */
+    if (hasModule('billing') && can('billing.manage_settings')) {
+        settings.push({
+            label: 'Billing',
+            to: '/settings/billing',
+            icon: 'ti ti-receipt',
+            match: '/settings/billing',
+        });
+    }
 
     /*
      * How the shop prices, rounds and warns.
@@ -590,7 +599,7 @@ export function tenantNavigation(
                           {
                               label: 'Sales (POS)',
                               to: '/pharmacy/pos',
-                              icon: 'ti ti-cash-register',
+                              icon: 'ti ti-building-store',
                               match: '/pharmacy/pos',
                           },
                       ]
@@ -703,13 +712,11 @@ export function tenantNavigation(
             /*
              * In the order somebody at the counter works through them: what
              * is the state of the money, what has been billed, what came in,
-             * what is still owed — then the two set-up screens behind it.
+             * what is still owed.
              *
-             * Services and Settings live HERE rather than in the global
-             * Settings group, because what a clinic charges for is part of
-             * billing rather than part of configuring the software: the
-             * person who edits the price list is the person who works this
-             * menu all day.
+             * Billing's settings are not a row here — they are in the
+             * Settings group with the rest of the set-up screens. The same
+             * row in two menus reads as two different screens.
              */
             children: [
                 { label: 'Overview', to: '/billing', icon: 'ti ti-layout-dashboard' },
@@ -732,24 +739,10 @@ export function tenantNavigation(
                     match: '/billing/outstanding',
                 },
                 /*
-                 * The price list is not a menu row.
-                 *
-                 * It is set up once and then read by the software rather than
-                 * by a person — nobody at the counter opens it during a
-                 * shift, and a permanent row for it crowded the four screens
-                 * that are worked all day. It is reachable from Settings,
-                 * where the rest of the once-and-forget configuration lives.
+                 * The price list is not a menu row either: it is set up once
+                 * and then read by the software rather than by a person. It
+                 * opens from Settings › Billing.
                  */
-                ...(can('billing.manage_settings')
-                    ? [
-                          {
-                              label: 'Settings',
-                              to: '/billing/settings',
-                              icon: 'ti ti-adjustments',
-                              match: '/billing/settings',
-                          },
-                      ]
-                    : []),
             ],
         });
     }

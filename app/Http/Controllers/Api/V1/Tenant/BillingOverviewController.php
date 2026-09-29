@@ -48,8 +48,7 @@ class BillingOverviewController extends BaseApiController
         }
 
         $recent = Invoice::query()
-            ->with('customer')
-            ->withCount('items')
+            ->with(['customer', 'doctor', 'items'])
             ->when($allowed !== null, fn (Builder $q) => $q->whereIn('location_id', $allowed))
             ->when($asked !== null, fn (Builder $q) => $q->where('location_id', $asked))
             ->whereNot('status', Invoice::STATUS_DRAFT)

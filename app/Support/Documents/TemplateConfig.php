@@ -49,13 +49,32 @@ class TemplateConfig
                 'logo_source' => 'branch',
                 'logo_position' => $receipt ? 'center' : 'left',
                 'title' => $type['name'] ?? 'Document',
+                /*
+                 * ONE FACT PER LINE, because the letterhead prints each with
+                 * its own icon — an address behind a pin, a number behind a
+                 * handset. The old default ran the phone and the email
+                 * together on one row, which is the part of a letterhead
+                 * nobody can find anything in.
+                 */
                 'lines' => $receipt
-                    ? ['{{branch_name}}', '{{branch_phone}}']
-                    : ['{{branch_name}}', '{{branch_address}}', '{{branch_phone}} · {{branch_email}}'],
+                    ? ['{{branch_phone}}']
+                    : ['{{branch_address}}', '{{branch_phone}}', '{{branch_email}}'],
                 /* Typically locked by the organization: the registered name
                    and number are the organization's to state, not a branch's
                    to reword. */
                 'legal_name' => '{{organization_name}}',
+                /* The line under the clinic's name. The branch by default,
+                   because that is what distinguishes two sheets of the same
+                   letterhead; a clinic that prints departments rather than
+                   branches types its own. */
+                'department' => '{{branch_name}}',
+                /* The practice's own line — "Better care, healthier
+                   tomorrow." Blank by default: an invented one would print on
+                   every bill a clinic sends out. */
+                'tagline' => '',
+                /* A line under the document's title, inside the coloured
+                   band — what this particular sheet is for. */
+                'subtitle' => '',
                 'registration_no' => '',
                 'show_divider' => true,
             ],
@@ -72,7 +91,15 @@ class TemplateConfig
             ],
 
             'footer' => [
-                'lines' => $receipt ? ['Thank you'] : [],
+                /*
+                 * The FIRST line is the clinic's own, set in the accent inside
+                 * the footer band; anything after it is small print beneath.
+                 * A closing line rather than none, because the band is part of
+                 * the layout and an empty one looks like a missing setting.
+                 */
+                'lines' => $receipt
+                    ? ['Thank you']
+                    : ['Thank you for choosing {{organization_name}}.'],
                 'terms' => '',
                 'show_signature' => ! $receipt,
                 'signature_label' => in_array('visit', $type['groups'] ?? [], true)

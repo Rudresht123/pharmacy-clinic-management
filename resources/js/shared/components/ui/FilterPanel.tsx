@@ -25,12 +25,43 @@ export interface TextField extends BaseField {
     placeholder?: string;
 }
 
-export type FilterField = SelectField | TextField;
+/**
+ * A from/to pair riding one filter slot. `value` is the two dates joined by
+ * "_" ("2026-09-01_2026-09-30"), or "" for no range — one string so this
+ * still fits BaseField and reads as a single applied filter, not two.
+ */
+export interface DateRangeField extends BaseField {
+    kind: 'daterange';
+}
+
+export type FilterField = SelectField | TextField | DateRangeField;
+
+const RANGE_SEP = '_';
+
+function splitRange(value: string): [string, string] {
+    const [from = '', to = ''] = value.split(RANGE_SEP);
+
+    return [from, to];
+}
+
+function formatRangeDate(iso: string): string {
+    const date = new Date(`${iso}T00:00:00`);
+
+    return Number.isNaN(date.getTime())
+        ? iso
+        : date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 /** What a chip shows for a field that has a value. */
 function readValue(field: FilterField) {
     if (field.kind === 'select') {
         return field.options.find((option) => option.value === field.value)?.label ?? field.value;
+    }
+
+    if (field.kind === 'daterange') {
+        const [from, to] = splitRange(field.value);
+
+        return from && to ? `${formatRangeDate(from)} – ${formatRangeDate(to)}` : from || to;
     }
 
     return field.value;
@@ -74,6 +105,44 @@ function DebouncedText({
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
         />
+    );
+}
+
+/** Two native date inputs riding one filter slot — see DateRangeField. */
+function DateRangeInputs({
+    field,
+    onCommit,
+}: {
+    field: DateRangeField;
+    onCommit: (value: string) => void;
+}) {
+    const [from, to] = splitRange(field.value);
+
+    const set = (nextFrom: string, nextTo: string) =>
+        onCommit(nextFrom || nextTo ? `${nextFrom}${RANGE_SEP}${nextTo}` : '');
+
+    return (
+        <div className="filter-daterange">
+            <input
+                id={field.name}
+                type="date"
+                className="form-control form-control-sm"
+                value={from}
+                max={to || undefined}
+                onChange={(event) => set(event.target.value, to)}
+            />
+            <span className="filter-daterange-sep" aria-hidden="true">
+                –
+            </span>
+            <input
+                type="date"
+                className="form-control form-control-sm"
+                value={to}
+                min={from || undefined}
+                aria-label={`${field.label} end`}
+                onChange={(event) => set(from, event.target.value)}
+            />
+        </div>
     );
 }
 
@@ -145,6 +214,8 @@ export function FilterPanel({
                                     label: option.label,
                                 }))}
                             />
+                        ) : field.kind === 'daterange' ? (
+                            <DateRangeInputs field={field} onCommit={commit(field.name)} />
                         ) : (
                             <DebouncedText field={field} onCommit={commit(field.name)} />
                         )}

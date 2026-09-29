@@ -44,6 +44,14 @@ class LocationResource extends JsonResource
             // Saves every caller re-deriving it from the date.
             'has_expired_licence' => $this->hasExpiredLicence(),
 
+            /*
+             * This branch's own letterhead mark, when it has one. Null means
+             * it prints the organisation's, which is the inheritance the
+             * document templates themselves use.
+             */
+            'logo_url' => $this->whenLoaded('logo', fn () => $this->logo?->url, null),
+            'has_logo' => $this->logo_file_id !== null,
+
             'custom_fields' => $this->custom_fields ?? [],
 
             'created_at' => $this->created_at?->toIso8601String(),

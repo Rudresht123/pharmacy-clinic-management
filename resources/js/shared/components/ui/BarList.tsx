@@ -52,8 +52,15 @@ export function BarList({
 
     return (
         <div className="bar-list">
-            {shown.map((row) => (
-                <div className="bar-list-row" key={row.label}>
+            {shown.map((row, index) => (
+                <div
+                    className={`bar-list-row${index === 0 ? ' is-lead' : ''}`}
+                    key={row.label}
+                >
+                    <span className="bar-list-rank" aria-hidden="true">
+                        {index + 1}
+                    </span>
+
                     <span className="bar-list-label" title={row.label}>
                         {row.label}
                     </span>

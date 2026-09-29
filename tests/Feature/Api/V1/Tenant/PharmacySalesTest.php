@@ -12,9 +12,12 @@ use App\Models\Tenant\PharmacySetting;
 use App\Models\Tenant\PharmacyStore;
 use App\Models\Tenant\StockMovement;
 use App\Models\Tenant\Supplier;
+use App\Services\Documents\DocumentAutomation;
+use App\Support\Clinic\ClinicEvents;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Tests\Support\RecordingDocumentAutomation;
 use Tests\TenantTestCase;
 
 /**
@@ -260,11 +263,22 @@ class PharmacySalesTest extends TenantTestCase
 
         $key = (string) Str::uuid();
 
+        $recorder = new RecordingDocumentAutomation;
+        $this->app->instance(DocumentAutomation::class, $recorder);
+
         $first = $this->sell(key: $key)->assertCreated()->json('data');
         $again = $this->sell(key: $key)->assertOk()->json('data');
 
         $this->assertSame($first['id'], $again['id']);
         $this->assertSame(90, $this->available($batch));
+
+        // One bill, so one event — the replay answers with the first sale
+        // and never reaches the dispatch.
+        $completed = $recorder->of(ClinicEvents::PHARMACY_SALE_COMPLETED);
+
+        $this->assertCount(1, $completed);
+        $this->assertSame($first['id'], $completed[0]->subjectId);
+        $this->assertSame([0], $recorder->levels);
     }
 
     public function test_a_prescription_only_medicine_is_refused_without_one(): void

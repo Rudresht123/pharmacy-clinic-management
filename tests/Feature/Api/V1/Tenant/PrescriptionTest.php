@@ -13,10 +13,13 @@ use App\Models\Tenant\PharmacyStore;
 use App\Models\Tenant\Prescription;
 use App\Models\Tenant\StoreMedicine;
 use App\Models\Tenant\Supplier;
+use App\Services\Documents\DocumentAutomation;
+use App\Support\Clinic\ClinicEvents;
 use App\Support\Opd\Weekday;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Tests\Support\RecordingDocumentAutomation;
 use Tests\TenantTestCase;
 
 /**
@@ -334,7 +337,13 @@ class PrescriptionTest extends TenantTestCase
     {
         $this->signInAsDoctor();
 
+        $recorder = new RecordingDocumentAutomation;
+        $this->app->instance(DocumentAutomation::class, $recorder);
+
         $id = $this->draft([])->assertCreated()->json('data.id');
+
+        // A draft is still being written — nothing may go to the patient yet.
+        $this->assertSame([], $recorder->of(ClinicEvents::PRESCRIPTION_ISSUED));
 
         $this->postJson("/api/v1/tenant/prescriptions/{$id}/issue")
             ->assertStatus(422)
@@ -355,6 +364,13 @@ class PrescriptionTest extends TenantTestCase
         $this->putJson("/api/v1/tenant/prescriptions/{$id}", ['items' => []])->assertStatus(409);
         $this->postJson("/api/v1/tenant/prescriptions/{$id}/issue")->assertStatus(409);
         $this->deleteJson("/api/v1/tenant/prescriptions/{$id}", ['reason' => 'Changed my mind'])->assertStatus(409);
+
+        // Issued once, raised once: neither the refused first attempt nor the
+        // refused second one said anything.
+        $issuedEvents = $recorder->of(ClinicEvents::PRESCRIPTION_ISSUED);
+
+        $this->assertCount(1, $issuedEvents);
+        $this->assertSame($id, $issuedEvents[0]->subjectId);
     }
 
     public function test_a_draft_is_removed_with_a_reason(): void

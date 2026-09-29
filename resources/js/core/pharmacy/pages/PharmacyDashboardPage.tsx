@@ -58,7 +58,7 @@ function moneyTiles(data: PharmacyDashboard): StatTile[] {
         {
             label: "Today's sales",
             value: money(data.today.sales),
-            icon: 'ti ti-cash-register',
+            icon: 'ti ti-building-store',
             tone: 'emerald',
             hint: `${data.today.bills} ${data.today.bills === 1 ? 'bill' : 'bills'} · ${changeHint(data)}`,
         },
@@ -366,7 +366,7 @@ export default function PharmacyDashboardPage() {
                 actions={
                     canSell && store ? (
                         <Button
-                            icon="ti ti-cash-register"
+                            icon="ti ti-building-store"
                             onClick={() => navigate(`/pharmacy/pos?store=${store.id}`)}
                         >
                             Open the counter

@@ -58,6 +58,17 @@ class BillingReports
             ->outstanding()
             ->sum(DB::raw('total_amount - paid_amount'));
         $outstandingCount = (int) $scope(Invoice::query())->outstanding()->count();
+        $outstandingPatients = (int) $scope(Invoice::query())
+            ->outstanding()
+            ->distinct()
+            ->count(DB::raw('COALESCE(customer_id::text, walk_in_phone)'));
+
+        /* Distinct people billed in the window — a clinic reading "invoices"
+           already knows how many bills went out; this is how many DIFFERENT
+           patients that was. */
+        $billedPatients = (int) $raised()
+            ->distinct()
+            ->count(DB::raw('COALESCE(customer_id::text, walk_in_phone)'));
 
         $today = $scope(Invoice::query())
             ->whereNot('status', Invoice::STATUS_DRAFT)
@@ -72,6 +83,8 @@ class BillingReports
                 'paid_count' => $paidCount,
                 'outstanding' => round($outstanding, 2),
                 'outstanding_count' => $outstandingCount,
+                'outstanding_patients' => $outstandingPatients,
+                'billed_patients' => $billedPatients,
                 'today_count' => (int) $today->count(),
                 'today_amount' => round((float) $today->sum('total_amount'), 2),
             ],
@@ -83,6 +96,7 @@ class BillingReports
             'categories' => $this->categories($from, $to, $branches, $branchId),
             'methods' => $this->methods($from, $to, $branches, $branchId),
             'ageing' => $this->ageing($branches, $branchId),
+            'outstanding_patients_list' => $this->outstandingPatients($branches, $branchId),
 
             /* Visits still collecting charges — not money, but the other half
                of what the desk is watching. */
@@ -118,16 +132,17 @@ class BillingReports
             ->get();
 
         /*
-         * Four headings, not six. `procedure`, `service` and `custom` are one
-         * bucket on this chart — a clinic reading its revenue split wants to
-         * know how much came from the doctor versus the shelf versus the
-         * bench, and splitting the remainder three ways buries that.
+         * Five headings, not six. `service` and `custom` are one bucket on
+         * this chart — a clinic reading its revenue split wants to know how
+         * much came from the doctor, the shelf, the bench or the procedure
+         * room, and splitting what is left over two ways buries that.
          */
         $buckets = [
-            'consultation' => ['label' => 'Consultation', 'amount' => 0.0, 'invoices' => 0],
+            'consultation' => ['label' => 'OPD', 'amount' => 0.0, 'invoices' => 0],
             'pharmacy' => ['label' => 'Pharmacy', 'amount' => 0.0, 'invoices' => 0],
             'laboratory' => ['label' => 'Laboratory', 'amount' => 0.0, 'invoices' => 0],
-            'other' => ['label' => 'Other services', 'amount' => 0.0, 'invoices' => 0],
+            'procedure' => ['label' => 'Procedures', 'amount' => 0.0, 'invoices' => 0],
+            'other' => ['label' => 'Others', 'amount' => 0.0, 'invoices' => 0],
         ];
 
         foreach ($rows as $row) {
@@ -135,6 +150,7 @@ class BillingReports
                 InvoiceItem::SOURCE_CONSULTATION => 'consultation',
                 InvoiceItem::SOURCE_PHARMACY_SALE_ITEM => 'pharmacy',
                 InvoiceItem::SOURCE_LAB_TEST => 'laboratory',
+                InvoiceItem::SOURCE_PROCEDURE => 'procedure',
                 default => 'other',
             };
 
@@ -237,6 +253,55 @@ class BillingReports
     }
 
     /**
+     * Who owes money, most recently seen first — the outstanding-patients
+     * table. Grouped by patient rather than by bill, because a desk chasing
+     * a debt calls the PERSON once, not once per invoice they left unpaid.
+     *
+     * Not windowed, for the same reason `ageing()` is not: money owed from
+     * last month is still owed today.
+     *
+     * @param  list<int>|null  $branches
+     * @return list<array{patient: string, last_visit: string, total: float, paid: float, due: float, days: int}>
+     */
+    private function outstandingPatients(?array $branches, ?int $branchId): array
+    {
+        $rows = Invoice::query()
+            ->when($branches !== null, fn (Builder $q) => $q->whereIn('invoices.location_id', $branches))
+            ->when($branchId !== null, fn (Builder $q) => $q->where('invoices.location_id', $branchId))
+            ->outstanding()
+            ->leftJoin('customers', 'customers.id', '=', 'invoices.customer_id')
+            ->selectRaw('COALESCE(invoices.customer_id::text, invoices.walk_in_phone) AS patient_key')
+            ->selectRaw('COALESCE(customers.name, invoices.walk_in_name, invoices.walk_in_phone, \'Walk-in\') AS patient_name')
+            ->selectRaw('MAX(invoices.customer_id) AS customer_id')
+            ->selectRaw('MAX(customers.phone) AS phone')
+            ->selectRaw('MAX(invoices.walk_in_phone) AS walk_in_phone')
+            ->selectRaw('MAX(invoices.invoice_date) AS last_visit')
+            ->selectRaw('SUM(invoices.total_amount) AS total')
+            ->selectRaw('SUM(invoices.paid_amount) AS paid')
+            ->groupByRaw('COALESCE(invoices.customer_id::text, invoices.walk_in_phone), COALESCE(customers.name, invoices.walk_in_name, invoices.walk_in_phone, \'Walk-in\')')
+            ->orderByRaw('MAX(invoices.invoice_date) DESC')
+            ->limit(8)
+            ->get();
+
+        return $rows->map(function ($row) {
+            $total = round((float) $row->total, 2);
+            $paid = round((float) $row->paid, 2);
+            $lastVisit = Carbon::parse($row->last_visit);
+
+            return [
+                'patient' => (string) $row->patient_name,
+                'customer_id' => $row->customer_id !== null ? (int) $row->customer_id : null,
+                'phone' => $row->phone ?? $row->walk_in_phone,
+                'last_visit' => $lastVisit->toDateString(),
+                'total' => $total,
+                'paid' => $paid,
+                'due' => round(max(0.0, $total - $paid), 2),
+                'days' => (int) $lastVisit->diffInDays(Carbon::today()),
+            ];
+        })->all();
+    }
+
+    /**
      * The same window, one window earlier — for the "+12%" on each card.
      *
      * A percentage against nothing is not a percentage, so a previous total
@@ -264,6 +329,9 @@ class BillingReports
             'invoiced' => round((float) (clone $query)->sum('total_amount'), 2),
             'paid' => round((float) (clone $query)->sum('paid_amount'), 2),
             'count' => (int) (clone $query)->count(),
+            'billed_patients' => (int) (clone $query)
+                ->distinct()
+                ->count(DB::raw('COALESCE(customer_id::text, walk_in_phone)')),
         ];
     }
 
@@ -274,7 +342,7 @@ class BillingReports
      * that skips empty days compresses a slow week into a busy-looking one.
      *
      * @param  list<int>|null  $branches
-     * @return list<array{date: string, invoiced: float, paid: float}>
+     * @return list<array{date: string, invoiced: float, paid: float, outstanding: float, invoices: int}>
      */
     private function trend(Carbon $from, Carbon $to, ?array $branches, ?int $branchId): array
     {
@@ -302,9 +370,15 @@ class BillingReports
             ->selectRaw("{$sql} AS bucket")
             ->selectRaw('SUM(total_amount) AS invoiced')
             ->selectRaw('SUM(paid_amount) AS paid')
+            /* How MANY, not just how much — the invoice-count tile draws its
+               own sparkline from this, and a count tile plotting a revenue
+               curve is a tile telling somebody something that is not true. */
+            ->selectRaw('COUNT(*) AS invoices')
             ->groupByRaw($sql)
             ->get()
             ->keyBy(fn ($row) => Carbon::parse($row->bucket)->toDateString());
+
+        $byCategory = $this->trendByCategory($from, $to, $branches, $branchId, $sql);
 
         $points = [];
         $cursor = match ($unit) {
@@ -328,6 +402,16 @@ class BillingReports
                 /* What that bucket's bills still owe — the line the chart
                    draws over the bars. */
                 'outstanding' => round(max(0.0, $invoiced - $paid), 2),
+                'invoices' => (int) ($row->invoices ?? 0),
+                /* The same bucket, split by where the money came from — the
+                   stacked bars on the collection-trend chart. */
+                'by_category' => $byCategory[$key] ?? [
+                    'consultation' => 0.0,
+                    'pharmacy' => 0.0,
+                    'laboratory' => 0.0,
+                    'procedure' => 0.0,
+                    'other' => 0.0,
+                ],
             ];
 
             match ($unit) {
@@ -338,6 +422,58 @@ class BillingReports
         }
 
         return $points;
+    }
+
+    /**
+     * The trend's bars, split by line source — one query per window rather
+     * than per bucket, then keyed the same way `trend()` keys its own rows
+     * so the two line up without a second pass over the dates.
+     *
+     * @param  list<int>|null  $branches
+     * @return array<string, array{consultation: float, pharmacy: float, laboratory: float, procedure: float, other: float}>
+     */
+    private function trendByCategory(Carbon $from, Carbon $to, ?array $branches, ?int $branchId, string $bucketSql): array
+    {
+        $bucket = str_replace('invoice_date', 'invoices.invoice_date', $bucketSql);
+
+        $rows = InvoiceItem::query()
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->when($branches !== null, fn (Builder $q) => $q->whereIn('invoices.location_id', $branches))
+            ->when($branchId !== null, fn (Builder $q) => $q->where('invoices.location_id', $branchId))
+            ->whereNot('invoices.status', Invoice::STATUS_DRAFT)
+            ->whereNot('invoices.status', Invoice::STATUS_CANCELLED)
+            ->whereBetween('invoices.invoice_date', [$from, $to])
+            ->selectRaw("{$bucket} AS bucket")
+            ->selectRaw('invoice_items.source_type AS source_type')
+            ->selectRaw('SUM(invoice_items.line_total) AS amount')
+            ->groupByRaw("{$bucket}, invoice_items.source_type")
+            ->get();
+
+        $out = [];
+
+        foreach ($rows as $row) {
+            $key = Carbon::parse($row->bucket)->toDateString();
+
+            $out[$key] ??= [
+                'consultation' => 0.0,
+                'pharmacy' => 0.0,
+                'laboratory' => 0.0,
+                'procedure' => 0.0,
+                'other' => 0.0,
+            ];
+
+            $categoryKey = match ($row->source_type) {
+                InvoiceItem::SOURCE_CONSULTATION => 'consultation',
+                InvoiceItem::SOURCE_PHARMACY_SALE_ITEM => 'pharmacy',
+                InvoiceItem::SOURCE_LAB_TEST => 'laboratory',
+                InvoiceItem::SOURCE_PROCEDURE => 'procedure',
+                default => 'other',
+            };
+
+            $out[$key][$categoryKey] += round((float) $row->amount, 2);
+        }
+
+        return $out;
     }
 
     /**

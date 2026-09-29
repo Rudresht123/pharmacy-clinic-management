@@ -111,10 +111,19 @@
     border-collapse: separate;
     border-spacing: 0;
     font-size: 13.5px;
-    line-height: 1.45;
-    color: var(--dt-ink);
+    line-height: 1.5;
+    /* The softer body tone by default — a row of plain grey facts, not a
+       wall of headings. Anything worth reading first (a name, a number, an
+       id) is wrapped in <b> by the page and pops back to full ink below. */
+    color: var(--ink-2);
     /* Numbers and dates line up column-to-column */
     font-variant-numeric: tabular-nums;
+}
+
+.dt-table tbody td b,
+.dt-table tbody td strong {
+    font-weight: 600;
+    color: var(--ink);
 }
 
 /* Head */
@@ -124,9 +133,9 @@
     background: var(--dt-head);
     border-bottom: 1px solid var(--dt-line);
 
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.055em;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--ink-3);
 
@@ -609,4 +618,524 @@
 .dt-link:hover b {
     color: rgb(var(--brand));
     text-decoration: underline;
+}
+
+/* --- Billing Overview Pixel-Perfect Redesign (.bo-) --- */
+
+.bo-page-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 24px;
+    background: var(--bg);
+    min-height: 100vh;
+}
+
+/* HEADER HERO BANNER */
+.bo-hero-banner {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 24px 28px;
+    background: var(--surface);
+    background-image: linear-gradient(110deg, var(--surface) 50%, rgba(219, 234, 254, 0.4) 100%);
+    border: 1px solid var(--line-2);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(var(--shadow), 0.03);
+    min-height: 130px;
+}
+
+.bo-hero-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    z-index: 1;
+}
+
+.bo-hero-icon-tile {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #dcfce7;
+    color: #15803d;
+    font-size: 24px;
+    flex: 0 0 auto;
+}
+
+.bo-hero-text h3 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.2;
+}
+
+.bo-hero-text p {
+    margin: 4px 0 8px 0;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.bo-hero-crumbs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.bo-hero-crumbs a {
+    color: var(--muted);
+    text-decoration: none;
+}
+
+.bo-hero-crumbs a:hover {
+    color: rgb(var(--brand));
+}
+
+.bo-hero-crumbs b {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.bo-hero-right {
+    z-index: 1;
+}
+
+.bo-range-dropdown {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgba(var(--shadow), 0.04);
+}
+
+.bo-range-dropdown select {
+    border: 0;
+    background: transparent;
+    outline: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.bo-hero-art {
+    position: absolute;
+    right: 20px;
+    bottom: 0;
+    height: 100%;
+    max-width: 45%;
+    object-fit: contain;
+    object-position: right bottom;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* KPI CARDS GRID (1x4) */
+.bo-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.bo-kpi-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(var(--shadow), 0.03);
+    min-height: 135px;
+    overflow: hidden;
+}
+
+.bo-kpi-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.bo-kpi-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.bo-kpi-badge-icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    font-size: 20px;
+}
+
+.bo-kpi-badge-icon.is-blue { background: #eff6ff; color: #2563eb; }
+.bo-kpi-badge-icon.is-green { background: #f0fdf4; color: #10b981; }
+.bo-kpi-badge-icon.is-orange { background: #fff7ed; color: #f59e0b; }
+.bo-kpi-badge-icon.is-purple { background: #faf5ff; color: #a855f7; }
+
+.bo-kpi-middle {
+    margin: 8px 0 6px 0;
+}
+
+.bo-kpi-num {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.1;
+}
+
+.bo-kpi-bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.bo-pill-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+}
+
+.bo-pill-delta.is-up { background: #dcfce7; color: #15803d; }
+.bo-pill-delta.is-down { background: #fee2e2; color: #dc2626; }
+
+.bo-kpi-subtext {
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+.bo-kpi-split-sub {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.bo-kpi-split-sub .p-paid { color: #10b981; font-weight: 700; }
+.bo-kpi-split-sub .p-pend { color: #f59e0b; font-weight: 700; }
+.bo-kpi-split-sub .p-part { color: #2563eb; font-weight: 700; }
+
+.bo-kpi-spark {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 32px;
+    opacity: 0.18;
+    pointer-events: none;
+}
+
+/* MAIN DASHBOARD LAYOUT (2 Columns: 1fr | 380px) */
+.bo-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 20px;
+    align-items: start;
+}
+
+.bo-left-column,
+.bo-right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* SECTION CARDS */
+.bo-card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: 0 1px 3px rgba(var(--shadow), 0.0);
+}
+
+.bo-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.bo-head-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.bo-head-icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 18px;
+}
+
+.bo-head-icon.is-blue { background: #eff6ff; color: #2563eb; }
+.bo-head-icon.is-green { background: #f0fdf4; color: #10b981; }
+.bo-head-icon.is-purple { background: #faf5ff; color: #a855f7; }
+.bo-head-icon.is-orange { background: #fff7ed; color: #f59e0b; }
+
+.bo-head-titles h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--ink);
+}
+
+.bo-head-titles p {
+    margin: 2px 0 0 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.bo-card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.bo-card-link:hover {
+    text-decoration: underline;
+}
+
+/* RANGE TABS PILL GROUP */
+.bo-range-tabs {
+    display: flex;
+    background: var(--surface-3);
+    padding: 3px;
+    border-radius: 8px;
+    gap: 2px;
+}
+
+.bo-range-tab-btn {
+    border: 0;
+    background: transparent;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.bo-range-tab-btn.is-active {
+    background: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+}
+
+/* REVENUE BY SERVICE GRID (1x4) */
+.bo-services-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+}
+
+.bo-service-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px;
+    background: var(--surface-2);
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+}
+
+.bo-service-badge {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 18px;
+    margin-bottom: 2px;
+}
+
+.bo-service-badge.is-consultation { background: #faf5ff; color: #8b5cf6; }
+.bo-service-badge.is-pharmacy { background: #f0fdf4; color: #10b981; }
+.bo-service-badge.is-laboratory { background: #fff7ed; color: #f59e0b; }
+.bo-service-badge.is-other { background: #eff6ff; color: #2563eb; }
+
+.bo-service-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.bo-service-amount {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.1;
+}
+
+.bo-service-count {
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.bo-service-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.bo-service-bar {
+    flex: 1;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--line-2);
+    overflow: hidden;
+}
+
+.bo-service-fill {
+    height: 100%;
+    border-radius: 999px;
+}
+
+.bo-service-fill.is-consultation { background: #2563eb; }
+.bo-service-fill.is-pharmacy { background: #10b981; }
+.bo-service-fill.is-laboratory { background: #f59e0b; }
+.bo-service-fill.is-other { background: #2563eb; }
+
+.bo-service-pct {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+/* PAYMENT METHODS GRID (1x4) */
+.bo-methods-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.bo-method-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+}
+
+.bo-method-icon-badge {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 16px;
+    margin-bottom: 2px;
+}
+
+.bo-method-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.bo-method-value {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--ink);
+}
+
+.bo-method-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--line-2);
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.bo-method-fill {
+    height: 100%;
+    border-radius: 999px;
+}
+
+.bo-method-pct-text {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+/* OUTSTANDING BY AGE GRID (1x4) */
+.bo-aging-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.bo-aging-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--line-2);
+}
+
+.bo-aging-card.is-green { background: #f0fdf4; border-color: #bbf7d0; }
+.bo-aging-card.is-yellow { background: #fefce8; border-color: #fef08a; }
+.bo-aging-card.is-orange { background: #fff7ed; border-color: #fed7aa; }
+.bo-aging-card.is-red { background: #fef2f2; border-color: #fecaca; }
+
+.bo-aging-tag {
+    font-size: 11.5px;
+    font-weight: 700;
+}
+
+.bo-aging-card.is-green .bo-aging-tag { color: #15803d; }
+.bo-aging-card.is-yellow .bo-aging-tag { color: #a16207; }
+.bo-aging-card.is-orange .bo-aging-tag { color: #c2410c; }
+.bo-aging-card.is-red .bo-aging-tag { color: #b91c1c; }
+
+.bo-aging-num {
+    font-size: 16px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+@media (max-width: 1199px) {
+    .bo-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .bo-services-grid { grid-template-columns: repeat(2, 1fr); }
+    .bo-methods-grid { grid-template-columns: repeat(2, 1fr); }
+    .bo-aging-grid { grid-template-columns: repeat(2, 1fr); }
+    .bo-main-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 576px) {
+    .bo-kpi-grid { grid-template-columns: 1fr; }
+    .bo-services-grid { grid-template-columns: 1fr; }
+    .bo-methods-grid { grid-template-columns: 1fr; }
+    .bo-aging-grid { grid-template-columns: 1fr; }
 }

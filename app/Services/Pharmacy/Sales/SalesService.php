@@ -14,7 +14,10 @@ use App\Models\Tenant\StockMovement;
 use App\Models\Tenant\User;
 use App\Models\Tenant\Appointment;
 use App\Services\Billing\BillingTriggerResolver;
+use App\Services\Clinic\ClinicEvent;
+use App\Services\Clinic\ClinicEventDispatcher;
 use App\Services\Pharmacy\Inventory\Lots;
+use App\Support\Clinic\ClinicEvents;
 use App\Services\Pharmacy\Inventory\StockConflict;
 use App\Services\Pharmacy\Inventory\StockMovementService;
 use Illuminate\Database\Eloquent\Collection;
@@ -49,6 +52,8 @@ class SalesService
         private readonly SalePricing $pricing,
         private readonly Lots $lots,
         private readonly Dispensing $dispensing,
+        /* Raised after commit — see ClinicEventDispatcher. */
+        private readonly ClinicEventDispatcher $events,
         /*
          * Nullable to keep older callers/tests working. In an HTTP request the
          * container populates it, and a dispensing tied to a visit — with the
@@ -83,6 +88,25 @@ class SalesService
 
             throw StockConflict::because('That sale was already being saved. Check the bill list before selling again.');
         }
+
+        /*
+         * IDEMPOTENCY COMES FREE HERE, and is the reason this sits outside the
+         * try rather than inside ring().
+         *
+         * Both early returns above hand back a sale a previous call already
+         * made, and neither reaches this line — so a double-tapped counter
+         * raises one event, not two, without any new bookkeeping. This is the
+         * mechanism the rest of the events will borrow when Step 3 puts a
+         * uniqueness constraint on generated documents.
+         *
+         * The dispatcher registers after-commit, and by here the transaction
+         * has already committed, so it runs immediately.
+         */
+        $this->events->dispatch(
+            ClinicEvent::for(ClinicEvents::PHARMACY_SALE_COMPLETED, $sale, [
+                'store_id' => $store->getKey(),
+            ]),
+        );
 
         return [$sale, true];
     }

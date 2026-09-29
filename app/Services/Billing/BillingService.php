@@ -8,7 +8,10 @@ use App\Models\Tenant\Invoice;
 use App\Models\Tenant\InvoiceItem;
 use App\Models\Tenant\InvoicePayment;
 use App\Models\Tenant\User;
+use App\Services\Clinic\ClinicEvent;
+use App\Services\Clinic\ClinicEventDispatcher;
 use App\Services\Opd\VisitWorkflow;
+use App\Support\Clinic\ClinicEvents;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -31,6 +34,14 @@ class BillingService
 {
     public function __construct(
         private readonly InvoicePricing $pricing,
+        /*
+         * Raised after the transaction commits, never inside it — see
+         * ClinicEventDispatcher. Required rather than nullable: unlike the
+         * visit workflow below there is no construction cycle here, and a
+         * silently absent dispatcher would mean paperwork that simply never
+         * happens, found by a clinic wondering where their receipts went.
+         */
+        private readonly ClinicEventDispatcher $events,
         /*
          * Nullable to avoid a construction cycle: VisitWorkflow depends on
          * BillingTriggerResolver, which depends on this. In an ordinary HTTP
@@ -138,6 +149,21 @@ class BillingService
 
             foreach ($priced as $line) {
                 InvoiceItem::create(['invoice_id' => $invoice->id, ...$line]);
+            }
+
+            /*
+             * A registration fee or a manual bill opens payable, so this is
+             * the moment it became a bill. A visit invoice opens as a draft
+             * and raises the same event from finalize() instead — one
+             * `invoice_created` per invoice, at whichever of the two points
+             * it actually became something a patient could be handed.
+             */
+            if ($invoice->isFinalized()) {
+                $this->events->dispatch(
+                    ClinicEvent::for(ClinicEvents::INVOICE_CREATED, $invoice, [
+                        'kind' => $invoice->kind,
+                    ]),
+                );
             }
 
             return $invoice->load(['items', 'payments', 'customer']);
@@ -341,6 +367,18 @@ class BillingService
             // this it was a draft nobody could settle.
             $this->refreshVisit($locked);
 
+            /*
+             * The draft became a bill. Finalizing twice cannot raise this
+             * twice: the guard above returns early on an already-finalized
+             * invoice, so the event is as idempotent as the state change it
+             * reports.
+             */
+            $this->events->dispatch(
+                ClinicEvent::for(ClinicEvents::INVOICE_CREATED, $locked, [
+                    'kind' => $locked->kind,
+                ]),
+            );
+
             return $locked->load(['items', 'payments', 'customer']);
         });
     }
@@ -426,7 +464,7 @@ class BillingService
 
             $actor = Auth::guard('web')->user();
 
-            InvoicePayment::create([
+            $record = InvoicePayment::create([
                 'invoice_id' => $locked->id,
                 'method' => $payment['method'],
                 'amount' => $amount,
@@ -442,6 +480,35 @@ class BillingService
             // Tell the visit the till has moved, so its own status column
             // stops reading `awaiting_payment` the moment the balance is nil.
             $this->refreshVisit($locked);
+
+            /*
+             * TWO EVENTS, NOT ONE.
+             *
+             * `payment_received` always fires — it is the fact that money
+             * changed hands, and a clinic that receipts every payment wants
+             * exactly this. The second says what the payment did to the bill,
+             * because those are different pieces of paper: a clinic may want a
+             * receipt for each instalment but a "settled in full" only once,
+             * and one event carrying a flag would make that rule a condition
+             * rather than a choice.
+             *
+             * Read from the invoice after settle() rather than computed from
+             * the amount, so the answer matches what the row now says.
+             */
+            $settled = $locked->outstanding() <= 0.001;
+            $meta = ['payment_id' => $record->id, 'method' => $record->method];
+
+            $this->events->dispatch(
+                ClinicEvent::for(ClinicEvents::PAYMENT_RECEIVED, $locked, $meta),
+            );
+
+            $this->events->dispatch(ClinicEvent::for(
+                $settled
+                    ? ClinicEvents::PAYMENT_FULLY_RECEIVED
+                    : ClinicEvents::PAYMENT_PARTIALLY_RECEIVED,
+                $locked,
+                $meta,
+            ));
 
             return $locked->load(['items', 'payments', 'customer']);
         });
@@ -491,7 +558,7 @@ class BillingService
 
             $actor = Auth::guard('web')->user();
 
-            InvoicePayment::create([
+            $record = InvoicePayment::create([
                 'invoice_id' => $locked->id,
                 'method' => $payment->method,
                 'amount' => $amount,
@@ -508,6 +575,19 @@ class BillingService
             // Same as recordPayment — a refund pushes the visit back into
             // `awaiting_payment` if it had briefly moved past.
             $this->refreshVisit($locked);
+
+            /*
+             * Money went back. Deliberately NOT also raising a payment event:
+             * a refund is its own document (a credit note, a refund receipt),
+             * and a clinic whose rule says "receipt on payment_received"
+             * must not have one printed when it gives money back.
+             */
+            $this->events->dispatch(
+                ClinicEvent::for(ClinicEvents::REFUND_PROCESSED, $locked, [
+                    'refund_id' => $record->id,
+                    'refunds_payment_id' => $payment->id,
+                ]),
+            );
 
             return $locked->load(['items', 'payments', 'customer']);
         });

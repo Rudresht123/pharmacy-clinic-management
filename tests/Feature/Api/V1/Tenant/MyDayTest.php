@@ -173,8 +173,9 @@ class MyDayTest extends TenantTestCase
         // Somebody else's, which must not be counted.
         $this->book($customers[2], $ids['vikram'], $branchId, '10:30');
 
-        // One of theirs walks in and is seen.
-        $this->postJson("/api/v1/tenant/appointments/{$mine}/check-in")->assertOk();
+        // One of theirs walks in and is seen. Arrived by the desk —
+        // `appointments.queue` is not the owner's (DESK_CAPABILITIES).
+        $this->checkInAtDesk($organization, $branchId, $mine);
 
         $this->signInAsDoctor($organization, 'anjali@clinic.test');
 
@@ -241,11 +242,22 @@ class MyDayTest extends TenantTestCase
         $this->book($customers[1], $ids['anjali'], $branchId, '10:15');
         $this->book($customers[2], $ids['vikram'], $branchId, '10:30');
 
-        foreach (['check-in', 'start', 'complete'] as $step) {
-            $this->postJson("/api/v1/tenant/appointments/{$seen}/{$step}")->assertOk();
-        }
+        /*
+         * One patient all the way through, so the trend has something to
+         * count. `start` and `complete` used to hang off the appointment and
+         * were reachable by whoever was at the desk; they are the doctor's
+         * consultation routes now, and arriving the patient is the desk's.
+         */
+        $this->checkInAtDesk($organization, $branchId, $seen);
+        $this->postJson("/api/v1/tenant/appointments/{$seen}/call")->assertOk();
 
         $this->signInAsDoctor($organization, 'anjali@clinic.test');
+
+        $this->postJson("/api/v1/tenant/appointments/{$seen}/consultation/start")->assertOk();
+        $this->putJson("/api/v1/tenant/appointments/{$seen}/consultation", [
+            'chief_complaint' => 'Fever for two days',
+        ])->assertOk();
+        $this->postJson("/api/v1/tenant/appointments/{$seen}/consultation/complete")->assertOk();
 
         $trend = $this->getJson('/api/v1/tenant/opd/my-day?date='.self::MONDAY)
             ->assertOk()

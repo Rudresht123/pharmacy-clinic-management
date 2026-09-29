@@ -458,6 +458,21 @@ export function FileField<T extends FieldValues>({
     );
 }
 
+/**
+ * A checkbox drawn as a switch.
+ *
+ * TWO SHAPES, because a switch does two different jobs.
+ *
+ * `inline` — the switch, then its label, then the explanation under both. One
+ * field among several in a form or a modal, where it reads as part of a
+ * sentence somebody is filling in.
+ *
+ * `row` — the label and its explanation on the left, the switch alone in a
+ * column on the right, with a rule between rows. What a SETTINGS card wants:
+ * every row the same shape, so somebody scanning for "which of these are on?"
+ * reads one column of controls instead of a line that zig-zags by the length
+ * of each label.
+ */
 export function SwitchField<T extends FieldValues>({
     name,
     label,
@@ -466,23 +481,44 @@ export function SwitchField<T extends FieldValues>({
     hint,
     className,
     description,
-}: BaseFieldProps<T> & { description?: string }) {
+    layout = 'inline',
+}: BaseFieldProps<T> & { description?: string; layout?: 'inline' | 'row' }) {
     const error = messageFor(errors, name);
+
+    const input = (
+        <input id={name} type="checkbox" className="form-check-input" {...register(name)} />
+    );
+
+    const note = error ? (
+        <div className="invalid-feedback d-block">{error}</div>
+    ) : null;
+
+    if (layout === 'row') {
+        return (
+            <div className={cn('switch-row', className)}>
+                <div className="switch-row-text">
+                    <label className="switch-row-label" htmlFor={name}>
+                        {description ?? label}
+                    </label>
+                    {hint && <small className="switch-row-hint">{hint}</small>}
+                    {note}
+                </div>
+
+                <div className="form-check form-switch">{input}</div>
+            </div>
+        );
+    }
 
     return (
         <div className={cn('mb-3', className)}>
             <div className="form-check form-switch">
-                <input id={name} type="checkbox" className="form-check-input" {...register(name)} />
+                {input}
                 <label className="form-check-label" htmlFor={name}>
                     {description ?? label}
                 </label>
             </div>
 
-            {error ? (
-                <div className="invalid-feedback d-block">{error}</div>
-            ) : (
-                hint && <small className="text-muted d-block mt-1">{hint}</small>
-            )}
+            {note ?? (hint && <small className="text-muted d-block mt-1">{hint}</small>)}
         </div>
     );
 }

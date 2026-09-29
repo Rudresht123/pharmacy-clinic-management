@@ -361,6 +361,29 @@ class DocumentPayload
             'columns' => ['Item', 'Batch', 'Qty', 'Rate', 'Amount'],
             'rows' => $rows,
         ];
+
+        /*
+         * HOW IT WAS SETTLED — the same panel a clinic invoice prints.
+         *
+         * A pharmacy bill carried none of this, so the two documents the
+         * counter actually hands over were the two with no payment mode, no
+         * reference and no PAID stamp on them. The state is worked out from
+         * what was tendered against what was owed rather than read from a
+         * column, because a sale has no `payment_status` of its own.
+         */
+        $settled = $sale->payments->sortByDesc('paid_at')->first();
+
+        if ($settled) {
+            $values['payment_method'] = ucfirst(str_replace('_', ' ', (string) $settled->method));
+            $values['payment_reference'] = (string) ($settled->reference ?? '');
+            $values['payment_date'] = $settled->paid_at?->format('d M Y, g:i A') ?? '';
+        }
+
+        $values['payment_state'] = match (true) {
+            $paid >= $total && $total > 0 => 'PAID',
+            $paid > 0 => 'PART PAID',
+            default => 'UNPAID',
+        };
     }
 
     /**

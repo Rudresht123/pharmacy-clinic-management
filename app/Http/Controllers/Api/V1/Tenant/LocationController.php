@@ -8,10 +8,12 @@ use App\Http\Requests\Api\V1\Tenant\StoreLocationRequest;
 use App\Http\Requests\Api\V1\Tenant\UpdateLocationRequest;
 use App\Http\Resources\Tenant\LocationResource;
 use App\Models\Tenant\EntityFieldSetting;
+use App\Models\Tenant\File;
 use App\Models\Tenant\Location;
 use App\Repositories\Tenant\Contracts\LocationRepositoryInterface;
 use App\Services\Fields\FieldSchema;
 use App\Services\Permissions\Permission;
+use App\Services\Tenancy\TenantBranchAccess;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\BranchAdminProvisioner;
 use App\Support\Fields\LocationFields;
@@ -30,6 +32,7 @@ class LocationController extends BaseApiController
     public function __construct(
         private readonly LocationRepositoryInterface $locations,
         private readonly Permission $permission,
+        private readonly TenantBranchAccess $branches,
     ) {}
 
     /**
@@ -130,6 +133,81 @@ class LocationController extends BaseApiController
             LocationResource::make($updated),
             'Location updated successfully.'
         );
+    }
+
+    /**
+     * This branch's letterhead mark.
+     *
+     * UPLOADED WHEREVER IT IS BEING LOOKED AT, which in practice is the
+     * document template editor — sending somebody to another screen to change
+     * a logo they are staring at is a round trip that teaches nothing. What it
+     * writes is still the branch's own record, not a copy kept on the
+     * template: one mark, every document, changed once.
+     *
+     * SVG IS EXCLUDED DELIBERATELY. It is a document that can carry script,
+     * and a letterhead needs no vectors — the same line DoctorController draws
+     * for a portrait.
+     */
+    public function uploadLogo(Request $request, Location $location): JsonResponse
+    {
+        $this->mustWorkHere($request, $location);
+
+        $request->validate([
+            'logo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+        ]);
+
+        $upload = $request->file('logo');
+        $previous = $location->logo;
+
+        $file = File::create([
+            'file_name' => $upload->getClientOriginalName(),
+            'file_path' => $upload->store('branch-logos', 'public'),
+            'disk' => 'public',
+            'mime_type' => $upload->getClientMimeType(),
+            'file_size' => $upload->getSize(),
+            'extension' => $upload->getClientOriginalExtension(),
+        ]);
+
+        $location->forceFill(['logo_file_id' => $file->id])->save();
+
+        // Only once the replacement is safely in place — a failure above
+        // leaves the branch with the mark it had rather than with none.
+        $previous?->purge();
+
+        return $this->ok(
+            LocationResource::make($location->load('logo')),
+            'Logo updated.'
+        );
+    }
+
+    /** Drop it, and fall back to the organisation's mark. */
+    public function deleteLogo(Request $request, Location $location): JsonResponse
+    {
+        $this->mustWorkHere($request, $location);
+
+        $existing = $location->logo;
+
+        $location->forceFill(['logo_file_id' => null])->save();
+        $existing?->purge();
+
+        return $this->ok(
+            LocationResource::make($location->load('logo')),
+            'Logo removed. This branch now prints the organisation’s mark.'
+        );
+    }
+
+    /**
+     * `branches.edit` is BRANCH-SCOPED, so holding it is not the whole answer.
+     *
+     * The capability says this person may edit a branch; it does not say which
+     * one. Without this, somebody managing one clinic could change the
+     * letterhead another clinic prints on its bills.
+     */
+    private function mustWorkHere(Request $request, Location $location): void
+    {
+        if (! $this->branches->canUse($request->user(), (int) $location->getKey())) {
+            abort(403, 'You do not work at that branch.');
+        }
     }
 
     public function destroy(Location $location): JsonResponse

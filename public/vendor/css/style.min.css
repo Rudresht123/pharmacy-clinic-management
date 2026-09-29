@@ -6235,17 +6235,11 @@ Author URL: https://themeforest.net/user/dreamstechnologies
 .card {
     position: relative;
     overflow: hidden;
-
     background: #fff;
-    border: 1px solid #e9edf4;
     border-radius: 14px;
-
-    box-shadow:
-        0 1px 3px rgba(15, 23, 42, 0.05),
-        0 8px 24px rgba(15, 23, 42, 0.06);
-
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(var(--shadow), 0.0);
     margin-bottom: 1rem;
-
     transition: all .25s ease;
 }
 

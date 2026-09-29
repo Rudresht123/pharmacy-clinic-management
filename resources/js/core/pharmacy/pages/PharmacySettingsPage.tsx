@@ -6,6 +6,7 @@ import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { FormError, SelectField, SwitchField, TextField } from '@/shared/components/form/Fields';
 import { useApiForm } from '@/shared/components/form/useApiForm';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
+import { formatRelative } from '@/shared/utils/format';
 import { usePharmacySettings, useSavePharmacySettings } from '../api';
 import { PAYMENT_METHOD_LABELS, type PharmacySettings } from '../types';
 
@@ -131,6 +132,7 @@ export default function PharmacySettingsPage() {
                                     label="Prices include GST"
                                     register={register}
                                     errors={errors}
+                                    layout="row"
                                     hint={
                                         inclusive
                                             ? 'Indian MRP includes GST, so the bill splits the tax out of the price.'
@@ -143,33 +145,29 @@ export default function PharmacySettingsPage() {
                                     label="Round the bill total"
                                     register={register}
                                     errors={errors}
+                                    layout="row"
                                     hint="Rounds to the nearest rupee and records the difference on the bill."
-                                />
-
-                                <SelectField
-                                    name="default_payment_method"
-                                    label="Default payment method"
-                                    control={control}
-                                    errors={errors}
-                                    options={Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({
-                                        value,
-                                        label,
-                                    }))}
                                 />
                             </Card>
                         </div>
 
                         <div className="col-lg-6">
+                            {/*
+                             * `ti-cash-register` DOES NOT EXIST in the icon font
+                             * this application ships, so the card printed an
+                             * empty tinted square where its icon should be.
+                             */}
                             <Card
                                 title="The Counter"
-                                icon="ti ti-cash-register"
-                                description="Who may be sold to, and on what terms."
+                                icon="ti ti-building-store"
+                                description="Who may be sold to, and how they pay."
                             >
                                 <SwitchField
                                     name="allow_walk_in"
                                     label="Sell to walk-in customers"
                                     register={register}
                                     errors={errors}
+                                    layout="row"
                                     hint="Off means every sale must name a registered customer."
                                 />
 
@@ -178,6 +176,7 @@ export default function PharmacySettingsPage() {
                                     label="Allow credit sales"
                                     register={register}
                                     errors={errors}
+                                    layout="row"
                                     hint="A credit sale is owed by the customer and tracked on their ledger."
                                 />
 
@@ -186,7 +185,27 @@ export default function PharmacySettingsPage() {
                                     label="Refuse prescription-only medicines without one"
                                     register={register}
                                     errors={errors}
+                                    layout="row"
                                     hint="Applies to the medicines your catalogue marks prescription-only."
+                                />
+
+                                {/*
+                                 * Moved out of Billing, which says it is about
+                                 * "how a bill is numbered, priced and rounded"
+                                 * — and this is none of those. It is what the
+                                 * counter has pre-selected when somebody pays.
+                                 */}
+                                <SelectField
+                                    name="default_payment_method"
+                                    label="Default payment method"
+                                    control={control}
+                                    errors={errors}
+                                    className="mt-3 mb-0"
+                                    options={Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({
+                                        value,
+                                        label,
+                                    }))}
+                                    hint="What the till offers first. The cashier can still change it on the sale."
                                 />
                             </Card>
 
@@ -211,10 +230,26 @@ export default function PharmacySettingsPage() {
 
                 {editable && (
                     <div className="form-actions">
+                        {/*
+                         * WHEN, then who — and never "someone".
+                         *
+                         * It said "Last saved by someone." whenever the name
+                         * was not recorded, which reads as a bug rather than
+                         * as a missing name, and it never said when. The point
+                         * of the line is to tell somebody whether what they
+                         * are looking at is current, and only the date does
+                         * that.
+                         */}
                         <span className="form-actions-note">
-                            {settings?.updated_at
-                                ? `Last saved by ${settings.updated_by_name ?? 'someone'}.`
-                                : 'These apply to every store in your organisation.'}
+                            {isDirty
+                                ? 'Unsaved changes.'
+                                : settings?.updated_at
+                                  ? `Last saved ${formatRelative(settings.updated_at)}${
+                                        settings.updated_by_name
+                                            ? ` by ${settings.updated_by_name}`
+                                            : ''
+                                    }.`
+                                  : 'These apply to every store in your organisation.'}
                         </span>
 
                         <Button

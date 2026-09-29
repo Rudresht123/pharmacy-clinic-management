@@ -20,9 +20,12 @@ import { useLockablePaths, useSaveLocks } from '../templates';
 export function TemplateLocks({
     templateId,
     current,
+    bare = false,
 }: {
     templateId: number;
     current: string[];
+    /** Inside an accordion the surrounding card and heading are already there. */
+    bare?: boolean;
 }) {
     const { data: paths } = useLockablePaths();
     const save = useSaveLocks();
@@ -55,12 +58,14 @@ export function TemplateLocks({
     const dirty =
         chosen.length !== current.length || chosen.some((p) => !current.includes(p));
 
-    return (
-        <Card className="mt-3">
-            <h6 className="mb-1">
-                <i className="ti ti-lock me-2" />
-                Locked for branches
-            </h6>
+    const body = (
+        <>
+            {!bare && (
+                <h6 className="mb-1">
+                    <i className="ti ti-lock me-2" />
+                    Locked for branches
+                </h6>
+            )}
             <p className="dr-sub mb-3">
                 A branch keeps its own letterhead, but cannot change what you tick here.
             </p>
@@ -88,6 +93,8 @@ export function TemplateLocks({
             >
                 {save.isPending ? 'Saving…' : 'Save locks'}
             </Button>
-        </Card>
+        </>
     );
+
+    return bare ? <div>{body}</div> : <Card className="mt-3">{body}</Card>;
 }

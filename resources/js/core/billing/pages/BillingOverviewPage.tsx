@@ -1,20 +1,21 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
+import { LoadingBlock, ErrorState, EmptyState } from '@/shared/components/ui/Feedback';
 import { formatDate } from '@/shared/utils/format';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { openDocument, useGenerateDocument } from '@/core/documents/api';
 import {
-    PAYMENT_METHOD_LABELS,
     PAYMENT_STATUS_LABELS,
     useBillingOverview,
     type BillingOverview,
     type Invoice,
     type InvoiceItem,
+    type OutstandingPatient,
 } from '../api';
-import { RevenueTrend } from '../components/RevenueTrend';
+import { CollectionTrend } from '../components/CollectionTrend';
 import { PaymentDialog } from '../components/PaymentDialog';
 import { DonutChart } from '@/shared/components/ui/DonutChart';
+import { BarList } from '@/shared/components/ui/BarList';
 
 const money = (value: number) =>
     `₹ ${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -37,32 +38,50 @@ function windowFor(days: number) {
     return { from: iso(from), to: iso(to) };
 }
 
-const CAT_CONFIG: Record<string, { icon: string; class: string }> = {
-    consultation: { icon: 'ti ti-stethoscope', class: 'is-purple' },
-    pharmacy: { icon: 'ti ti-pill', class: 'is-green' },
-    laboratory: { icon: 'ti ti-flask', class: 'is-orange' },
-    other: { icon: 'ti ti-layout-grid', class: 'is-blue' },
+/** One entry per InvoiceItem source_type — the type tag and the tinted icon. */
+const TYPE_CONFIG: Record<string, { label: string; icon: string; cls: string }> = {
+    consultation: { label: 'OPD', icon: 'ti ti-stethoscope', cls: 'is-blue' },
+    pharmacy_sale_item: { label: 'Pharmacy', icon: 'ti ti-pill', cls: 'is-green' },
+    lab_test: { label: 'Lab', icon: 'ti ti-flask', cls: 'is-purple' },
+    procedure: { label: 'Procedure', icon: 'ti ti-first-aid-kit', cls: 'is-orange' },
+    service: { label: 'Other', icon: 'ti ti-layout-grid', cls: 'is-muted' },
+    custom: { label: 'Other', icon: 'ti ti-layout-grid', cls: 'is-muted' },
 };
 
-const METHOD_CONFIG: Record<string, { label: string; icon: string; color: string; fill: string }> = {
-    upi: { label: 'UPI', icon: 'ti ti-device-mobile', color: '#9333ea', fill: '#3b82f6' },
-    cash: { label: 'Cash', icon: 'ti ti-cash', color: '#16a34a', fill: '#22c55e' },
-    card: { label: 'Card', icon: 'ti ti-credit-card', color: '#9333ea', fill: '#a855f7' },
-    bank_transfer: { label: 'Bank Transfer', icon: 'ti ti-building-bank', color: '#2563eb', fill: '#38bdf8' },
-    other: { label: 'Other', icon: 'ti ti-dots-circle', color: '#0284c7', fill: '#94a3b8' },
-};
+/** The line whose amount weighs most in the invoice — what the Type column names. */
+function dominantType(items?: InvoiceItem[]): { label: string; cls: string } {
+    if (!items || items.length === 0) {
+        return { label: '—', cls: 'is-muted' };
+    }
 
-const AGE_CONFIG: Record<string, { class: string; label: string }> = {
-    fresh: { class: 'is-green', label: '0-7 days' },
-    recent: { class: 'is-yellow', label: '8-30 days' },
-    stale: { class: 'is-orange', label: '31-60 days' },
-    old: { class: 'is-red', label: '> 60 days' },
-};
+    const totals = new Map<string, number>();
+
+    for (const item of items) {
+        totals.set(item.source_type, (totals.get(item.source_type) ?? 0) + item.line_total);
+    }
+
+    let bestType: string = items[0].source_type;
+    let bestAmount = -1;
+
+    for (const [type, amount] of totals) {
+        if (amount > bestAmount) {
+            bestAmount = amount;
+            bestType = type;
+        }
+    }
+
+    const conf = TYPE_CONFIG[bestType] ?? TYPE_CONFIG.service;
+
+    return { label: conf.label, cls: conf.cls };
+}
 
 function summarizeItems(items?: InvoiceItem[]): string {
     if (!items || items.length === 0) return 'Services';
-    const names = items.map((i) => i.description.split(' - ')[0] || i.description);
+
+    const names = items.map((item) => item.description.split(' - ')[0] || item.description);
+
     if (names.length <= 2) return names.join(', ');
+
     return `${names[0]}, ${names[1]} (+${names.length - 2} more)`;
 }
 
@@ -72,6 +91,7 @@ export default function BillingOverviewPage() {
 
     const [range, setRange] = useState<(typeof RANGES)[number]['key']>('7');
     const [paying, setPaying] = useState<Invoice>();
+    const [createOpen, setCreateOpen] = useState(false);
 
     const params = useMemo(
         () => windowFor((RANGES.find((r) => r.key === range) ?? RANGES[0]).days),
@@ -84,6 +104,9 @@ export default function BillingOverviewPage() {
     if (isLoading) return <LoadingBlock label="Loading billing overview…" />;
     if (isError || !data) return <ErrorState onRetry={() => refetch()} />;
 
+    const hasCategories = data.categories.some((category) => category.amount > 0);
+    const hasMethods = data.methods.length > 0;
+
     async function print(invoice: Invoice) {
         const document_ = await generate.mutateAsync({
             document_type: 'clinic_invoice',
@@ -95,30 +118,46 @@ export default function BillingOverviewPage() {
 
     return (
         <div className="bo-container">
-            {/* Header Banner */}
+            {/* Header */}
             <div className="bo-header-card">
                 <div className="bo-header-title-group">
-                    <div className="bo-header-icon">
-                        <i className="ti ti-receipt" aria-hidden="true" />
-                    </div>
                     <div>
-                        <h4>Billing</h4>
-                        <p>Overview of your clinic's income, invoices, payments and outstanding balances.</p>
+                        <h4>Billing Dashboard</h4>
+                        <p>Overview of your clinic&rsquo;s billing, payments and revenue.</p>
                     </div>
                 </div>
+
+                {can('billing.create') && (
+                    <div className="bod-create-dd" onBlur={() => setCreateOpen(false)}>
+                        <button
+                            type="button"
+                            className="bod-create-btn"
+                            onClick={() => setCreateOpen((open) => !open)}
+                        >
+                            <i className="ti ti-plus" aria-hidden="true" />
+                            Create Invoice
+                            <i className="ti ti-chevron-down" aria-hidden="true" />
+                        </button>
+
+                        {createOpen && (
+                            <div className="bod-create-menu">
+                                <Link to="/billing/invoices/new">New manual invoice</Link>
+                                <Link to="/billing/invoices">All invoices</Link>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
-            {/* Top KPI Cards */}
+            {/* KPI cards */}
             <KpiCards data={data} />
 
-            {/* Main Section Split */}
+            {/* Collection Trend + Collection by Module */}
             <div className="bo-main-layout">
-                {/* Left Column */}
                 <div className="bo-left-col">
-                    {/* Revenue & Payments Trend */}
                     <div className="bo-card">
                         <div className="bo-card-title-row">
-                            <h5 className="bo-card-title">Revenue &amp; Payments Trend</h5>
+                            <h5 className="bo-card-title">Collection Trend</h5>
                             <div className="bo-range-group">
                                 {RANGES.map((option) => (
                                     <button
@@ -133,213 +172,183 @@ export default function BillingOverviewPage() {
                             </div>
                         </div>
 
-                        <RevenueTrend points={data.trend} format={money} />
-
-                        <div className="d-flex gap-4 justify-content-center mt-3 fs-13 flex-wrap font-weight-600">
-                            <span style={{ color: '#2563eb' }}>
-                                <i className="ti ti-circle-filled me-1" /> Invoiced ({money(data.totals.invoiced)})
-                            </span>
-                            <span style={{ color: '#16a34a' }}>
-                                <i className="ti ti-circle-filled me-1" /> Paid ({money(data.totals.paid)})
-                            </span>
-                            <span style={{ color: '#ea580c' }}>
-                                <i className="ti ti-circle-filled me-1" /> Outstanding ({money(data.totals.outstanding)})
-                            </span>
+                        <div className="bo-card-body">
+                            <CollectionTrend points={data.trend} format={money} />
                         </div>
                     </div>
+                </div>
 
-                    {/* Category Breakdown Cards */}
-                    <div className="bo-categories-grid">
-                        {data.categories.map((category) => {
-                            const conf = CAT_CONFIG[category.key] ?? CAT_CONFIG.other;
+                <div className="bo-right-col">
+                    <div className="bo-card db-donut">
+                        <div className="bo-card-title-row">
+                            <h5 className="bo-card-title">Collection by Module</h5>
+                        </div>
 
-                            return (
-                                <div className="bo-category-card" key={category.key}>
-                                    <div className={`bo-cat-icon-badge ${conf.class}`}>
-                                        <i className={conf.icon} aria-hidden="true" />
-                                    </div>
-                                    <span className="bo-cat-label">{category.label}</span>
-                                    <div className="bo-cat-amount">{money(category.amount)}</div>
-                                    <div className="bo-cat-bottom">
-                                        <span>
-                                            {category.invoices} invoice{category.invoices === 1 ? '' : 's'}
-                                        </span>
-                                        <span className="bo-trend-pill is-up">↑ {Math.min(15, category.invoices * 2)}%</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        <div className={`bo-card-body ${hasCategories ? '' : 'is-center'}`}>
+                            {hasCategories ? (
+                                <DonutChart
+                                    slices={data.categories.map((category) => ({
+                                        label: category.label,
+                                        value: category.amount,
+                                    }))}
+                                    centreLabel="Total Collection"
+                                    format={money}
+                                />
+                            ) : (
+                                <EmptyState
+                                    icon="ti ti-chart-donut"
+                                    title="Nothing billed yet"
+                                    description="Collection by module shows up once invoices land in this window."
+                                />
+                            )}
+                        </div>
                     </div>
+                </div>
+            </div>
 
-                    {/* Recent Invoices Table */}
+            {/* Recent Invoices / Outstanding Patients + Payment Mode / Top Services */}
+            <div className="bo-main-layout">
+                <div className="bo-left-col">
                     <div className="bo-card">
                         <div className="bo-card-title-row">
                             <h5 className="bo-card-title">Recent Invoices</h5>
                             <Link to="/billing/invoices" className="bo-card-link">
-                                View all invoices <i className="ti ti-arrow-right" />
+                                View All <i className="ti ti-arrow-right" />
                             </Link>
                         </div>
 
-                        {data.recent.length === 0 ? (
-                            <p className="text-muted fs-13 mb-0">Nothing billed in this window.</p>
-                        ) : (
-                            <div className="bo-table-wrap">
-                                <table className="bo-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Invoice #</th>
-                                            <th>Date &amp; Time</th>
-                                            <th>Patient</th>
-                                            <th>Visit</th>
-                                            <th>Items</th>
-                                            <th className="text-end">Total</th>
-                                            <th className="text-end">Paid</th>
-                                            <th className="text-end">Due</th>
-                                            <th>Status</th>
-                                            <th className="text-end">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {data.recent.map((invoice) => (
-                                            <RecentRow
-                                                key={invoice.id}
-                                                invoice={invoice}
-                                                canCollect={can('billing.collect_payment')}
-                                                canPrint={can('documents.generate')}
-                                                onPay={() => setPaying(invoice)}
-                                                onPrint={() => void print(invoice)}
-                                                onOpen={() => navigate(`/billing/invoices/${invoice.id}`)}
-                                            />
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                        <div className="bo-card-body">
+                            {data.recent.length === 0 ? (
+                                <EmptyState
+                                    icon="ti ti-file-invoice"
+                                    title="No invoices yet"
+                                    description="Invoices raised in this window will show up here."
+                                />
+                            ) : (
+                                <div className="bo-table-wrap">
+                                    <table className="bo-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: 28 }}>
+                                                    <input type="checkbox" className="bod-check" aria-label="Select all" />
+                                                </th>
+                                                <th>#</th>
+                                                <th>Date</th>
+                                                <th>Patient</th>
+                                                <th>Type</th>
+                                                <th>Doctor / Service</th>
+                                                <th className="text-end">Total</th>
+                                                <th className="text-end">Paid</th>
+                                                <th>Status</th>
+                                                <th className="text-end">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {data.recent.map((invoice) => (
+                                                <RecentRow
+                                                    key={invoice.id}
+                                                    invoice={invoice}
+                                                    canCollect={can('billing.collect_payment')}
+                                                    canPrint={can('documents.generate')}
+                                                    onPay={() => setPaying(invoice)}
+                                                    onPrint={() => void print(invoice)}
+                                                    onOpen={() => navigate(`/billing/invoices/${invoice.id}`)}
+                                                />
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="bo-card">
+                        <div className="bo-card-title-row">
+                            <h5 className="bo-card-title">Outstanding Patients</h5>
+                            <Link to="/billing/outstanding" className="bo-card-link">
+                                View All <i className="ti ti-arrow-right" />
+                            </Link>
+                        </div>
+
+                        <div className="bo-card-body">
+                            {data.outstanding_patients_list.length === 0 ? (
+                                <EmptyState
+                                    icon="ti ti-mood-smile"
+                                    title="Nobody owes money"
+                                    description="Every bill in this window has been settled."
+                                />
+                            ) : (
+                                <div className="bo-table-wrap">
+                                    <table className="bo-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: 28 }}>
+                                                    <input type="checkbox" className="bod-check" aria-label="Select all" />
+                                                </th>
+                                                <th>#</th>
+                                                <th>Patient</th>
+                                                <th>Last Visit</th>
+                                                <th className="text-end">Total</th>
+                                                <th className="text-end">Paid</th>
+                                                <th className="text-end">Due</th>
+                                                <th>Days</th>
+                                                <th className="text-end">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {data.outstanding_patients_list.map((row, index) => (
+                                                <OutstandingRow key={`${row.patient}-${index}`} row={row} index={index} />
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Right Column */}
                 <div className="bo-right-col">
-                    {/* Invoice Status Donut Chart */}
-                    <div className="bo-card">
-                        <h5 className="bo-card-title mb-3">Invoice Status</h5>
-                        <DonutChart
-                            slices={[
-                                { label: 'Paid', value: data.statuses.paid, tone: 'emerald' as const },
-                                { label: 'Partially Paid', value: data.statuses.partially_paid, tone: 'amber' as const },
-                                { label: 'Pending', value: data.statuses.pending, tone: 'rose' as const },
-                                { label: 'Cancelled', value: data.statuses.cancelled, tone: 'slate' as const },
-                            ]}
-                            centreLabel="Invoices"
-                            empty="No invoices raised in this window."
-                        />
-                    </div>
-
-                    {/* Payment Methods */}
-                    <div className="bo-card">
+                    <div className="bo-card db-donut">
                         <div className="bo-card-title-row">
-                            <h5 className="bo-card-title">Payment Methods</h5>
+                            <h5 className="bo-card-title">Payment Mode Breakdown</h5>
                             <span className="fs-12 text-muted fw-600">This Month ▾</span>
                         </div>
 
-                        {data.methods.length === 0 ? (
-                            <p className="text-muted fs-13 mb-0">Nothing collected in this window.</p>
-                        ) : (
-                            data.methods.map((row) => {
-                                const conf = METHOD_CONFIG[row.method] ?? METHOD_CONFIG.other;
-
-                                return (
-                                    <div className="bo-method-row" key={row.method}>
-                                        <div className="bo-method-header">
-                                            <div className="bo-method-title">
-                                                <i className={conf.icon} style={{ color: conf.color }} />
-                                                <span>{PAYMENT_METHOD_LABELS[row.method] ?? row.method}</span>
-                                            </div>
-                                            <div className="bo-method-amount">{money(row.amount)}</div>
-                                        </div>
-                                        <div className="bo-method-bar-wrap">
-                                            <div className="bo-method-bar">
-                                                <div
-                                                    className="bo-method-bar-fill"
-                                                    style={{ width: `${Math.max(row.share, 4)}%`, backgroundColor: conf.fill }}
-                                                />
-                                            </div>
-                                            <div className="bo-method-pct">{row.share}%</div>
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        )}
+                        <div className={`bo-card-body ${hasMethods ? '' : 'is-center'}`}>
+                            {hasMethods ? (
+                                <DonutChart
+                                    slices={data.methods.map((row) => ({
+                                        label: row.method.replace(/_/g, ' '),
+                                        value: row.amount,
+                                    }))}
+                                    centreLabel="Total"
+                                    format={money}
+                                />
+                            ) : (
+                                <EmptyState
+                                    icon="ti ti-cash-off"
+                                    title="Nothing collected yet"
+                                    description="Payment modes show up once a payment is recorded."
+                                />
+                            )}
+                        </div>
                     </div>
 
-                    {/* Outstanding by Age */}
                     <div className="bo-card">
                         <div className="bo-card-title-row">
-                            <h5 className="bo-card-title">Outstanding by Age</h5>
-                            <Link to="/billing/outstanding" className="bo-card-link">
-                                View all <i className="ti ti-arrow-right" />
-                            </Link>
+                            <h5 className="bo-card-title">Top Services by Revenue</h5>
+                            <span className="fs-12 text-muted fw-600">This Month ▾</span>
                         </div>
 
-                        <div className="bo-aging-grid">
-                            {data.ageing.map((bucket) => {
-                                const conf = AGE_CONFIG[bucket.key] ?? { class: 'is-green', label: bucket.label };
-
-                                return (
-                                    <div className={`bo-aging-card ${conf.class}`} key={bucket.key}>
-                                        <span className="bo-aging-label">{conf.label}</span>
-                                        <div className="bo-aging-amount">{money(bucket.amount)}</div>
-                                        <span className="bo-aging-sub">
-                                            {bucket.invoices} invoice{bucket.invoices === 1 ? '' : 's'}
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Quick Actions */}
-                    <div className="bo-card">
-                        <h5 className="bo-card-title mb-3">Quick Actions</h5>
-                        <div className="bo-actions-grid">
-                            <button
-                                type="button"
-                                className="bo-act-btn is-main"
-                                onClick={() => navigate('/billing/outstanding')}
-                            >
-                                <i className="ti ti-credit-card" aria-hidden="true" />
-                                <span>Take Payment</span>
-                            </button>
-
-                            {can('billing.create') && (
-                                <button
-                                    type="button"
-                                    className="bo-act-btn is-purple"
-                                    onClick={() => navigate('/billing/invoices/new')}
-                                >
-                                    <i className="ti ti-file-plus" aria-hidden="true" />
-                                    <span>Manual Bill</span>
-                                </button>
-                            )}
-
-                            <button
-                                type="button"
-                                className="bo-act-btn is-indigo"
-                                onClick={() => navigate('/billing/payments')}
-                            >
-                                <i className="ti ti-printer" aria-hidden="true" />
-                                <span>Print Report</span>
-                            </button>
-
-                            {can('billing.manage_settings') && (
-                                <button
-                                    type="button"
-                                    className="bo-act-btn is-blue"
-                                    onClick={() => navigate('/billing/settings')}
-                                >
-                                    <i className="ti ti-settings" aria-hidden="true" />
-                                    <span>Settings</span>
-                                </button>
+                        <div className={`bo-card-body ${hasCategories ? '' : 'is-center'}`}>
+                            {hasCategories ? (
+                                <TopServices categories={data.categories} />
+                            ) : (
+                                <EmptyState
+                                    icon="ti ti-list-details"
+                                    title="No revenue yet"
+                                    description="The top billed services will rank here."
+                                />
                             )}
                         </div>
                     </div>
@@ -358,75 +367,79 @@ export default function BillingOverviewPage() {
     );
 }
 
+function trendTone(delta: number, riseIsBad: boolean): string {
+    const good = delta >= 0 ? !riseIsBad : riseIsBad;
+
+    return good ? (delta >= 0 ? 'is-up' : 'is-down') : 'is-up-danger';
+}
+
 function KpiCards({ data }: { data: BillingOverview }) {
-    const { totals, previous, statuses } = data;
+    const { totals, previous } = data;
 
     const delta = (now: number, before: number) =>
         before > 0 ? Math.round(((now - before) / before) * 100) : null;
 
-    const share = (part: number, whole: number) =>
-        whole > 0 ? `${Math.round((part / whole) * 1000) / 10}% of total` : '—';
-
     const cards = [
         {
-            label: 'Total Revenue',
-            value: money(totals.invoiced),
-            sub: 'vs previous period',
+            label: 'Total Invoices',
+            value: String(totals.invoiced_count),
             icon: 'ti ti-file-text',
-            iconClass: 'is-blue',
-            delta: delta(totals.invoiced, previous.invoiced),
-            isDanger: false,
+            cls: 'is-blue',
+            sub: 'This month',
+            delta: delta(totals.invoiced_count, previous.count),
+            riseIsBad: false,
         },
         {
-            label: 'Total Paid',
+            label: 'Total Collection',
             value: money(totals.paid),
-            sub: share(totals.paid, totals.invoiced),
-            icon: 'ti ti-circle-check',
-            iconClass: 'is-green',
+            icon: 'ti ti-wallet',
+            cls: 'is-green',
+            sub: 'This month',
             delta: delta(totals.paid, previous.paid),
-            isDanger: false,
+            riseIsBad: false,
         },
         {
             label: 'Outstanding',
             value: money(totals.outstanding),
-            sub: share(totals.outstanding, totals.invoiced),
-            icon: 'ti ti-hourglass',
-            iconClass: 'is-orange',
-            delta: 18,
-            isDanger: true,
+            icon: 'ti ti-hourglass-high',
+            cls: 'is-orange',
+            sub: `${totals.outstanding_patients} patient${totals.outstanding_patients === 1 ? '' : 's'}`,
+            delta: delta(totals.outstanding, previous.invoiced - previous.paid),
+            riseIsBad: true,
         },
         {
-            label: 'Total Invoices',
-            value: String(totals.invoiced_count),
-            sub: `${statuses.paid} paid · ${statuses.pending} pending · ${statuses.partially_paid} partial`,
-            icon: 'ti ti-files',
-            iconClass: 'is-purple',
-            delta: delta(totals.invoiced_count, previous.count),
-            isDanger: false,
+            label: 'New Patients (Billed)',
+            value: String(totals.billed_patients),
+            icon: 'ti ti-users',
+            cls: 'is-purple',
+            sub: 'This month',
+            delta: delta(totals.billed_patients, previous.billed_patients),
+            riseIsBad: false,
         },
     ];
 
     return (
-        <div className="bo-kpi-grid">
+        <div className="bod-kpi-grid">
             {cards.map((card) => (
-                <div className="bo-kpi-card" key={card.label}>
-                    <div className="bo-kpi-info">
-                        <span className="bo-kpi-label">{card.label}</span>
-                        <div className="bo-kpi-value">{card.value}</div>
-                        <span className="bo-kpi-sub">{card.sub}</span>
+                <div className={`bod-kpi-card ${card.cls}`} key={card.label}>
+                    <div className="bod-kpi-head">
+                        <span className={`bod-kpi-icon ${card.cls}`}>
+                            <i className={card.icon} aria-hidden="true" />
+                        </span>
+                        <span className="bod-kpi-label">{card.label}</span>
                     </div>
 
-                    <div className="bo-kpi-right">
-                        <div className={`bo-kpi-icon ${card.iconClass}`}>
-                            <i className={card.icon} aria-hidden="true" />
-                        </div>
+                    <div className="bod-kpi-value-row">
+                        <span className="bod-kpi-value">{card.value}</span>
                         {card.delta !== null && (
-                            <span className={`bo-trend-pill ${card.isDanger ? 'is-up-danger' : card.delta >= 0 ? 'is-up' : 'is-down'}`}>
+                            <span className={`bod-kpi-delta ${trendTone(card.delta, card.riseIsBad)}`}>
                                 <i className={`ti ti-arrow-${card.delta >= 0 ? 'up' : 'down'}-right`} />
                                 {Math.abs(card.delta)}%
                             </span>
                         )}
                     </div>
+
+                    <span className="bod-kpi-sub">{card.sub}</span>
                 </div>
             ))}
         </div>
@@ -460,61 +473,124 @@ function RecentRow({
     const statusLabel =
         invoice.status === 'cancelled'
             ? 'Cancelled'
-            : (PAYMENT_STATUS_LABELS[invoice.payment_status] ?? invoice.payment_status);
+            : invoice.payment_status === 'unpaid'
+              ? 'Due'
+              : (PAYMENT_STATUS_LABELS[invoice.payment_status] ?? invoice.payment_status);
+
+    const type = dominantType(invoice.items);
+
+    /* OPD names its doctor; a lab bill names its tests; a pharmacy bill
+       names nothing — there is no third party to credit for a sale. */
+    const serviceText =
+        invoice.doctor_name ?? (type.label === 'Lab' ? summarizeItems(invoice.items) : '—');
 
     return (
         <tr>
+            <td>
+                <input type="checkbox" className="bod-check" aria-label={`Select ${invoice.invoice_number}`} />
+            </td>
             <td>
                 <Link to={`/billing/invoices/${invoice.id}`} className="bo-inv-num">
                     {invoice.invoice_number}
                 </Link>
             </td>
             <td className="text-muted">{formatDate(invoice.invoice_date)}</td>
-            <td className="fw-600">{invoice.customer_name ?? '—'}</td>
-            <td className="text-muted">{invoice.appointment_id ? `OPD-${invoice.appointment_id}` : '—'}</td>
-            <td className="text-muted">{summarizeItems(invoice.items)}</td>
+            <td className="fw-600 bo-table-truncate" title={invoice.customer_name ?? undefined}>
+                {invoice.customer_name ?? '—'}
+            </td>
+            <td>
+                <span className={`bod-type-tag ${type.cls}`}>{type.label}</span>
+            </td>
+            <td className="text-muted bo-table-truncate" title={serviceText === '—' ? undefined : serviceText}>
+                {serviceText}
+            </td>
             <td className="text-end fw-600">{moneyExact(invoice.total_amount)}</td>
             <td className="text-end fw-600">{moneyExact(invoice.paid_amount)}</td>
-            <td className="text-end fw-600">
-                {invoice.outstanding > 0 ? (
-                    <span className="text-danger">{moneyExact(invoice.outstanding)}</span>
-                ) : (
-                    moneyExact(0)
-                )}
-            </td>
             <td>
                 <span className={`bo-badge ${statusClass}`}>{statusLabel}</span>
             </td>
             <td className="text-end">
-                <button
-                    type="button"
-                    className="bo-action-btn"
-                    title="Open invoice"
-                    onClick={onOpen}
-                >
+                <button type="button" className="bo-action-btn" title="Open invoice" onClick={onOpen}>
                     <i className="ti ti-eye" />
                 </button>
                 {canPrint && invoice.status !== 'cancelled' && !invoice.is_draft && (
-                    <button
-                        type="button"
-                        className="bo-action-btn"
-                        title="Print invoice"
-                        onClick={onPrint}
-                    >
+                    <button type="button" className="bo-action-btn" title="Print invoice" onClick={onPrint}>
                         <i className="ti ti-printer" />
                     </button>
                 )}
                 {canCollect && invoice.outstanding > 0 && invoice.status !== 'cancelled' && (
-                    <button
-                        type="button"
-                        className="bo-action-btn"
-                        title="Take payment"
-                        onClick={onPay}
-                    >
+                    <button type="button" className="bo-action-btn" title="Take payment" onClick={onPay}>
                         <i className="ti ti-cash" />
                     </button>
                 )}
             </td>
         </tr>
+    );
+}
+
+function OutstandingRow({ row, index }: { row: OutstandingPatient; index: number }) {
+    const wa = row.phone ? `https://wa.me/${row.phone.replace(/\D/g, '')}` : null;
+
+    return (
+        <tr>
+            <td>
+                <input type="checkbox" className="bod-check" aria-label={`Select ${row.patient}`} />
+            </td>
+            <td className="text-muted">{String(index + 1).padStart(2, '0')}</td>
+            <td className="fw-600 bo-table-truncate" title={row.patient}>
+                {row.customer_id ? (
+                    <Link to={`/customers/${row.customer_id}`} className="bo-inv-num">
+                        {row.patient}
+                    </Link>
+                ) : (
+                    row.patient
+                )}
+            </td>
+            <td className="text-muted">{formatDate(row.last_visit)}</td>
+            <td className="text-end fw-600">{moneyExact(row.total)}</td>
+            <td className="text-end fw-600">{moneyExact(row.paid)}</td>
+            <td className="text-end fw-600 text-danger">{moneyExact(row.due)}</td>
+            <td>
+                <span className="bod-days-tag">
+                    {row.days} day{row.days === 1 ? '' : 's'}
+                </span>
+            </td>
+            <td className="text-end">
+                {row.customer_id && (
+                    <Link className="bo-action-btn" title="View patient" to={`/customers/${row.customer_id}`}>
+                        <i className="ti ti-eye" />
+                    </Link>
+                )}
+                {wa && (
+                    <a className="bo-action-btn" title="Message on WhatsApp" href={wa} target="_blank" rel="noreferrer">
+                        <i className="ti ti-brand-whatsapp" />
+                    </a>
+                )}
+            </td>
+        </tr>
+    );
+}
+
+/** Relabelled for this list only — "OPD" names the module, "Consultation" names the service. */
+const SERVICE_RELABEL: Record<string, string> = {
+    OPD: 'Consultation',
+    Pharmacy: 'Medicines',
+    Laboratory: 'Lab Tests',
+    Procedures: 'Procedures',
+    Others: 'Others',
+};
+
+function TopServices({ categories }: { categories: BillingOverview['categories'] }) {
+    return (
+        <BarList
+            rows={categories
+                .filter((category) => category.amount > 0)
+                .map((category) => ({
+                    label: SERVICE_RELABEL[category.label] ?? category.label,
+                    value: category.amount,
+                }))}
+            format={money}
+            max={5}
+        />
     );
 }

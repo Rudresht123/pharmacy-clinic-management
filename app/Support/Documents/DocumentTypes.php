@@ -97,6 +97,9 @@ class DocumentTypes
                 'icon' => 'ti ti-prescription',
                 'subject' => self::SUBJECT_PRESCRIPTION,
                 'category' => 'prescription',
+                /* A starting point, not a rule — a clinic that prints two to
+                   an A4 sheet, or four, sets its own on the Paper & print
+                   panel and keeps it. */
                 'paper' => self::PAPER_A5,
                 'requires' => ['prescriptions'],
                 'groups' => ['organization', 'branch', 'patient', 'visit', 'clinical', 'prescription'],
@@ -164,7 +167,8 @@ class DocumentTypes
                 /*
                  * A till roll, not a page. The renderer treats this as a
                  * narrow continuous strip rather than a paper size with
-                 * margins — see PdfRenderer.
+                 * margins — see PdfRenderer. A counter without a thermal
+                 * printer switches this one template to A4 or A5 itself.
                  */
                 'paper' => self::PAPER_RECEIPT,
                 'requires' => ['pharmacy'],

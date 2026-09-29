@@ -53,6 +53,54 @@ class SetupController extends BaseApiController
         return $this->ok($this->payload($organization), 'Organisation details saved');
     }
 
+    /**
+     * The organisation's letterhead mark — the one every branch prints unless
+     * it has its own.
+     *
+     * OWNER-ONLY, on the route. It sits on the master `organizations` row,
+     * which until now only the platform could touch; an owner setting up their
+     * own clinic should not have to ask support to change their logo.
+     *
+     * SVG IS EXCLUDED DELIBERATELY. It is a document that can carry script,
+     * and a letterhead needs no vectors.
+     */
+    public function uploadLogo(Request $request): JsonResponse
+    {
+        $request->validate([
+            'logo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+        ]);
+
+        $organization = $this->organization($request);
+        $previous = $organization->profile_image;
+
+        $organization->forceFill([
+            'profile_image' => uploadFile($request->file('logo'), 'organizations'),
+        ])->save();
+
+        // Only once the replacement is stored — a failure above leaves the
+        // organisation with the mark it had rather than with none.
+        if ($previous) {
+            deleteFile($previous);
+        }
+
+        return $this->ok($this->payload($organization), 'Logo updated.');
+    }
+
+    /** Drop it. Documents then print without a mark. */
+    public function deleteLogo(Request $request): JsonResponse
+    {
+        $organization = $this->organization($request);
+        $existing = $organization->profile_image;
+
+        $organization->forceFill(['profile_image' => null])->save();
+
+        if ($existing) {
+            deleteFile($existing);
+        }
+
+        return $this->ok($this->payload($organization), 'Logo removed.');
+    }
+
     /** Sign off a section: departments, roles or settings. */
     public function confirm(Request $request, string $step): JsonResponse
     {

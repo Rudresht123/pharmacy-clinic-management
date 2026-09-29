@@ -1,0 +1,86 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="vendor/css/bootstrap.min.css">
+<link rel="stylesheet" href="vendor/css/tabler-icons.min.css">
+<link rel="stylesheet" href="vendor/css/layout.css">
+<link rel="stylesheet" href="vendor/css/custom.css">
+<style>body{background:#f6f7fb;padding:18px}</style></head>
+<body class="app-content"><div class="bo-container">
+
+<div class="bo-header-card">
+  <div class="bo-header-title-group">
+    <div class="bo-header-icon"><i class="ti ti-receipt"></i></div>
+    <div><h4>Billing</h4>
+      <p>Overview of your clinic's income, invoices, payments and outstanding balances.</p>
+      <nav class="bo-crumbs"><a href="#"><i class="ti ti-home"></i> Dashboard</a><i class="ti ti-chevron-right"></i><span>Billing</span><i class="ti ti-chevron-right"></i><b>Overview</b></nav>
+    </div>
+  </div>
+  <label class="bo-range-select"><i class="ti ti-calendar-event"></i><select><option>Last 7 Days</option></select></label>
+  <img class="bo-header-art" src="assets/img/bg/billing-hero.svg" alt="">
+</div>
+
+<div class="bo-kpi-grid" id="kpi"></div>
+
+<div class="bo-main-layout"><div class="bo-left-col">
+<div class="bo-card">
+ <div class="bo-card-title-row">
+  <div class="bo-card-heading"><span class="bo-card-icon is-blue"><i class="ti ti-chart-bar"></i></span>
+   <div><h5 class="bo-card-title">Revenue &amp; Payments Trend</h5><p class="bo-card-sub">Invoiced, paid and outstanding over the reporting period.</p></div></div>
+  <div class="bo-range-group"><button class="bo-range-btn is-active">7 Days</button><button class="bo-range-btn">30 Days</button><button class="bo-range-btn">3 Months</button><button class="bo-range-btn">1 Year</button></div>
+ </div>
+ <div style="height:200px;display:grid;place-items:center;color:#8a90a8;font-size:13px">(bar chart)</div>
+ <div class="d-flex gap-4 justify-content-center mt-3 fs-13 flex-wrap font-weight-600">
+  <span style="color:#2563eb"><i class="ti ti-circle-filled me-1"></i>Invoiced (₹ 1,62,500)</span>
+  <span style="color:#059669"><i class="ti ti-circle-filled me-1"></i>Paid (₹ 1,24,800)</span>
+  <span style="color:#f59e0b"><i class="ti ti-circle-filled me-1"></i>Outstanding (₹ 37,700)</span>
+ </div>
+</div>
+
+<div class="bo-card">
+ <div class="bo-card-title-row">
+  <div class="bo-card-heading"><span class="bo-card-icon is-purple"><i class="ti ti-report-money"></i></span>
+   <div><h5 class="bo-card-title">Revenue by Service</h5><p class="bo-card-sub">Invoice amount by service type.</p></div></div>
+  <a class="bo-card-link" href="#">View detailed <i class="ti ti-arrow-right"></i></a>
+ </div>
+ <div class="bo-categories-grid" id="cats"></div>
+</div>
+</div>
+
+<div class="bo-right-col">
+<div class="bo-card">
+ <div class="bo-card-title-row"><div class="bo-card-heading"><span class="bo-card-icon is-green"><i class="ti ti-wallet"></i></span><h5 class="bo-card-title">Payment Methods</h5></div></div>
+ <div class="bo-method-grid" id="methods"></div>
+</div>
+<div class="bo-card">
+ <div class="bo-card-title-row"><div class="bo-card-heading"><span class="bo-card-icon is-orange"><i class="ti ti-clock-hour-4"></i></span><h5 class="bo-card-title">Outstanding by Age</h5></div><a class="bo-card-link" href="#">View all <i class="ti ti-arrow-right"></i></a></div>
+ <div class="bo-aging-grid">
+  <div class="bo-aging-card is-green"><span class="bo-aging-label">0-7 days</span><div class="bo-aging-amount">₹ 4,200</div><span class="bo-aging-sub">6 invoices</span></div>
+  <div class="bo-aging-card is-yellow"><span class="bo-aging-label">8-30 days</span><div class="bo-aging-amount">₹ 3,800</div><span class="bo-aging-sub">4 invoices</span></div>
+  <div class="bo-aging-card is-orange"><span class="bo-aging-label">31-60 days</span><div class="bo-aging-amount">₹ 2,150</div><span class="bo-aging-sub">3 invoices</span></div>
+  <div class="bo-aging-card is-red"><span class="bo-aging-label">&gt; 60 days</span><div class="bo-aging-amount">₹ 1,300</div><span class="bo-aging-sub">2 invoices</span></div>
+ </div>
+</div>
+</div></div></div>
+<script>
+function spark(vals,color){const peak=Math.max(...vals);const c=vals.map((v,i)=>({x:i/(vals.length-1)*100,y:peak===0?50:100-(v/peak)*92-4}));
+const d=c.map((p,i)=>(i?'L':'M')+p.x+' '+p.y).join(' ');
+return `<svg class="spark" style="height:34px" viewBox="0 0 100 100" preserveAspectRatio="none"><path class="spark-area" d="${d} L100 100 L0 100 Z" style="fill:${color};opacity:.14"></path><path class="spark-line" d="${d}" style="stroke:${color}" vector-effect="non-scaling-stroke"></path></svg>`}
+const kpis=[["Total Revenue","₹ 48,250","ti ti-database","is-blue","#2563eb",[20,30,24,28,22,30,26],"↑ 12%","is-up",null],
+["Total Paid","₹ 36,800","ti ti-circle-check","is-green","#059669",[14,22,18,21,16,23,19],"↑ 18%","is-up",null],
+["Outstanding","₹ 11,450","ti ti-hourglass","is-orange","#f59e0b",[6,9,7,10,6,8,7],"↑ 18%","is-up-danger",null],
+["Total Invoices","42","ti ti-file-invoice","is-purple","#9333ea",[5,8,6,7,5,7,4],null,null,"28 Paid · 8 Pending · 6 Partial"]];
+document.getElementById('kpi').innerHTML=kpis.map(([l,v,ic,cl,col,s,d,tone,foot])=>`
+<div class="bo-kpi-card"><div class="bo-kpi-head"><span class="bo-kpi-label">${l}</span><div class="bo-kpi-icon ${cl}"><i class="${ic}"></i></div></div>
+<div class="bo-kpi-value">${v}</div>
+<div class="bo-kpi-foot">${foot?`<span class="bo-kpi-split">${foot}</span>`:`<span class="bo-trend-pill ${tone}"><i class="ti ti-arrow-up-right"></i>${d.replace('↑ ','')}</span><span class="bo-kpi-sub">vs previous period</span>`}</div>
+${spark(s,col)}</div>`).join('');
+const cats=[["Consultation","₹ 28,400","ti ti-stethoscope","is-purple",58,45],["Pharmacy","₹ 12,600","ti ti-pill","is-green",36,20],["Laboratory","₹ 5,800","ti ti-flask","is-orange",18,15],["Other services","₹ 6,450","ti ti-layout-grid","is-blue",12,10]];
+document.getElementById('cats').innerHTML=cats.map(([l,a,ic,cl,n,pct])=>`
+<div class="bo-category-card"><div class="bo-cat-icon-badge ${cl}"><i class="${ic}"></i></div>
+<span class="bo-cat-label">${l}</span><div class="bo-cat-amount">${a}</div><span class="bo-cat-count">${n} invoices</span>
+<div class="bo-cat-bar-row"><div class="bo-cat-bar"><div class="bo-cat-bar-fill ${cl}" style="width:${pct}%"></div></div><span class="bo-cat-pct">${pct}%</span></div></div>`).join('');
+const ms=[["Cash","₹ 18,400","ti ti-cash","#16a34a","#22c55e",42],["Card","₹ 12,600","ti ti-credit-card","#9333ea","#a855f7",29],["UPI","₹ 9,800","ti ti-device-mobile","#2563eb","#3b82f6",23],["Others","₹ 2,450","ti ti-dots","#0284c7","#94a3b8",6]];
+document.getElementById('methods').innerHTML=ms.map(([n,a,ic,c,f,p])=>`
+<div class="bo-method-tile"><span class="bo-method-icon" style="color:${c};background:${c}1a"><i class="${ic}"></i></span>
+<span class="bo-method-name">${n}</span><div class="bo-method-amount">${a}</div><span class="bo-method-pct">${p}%</span>
+<div class="bo-method-bar"><div class="bo-method-bar-fill" style="width:${p}%;background:${f}"></div></div></div>`).join('');
+</script></body></html>

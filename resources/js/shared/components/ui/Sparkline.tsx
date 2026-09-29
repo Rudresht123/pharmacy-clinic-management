@@ -9,7 +9,23 @@
  * dots to distort, and the stroke is held at one width by
  * vector-effect="non-scaling-stroke".
  */
-export function Sparkline({ points, height = 34 }: { points: number[]; height?: number }) {
+export function Sparkline({
+    points,
+    height = 34,
+    color,
+}: {
+    points: number[];
+    height?: number;
+    /**
+     * Tint, for a caller that owns the hue rather than inheriting it.
+     *
+     * Left out, the line takes its colour from the stylesheet — which is what
+     * a row inside a table wants, since the whole column should look the same.
+     * A stat tile is the other case: its curve belongs to the one measure the
+     * tile is about, and that measure already has a colour on the card above.
+     */
+    color?: string;
+}) {
     if (points.length < 2) {
         return <span className="spark is-flat" style={{ height }} aria-hidden="true" />;
     }
@@ -34,8 +50,24 @@ export function Sparkline({ points, height = 34 }: { points: number[]; height?: 
             preserveAspectRatio="none"
             aria-hidden="true"
         >
-            <path className="spark-area" d={`${line} L100 100 L0 100 Z`} />
-            <path className="spark-line" d={line} vectorEffect="non-scaling-stroke" />
+            {/*
+                INLINE `style`, NOT `fill`/`stroke` ATTRIBUTES. The stylesheet
+                sets both on these classes, and a CSS declaration beats a
+                presentation attribute however specific the attribute looks —
+                so the tint passed in here was silently thrown away and every
+                tile drew the same grey curve.
+            */}
+            <path
+                className="spark-area"
+                d={`${line} L100 100 L0 100 Z`}
+                style={color ? { fill: color, opacity: 0.14 } : undefined}
+            />
+            <path
+                className="spark-line"
+                d={line}
+                style={color ? { stroke: color } : undefined}
+                vectorEffect="non-scaling-stroke"
+            />
         </svg>
     );
 }

@@ -39,6 +39,25 @@ export type Surface = 'light' | 'dark' | 'brand';
 /** Background treatment for the page header / breadcrumb card. */
 export type PageHead = 'light' | 'brand' | 'plain';
 
+/** Background treatment for the main content area, behind the cards. */
+export type ContentBackground = 'white' | 'image';
+
+/**
+ * The photo options for a picked content background.
+ *
+ * Files live in public/images — served as-is, so the path here is the
+ * filename only.
+ */
+export const CONTENT_BACKGROUND_IMAGES = [
+    { file: 'backgroundImage.png', label: 'Background 1' },
+    { file: 'backgroundImage1.png', label: 'Background 2' },
+    { file: 'backgroundImage2.png', label: 'Background 3' },
+    { file: 'backgroundImage3.png', label: 'Background 4' },
+    { file: 'backgroundImage5.png', label: 'Background 5' },
+    { file: 'backgroundImage6.png', label: 'Background 6' },
+    { file: 'backgroundImage7.png', label: 'Background 7' },
+] as const;
+
 export interface AppSettings {
     theme: Theme;
     /** Any hex colour, not just a preset. */
@@ -49,6 +68,15 @@ export interface AppSettings {
     pageHead: PageHead;
     /** Start the sidebar collapsed on desktop. */
     compactSidebar: boolean;
+    /**
+     * Plain white, or one of the CONTENT_BACKGROUND_IMAGES photos.
+     *
+     * Only applies in light mode — dark mode always keeps its own
+     * background so switching themes never fights this choice.
+     */
+    contentBackground: ContentBackground;
+    /** Which photo, when contentBackground is 'image'. */
+    contentImage: string;
 }
 
 const DEFAULTS: AppSettings = {
@@ -59,6 +87,8 @@ const DEFAULTS: AppSettings = {
     topbar: 'light',
     pageHead: 'light',
     compactSidebar: false,
+    contentBackground: 'white',
+    contentImage: CONTENT_BACKGROUND_IMAGES[0].file,
 };
 
 const LEGACY_NAMES: Record<string, string> = {
@@ -91,6 +121,8 @@ function normaliseAccent(value: unknown): string {
 const SURFACES: Surface[] = ['light', 'dark', 'brand'];
 const PAGE_HEADS: PageHead[] = ['light', 'brand', 'plain'];
 const THEMES: Theme[] = ['light', 'dark', 'system'];
+const CONTENT_BACKGROUNDS: ContentBackground[] = ['white', 'image'];
+const CONTENT_IMAGE_FILES: string[] = CONTENT_BACKGROUND_IMAGES.map((image) => image.file);
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 
@@ -140,6 +172,14 @@ function read(): AppSettings {
                 ? (parsed.pageHead as PageHead)
                 : DEFAULTS.pageHead,
             compactSidebar: parsed.compactSidebar === true,
+            contentBackground: CONTENT_BACKGROUNDS.includes(
+                parsed.contentBackground as ContentBackground,
+            )
+                ? (parsed.contentBackground as ContentBackground)
+                : DEFAULTS.contentBackground,
+            contentImage: CONTENT_IMAGE_FILES.includes(parsed.contentImage as string)
+                ? (parsed.contentImage as string)
+                : DEFAULTS.contentImage,
         };
     } catch {
         return DEFAULTS;
@@ -195,6 +235,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         root.dataset.sidebar = settings.sidebar;
         root.dataset.topbar = settings.topbar;
         root.dataset.pagehead = settings.pageHead;
+
+        root.dataset.contentBg = settings.contentBackground;
+        root.style.setProperty('--content-bg-image', `url(/images/${settings.contentImage})`);
 
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));

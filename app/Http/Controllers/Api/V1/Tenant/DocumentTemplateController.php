@@ -12,6 +12,7 @@ use App\Models\Tenant\User;
 use App\Services\Documents\DocumentService;
 use App\Services\Documents\TemplateAuthority;
 use App\Services\Documents\TemplateResolver;
+use App\Services\Permissions\Permission;
 use App\Services\Tenancy\TenantBranchAccess;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Support\Documents\DocumentTypes;
@@ -63,7 +64,7 @@ class DocumentTemplateController extends BaseApiController
         }
 
         $branch = $request->attributes->get('tenant.branch');
-        $modules = app(\App\Services\Permissions\Permission::class)
+        $modules = app(Permission::class)
             ->modulesAt($organization, $branch === null ? null : (int) $branch);
 
         return $this->ok(array_map(
@@ -393,7 +394,7 @@ class DocumentTemplateController extends BaseApiController
             abort(403, 'You do not work at that branch.');
         }
 
-        $samples = Placeholders::samplesFor($type);
+        $samples = [...Placeholders::samplesFor($type), ...$this->sampleSettlement($type)];
 
         $pdf = $documents->preview(
             $type,
@@ -410,6 +411,35 @@ class DocumentTemplateController extends BaseApiController
     }
 
     /**
+     * How the sample bill was paid.
+     *
+     * NOT PLACEHOLDERS, which is why these are not in Placeholders. Nothing in
+     * a template names the payment mode or the PAID stamp — the layout draws
+     * them from the record whenever a bill has been settled, so there is no
+     * token for somebody to insert and therefore no sample value either.
+     *
+     * Without them the preview of an invoice showed a letterhead, a patient
+     * and a set of charges, and then stopped — no stamp, no payment panel, no
+     * signature boxes. That is half the sheet missing from the picture
+     * somebody is editing against.
+     *
+     * @return array<string, string>
+     */
+    private function sampleSettlement(string $type): array
+    {
+        if (! in_array($type, ['clinic_invoice', 'pharmacy_invoice', 'payment_receipt'], true)) {
+            return [];
+        }
+
+        return [
+            'payment_method' => 'UPI',
+            'payment_reference' => 'UPI1234567890',
+            'payment_date' => '24 Sep 2026, 4:16 PM',
+            'payment_state' => 'PAID',
+        ];
+    }
+
+    /**
      * Obviously-fake rows, so a preview shows the shape without pretending.
      *
      * @return array<string, array{columns: list<string>, rows: list<list<string>>}>
@@ -422,6 +452,37 @@ class DocumentTemplateController extends BaseApiController
                 'rows' => [
                     ['Amoxicillin 500mg', '1-0-1', 'Twice daily', '5 days', 'After food'],
                     ['Paracetamol 650mg', '1-1-1', 'As needed', '3 days', 'If fever'],
+                ],
+            ]],
+            /*
+             * THE CONSOLIDATED BILL, grouped the way a real one is.
+             *
+             * It was missing entirely, so the preview of the one document the
+             * whole billing module exists to produce showed a letterhead, a
+             * patient panel and a set of totals with no charges between them.
+             * The shape here mirrors DocumentPayload::fromInvoice() — same
+             * columns, same category bands — because a preview that does not
+             * exercise the grouped table is a preview that cannot show whether
+             * the grouped table prints.
+             */
+            'clinic_invoice' => ['invoice_items' => [
+                'columns' => ['#', 'Service / item', 'HSN/SAC', 'Qty', 'Rate', 'Tax', 'Amount'],
+                'rows' => [],
+                'groups' => [
+                    ['title' => 'Registration', 'rows' => [
+                        ['1', 'Registration fee', '999316', '1', '100.00', '0%', '₹100.00'],
+                    ]],
+                    ['title' => 'Consultation', 'rows' => [
+                        ['2', 'Consultation — General Medicine', '999312', '1', '500.00', '0%', '₹500.00'],
+                        ['3', 'Injection', '999319', '1', '100.00', '0%', '₹100.00'],
+                    ]],
+                    ['title' => 'Laboratory', 'rows' => [
+                        ['4', 'Complete Blood Count (CBC)', '998346', '1', '250.00', '0%', '₹250.00'],
+                    ]],
+                    ['title' => 'Pharmacy', 'rows' => [
+                        ['5', 'Emeset 4 mg (Tablet)', '300490', '20', '8.50', '5%', '₹170.00'],
+                        ['6', 'Dispo Van 5 ml (Syrup)', '300490', '33', '12.00', '5%', '₹396.00'],
+                    ]],
                 ],
             ]],
             'pharmacy_invoice', 'payment_receipt' => ['invoice_items' => [

@@ -268,7 +268,7 @@ export default function LocationFormPage({
             {!embedded && (
                 <PageHeader
                     title={isEdit ? 'Edit Location' : 'Add Location'}
-                    icon={isEdit ? 'ti ti-edit' : 'ti ti-building-plus'}
+                    icon={isEdit ? 'ti ti-edit' : 'ti ti-map-pin-plus'}
                     tone={isEdit ? 'amber' : 'emerald'}
                     crumbs={[
                         { label: 'Locations', to: '/locations' },

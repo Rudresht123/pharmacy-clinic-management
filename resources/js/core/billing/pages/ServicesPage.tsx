@@ -118,8 +118,8 @@ export default function ServicesPage() {
                 icon="ti ti-list-details"
                 tone="violet"
                 crumbs={[
-                    { label: 'Billing', to: '/billing' },
-                    { label: 'Settings', to: '/billing/settings' },
+                    { label: 'Settings' },
+                    { label: 'Billing', to: '/settings/billing' },
                     { label: 'Services' },
                 ]}
                 actions={

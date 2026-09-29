@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    The billing banner's illustration.
+
+    ORIGINAL AND LOCAL. It is drawn here rather than fetched, because a
+    deployed clinic's browser must not have to reach a CDN to finish painting
+    its own dashboard — and because a stock illustration is a licence somebody
+    has to keep track of for as long as the product ships.
+
+    SVG rather than a raster: it sits behind a heading at whatever width the
+    banner turns out to be, from a 1440px desktop down to a phone, and a PNG
+    scaled across that range is either soft at the top end or heavy at the
+    bottom. It also means the palette below is the application's own, so the
+    art changes when the brand does.
+
+    Drawn on a 520x190 canvas, anchored bottom-right. Everything is decoration:
+    the banner carries no information in here, so it is `aria-hidden` at the
+    point of use and may be cropped by a narrow viewport without loss.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 190" width="520" height="190" fill="none" role="presentation">
+    <defs>
+        <linearGradient id="bh-paper" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ffffff"/>
+            <stop offset="1" stop-color="#f1f5f9"/>
+        </linearGradient>
+        <linearGradient id="bh-calc" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#3b82f6"/>
+            <stop offset="1" stop-color="#2563eb"/>
+        </linearGradient>
+        <linearGradient id="bh-pot" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fbbf24"/>
+            <stop offset="1" stop-color="#f59e0b"/>
+        </linearGradient>
+    </defs>
+
+    <!-- Soft depth behind the objects, so nothing sits flat on the band. -->
+    <g opacity="0.5">
+        <ellipse cx="300" cy="150" rx="185" ry="26" fill="#dbeafe"/>
+        <circle cx="128" cy="62" r="40" fill="#eff6ff"/>
+        <circle cx="430" cy="52" r="32" fill="#ecfdf5"/>
+    </g>
+
+    <!-- ── Plant, far left ────────────────────────────────────────────── -->
+    <g>
+        <path d="M96 96c-14-6-24-20-22-35 15-2 30 8 34 23z" fill="#34d399"/>
+        <path d="M104 94c10-11 12-28 4-40-13 7-19 24-14 38z" fill="#10b981"/>
+        <path d="M108 99c13-3 25-15 26-28-14-3-29 6-33 19z" fill="#059669"/>
+        <path d="M100 100c1-14 0-28-3-38" stroke="#047857" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- pot -->
+        <path d="M84 102h34l-4 30a6 6 0 0 1-6 5H94a6 6 0 0 1-6-5z" fill="url(#bh-pot)"/>
+        <rect x="80" y="96" width="42" height="10" rx="3.5" fill="#fcd34d"/>
+    </g>
+
+    <!-- ── The invoice, the thing this page is about ───────────────────── -->
+    <g transform="rotate(-7 232 82)">
+        <rect x="176" y="18" width="112" height="128" rx="9" fill="url(#bh-paper)" stroke="#e2e8f0" stroke-width="1.5"/>
+        <!-- header band + title -->
+        <path d="M176 27a9 9 0 0 1 9-9h94a9 9 0 0 1 9 9v13H176z" fill="#2563eb"/>
+        <rect x="188" y="25" width="46" height="7" rx="3.5" fill="#ffffff" opacity="0.92"/>
+        <!-- ruled lines -->
+        <g fill="#cbd5e1">
+            <rect x="188" y="54" width="60" height="5" rx="2.5"/>
+            <rect x="188" y="68" width="88" height="5" rx="2.5"/>
+            <rect x="188" y="82" width="74" height="5" rx="2.5"/>
+            <rect x="188" y="96" width="88" height="5" rx="2.5"/>
+        </g>
+        <!-- the total, picked out in the paid colour -->
+        <rect x="188" y="114" width="40" height="7" rx="3.5" fill="#94a3b8"/>
+        <rect x="240" y="112" width="36" height="11" rx="5.5" fill="#059669" opacity="0.15"/>
+        <rect x="246" y="115" width="24" height="5" rx="2.5" fill="#059669"/>
+    </g>
+
+    <!-- ── Stethoscope ────────────────────────────────────────────────── -->
+    <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <path d="M318 40v28a26 26 0 0 0 52 0V40" stroke="#1e40af" stroke-width="6"/>
+        <path d="M344 94v18a22 22 0 0 0 22 22h6" stroke="#1e40af" stroke-width="6"/>
+        <circle cx="318" cy="36" r="6" fill="#3b82f6" stroke="none"/>
+        <circle cx="370" cy="36" r="6" fill="#3b82f6" stroke="none"/>
+        <circle cx="386" cy="134" r="15" fill="#2563eb" stroke="none"/>
+        <circle cx="386" cy="134" r="7.5" fill="#bfdbfe" stroke="none"/>
+    </g>
+
+    <!-- ── Calculator ─────────────────────────────────────────────────── -->
+    <g transform="rotate(6 452 100)">
+        <rect x="416" y="62" width="74" height="86" rx="10" fill="url(#bh-calc)"/>
+        <rect x="425" y="71" width="56" height="18" rx="5" fill="#eff6ff" opacity="0.95"/>
+        <rect x="455" y="77" width="20" height="5" rx="2.5" fill="#60a5fa"/>
+        <g fill="#ffffff" opacity="0.9">
+            <rect x="425" y="97" width="14" height="11" rx="3.5"/>
+            <rect x="446" y="97" width="14" height="11" rx="3.5"/>
+            <rect x="467" y="97" width="14" height="11" rx="3.5"/>
+            <rect x="425" y="114" width="14" height="11" rx="3.5"/>
+            <rect x="446" y="114" width="14" height="11" rx="3.5"/>
+            <rect x="467" y="114" width="14" height="11" rx="3.5"/>
+            <rect x="425" y="131" width="35" height="11" rx="3.5"/>
+        </g>
+        <rect x="467" y="131" width="14" height="11" rx="3.5" fill="#34d399"/>
+    </g>
+
+    <!-- ── Floating crosses and sparkles ──────────────────────────────── -->
+    <g fill="#3b82f6">
+        <path d="M46 34h9v9h9v9h-9v9h-9v-9h-9v-9h9z" opacity="0.85"/>
+        <path d="M262 150h6v6h6v6h-6v6h-6v-6h-6v-6h6z" opacity="0.5"/>
+        <path d="M404 16h7v7h7v7h-7v7h-7v-7h-7v-7h7z" opacity="0.7"/>
+    </g>
+    <g fill="#10b981">
+        <path d="M146 150h6v6h6v6h-6v6h-6v-6h-6v-6h6z" opacity="0.55"/>
+        <path d="M500 40h5v5h5v5h-5v5h-5v-5h-5v-5h5z" opacity="0.6"/>
+    </g>
+    <g fill="#93c5fd">
+        <circle cx="300" cy="22" r="3.5"/>
+        <circle cx="88" cy="140" r="3"/>
+        <circle cx="416" cy="168" r="3"/>
+    </g>
+</svg>

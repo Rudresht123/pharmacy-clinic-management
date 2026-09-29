@@ -32,7 +32,7 @@ export function BranchesSection({ step, onDirty, nav }: SectionProps) {
             actions={
                 // With none yet, the empty state carries the one "Add a branch".
                 editing === null && (branches ?? []).length > 0 && (
-                    <Button icon="ti ti-building-plus" onClick={() => setEditing('new')}>
+                    <Button icon="ti ti-map-pin-plus" onClick={() => setEditing('new')}>
                         Add a branch
                     </Button>
                 )
@@ -57,7 +57,7 @@ export function BranchesSection({ step, onDirty, nav }: SectionProps) {
                     title="No clinics or branches yet"
                     description="Add the first place you see patients or keep stock. You need at least one active branch to finish setup."
                     action={
-                        <Button icon="ti ti-building-plus" onClick={() => setEditing('new')}>
+                        <Button icon="ti ti-map-pin-plus" onClick={() => setEditing('new')}>
                             Add a branch
                         </Button>
                     }

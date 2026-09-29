@@ -311,12 +311,25 @@ class ConsultationTest extends TenantTestCase
      */
     public function test_the_day_carries_the_write_up_for_the_patient_in_the_room(): void
     {
-        [$organization, , , $appointmentId] = $this->clinic();
+        [$organization, , $branchId, $appointmentId] = $this->clinic();
 
-        $this->postJson("/api/v1/tenant/appointments/{$appointmentId}/check-in")->assertOk();
-        $this->postJson("/api/v1/tenant/appointments/{$appointmentId}/start")->assertOk();
+        /*
+         * Arrived and called through by the desk: `appointments.queue` is the
+         * one capability the owner does not bypass — see
+         * Permission::DESK_CAPABILITIES.
+         */
+        $this->checkInAtDesk($organization, $branchId, $appointmentId);
+        $this->postJson("/api/v1/tenant/appointments/{$appointmentId}/call")->assertOk();
 
+        /*
+         * `.../start` used to live here and no longer exists: starting a
+         * consultation was split off the desk's capability onto the doctor's
+         * own route, which is the boundary this file is about.
+         */
         $this->signInAsDoctor($organization, 'anjali@clinic.test');
+
+        $this->postJson("/api/v1/tenant/appointments/{$appointmentId}/consultation/start")
+            ->assertOk();
 
         $this->putJson("/api/v1/tenant/appointments/{$appointmentId}/consultation", [
             'chief_complaint' => 'Chest pain since 2 days',

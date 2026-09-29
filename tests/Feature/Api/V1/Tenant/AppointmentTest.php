@@ -31,6 +31,10 @@ class AppointmentTest extends TenantTestCase
     /** A Monday, so the weekly pattern has something to match. */
     private const MONDAY = '2026-09-07';
 
+    private const DOCTOR_EMAIL = 'anjali@clinic.test';
+
+    private const DOCTOR_PASSWORD = 'doctor-secret-1';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -109,6 +113,63 @@ class AppointmentTest extends TenantTestCase
             'phone' => $phone,
             'is_active' => true,
         ])->id);
+    }
+
+    /**
+     * Open a login for the fixture's doctor, then hand the session back to
+     * the desk.
+     *
+     * Starting, finishing and reopening a consultation are the doctor's own
+     * routes — the desk arrives a patient and calls them through, and that is
+     * the whole of its authority — so a test that walks a visit to the end
+     * needs the doctor at the keyboard. The owner opens the login, as the
+     * Doctors screen would.
+     */
+    private function giveTheDoctorALogin(Organization $organization, int $doctorId): void
+    {
+        $this->signInAsOwner($organization);
+
+        $this->putJson("/api/v1/tenant/doctors/{$doctorId}", [
+            'name' => 'Dr. Anjali Sharma',
+            'is_active' => true,
+            'account' => ['email' => self::DOCTOR_EMAIL, 'password' => self::DOCTOR_PASSWORD],
+        ])->assertOk();
+
+        $this->signInAsStaff($organization);
+    }
+
+    private function signInAsDoctor(Organization $organization): void
+    {
+        $this->flushSession();
+        $this->app['auth']->forgetGuards();
+
+        $this->postJson('/api/v1/tenant/auth/login', [
+            'subdomain' => $organization->subdomain,
+            'email' => self::DOCTOR_EMAIL,
+            'password' => self::DOCTOR_PASSWORD,
+        ])->assertOk();
+    }
+
+    /**
+     * The doctor's minimum on a patient the desk has called: taken in,
+     * written up, finished. A blank consultation cannot be completed, hence
+     * the complaint.
+     *
+     * @return array<string, mixed> the visit as completing it left it
+     */
+    private function seenByTheDoctor(Organization $organization, int $appointmentId): array
+    {
+        $this->signInAsDoctor($organization);
+
+        $this->postJson("/api/v1/tenant/appointments/{$appointmentId}/consultation/start")->assertOk();
+
+        $this->putJson("/api/v1/tenant/appointments/{$appointmentId}/consultation", [
+            'chief_complaint' => 'Fever since last night',
+        ])->assertOk();
+
+        return $this->postJson("/api/v1/tenant/appointments/{$appointmentId}/consultation/complete")
+            ->assertOk()
+            ->json('data');
     }
 
     private function book(int $doctorId, int $branchId, int $patientId, string $slot): array
@@ -424,19 +485,21 @@ class AppointmentTest extends TenantTestCase
     /** Arrive, be called, be seen — and not in any other order. */
     public function test_an_appointment_moves_through_the_states_in_order(): void
     {
-        [, $doctorId, $branchId, $patientId] = $this->clinic();
+        [$organization, $doctorId, $branchId, $patientId] = $this->clinic();
+        $this->giveTheDoctorALogin($organization, $doctorId);
 
         $appointment = $this->book($doctorId, $branchId, $patientId, '10:30');
         $id = $appointment['id'];
 
         // Cannot start a consultation with somebody who has not arrived.
-        $this->postJson("/api/v1/tenant/appointments/{$id}/start")->assertStatus(422);
+        $this->signInAsDoctor($organization);
+        $this->postJson("/api/v1/tenant/appointments/{$id}/consultation/start")->assertStatus(422);
 
+        $this->signInAsStaff($organization);
         $this->postJson("/api/v1/tenant/appointments/{$id}/check-in")->assertOk();
-        $this->postJson("/api/v1/tenant/appointments/{$id}/start")->assertOk();
+        $this->postJson("/api/v1/tenant/appointments/{$id}/call")->assertOk();
 
-        $done = $this->postJson("/api/v1/tenant/appointments/{$id}/complete")
-            ->assertOk()->json('data');
+        $done = $this->seenByTheDoctor($organization, $id);
 
         $this->assertSame(Appointment::STATUS_COMPLETED, $done['status']);
         $this->assertNotNull($done['completed_at']);
@@ -448,10 +511,12 @@ class AppointmentTest extends TenantTestCase
          * day it happened. This visit is dated to a fixed Monday in the past,
          * so the door is shut on it here; the test below opens one from today.
          */
+        $this->signInAsStaff($organization);
         $this->postJson("/api/v1/tenant/appointments/{$id}/cancel")->assertStatus(422);
         $this->assertSame([Appointment::STATUS_IN_CONSULTATION], $done['next_states']);
 
-        $this->postJson("/api/v1/tenant/appointments/{$id}/reopen")->assertStatus(422);
+        $this->signInAsDoctor($organization);
+        $this->postJson("/api/v1/tenant/appointments/{$id}/consultation/reopen")->assertStatus(422);
     }
 
     /**
@@ -474,7 +539,8 @@ class AppointmentTest extends TenantTestCase
          */
         $this->travelTo(self::MONDAY.' 11:00:00');
 
-        [, $doctorId, $branchId, $patientId] = $this->clinic();
+        [$organization, $doctorId, $branchId, $patientId] = $this->clinic();
+        $this->giveTheDoctorALogin($organization, $doctorId);
 
         $today = now()->toDateString();
 
@@ -486,10 +552,12 @@ class AppointmentTest extends TenantTestCase
             'type' => 'walk_in',
         ])->assertCreated()->json('data.id');
 
-        $this->postJson("/api/v1/tenant/appointments/{$id}/start")->assertOk();
-        $this->postJson("/api/v1/tenant/appointments/{$id}/complete")->assertOk();
+        // A walk-in has arrived by being booked; the desk still calls them.
+        $this->postJson("/api/v1/tenant/appointments/{$id}/call")->assertOk();
 
-        $back = $this->postJson("/api/v1/tenant/appointments/{$id}/reopen")
+        $this->seenByTheDoctor($organization, $id);
+
+        $back = $this->postJson("/api/v1/tenant/appointments/{$id}/consultation/reopen")
             ->assertOk()
             ->json('data');
 

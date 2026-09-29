@@ -181,7 +181,7 @@ export default function SalesListPage() {
                 crumbs={[{ label: 'Pharmacy' }, { label: 'Bills' }]}
                 actions={
                     canSell && store ? (
-                        <Button icon="ti ti-cash-register" onClick={() => navigate(`/pharmacy/pos?store=${store.id}`)}>
+                        <Button icon="ti ti-building-store" onClick={() => navigate(`/pharmacy/pos?store=${store.id}`)}>
                             Open the counter
                         </Button>
                     ) : undefined

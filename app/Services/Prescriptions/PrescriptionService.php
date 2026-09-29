@@ -8,6 +8,9 @@ use App\Models\Tenant\Medicine;
 use App\Models\Tenant\Prescription;
 use App\Models\Tenant\PrescriptionItem;
 use App\Models\Tenant\User;
+use App\Services\Clinic\ClinicEvent;
+use App\Services\Clinic\ClinicEventDispatcher;
+use App\Support\Clinic\ClinicEvents;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
@@ -24,6 +27,11 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
  */
 class PrescriptionService
 {
+    public function __construct(
+        /* Raised after commit — see ClinicEventDispatcher. */
+        private readonly ClinicEventDispatcher $events,
+    ) {}
+
     /** What a request may set on a line, besides which medicine it is. */
     private const LINE_FIELDS = [
         'dose_amount', 'dose_unit', 'morning', 'afternoon', 'evening', 'night', 'frequency',
@@ -124,6 +132,18 @@ class PrescriptionService
                 'issued_at' => now(),
                 'valid_until' => $validUntil,
             ])->save();
+
+            /*
+             * Here rather than in create(), where a draft the doctor is still
+             * typing into would be sent to the patient. `assertDraft()` above
+             * refuses a second issue, so this cannot fire twice for one
+             * prescription.
+             */
+            $this->events->dispatch(
+                ClinicEvent::for(ClinicEvents::PRESCRIPTION_ISSUED, $locked, [
+                    'doctor_id' => $locked->doctor_id,
+                ]),
+            );
 
             return $locked;
         });

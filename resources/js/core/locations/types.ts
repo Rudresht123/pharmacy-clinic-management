@@ -26,6 +26,14 @@ export interface Location {
     /** Derived server-side so nothing has to re-check the date. */
     has_expired_licence: boolean;
 
+    /**
+     * This branch's own letterhead mark. Absent means it prints the
+     * organisation's — the same inheritance the document templates use.
+     * `logo_url` only arrives on endpoints that load the relation.
+     */
+    logo_url?: string | null;
+    has_logo?: boolean;
+
     custom_fields: Record<string, unknown>;
 
     created_at: string | null;

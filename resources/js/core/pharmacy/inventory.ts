@@ -283,6 +283,33 @@ export function useMovements(storeId: number | undefined, params: Params, enable
     );
 }
 
+export interface MovementsTotals {
+    count: number;
+    added: number;
+    deducted: number;
+    net: number;
+}
+
+export interface MovementsSummary extends MovementsTotals {
+    previous: MovementsTotals;
+}
+
+/** The four headline figures above the ledger, over the same filters as the table. */
+export function useMovementsSummary(storeId: number | undefined, params: Params, enabled = true) {
+    return useQuery({
+        queryKey: resourceKey('tenant/pharmacy', 'movements-summary', storeId, params),
+        queryFn: async (): Promise<MovementsSummary> => {
+            const { data } = await http.get<ApiResponse<MovementsSummary>>(
+                `/tenant/pharmacy-stores/${storeId}/movements/summary`,
+                { params },
+            );
+
+            return data.data;
+        },
+        enabled: enabled && storeId !== undefined,
+    });
+}
+
 export function useInwards(storeId: number | undefined, params: Params, enabled = true) {
     return usePage<StockInward>(
         ['inwards', storeId],

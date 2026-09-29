@@ -66,6 +66,12 @@ export default function PaymentsPage() {
                 ),
             }),
             column.display({
+                id: 'receipt',
+                header: 'Receipt #',
+                meta: { label: 'Receipt #' },
+                cell: (info) => <span className="tabular-nums">{info.row.original.receipt_number}</span>,
+            }),
+            column.display({
                 id: 'invoice',
                 header: 'Invoice #',
                 meta: { label: 'Invoice #' },

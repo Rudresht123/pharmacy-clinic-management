@@ -20,8 +20,11 @@ export interface TemplateConfig {
         logo_source: 'branch' | 'organization' | 'none';
         logo_position: 'left' | 'center' | 'right';
         title: string;
+        subtitle: string;
         lines: string[];
         legal_name: string;
+        department: string;
+        tagline: string;
         registration_no: string;
         show_divider: boolean;
     };

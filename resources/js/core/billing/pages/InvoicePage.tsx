@@ -317,6 +317,9 @@ export default function InvoicePage() {
                                                 {payment.is_refund && '↩ '}
                                                 {PAYMENT_METHOD_LABELS[payment.method] ?? payment.method}
                                             </b>
+                                            <span className="dr-sub d-block tabular-nums">
+                                                {payment.receipt_number}
+                                            </span>
                                             <span className="dr-sub d-block">
                                                 {formatDate(payment.paid_at)}
                                                 {payment.reference && ` · ${payment.reference}`}
