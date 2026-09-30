@@ -11,6 +11,7 @@ use App\Models\Tenant\DoctorSchedule;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
+use App\Services\Opd\VisitWorkflow;
 use App\Support\Opd\Weekday;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -101,6 +102,24 @@ class OpdBoardTest extends TenantTestCase
         $this->signInAsOwner($organization);
 
         return [$organization, $branchId, $doctors, $patients];
+    }
+
+    /**
+     * Called through and taken into the room.
+     *
+     * Through the workflow itself rather than HTTP: WHO may call and who may
+     * start is VisitWorkflowTest's business, and it takes a receptionist and a
+     * doctor with a login to say it. This suite is about what the board shows
+     * once somebody is in there — the workflow's own rules still apply.
+     */
+    private function withTheDoctor(Organization $organization, int $appointmentId): void
+    {
+        $this->onTenant($organization, function () use ($appointmentId) {
+            $workflow = app(VisitWorkflow::class);
+
+            $workflow->call(Appointment::on('organization')->findOrFail($appointmentId));
+            $workflow->startConsultation(Appointment::on('organization')->findOrFail($appointmentId));
+        });
     }
 
     private function walkIn(int $doctorId, int $branchId, int $patientId): array
@@ -199,12 +218,12 @@ class OpdBoardTest extends TenantTestCase
      */
     public function test_the_queue_counts_who_is_with_a_doctor(): void
     {
-        [, $branchId, $doctors, $patients] = $this->clinic();
+        [$organization, $branchId, $doctors, $patients] = $this->clinic();
 
         $first = $this->walkIn($doctors[0], $branchId, $patients[0]);
         $this->walkIn($doctors[1], $branchId, $patients[1]);
 
-        $this->postJson("/api/v1/tenant/appointments/{$first['id']}/start")->assertOk();
+        $this->withTheDoctor($organization, $first['id']);
 
         $this->getJson(
             "/api/v1/tenant/appointments?location_id={$branchId}&date=".self::MONDAY
@@ -224,12 +243,12 @@ class OpdBoardTest extends TenantTestCase
     /** Counts, who has waited longest, and what each doctor is on. */
     public function test_the_board_reports_the_department(): void
     {
-        [, $branchId, $doctors, $patients] = $this->clinic();
+        [$organization, $branchId, $doctors, $patients] = $this->clinic();
 
         $first = $this->walkIn($doctors[0], $branchId, $patients[0]);
         $this->walkIn($doctors[1], $branchId, $patients[1]);
 
-        $this->postJson("/api/v1/tenant/appointments/{$first['id']}/start")->assertOk();
+        $this->withTheDoctor($organization, $first['id']);
 
         $board = $this->getJson(
             "/api/v1/tenant/opd/today?location_id={$branchId}&date=".self::MONDAY
@@ -363,14 +382,17 @@ class OpdBoardTest extends TenantTestCase
         [$organization, $branchId, $doctors, $patients] = $this->clinic();
 
         $this->onTenant($organization, function () use ($branchId, $doctors, $patients) {
-            // Seen an hour ago, and holding the first token of the day.
-            Appointment::on('organization')->create([
+            // Seen an hour ago, and holding the first token of the day. Forced,
+            // because the consultation status is the workflow's to set — and
+            // the database refuses a completed visit whose consultation is not.
+            Appointment::on('organization')->forceCreate([
                 'customer_id' => $patients[0],
                 'doctor_id' => $doctors[0],
                 'location_id' => $branchId,
                 'appointment_date' => self::MONDAY,
                 'type' => Appointment::WALK_IN,
                 'status' => Appointment::STATUS_COMPLETED,
+                'consultation_status' => Appointment::CONSULT_COMPLETED,
                 'token_no' => 1,
                 'checked_in_at' => now()->subHours(2),
                 'started_at' => now()->subHours(2)->addMinutes(5),
@@ -435,13 +457,26 @@ class OpdBoardTest extends TenantTestCase
                 Appointment::STATUS_IN_CONSULTATION,
                 Appointment::STATUS_BOOKED,
             ] as $index => $status) {
-                Appointment::on('organization')->create([
+                /*
+                 * Each one whole across the workflow's three axes, as the
+                 * database insists: finished means the consultation is too,
+                 * and in consultation means somebody is in the room.
+                 */
+                Appointment::on('organization')->forceCreate([
                     'customer_id' => $patients[$index % count($patients)],
                     'doctor_id' => $doctors[1],
                     'location_id' => $branchId,
                     'appointment_date' => self::MONDAY,
                     'type' => Appointment::BOOKED,
                     'status' => $status,
+                    'consultation_status' => match ($status) {
+                        Appointment::STATUS_COMPLETED => Appointment::CONSULT_COMPLETED,
+                        Appointment::STATUS_IN_CONSULTATION => Appointment::CONSULT_IN_PROGRESS,
+                        default => Appointment::CONSULT_NOT_STARTED,
+                    },
+                    'queue_status' => $status === Appointment::STATUS_IN_CONSULTATION
+                        ? Appointment::QUEUE_WITH_DOCTOR
+                        : null,
                     'slot_at' => sprintf('1%d:00', $index),
                     'token_no' => $status === Appointment::STATUS_BOOKED ? null : 90 + $index,
                     'checked_in_at' => $status === Appointment::STATUS_BOOKED
@@ -568,7 +603,7 @@ class OpdBoardTest extends TenantTestCase
                 [now()->subHours(2)->addMinutes(5), now()->subMinutes(20)],
                 [now()->subHours(2)->addMinutes(10), null],
             ] as $index => [$arrived, $started]) {
-                Appointment::on('organization')->create([
+                Appointment::on('organization')->forceCreate([
                     'customer_id' => $patients[$index % count($patients)],
                     'doctor_id' => $doctors[0],
                     'location_id' => $branchId,
@@ -577,6 +612,10 @@ class OpdBoardTest extends TenantTestCase
                     'status' => $started
                         ? Appointment::STATUS_COMPLETED
                         : Appointment::STATUS_CHECKED_IN,
+                    // Finished visits carry a finished consultation.
+                    'consultation_status' => $started
+                        ? Appointment::CONSULT_COMPLETED
+                        : Appointment::CONSULT_NOT_STARTED,
                     'token_no' => $index + 1,
                     'checked_in_at' => $arrived,
                     'started_at' => $started,

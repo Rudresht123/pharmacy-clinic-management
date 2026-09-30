@@ -36,6 +36,8 @@ class BranchNumberingTest extends TenantTestCase
     /** Inside FY 2026-27. */
     private const A_DAY = '2026-09-07 11:00:00';
 
+    private const MIGRATION = 'database/migrations/organization/2026_10_15_000000_number_invoices_and_receipts_by_branch.php';
+
     private Organization $organization;
 
     private int $gurgaon;
@@ -80,6 +82,20 @@ class BranchNumberingTest extends TenantTestCase
             ],
             [['source_type' => InvoiceItem::SOURCE_CUSTOM, 'description' => 'Consultation', 'unit_price' => $price]],
         );
+    }
+
+    /** A tenant migration runs with `organization` as the default connection. */
+    private function asMigrationWould(callable $callback): mixed
+    {
+        $previous = DB::getDefaultConnection();
+
+        DB::setDefaultConnection(TenantConnectionService::CONNECTION);
+
+        try {
+            return $callback();
+        } finally {
+            DB::setDefaultConnection($previous);
+        }
     }
 
     private function pay(Invoice $invoice, float $amount): InvoicePayment
@@ -178,6 +194,63 @@ class BranchNumberingTest extends TenantTestCase
 
             $this->assertSame([$payment->receipt_number], $seen->receipts);
             $this->assertSame('GGN/RCP/26-27/00001', $payment->receipt_number);
+        });
+    }
+
+    /**
+     * The migration, run over a clinic that has been billing for a while.
+     *
+     * Rolled back first, so the invoices and payments below are made the old
+     * way — one organisation-wide invoice counter, no receipt numbers — then
+     * brought forward, which is exactly what `tenants:migrate` does to every
+     * live clinic.
+     */
+    public function test_payments_already_taken_are_numbered_by_branch_and_year_in_the_order_taken(): void
+    {
+        $this->onTenant($this->organization, function () {
+            $migration = require base_path(self::MIGRATION);
+
+            $this->asMigrationWould(fn () => $migration->down());
+
+            // March 2026 is FY 2025-26; September is 2026-27.
+            $this->travelTo('2026-03-20 10:00:00');
+            $march = $this->bill($this->gurgaon);
+            app(BillingService::class)->recordPayment($march, ['method' => 'cash', 'amount' => 500]);
+
+            $this->travelTo(self::A_DAY);
+            $september = $this->bill($this->gurgaon);
+            $delhi = $this->bill($this->delhi);
+
+            app(BillingService::class)->recordPayment($september->fresh(), ['method' => 'cash', 'amount' => 200]);
+            app(BillingService::class)->recordPayment($delhi->fresh(), ['method' => 'upi', 'amount' => 500]);
+            app(BillingService::class)->recordPayment($september->fresh(), ['method' => 'cash', 'amount' => 300]);
+
+            $toRefund = InvoicePayment::query()->where('invoice_id', $september->id)->orderBy('id')->firstOrFail();
+            app(BillingService::class)->refund($september->fresh(), $toRefund, 50, 'Overcharged');
+
+            $legacy = $september->fresh()->invoice_number;
+
+            $this->asMigrationWould(fn () => $migration->up());
+
+            $numbers = InvoicePayment::query()->orderBy('id')->pluck('receipt_number')->all();
+
+            $this->assertSame([
+                'GGN/RCP/25-26/00001',  // March, its own year
+                'GGN/RCP/26-27/00001',
+                'DEL/RCP/26-27/00001',  // Delhi counts on its own
+                'GGN/RCP/26-27/00002',
+                'GGN/RFD/26-27/00001',
+            ], $numbers);
+
+            // What was printed stays printed.
+            $this->assertSame($legacy, $september->fresh()->invoice_number);
+            $this->assertStringStartsWith('INV-', $legacy);
+
+            // And the counters carry on from where the backfill left them.
+            $this->assertSame('GGN/INV/26-27/00001', $this->bill($this->gurgaon)->invoice_number);
+
+            // The refund left 50 owing on September's bill.
+            $this->assertSame('GGN/RCP/26-27/00003', $this->pay($september, 50)->receipt_number);
         });
     }
 

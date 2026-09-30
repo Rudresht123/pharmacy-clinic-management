@@ -107,6 +107,7 @@ class BillingOverviewController extends BaseApiController
         return response()->json([
             'data' => collect($page->items())->map(fn (InvoicePayment $payment) => [
                 'id' => $payment->id,
+                'receipt_number' => $payment->receipt_number,
                 'invoice_id' => $payment->invoice_id,
                 'invoice_number' => $payment->invoice?->invoice_number,
                 'patient_name' => $payment->invoice?->customer?->name

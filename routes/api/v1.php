@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\Platform\MessagingSettingsController;
 use App\Http\Controllers\Api\V1\Tenant\AppointmentController;
 use App\Http\Controllers\Api\V1\Tenant\AutomationRuleController;
 use App\Http\Controllers\Api\V1\Tenant\BillableServiceController;
+use App\Http\Controllers\Api\V1\Tenant\BillingNumberingController;
 use App\Http\Controllers\Api\V1\Tenant\BillingOverviewController;
 use App\Http\Controllers\Api\V1\Tenant\BillingSettingController;
 use App\Http\Controllers\Api\V1\Tenant\InvoiceController;
@@ -667,6 +668,8 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('billable-services.index');
                 Route::get('billing/settings', [BillingSettingController::class, 'show'])
                     ->name('billing.settings.show');
+                Route::get('billing/numbering', [BillingNumberingController::class, 'show'])
+                    ->name('billing.numbering.show');
             });
 
             Route::post('invoices', [InvoiceController::class, 'store'])
@@ -705,6 +708,10 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             Route::put('billing/settings', [BillingSettingController::class, 'update'])
                 ->middleware('permission:billing.manage_settings')
                 ->name('billing.settings.update');
+            // Each branch's invoice, receipt and refund prefixes.
+            Route::put('billing/numbering', [BillingNumberingController::class, 'update'])
+                ->middleware('permission:billing.manage_settings')
+                ->name('billing.numbering.update');
 
             Route::middleware('permission:billing.manage_services')->group(function () {
                 Route::post('billable-services', [BillableServiceController::class, 'store'])

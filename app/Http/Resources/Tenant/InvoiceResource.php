@@ -59,6 +59,7 @@ class InvoiceResource extends JsonResource
             'items' => InvoiceItemResource::collection($this->whenLoaded('items')),
             'payments' => $this->whenLoaded('payments', fn () => $this->payments->map(fn ($payment) => [
                 'id' => $payment->id,
+                'receipt_number' => $payment->receipt_number,
                 'method' => $payment->method,
                 'amount' => (float) $payment->amount,
                 'reference' => $payment->reference,

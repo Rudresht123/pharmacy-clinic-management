@@ -11,6 +11,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * A payment is a positive amount and a refund is one too — `is_refund` says
  * the direction it moved. A refund carries `refunds_payment_id`, so what
  * undid what stays traceable.
+ *
+ * `receipt_number` is deliberately not fillable: the database takes it inside
+ * the INSERT, from the branch's receipt or refund series (GGN/RCP/26-27/00001)
+ * — see NumberSeries. Re-read the row to see it.
  */
 class InvoicePayment extends Model
 {

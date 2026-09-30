@@ -93,6 +93,8 @@ export interface StockMovement {
     unit_cost: string | null;
     medicine_id: number;
     medicine_name?: string;
+    medicine_dosage_form?: string | null;
+    medicine_item_kind?: string | null;
     medicine_batch_id: number;
     batch_number?: string | null;
     reference_type: string | null;

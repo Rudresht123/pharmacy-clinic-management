@@ -3089,6 +3089,13 @@ body {
    base, so the border still reserves its space (no layout shift) and dark
    mode's own border-color rule below still has something to colour in.
 */
+.card {
+    background-color: #ffffff;
+    border-color: transparent;
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
 
 /* =========================================================
    Dark theme — Bootstrap and theme surfaces
@@ -3108,6 +3115,16 @@ body {
 }
 
 [data-theme='dark'] .card {
+    background-color: var(--surface);
+    border-color: var(--line);
+    color: var(--ink-2);
+}
+
+/* Belt and braces for .filter-card specifically — it is a .card plus its
+   own modifier class on the same element, and the KPI-tile-style pages
+   this session added (Billing, Inventory Movement) are exactly where a
+   stray white box on a dark page would be most visible. */
+[data-theme='dark'] .filter-card {
     background-color: var(--surface);
     border-color: var(--line);
     color: var(--ink-2);
