@@ -6,6 +6,7 @@ use App\Models\Tenant\Invoice;
 use App\Models\Tenant\InvoiceItem;
 use App\Models\Tenant\InvoicePayment;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -265,7 +266,30 @@ class BillingReports
      */
     private function outstandingPatients(?array $branches, ?int $branchId): array
     {
-        $rows = Invoice::query()
+        return $this->outstandingQuery($branches, $branchId)
+            ->limit(8)
+            ->get()
+            ->map(fn ($row) => $this->outstandingRow($row))
+            ->all();
+    }
+
+    /**
+     * The same list, a page at a time — the dashboard table pages through it
+     * rather than stopping at the first eight.
+     *
+     * @param  list<int>|null  $branches
+     */
+    public function outstandingPatientsPage(?array $branches, ?int $branchId, int $perPage): LengthAwarePaginator
+    {
+        return $this->outstandingQuery($branches, $branchId)
+            ->paginate($perPage)
+            ->through(fn ($row) => $this->outstandingRow($row));
+    }
+
+    /** @param  list<int>|null  $branches */
+    private function outstandingQuery(?array $branches, ?int $branchId): Builder
+    {
+        return Invoice::query()
             ->when($branches !== null, fn (Builder $q) => $q->whereIn('invoices.location_id', $branches))
             ->when($branchId !== null, fn (Builder $q) => $q->where('invoices.location_id', $branchId))
             ->outstanding()
@@ -280,25 +304,28 @@ class BillingReports
             ->selectRaw('SUM(invoices.paid_amount) AS paid')
             ->groupByRaw('COALESCE(invoices.customer_id::text, invoices.walk_in_phone), COALESCE(customers.name, invoices.walk_in_name, invoices.walk_in_phone, \'Walk-in\')')
             ->orderByRaw('MAX(invoices.invoice_date) DESC')
-            ->limit(8)
-            ->get();
+            // A tie-break, so two people last seen the same day keep their
+            // order from one page to the next.
+            ->orderByRaw('COALESCE(invoices.customer_id::text, invoices.walk_in_phone)');
+    }
 
-        return $rows->map(function ($row) {
-            $total = round((float) $row->total, 2);
-            $paid = round((float) $row->paid, 2);
-            $lastVisit = Carbon::parse($row->last_visit);
+    /** @return array{patient: string, customer_id: int|null, phone: string|null, last_visit: string, total: float, paid: float, due: float, days: int} */
+    private function outstandingRow(object $row): array
+    {
+        $total = round((float) $row->total, 2);
+        $paid = round((float) $row->paid, 2);
+        $lastVisit = Carbon::parse($row->last_visit);
 
-            return [
-                'patient' => (string) $row->patient_name,
-                'customer_id' => $row->customer_id !== null ? (int) $row->customer_id : null,
-                'phone' => $row->phone ?? $row->walk_in_phone,
-                'last_visit' => $lastVisit->toDateString(),
-                'total' => $total,
-                'paid' => $paid,
-                'due' => round(max(0.0, $total - $paid), 2),
-                'days' => (int) $lastVisit->diffInDays(Carbon::today()),
-            ];
-        })->all();
+        return [
+            'patient' => (string) $row->patient_name,
+            'customer_id' => $row->customer_id !== null ? (int) $row->customer_id : null,
+            'phone' => $row->phone ?? $row->walk_in_phone,
+            'last_visit' => $lastVisit->toDateString(),
+            'total' => $total,
+            'paid' => $paid,
+            'due' => round(max(0.0, $total - $paid), 2),
+            'days' => (int) $lastVisit->diffInDays(Carbon::today()),
+        ];
     }
 
     /**
@@ -526,5 +553,113 @@ class BillingReports
             ->pluck('net', 'method')
             ->map(fn ($value) => round((float) $value, 2))
             ->all();
+    }
+
+    /**
+     * The payments register's own cards and tender tabs.
+     *
+     * Collected and refunded are kept apart rather than netted, same as the
+     * two cards on screen — "how much came in" and "how much went back out"
+     * are different questions, and a till reconciles against both.
+     *
+     * The method breakdown carries a COUNT as well as the amount: the tabs
+     * read "Cash (58)", and {@see methods()} only ever had to answer "what
+     * share", not "how many".
+     *
+     * @param  list<int>|null  $branches
+     * @return array{
+     *     total_collected: array{value: float, change: float|null},
+     *     transactions: array{value: int, change: float|null},
+     *     total_refunds: array{value: float, change: float|null},
+     *     methods: list<array{method: string, count: int, amount: float, share: float}>,
+     * }
+     */
+    public function paymentsSummary(Carbon $from, Carbon $to, ?array $branches, ?int $branchId): array
+    {
+        $between = fn (Carbon $from, Carbon $to) => InvoicePayment::query()
+            ->whereHas('invoice', fn (Builder $q) => $q
+                ->when($branches !== null, fn (Builder $inner) => $inner->whereIn('location_id', $branches))
+                ->when($branchId !== null, fn (Builder $inner) => $inner->where('location_id', $branchId)))
+            ->whereBetween('paid_at', [$from, $to]);
+
+        $collected = (float) (clone $between($from, $to))->where('is_refund', false)->sum('amount');
+        $refunded = (float) (clone $between($from, $to))->where('is_refund', true)->sum('amount');
+        $count = (int) (clone $between($from, $to))->count();
+
+        $methodRows = (clone $between($from, $to))
+            ->selectRaw('method')
+            ->selectRaw('COUNT(*) AS cnt')
+            ->selectRaw('SUM(CASE WHEN is_refund THEN -amount ELSE amount END) AS net')
+            ->groupBy('method')
+            ->get();
+
+        $netTotal = $methodRows->sum(fn ($row) => max(0.0, (float) $row->net));
+
+        $methods = $methodRows
+            ->map(fn ($row) => [
+                'method' => (string) $row->method,
+                'count' => (int) $row->cnt,
+                'amount' => round((float) $row->net, 2),
+                'share' => $netTotal > 0 ? round((max(0.0, (float) $row->net) / $netTotal) * 100, 1) : 0.0,
+            ])
+            ->sortByDesc('amount')
+            ->values()
+            ->all();
+
+        // One window earlier, for the "+12%" under each card — same shape as previousWindow().
+        $length = $from->diffInDays($to) + 1;
+        $previousTo = (clone $from)->subDay()->endOfDay();
+        $previousFrom = (clone $previousTo)->subDays($length - 1)->startOfDay();
+
+        $previousCollected = (float) (clone $between($previousFrom, $previousTo))->where('is_refund', false)->sum('amount');
+        $previousRefunded = (float) (clone $between($previousFrom, $previousTo))->where('is_refund', true)->sum('amount');
+        $previousCount = (int) (clone $between($previousFrom, $previousTo))->count();
+
+        $change = fn (float $now, float $before) => $before > 0 ? round((($now - $before) / $before) * 100) : null;
+
+        return [
+            'total_collected' => ['value' => round($collected, 2), 'change' => $change($collected, $previousCollected)],
+            'transactions' => ['value' => $count, 'change' => $change($count, $previousCount)],
+            'total_refunds' => ['value' => round($refunded, 2), 'change' => $change($refunded, $previousRefunded)],
+            'methods' => $methods,
+        ];
+    }
+
+    /**
+     * The outstanding register's own cards — unpaid against partially paid.
+     *
+     * Not windowed unless asked: a debt from last month is still owed today
+     * (see outstandingQuery()'s own note), so `$from`/`$to` only narrow by the
+     * bill's own date when the screen's date filter is actually set, rather
+     * than defaulting to a window that would hide older debt.
+     *
+     * @param  list<int>|null  $branches
+     * @return array{
+     *     total_outstanding: float,
+     *     total_invoices: int,
+     *     unpaid: array{count: int, amount: float},
+     *     partial: array{count: int, amount: float},
+     * }
+     */
+    public function outstandingSummary(?array $branches, ?int $branchId, ?Carbon $from, ?Carbon $to): array
+    {
+        $query = fn () => Invoice::query()
+            ->when($branches !== null, fn (Builder $q) => $q->whereIn('location_id', $branches))
+            ->when($branchId !== null, fn (Builder $q) => $q->where('location_id', $branchId))
+            ->outstanding()
+            ->when($from !== null, fn (Builder $q) => $q->whereDate('invoice_date', '>=', $from->toDateString()))
+            ->when($to !== null, fn (Builder $q) => $q->whereDate('invoice_date', '<=', $to->toDateString()));
+
+        $owed = fn (Builder $q) => round((float) $q->sum(DB::raw('total_amount - paid_amount')), 2);
+
+        $unpaid = $query()->where('payment_status', Invoice::UNPAID);
+        $partial = $query()->where('payment_status', Invoice::PARTIAL);
+
+        return [
+            'total_outstanding' => $owed($query()),
+            'total_invoices' => (int) $query()->count(),
+            'unpaid' => ['count' => (int) (clone $unpaid)->count(), 'amount' => $owed(clone $unpaid)],
+            'partial' => ['count' => (int) (clone $partial)->count(), 'amount' => $owed(clone $partial)],
+        ];
     }
 }

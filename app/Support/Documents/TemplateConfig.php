@@ -128,7 +128,7 @@ class TemplateConfig
                  */
                 'font_size' => match (true) {
                     $receipt => 9,
-                    in_array($typeKey, ['clinic_invoice', 'pharmacy_invoice'], true) => 10,
+                    in_array($typeKey, ['clinic_invoice', 'pharmacy_invoice', 'clinic_receipt', 'clinic_refund'], true) => 10,
                     default => 11,
                 },
                 'font_family' => 'sans-serif',

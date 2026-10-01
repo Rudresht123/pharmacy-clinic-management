@@ -22,6 +22,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Tests\Support\RecordingDocumentAutomation;
 use Tests\TenantTestCase;
@@ -392,12 +393,10 @@ class ClinicEventTest extends TenantTestCase
     }
 
     /**
-     * Where Step 3 enforces "one document per event".
-     *
-     * Nothing generates a document yet, so there is no row to be unique
-     * against. What can be pinned now is the key that constraint will use:
-     * two instalments are two receipts, and the same payment raised again —
-     * a replayed job, a retried callback — is the same receipt.
+     * The event's own identity: two instalments are two events, and the same
+     * payment raised again — a replayed job, a retried callback — is the same
+     * one. What the automation files is keyed on the record rather than on
+     * this; DocumentRulesTest pins that.
      */
     public function test_one_payment_has_one_identity_however_often_it_is_raised(): void
     {
@@ -420,14 +419,19 @@ class ClinicEventTest extends TenantTestCase
 
     public function test_a_configured_rule_runs_through_real_automation_and_logs_no_patient_details(): void
     {
+        // The real automation files a real PDF, which needs the module and a disk.
+        Storage::fake('local');
+        $this->artisan('modules:sync');
+        $this->grantModule($this->organization, 'documents');
+
         $this->onTenant($this->organization, function () {
-            // What Step 3's table will return: this clinic receipts payments.
+            // What the rules table would return: this clinic receipts payments.
             $this->app->instance(DocumentRules::class, new class extends DocumentRules
             {
                 public function for(ClinicEvent $event): array
                 {
                     return $event->key === ClinicEvents::PAYMENT_RECEIVED
-                        ? [new DocumentRule('payment_receipt', whatsapp: true)]
+                        ? [new DocumentRule('clinic_receipt', whatsapp: true)]
                         : [];
                 }
             });
@@ -447,6 +451,7 @@ class ClinicEventTest extends TenantTestCase
                 'clinic-event.received',
                 'document-automation.rules-found',
                 'document-automation.started',
+                'document-automation.generated',
                 'document-automation.completed',
             ] as $expected) {
                 $this->assertContains($expected, $messages);
@@ -457,7 +462,7 @@ class ClinicEventTest extends TenantTestCase
             $this->assertNotContains('clinic-event.failed', $messages);
 
             $started = $logged[array_search('document-automation.started', $messages, true)]['context'];
-            $this->assertSame('payment_receipt', $started['document_type']);
+            $this->assertSame('clinic_receipt', $started['document_type']);
             $this->assertSame(ClinicEvents::PAYMENT_RECEIVED, $started['event']);
 
             $completed = $logged[array_search('document-automation.completed', $messages, true)]['context'];

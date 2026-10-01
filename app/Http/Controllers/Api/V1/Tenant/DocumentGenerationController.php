@@ -5,12 +5,13 @@ namespace App\Http\Controllers\Api\V1\Tenant;
 use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Http\Resources\Tenant\PatientDocumentResource;
 use App\Models\Tenant\Appointment;
-use App\Models\Tenant\Customer;
 use App\Models\Tenant\Invoice;
+use App\Models\Tenant\InvoicePayment;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\PharmacySale;
 use App\Models\Tenant\Prescription;
 use App\Services\Documents\DocumentService;
+use App\Services\Documents\DocumentSubjects;
 use App\Services\Tenancy\TenantBranchAccess;
 use App\Support\Documents\DocumentTypes;
 use Illuminate\Database\Eloquent\Model;
@@ -58,7 +59,7 @@ class DocumentGenerationController extends BaseApiController
             abort(403, 'This action is not available to you.');
         }
 
-        $subject = $this->subject($type['subject'], (int) $validated['subject_id']);
+        $subject = DocumentSubjects::find($type['subject'], (int) $validated['subject_id']);
 
         if (! $subject) {
             // 404 rather than 422: an id that is not there and an id that is
@@ -67,6 +68,20 @@ class DocumentGenerationController extends BaseApiController
         }
 
         $this->mustReach($request, $subject);
+
+        /*
+         * Already made by the clinic's own rule — a receipt filed the moment
+         * the payment was taken. Printing it again is opening that one, not
+         * putting a second receipt for the same payment on the record.
+         */
+        $filed = $this->documents->filedAutomatically($validated['document_type'], $subject);
+
+        if ($filed !== null) {
+            return $this->ok(
+                PatientDocumentResource::make($filed->load(['file', 'uploader', 'location'])),
+                'Document ready.',
+            );
+        }
 
         $branchId = $request->attributes->get('tenant.branch');
         $branch = $branchId === null ? null : Location::find((int) $branchId);
@@ -92,25 +107,6 @@ class DocumentGenerationController extends BaseApiController
     }
 
     /**
-     * The record this document is made from.
-     *
-     * A closed match on the type's declared subject — never a class name from
-     * the request, which is how an endpoint like this becomes a way to read
-     * any table in the database.
-     */
-    private function subject(string $subjectType, int $id): ?Model
-    {
-        return match ($subjectType) {
-            DocumentTypes::SUBJECT_CUSTOMER => Customer::find($id),
-            DocumentTypes::SUBJECT_APPOINTMENT => Appointment::with(['customer', 'doctor', 'consultation'])->find($id),
-            DocumentTypes::SUBJECT_PRESCRIPTION => Prescription::with(['customer', 'doctor', 'items'])->find($id),
-            DocumentTypes::SUBJECT_SALE => PharmacySale::with(['customer', 'items', 'payments'])->find($id),
-            DocumentTypes::SUBJECT_INVOICE => Invoice::with(['customer', 'items', 'payments', 'doctor'])->find($id),
-            default => null,
-        };
-    }
-
-    /**
      * Refuse a record belonging to a branch this person does not work at.
      *
      * A patient is organization-wide here and has no branch of their own, so
@@ -124,6 +120,7 @@ class DocumentGenerationController extends BaseApiController
             $subject instanceof Prescription,
             $subject instanceof PharmacySale,
             $subject instanceof Invoice => $subject->location_id,
+            $subject instanceof InvoicePayment => $subject->invoice?->location_id,
             default => null,
         };
 

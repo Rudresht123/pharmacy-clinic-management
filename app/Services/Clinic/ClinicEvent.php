@@ -79,10 +79,11 @@ final class ClinicEvent
      * What makes this event this event, and not a second copy of it.
      *
      * A retried request, a double-tapped button and a replayed job all
-     * produce the same string here. Nothing in Step 1 enforces it — there is
-     * no document table to be unique against yet — but every call site
-     * already produces it, so the constraint that lands in Step 3 goes on
-     * `patient_documents` alone and no caller has to change.
+     * produce the same string here. The document automation keys what it
+     * files on the RECORD rather than on this — see
+     * DocumentAutomation::keyFor() — because two events about one payment
+     * still want one receipt; this remains the event's own identity, for
+     * logs and for anything that reacts to the event rather than the record.
      *
      * The payment id is in `meta` rather than the subject, because two
      * payments against one invoice are two events about the same invoice.

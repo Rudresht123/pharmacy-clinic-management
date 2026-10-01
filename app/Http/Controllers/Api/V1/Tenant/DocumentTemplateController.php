@@ -427,7 +427,12 @@ class DocumentTemplateController extends BaseApiController
      */
     private function sampleSettlement(string $type): array
     {
-        if (! in_array($type, ['clinic_invoice', 'pharmacy_invoice', 'payment_receipt'], true)) {
+        // A refund's panel comes from its own tokens; only the stamp is drawn.
+        if ($type === 'clinic_refund') {
+            return ['payment_state' => 'REFUNDED'];
+        }
+
+        if (! in_array($type, ['clinic_invoice', 'pharmacy_invoice', 'payment_receipt', 'clinic_receipt'], true)) {
             return [];
         }
 

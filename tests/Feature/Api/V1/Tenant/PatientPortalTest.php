@@ -454,6 +454,8 @@ class PatientPortalTest extends TenantTestCase
         $this->asPatient($organization, $token)->getJson('/api/v1/tenant/appointments')->assertForbidden();
         $this->asPatient($organization, $token)->getJson('/api/v1/tenant/customers')->assertForbidden();
         $this->asPatient($organization, $token)->getJson('/api/v1/tenant/doctors')->assertForbidden();
+        // Asks for no capability, so it refuses patients itself.
+        $this->asPatient($organization, $token)->getJson('/api/v1/tenant/guides')->assertForbidden();
     }
 
     public function test_a_staff_token_opens_no_patient_screen(): void

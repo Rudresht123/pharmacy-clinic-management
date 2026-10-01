@@ -24,6 +24,7 @@ class InvoiceResource extends JsonResource
             'customer_name' => $this->whenLoaded('customer', fn () => $this->customer?->name)
                 ?? $this->walk_in_name,
             'walk_in_phone' => $this->walk_in_phone,
+            'customer_phone' => $this->whenLoaded('customer', fn () => $this->customer?->phone),
             'is_walk_in' => $this->customer_id === null,
 
             'appointment_id' => $this->appointment_id,
@@ -57,6 +58,7 @@ class InvoiceResource extends JsonResource
             'terms' => $this->terms,
 
             'items' => InvoiceItemResource::collection($this->whenLoaded('items')),
+            'items_count' => $this->whenCounted('items'),
             'payments' => $this->whenLoaded('payments', fn () => $this->payments->map(fn ($payment) => [
                 'id' => $payment->id,
                 'receipt_number' => $payment->receipt_number,

@@ -89,6 +89,34 @@ class Placeholders
                 ['token' => 'amount_paid', 'label' => 'Paid', 'sample' => '₹1,200.00'],
                 ['token' => 'balance', 'label' => 'Balance', 'sample' => '₹0.00'],
             ],
+
+            /*
+             * ONE PAYMENT. On a receipt `amount_paid` is what was handed over
+             * this time and `balance` is what was still owed straight after —
+             * not the bill's running figures, which move with every later
+             * instalment and would make a reprinted receipt disagree with the
+             * one in the patient's hand.
+             */
+            'receipt' => [
+                ['token' => 'receipt_number', 'label' => 'Receipt no.', 'sample' => 'GGN/RCP/26-27/00043'],
+                ['token' => 'receipt_date', 'label' => 'Received on', 'sample' => '24 Sep 2026, 4:16 PM'],
+                ['token' => 'payment_method', 'label' => 'Payment mode', 'sample' => 'UPI'],
+                ['token' => 'payment_reference', 'label' => 'Payment reference', 'sample' => 'UPI1234567890'],
+            ],
+
+            /*
+             * ONE REFUND, and the receipt it went back against. Its own tokens
+             * rather than the receipt's: a template that says "Received
+             * {{amount_paid}}" must not quietly print a refund as money in.
+             */
+            'refund' => [
+                ['token' => 'refund_number', 'label' => 'Refund no.', 'sample' => 'GGN/RFD/26-27/00007'],
+                ['token' => 'refund_date', 'label' => 'Refunded on', 'sample' => '26 Sep 2026, 11:05 AM'],
+                ['token' => 'refund_amount', 'label' => 'Amount refunded', 'sample' => '₹300.00'],
+                ['token' => 'refund_method', 'label' => 'Refund mode', 'sample' => 'UPI'],
+                ['token' => 'refund_reason', 'label' => 'Reason', 'sample' => 'Procedure not performed'],
+                ['token' => 'refunded_receipt_number', 'label' => 'Against receipt no.', 'sample' => 'GGN/RCP/26-27/00043'],
+            ],
         ];
     }
 

@@ -73,6 +73,20 @@ export function NavigationLoader({ minVisibleMs = 400, sameScreen }: NavigationL
         return () => window.clearTimeout(timer);
     }, [visible, isFetching, minVisibleMs]);
 
+    // A hard ceiling, independent of isFetching. The http client now times
+    // out a stuck request on its own, but this is the backstop: whatever the
+    // reason nothing ever settles, the overlay is a worse failure than
+    // letting the person see a half-loaded screen, so it comes down anyway.
+    useEffect(() => {
+        if (!visible) {
+            return;
+        }
+
+        const timer = window.setTimeout(() => setVisible(false), 25_000);
+
+        return () => window.clearTimeout(timer);
+    }, [visible]);
+
     if (!visible) {
         return null;
     }

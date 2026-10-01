@@ -234,3 +234,73 @@ export async function openDocument(document_: PatientDocument, download = false)
     // A moment, so the new tab has read it before the handle goes.
     window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
+
+/*
+|--------------------------------------------------------------------------
+| Automatic documents
+|--------------------------------------------------------------------------
+|
+| "On this event, at these branches, make this document." What may be
+| automated comes from the server — an event only where its module runs, a
+| document only where the event carries its record — so the screen offers
+| exactly what the automation can do and nothing it cannot.
+*/
+
+export interface AutomatableDocument {
+    key: string;
+    name: string;
+    description: string;
+}
+
+export interface AutomatableEvent {
+    key: string;
+    label: string;
+    module: string;
+    documents: AutomatableDocument[];
+}
+
+export interface DocumentRule {
+    id: number;
+    event_key: string;
+    document_type: string;
+    /** Null is every branch. */
+    location_id: number | null;
+}
+
+export interface DocumentRules {
+    events: AutomatableEvent[];
+    branches: { id: number; name: string; code: string | null }[];
+    rules: DocumentRule[];
+}
+
+export function useDocumentRules() {
+    return useQuery({
+        queryKey: key('rules'),
+        queryFn: async (): Promise<DocumentRules> => {
+            const { data } = await http.get<ApiResponse<DocumentRules>>('/tenant/document-rules');
+
+            return data.data;
+        },
+    });
+}
+
+/** Saves the whole set for one scope — every branch, or one branch. */
+export function useSaveDocumentRules() {
+    const client = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (input: {
+            location_id: number | null;
+            rules: { event_key: string; document_type: string }[];
+        }): Promise<DocumentRules> => {
+            const { data } = await http.put<ApiResponse<DocumentRules>>('/tenant/document-rules', input, {
+                silent: true,
+            });
+
+            return data.data;
+        },
+        onSuccess: (saved) => {
+            client.setQueryData(key('rules'), saved);
+        },
+    });
+}

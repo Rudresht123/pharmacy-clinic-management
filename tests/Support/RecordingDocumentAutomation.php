@@ -5,6 +5,8 @@ namespace Tests\Support;
 use App\Services\Clinic\ClinicEvent;
 use App\Services\Documents\DocumentAutomation;
 use App\Services\Documents\DocumentRules;
+use App\Services\Documents\DocumentService;
+use App\Services\Permissions\Permission;
 use App\Services\Tenancy\TenantConnectionService;
 use Illuminate\Support\Facades\DB;
 
@@ -41,7 +43,7 @@ class RecordingDocumentAutomation extends DocumentAutomation
 
     public function __construct()
     {
-        parent::__construct(new DocumentRules);
+        parent::__construct(new DocumentRules, app(DocumentService::class), app(Permission::class));
     }
 
     public function handle(ClinicEvent $event): void

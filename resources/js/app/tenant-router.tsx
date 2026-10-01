@@ -56,6 +56,9 @@ const OutstandingPage = lazy(() => import('@/core/billing/pages/OutstandingPage'
 const ServicesPage = lazy(() => import('@/core/billing/pages/ServicesPage'));
 const BillingSettingsPage = lazy(() => import('@/core/billing/pages/BillingSettingsPage'));
 const DocumentTemplatesPage = lazy(() => import('@/core/documents/pages/DocumentTemplatesPage'));
+const DocumentAutomationPage = lazy(() => import('@/core/documents/pages/DocumentAutomationPage'));
+const GuidesPage = lazy(() => import('@/core/guides/pages/GuidesPage'));
+const GuidePage = lazy(() => import('@/core/guides/pages/GuidePage'));
 const WhatsAppPage = lazy(() => import('@/core/communication/pages/WhatsAppPage'));
 const EmailPage = lazy(() => import('@/core/communication/pages/EmailPage'));
 const CampaignWizardPage = lazy(() => import('@/core/communication/pages/CampaignWizardPage'));
@@ -218,6 +221,11 @@ export function TenantAppRoutes() {
 
                         <Route element={<TenantShell />}>
                             <Route path="/dashboard" element={<HomeRoute />} />
+
+                            {/* How the software works — open to everybody
+                                signed in; a guide holds nothing to gate. */}
+                            <Route path="/guide" element={<GuidesPage />} />
+                            <Route path="/guide/:slug" element={<GuidePage />} />
 
                             {/*
                                 Every screen below names the capability its own
@@ -483,6 +491,16 @@ export function TenantAppRoutes() {
                                     <Route
                                         path="/settings/document-templates"
                                         element={<DocumentTemplatesPage />}
+                                    />
+                                </Route>
+                                {/* What every branch's counter makes on its own
+                                    is the organisation's call. */}
+                                <Route
+                                    element={<RequireCapability capability="documents.template_org" />}
+                                >
+                                    <Route
+                                        path="/settings/document-automation"
+                                        element={<DocumentAutomationPage />}
                                     />
                                 </Route>
                             </Route>

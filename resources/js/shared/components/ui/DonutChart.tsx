@@ -150,7 +150,7 @@ export function DonutChart({
                                 key={arc.label}
                                 className={`donut-arc${arc.muted ? ' is-muted' : ''}${
                                     hovered && hovered !== arc.label ? ' is-dimmed' : ''
-                                }`}
+                                }${hovered === arc.label ? ' is-active' : ''}`}
                                 cx="50"
                                 cy="50"
                                 r={RADIUS}

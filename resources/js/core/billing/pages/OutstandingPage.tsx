@@ -1,25 +1,43 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createColumnHelper, type ColumnDef } from '@tanstack/react-table';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
-import { Card } from '@/shared/components/ui/Card';
-import { DataTable } from '@/shared/components/ui/DataTable';
+import { EmptyState, ErrorState, LoadingBlock } from '@/shared/components/ui/Feedback';
+import { Pagination } from '@/shared/components/ui/Pagination';
 import { Button } from '@/shared/components/ui/Button';
-import { useServerTable } from '@/shared/hooks/useServerTable';
-import { formatDate } from '@/shared/utils/format';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
-import { PAYMENT_STATUS_LABELS, useInvoices, type Invoice } from '../api';
+import { PAYMENT_STATUS_LABELS, useInvoices, useOutstandingSummary, type Invoice } from '../api';
 import { PaymentDialog } from '../components/PaymentDialog';
+import {
+    DateRangePicker,
+    avatarTone,
+    last30DaysWindow,
+    formatDisplayDate,
+    initials,
+    money,
+    useDismiss,
+} from '../components/BillingWidgets';
 
-const money = (value: number) => `₹${value.toFixed(2)}`;
+const STATUS_OPTIONS = [
+    { value: '', label: 'All Status' },
+    { value: 'unpaid', label: 'Unpaid' },
+    { value: 'partial', label: 'Part paid' },
+];
 
-/** How long the money has been owed — the column that drives chasing. */
+const AGING_OPTIONS = [
+    { value: '', label: 'All' },
+    { value: 'fresh', label: '0–7 days' },
+    { value: 'recent', label: '8–30 days' },
+    { value: 'stale', label: '31–60 days' },
+    { value: 'old', label: '60+ days' },
+];
+
+const PAGE_SIZES = [10, 25, 50];
+
 function daysSince(iso: string | null): number {
     if (!iso) return 0;
 
-    const then = new Date(iso).getTime();
-
-    return Math.max(0, Math.floor((Date.now() - then) / 86_400_000));
+    return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
 }
 
 /**
@@ -30,175 +48,335 @@ function daysSince(iso: string | null): number {
  * the one worth a phone call, and a list that buries it under today's
  * part-payments is a list nobody finishes.
  *
- * Drafts never appear. A visit still collecting charges owes nothing yet;
- * putting it here would send somebody to chase a patient who has not been
- * billed.
+ * Drafts never appear (useInvoices only hides them unless include_drafts is
+ * set, and this screen never sets it) — a visit still collecting charges
+ * owes nothing yet, and putting it here would send somebody to chase a
+ * patient who has not been billed.
  */
 export default function OutstandingPage() {
     const navigate = useNavigate();
     const { can } = useTenantAuth();
     const canCollect = can('billing.collect_payment');
 
+    const [dateRange, setDateRange] = useState(last30DaysWindow);
+    const [status, setStatus] = useState('');
+    const [aging, setAging] = useState('');
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(25);
+    const [selected, setSelected] = useState<Set<number>>(new Set());
     const [paying, setPaying] = useState<Invoice>();
 
-    const table = useServerTable({ pageSize: 25, sort: 'invoice_date', direction: 'asc' });
+    const debouncedSearch = useDebounce(search);
 
-    const { data: page, isLoading, isFetching, isError, refetch } = useInvoices({
-        ...table.params,
+    useEffect(() => {
+        setPage(1);
+    }, [status, aging, debouncedSearch, dateRange.from, dateRange.to]);
+
+    useEffect(() => {
+        setSelected(new Set());
+    }, [page]);
+
+    const summaryQuery = useOutstandingSummary(dateRange);
+    const summary = summaryQuery.data;
+
+    const { data: pageData, isLoading, isFetching, isError, refetch } = useInvoices({
+        page,
+        per_page: perPage,
         outstanding_only: true,
+        from: dateRange.from || undefined,
+        to: dateRange.to || undefined,
+        payment_status: status || undefined,
+        aging: aging || undefined,
+        search: debouncedSearch.trim() || undefined,
+        sort: 'invoice_date',
+        direction: 'asc',
     });
 
-    const columns = useMemo(() => {
-        const column = createColumnHelper<Invoice>();
+    const rows = pageData?.data ?? [];
+    const meta = pageData?.meta;
 
-        return [
-            column.display({
-                id: 'invoice_number',
-                header: 'Invoice #',
-                meta: { label: 'Invoice #' },
-                cell: (info) => (
-                    <Link to={`/billing/invoices/${info.row.original.id}`}>
-                        <b>{info.row.original.invoice_number}</b>
-                    </Link>
-                ),
-            }),
-            column.display({
-                id: 'invoice_date',
-                header: 'Date',
-                meta: { label: 'Date' },
-                cell: (info) => (
-                    <span className="dr-sub">{formatDate(info.row.original.invoice_date)}</span>
-                ),
-            }),
-            column.display({
-                id: 'patient',
-                header: 'Patient',
-                meta: { label: 'Patient' },
-                cell: (info) => info.row.original.customer_name ?? '—',
-            }),
-            column.display({
-                id: 'total_amount',
-                header: 'Total',
-                meta: { label: 'Total' },
-                cell: (info) => (
-                    <span className="tabular-nums">{money(info.row.original.total_amount)}</span>
-                ),
-            }),
-            column.display({
-                id: 'paid_amount',
-                header: 'Paid',
-                meta: { label: 'Paid' },
-                cell: (info) => (
-                    <span className="tabular-nums">{money(info.row.original.paid_amount)}</span>
-                ),
-            }),
-            column.display({
-                id: 'outstanding',
-                header: 'Outstanding',
-                meta: { label: 'Outstanding' },
-                cell: (info) => (
-                    <span className="tabular-nums fw-bold text-danger">
-                        {money(info.row.original.outstanding)}
-                    </span>
-                ),
-            }),
-            column.display({
-                id: 'days',
-                header: 'Days',
-                meta: { label: 'Days' },
-                cell: (info) => {
-                    const days = daysSince(info.row.original.invoice_date);
-                    /* A week is the point at which a desk starts chasing. */
-                    const tone = days >= 7 ? 'danger' : days >= 3 ? 'warning' : 'secondary';
+    function toggleSelectAll() {
+        if (selected.size === rows.length && rows.length > 0) {
+            setSelected(new Set());
+        } else {
+            setSelected(new Set(rows.map((r) => r.id)));
+        }
+    }
 
-                    return (
-                        <span className={`badge bg-${tone}-subtle text-${tone}`}>{days}</span>
-                    );
-                },
-            }),
-            column.display({
-                id: 'status',
-                header: 'Status',
-                meta: { label: 'Status' },
-                cell: (info) => {
-                    const invoice = info.row.original;
-                    const tone = invoice.payment_status === 'partial' ? 'warning' : 'danger';
+    function toggleSelectOne(id: number) {
+        setSelected((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }
 
-                    return (
-                        <span className={`badge bg-${tone}-subtle text-${tone}`}>
-                            {PAYMENT_STATUS_LABELS[invoice.payment_status] ??
-                                invoice.payment_status}
-                        </span>
-                    );
-                },
-            }),
-            column.display({
-                id: 'actions',
-                header: '',
-                size: 190,
-                cell: (info) => (
-                    <div className="d-flex gap-1 justify-content-end">
-                        {canCollect && (
-                            <Button
-                                size="sm"
-                                icon="ti ti-cash"
-                                onClick={() => setPaying(info.row.original)}
-                            >
-                                Take payment
-                            </Button>
-                        )}
-                        <Button
-                            size="sm"
-                            variant="light"
-                            onClick={() => navigate(`/billing/invoices/${info.row.original.id}`)}
-                        >
-                            View
-                        </Button>
-                    </div>
-                ),
-            }),
-        ] as ColumnDef<Invoice, unknown>[];
-    }, [navigate, canCollect]);
+    function handleReset() {
+        setDateRange(last30DaysWindow());
+        setStatus('');
+        setAging('');
+        setSearch('');
+    }
 
-    const owed = (page?.data ?? []).reduce((sum, invoice) => sum + invoice.outstanding, 0);
+    const hasFilters = Boolean(status || aging || search);
 
     return (
-        <>
+        <div className="inv-page">
             <PageHeader
-                title="Outstanding"
+                title="Outstanding Invoices"
                 subtitle="Invoices with pending or partially paid amounts."
                 icon="ti ti-clock-dollar"
                 tone="amber"
-                crumbs={[{ label: 'Billing' }, { label: 'Outstanding' }]}
-                actions={
-                    owed > 0 ? (
-                        <span className="badge bg-danger-subtle text-danger fs-6">
-                            {money(owed)} on this page
-                        </span>
-                    ) : undefined
-                }
+                crumbs={[{ label: 'Billing', to: '/billing' }, { label: 'Outstanding Invoices' }]}
             />
 
-            <Card>
-                <DataTable
-                    data={page?.data ?? []}
-                    columns={columns}
-                    loading={isLoading}
-                    fetching={isFetching}
-                    error={isError}
-                    onRetry={refetch}
-                    server={{
-                        ...table,
-                        total: page?.meta.total ?? 0,
-                        pageCount: page?.meta.last_page ?? 1,
-                    }}
-                    searchPlaceholder="Search by patient, phone or invoice…"
-                    emptyIcon="ti ti-circle-check"
-                    emptyTone="emerald"
-                    emptyTitle="Nothing outstanding"
-                    emptyDescription="Every bill raised so far has been settled."
-                />
-            </Card>
+            <div className="inv-kpis">
+                <div className="inv-kpi">
+                    <span className="inv-kpi-icon is-red" aria-hidden="true">
+                        <i className="ti ti-currency-rupee" />
+                    </span>
+                    <div className="inv-kpi-body">
+                        <span className="inv-kpi-label">Total Outstanding</span>
+                        <div className="inv-kpi-row">
+                            <b className="inv-kpi-value inv-owed is-owed">{money(summary?.total_outstanding ?? 0)}</b>
+                        </div>
+                        <span className="inv-kpi-sub">Across {summary?.total_invoices ?? 0} invoices</span>
+                    </div>
+                </div>
+
+                <div className="inv-kpi">
+                    <span className="inv-kpi-icon is-blue" aria-hidden="true">
+                        <i className="ti ti-file-text" />
+                    </span>
+                    <div className="inv-kpi-body">
+                        <span className="inv-kpi-label">Total Invoices</span>
+                        <div className="inv-kpi-row">
+                            <b className="inv-kpi-value">{summary?.total_invoices ?? 0}</b>
+                        </div>
+                        <span className="inv-kpi-sub">With pending amount</span>
+                    </div>
+                </div>
+
+                <div className="inv-kpi">
+                    <span className="inv-kpi-icon is-red" aria-hidden="true">
+                        <i className="ti ti-alert-circle" />
+                    </span>
+                    <div className="inv-kpi-body">
+                        <span className="inv-kpi-label">Unpaid Invoices</span>
+                        <div className="inv-kpi-row">
+                            <b className="inv-kpi-value">{summary?.unpaid.count ?? 0}</b>
+                        </div>
+                        <span className="inv-kpi-sub">Total amount: {money(summary?.unpaid.amount ?? 0)}</span>
+                    </div>
+                </div>
+
+                <div className="inv-kpi">
+                    <span className="inv-kpi-icon is-orange" aria-hidden="true">
+                        <i className="ti ti-chart-pie" />
+                    </span>
+                    <div className="inv-kpi-body">
+                        <span className="inv-kpi-label">Partially Paid Invoices</span>
+                        <div className="inv-kpi-row">
+                            <b className="inv-kpi-value">{summary?.partial.count ?? 0}</b>
+                        </div>
+                        <span className="inv-kpi-sub">Total amount: {money(summary?.partial.amount ?? 0)}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="inv-card">
+                <div className="inv-filters">
+                    <label className="inv-search">
+                        <i className="ti ti-search" aria-hidden="true" />
+                        <input
+                            type="search"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search by invoice number, patient name or phone..."
+                        />
+                    </label>
+
+                    <DateRangePicker value={dateRange} onChange={setDateRange} />
+
+                    <label className="inv-select">
+                        <i className="ti ti-clock" aria-hidden="true" />
+                        <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                            {STATUS_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label className="inv-select">
+                        <i className="ti ti-hourglass" aria-hidden="true" />
+                        <select value={aging} onChange={(e) => setAging(e.target.value)}>
+                            {AGING_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.value === '' ? 'Aging: All' : opt.label}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <button type="button" className="inv-reset" onClick={handleReset} disabled={!hasFilters}>
+                        <i className="ti ti-refresh" aria-hidden="true" />
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <div className="inv-card">
+                <div className="inv-toolbar">
+                    <label className="inv-entries">
+                        Show
+                        <select value={perPage} onChange={(e) => setPerPage(Number(e.target.value))}>
+                            {PAGE_SIZES.map((size) => (
+                                <option key={size} value={size}>
+                                    {size}
+                                </option>
+                            ))}
+                        </select>
+                        Entries
+                    </label>
+
+                    <ExportButton dateRange={dateRange} status={status} aging={aging} search={debouncedSearch} />
+                </div>
+
+                {isLoading ? (
+                    <LoadingBlock label="Loading outstanding invoices…" />
+                ) : isError ? (
+                    <ErrorState onRetry={() => refetch()} />
+                ) : rows.length === 0 ? (
+                    <EmptyState
+                        icon="ti ti-circle-check"
+                        tone="emerald"
+                        title="Nothing outstanding"
+                        description="Every bill raised so far has been settled."
+                    />
+                ) : (
+                    <>
+                        <div className={`inv-table-wrap${isFetching ? ' is-refreshing' : ''}`}>
+                            <table className="inv-table">
+                                <thead>
+                                    <tr>
+                                        <th className="inv-check-col">
+                                            <input
+                                                type="checkbox"
+                                                className="form-check-input"
+                                                checked={selected.size === rows.length && rows.length > 0}
+                                                onChange={toggleSelectAll}
+                                                aria-label="Select all invoices"
+                                            />
+                                        </th>
+                                        <th>Invoice #</th>
+                                        <th>Date</th>
+                                        <th>Patient</th>
+                                        <th>Total</th>
+                                        <th>Paid</th>
+                                        <th>Outstanding</th>
+                                        <th>Days</th>
+                                        <th>Status</th>
+                                        <th className="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {rows.map((invoice) => {
+                                        const isSelected = selected.has(invoice.id);
+                                        const patientName = invoice.customer_name || 'Walk-in';
+                                        const days = daysSince(invoice.invoice_date);
+                                        const isPartial = invoice.payment_status === 'partial';
+
+                                        return (
+                                            <tr key={invoice.id} className={isSelected ? 'is-selected' : undefined}>
+                                                <td className="inv-check-col">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="form-check-input"
+                                                        checked={isSelected}
+                                                        onChange={() => toggleSelectOne(invoice.id)}
+                                                        aria-label={`Select invoice ${invoice.invoice_number}`}
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <Link to={`/billing/invoices/${invoice.id}`} className="inv-number">
+                                                        {invoice.invoice_number}
+                                                    </Link>
+                                                </td>
+                                                <td>
+                                                    <span className="inv-main is-plain">
+                                                        {formatDisplayDate(invoice.invoice_date)}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <div className="inv-person">
+                                                        <span className={`inv-avatar ${avatarTone(patientName)}`}>
+                                                            {initials(patientName)}
+                                                        </span>
+                                                        <span className="inv-main">{patientName}</span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span className="inv-num">{money(invoice.total_amount)}</span>
+                                                </td>
+                                                <td>
+                                                    <span className="inv-num">{money(invoice.paid_amount)}</span>
+                                                </td>
+                                                <td>
+                                                    <span className="inv-num inv-owed is-owed">
+                                                        {money(invoice.outstanding)}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span className={`inv-pill ${days >= 7 ? 'is-red' : days >= 3 ? 'is-orange' : 'is-green'}`}>
+                                                        {days}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span className={`inv-pill ${isPartial ? 'is-orange' : 'is-red'}`}>
+                                                        {PAYMENT_STATUS_LABELS[invoice.payment_status] ?? invoice.payment_status}
+                                                    </span>
+                                                </td>
+                                                <td className="text-end">
+                                                    <div className="inv-actions justify-content-end">
+                                                        {canCollect && (
+                                                            <Button size="sm" icon="ti ti-cash" onClick={() => setPaying(invoice)}>
+                                                                Take payment
+                                                            </Button>
+                                                        )}
+                                                        <Button
+                                                            size="sm"
+                                                            variant="light"
+                                                            onClick={() => navigate(`/billing/invoices/${invoice.id}`)}
+                                                        >
+                                                            View
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {meta && (
+                            <div className="inv-foot">
+                                <Pagination
+                                    page={meta.current_page}
+                                    pageCount={meta.last_page}
+                                    total={meta.total}
+                                    perPage={meta.per_page}
+                                    onChange={setPage}
+                                />
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
 
             <PaymentDialog
                 invoice={paying}
@@ -206,8 +384,63 @@ export default function OutstandingPage() {
                 onPaid={() => {
                     setPaying(undefined);
                     void refetch();
+                    void summaryQuery.refetch();
                 }}
             />
-        </>
+        </div>
+    );
+}
+
+/* ── Export dropdown ───────────────────────────────────────────────────── */
+
+function ExportButton({
+    dateRange,
+    status,
+    aging,
+    search,
+}: {
+    dateRange: { from: string; to: string };
+    status: string;
+    aging: string;
+    search: string;
+}) {
+    const [open, setOpen] = useState(false);
+    const box = useRef<HTMLDivElement>(null);
+
+    useDismiss(open, () => setOpen(false), box);
+
+    function exportCsv() {
+        setOpen(false);
+
+        const params = new URLSearchParams({
+            outstanding_only: '1',
+            from: dateRange.from,
+            to: dateRange.to,
+        });
+
+        if (status) params.set('payment_status', status);
+        if (aging) params.set('aging', aging);
+        if (search.trim()) params.set('search', search.trim());
+
+        window.open(`/api/v1/tenant/invoices/export?${params.toString()}`, '_blank');
+    }
+
+    return (
+        <div className="inv-menu-wrap" ref={box}>
+            <button type="button" className="inv-export" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+                <i className="ti ti-download" aria-hidden="true" />
+                Export
+                <i className="ti ti-chevron-down" aria-hidden="true" />
+            </button>
+
+            {open && (
+                <div className="inv-menu is-right" role="menu">
+                    <button type="button" role="menuitem" onClick={exportCsv}>
+                        <i className="ti ti-file-spreadsheet" aria-hidden="true" />
+                        Export this list (CSV)
+                    </button>
+                </div>
+            )}
+        </div>
     );
 }

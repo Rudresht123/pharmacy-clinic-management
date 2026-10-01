@@ -3579,6 +3579,11 @@ html::-webkit-scrollbar-track {
    and the rest step back, so nothing is repainted. */
 .donut-arc.is-dimmed{ opacity:.28; }
 
+/* ...and the hovered one steps forward: a little thicker, still inside the
+   100-unit box (radius 38 + half of 18 = 47). */
+.donut-arc{ transition:opacity .16s ease, stroke-width .16s ease; }
+.donut-arc.is-active{ stroke-width:18px; }
+
 .donut-centre{
     position:absolute;
     inset:0;
@@ -20057,44 +20062,168 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     display: inline-block;
 }
 
+.ct-legend-item {
+    cursor: default;
+    transition: opacity 0.15s ease;
+}
+
+.ct-legend-item.is-dim { opacity: 0.4; }
+
+/* The plot: an axis column, then the bars over their gridlines. */
+.ct-chart {
+    display: flex;
+    gap: 8px;
+}
+
+.ct-axis {
+    position: relative;
+    flex: 0 0 40px;
+}
+
+.ct-axis span {
+    position: absolute;
+    right: 0;
+    transform: translateY(-50%);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.ct-plot {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.ct-grid {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed var(--line-2);
+    pointer-events: none;
+}
+
+.ct-grid.is-base { border-top-style: solid; }
+
+.ct-quiet {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 12.5px;
+    color: var(--muted);
+    pointer-events: none;
+}
+
+.ct-bars {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+}
+
+/* One hover target per bucket: the whole height, not just the bar. */
+.ct-col {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    border-radius: 8px;
+    outline: none;
+    transition: background-color 0.15s ease;
+}
+
+.ct-col.is-active { background: rgba(var(--brand), 0.06); }
+
+.ct-bar {
+    width: 58%;
+    max-width: 44px;
+    display: flex;
+    flex-direction: column-reverse;
+    border-radius: 6px 6px 0 0;
+    overflow: hidden;
+    transition: height 0.35s ease, opacity 0.15s ease;
+}
+
+.ct-col.is-dim .ct-bar { opacity: 0.45; }
+
+.ct-seg { transition: opacity 0.15s ease; }
+.ct-seg.is-dim { opacity: 0.2; }
+
 .ct-tip {
     position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 4px;
     z-index: 10;
-    white-space: nowrap;
-    padding: 6px 10px;
-    border-radius: 8px;
-    background: var(--ink);
-    color: var(--surface);
+    min-width: 190px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
     font-size: 12px;
+    color: var(--ink-2);
+    white-space: nowrap;
+    pointer-events: none;
 }
 
-/* Recent Invoices / Outstanding Patients — checkbox column, type tag */
+.ct-tip.is-right { left: calc(100% + 6px); }
+.ct-tip.is-left { right: calc(100% + 6px); }
 
-.bod-check {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
+.ct-tip-head {
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 6px;
 }
 
-.bod-type-tag {
-    display: inline-flex;
+.ct-tip-row {
+    display: grid;
+    grid-template-columns: 9px 1fr auto 34px;
     align-items: center;
-    padding: 3px 9px;
-    border-radius: 999px;
-    font-size: 11.5px;
-    font-weight: 600;
+    gap: 8px;
+    padding: 2px 0;
 }
 
-.bod-type-tag.is-blue { background: rgba(var(--brand), 0.12); color: rgb(var(--brand)); }
-.bod-type-tag.is-green { background: rgba(16, 185, 129, 0.12); color: #10b981; }
-.bod-type-tag.is-purple { background: rgba(147, 51, 234, 0.12); color: #a855f7; }
-.bod-type-tag.is-orange { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
-.bod-type-tag.is-muted { background: var(--surface-3); color: var(--muted); }
-.bod-type-tag.is-rose { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.ct-tip-row i {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+}
 
+.ct-tip-row b,
+.ct-tip-total b {
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.ct-tip-row em {
+    font-style: normal;
+    color: var(--muted);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.ct-tip-total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--line-2);
+    font-size: 12px;
+    color: var(--ink-2);
+}
+
+.ct-tip-none {
+    padding: 4px 0;
+    font-size: 12px;
+    color: var(--muted);
+}
 /* ==========================================================================
    Inventory Movement Dashboard Redesign (.mv-)
    Matches pixel-perfect modern design with metric cards, filters, thumbnails & table
@@ -22631,4 +22760,1175 @@ select.dt-input {
 [data-theme='dark'] .dt-preview-card {
     background: var(--surface);
     border-color: var(--line);
+}
+
+/* ==========================================================================
+   Billing Dashboard Redesign (.inv-/.bd-)
+   Third pass at this page (after .bo- and .bod-) — KPI row, three analytics
+   charts, and the invoice register with tabs, filters and pagination.
+   ========================================================================== */
+
+.inv-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.bd-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* A date-range / compare trigger styled like a select, without being one. */
+.bd-btn-select {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 14px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.bd-btn-select:hover {
+    border-color: var(--line);
+}
+
+.bd-btn-select i:first-child {
+    color: var(--muted);
+}
+
+/* ── 4 KPI cards ─────────────────────────────────────────────────────── */
+
+.inv-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+@media (max-width: 1199.98px) {
+    .inv-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 575.98px) {
+    .inv-kpis { grid-template-columns: 1fr; }
+}
+
+.inv-kpi {
+    /* z-index: 0 (not auto) turns this into its own stacking context, so the
+       z-index:1 on .inv-kpi-body (needed to sit above the watermark icon)
+       stays contained here instead of competing with unrelated positioned
+       elements elsewhere on the page — e.g. the header's date-range popover,
+       which used to lose that fight simply because this card comes later in
+       the DOM. */
+    position: relative;
+    z-index: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px 20px;
+    background: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+[data-theme='dark'] .inv-kpi {
+    background: var(--surface);
+    border-color: var(--line);
+}
+
+.inv-kpi-icon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+    border-radius: 12px;
+    font-size: 20px;
+    color: #ffffff;
+}
+
+.inv-kpi-icon.is-blue { background: rgb(var(--brand)); }
+.inv-kpi-icon.is-green { background: #10b981; }
+.inv-kpi-icon.is-orange { background: #f59e0b; }
+.inv-kpi-icon.is-purple { background: #a855f7; }
+
+.inv-kpi-body {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.inv-kpi-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.inv-kpi-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.inv-kpi-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+.inv-kpi-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.inv-kpi-change.is-good { color: #10b981; }
+.inv-kpi-change.is-bad { color: #ef4444; }
+
+.inv-kpi-sub {
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+/* The oversized icon bleeding off the card's own edge — a watermark, not a
+   second control, so it sits behind the figures and ignores clicks. */
+.inv-kpi-watermark {
+    position: absolute;
+    right: -8px;
+    bottom: -12px;
+    font-size: 66px;
+    color: var(--ink);
+    opacity: 0.05;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ── 3 analytics cards: revenue trend + two donuts ──────────────────── */
+
+.bd-analytics-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr;
+    gap: 16px;
+}
+
+@media (max-width: 1199.98px) {
+    .bd-analytics-grid { grid-template-columns: 1fr; }
+}
+
+.bd-chart-card {
+    /* Same containment as .inv-kpi, for the trend tooltip's z-index. */
+    position: relative;
+    z-index: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 300px;
+    padding: 20px;
+    background: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+[data-theme='dark'] .bd-chart-card {
+    background: var(--surface);
+    border-color: var(--line);
+}
+
+.bd-chart-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.bd-chart-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.bd-chart-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.bd-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+.bd-legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    flex: 0 0 auto;
+}
+
+.bd-legend-dot.bg-blue { background: #2563eb; }
+.bd-legend-dot.bg-green { background: #10b981; }
+
+.bd-period-select {
+    height: 30px;
+    padding: 0 8px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* Revenue trend: bars (billed) + line/area (collected), on one SVG. */
+.bd-trend-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+}
+
+.bd-trend-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.bd-trend-grid-line {
+    stroke: var(--line-2);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+}
+
+.bd-trend-axis-text {
+    fill: var(--muted);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.bd-trend-bar {
+    fill: rgba(var(--brand), 0.22);
+    transition: fill 0.15s ease;
+    cursor: pointer;
+}
+
+.bd-trend-bar:hover {
+    fill: rgba(var(--brand), 0.4);
+}
+
+.bd-trend-line {
+    fill: none;
+    stroke: #10b981;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.bd-trend-dot {
+    fill: #10b981;
+    stroke: var(--surface);
+    stroke-width: 2;
+    cursor: pointer;
+}
+
+.bd-trend-tooltip {
+    position: absolute;
+    transform: translate(-50%, calc(-100% - 10px));
+    z-index: 10;
+    min-width: 160px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.bd-trend-tooltip-title {
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.bd-trend-tooltip-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 2px 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.bd-trend-tooltip-row .val {
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The two donuts (Collection by Service / Payment Status) share this body:
+   a fixed-size ring with its total written below it, legend beside it. The
+   total used to sit inside the ring, but the thick stroke left too little
+   hole for the figure and it spilled over the colour — written below the
+   ring instead, it has the full card width to breathe in. */
+.bd-donut-body {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex: 1 1 auto;
+}
+
+.bd-donut-ring-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+}
+
+.bd-donut-svg-wrap {
+    flex: 0 0 auto;
+    width: 136px;
+    height: 136px;
+}
+
+.bd-donut-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.bd-donut-total {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.bd-donut-total-value {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.2;
+}
+
+.bd-donut-total-label {
+    margin-top: 2px;
+    font-size: 10.5px;
+    color: var(--muted);
+}
+
+.bd-donut-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.bd-donut-legend-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.bd-donut-legend-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.bd-donut-legend-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bd-donut-legend-right {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.bd-donut-legend-pct {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.bd-donut-legend-val {
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Tabs row + register card (filters, table, pagination) ──────────── */
+
+.inv-tabs-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.inv-tabs {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 3px;
+    background: var(--surface-3);
+    border-radius: 9px;
+}
+
+.inv-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    background: transparent;
+    padding: 7px 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.inv-tab.is-active {
+    background: rgb(var(--brand));
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgba(var(--brand), 0.2);
+}
+
+.inv-tab-count {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 7px;
+    min-width: 20px;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.25);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.inv-tab-paren {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.inv-card {
+    background: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    padding: 18px 20px 20px;
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+[data-theme='dark'] .inv-card {
+    background: var(--surface);
+    border-color: var(--line);
+}
+
+.inv-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.inv-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 260px;
+    min-width: 200px;
+    height: 38px;
+    padding: 0 12px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    color: var(--muted);
+}
+
+.inv-search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 13px;
+    color: var(--ink);
+}
+
+.inv-select {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    height: 38px;
+    padding: 0 12px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    color: var(--muted);
+}
+
+.inv-select select {
+    border: 0;
+    background: transparent;
+    outline: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.inv-reset {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 12px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.inv-reset:hover:not(:disabled) {
+    background: var(--surface-2);
+    color: rgb(var(--brand));
+}
+
+.inv-reset:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* The table sits inset inside the card, in its own bordered, rounded frame —
+   never flush against the card's own edge. */
+.inv-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    transition: opacity 0.15s ease;
+}
+
+.inv-table-wrap.is-refreshing {
+    opacity: 0.55;
+}
+
+.inv-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12.5px;
+}
+
+.inv-table th {
+    background: transparent;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 12px;
+    padding: 10px;
+    border-bottom: 1px solid var(--line-2);
+    white-space: nowrap;
+    text-align: left;
+}
+
+.inv-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-2);
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.inv-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.inv-table tbody tr:hover td {
+    background: var(--surface-2);
+}
+
+.inv-table tbody tr.is-selected td {
+    background: rgba(var(--brand), 0.06);
+}
+
+.inv-check-col {
+    width: 36px;
+    padding-right: 0 !important;
+}
+
+.inv-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.inv-sort i {
+    font-size: 14px;
+}
+
+.inv-sort.is-active {
+    color: var(--ink);
+}
+
+.inv-number {
+    font-weight: 700;
+    color: rgb(var(--brand));
+    text-decoration: none;
+}
+
+.inv-number:hover {
+    text-decoration: underline;
+}
+
+.inv-main {
+    display: block;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+.inv-main.is-plain {
+    font-weight: 500;
+}
+
+.inv-sub {
+    display: block;
+    margin-top: 1px;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+.inv-person {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.inv-person-text {
+    min-width: 0;
+}
+
+.inv-avatar {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    font-size: 11.5px;
+    font-weight: 700;
+}
+
+.inv-avatar.is-blue { background: rgba(var(--brand), 0.14); color: rgb(var(--brand)); }
+.inv-avatar.is-orange { background: rgba(245, 158, 11, 0.16); color: #d97706; }
+.inv-avatar.is-pink { background: rgba(236, 72, 153, 0.14); color: #db2777; }
+.inv-avatar.is-green { background: rgba(16, 185, 129, 0.14); color: #059669; }
+.inv-avatar.is-purple { background: rgba(147, 51, 234, 0.14); color: #9333ea; }
+.inv-avatar.is-teal { background: rgba(20, 184, 166, 0.14); color: #0f766e; }
+
+.inv-type-icon {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    border-radius: 9px;
+    font-size: 14px;
+}
+
+.inv-type-icon.is-blue { background: rgba(var(--brand), 0.1); color: rgb(var(--brand)); }
+.inv-type-icon.is-green { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.inv-type-icon.is-purple { background: rgba(147, 51, 234, 0.1); color: #9333ea; }
+.inv-type-icon.is-orange { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+.inv-type-icon.is-teal { background: rgba(20, 184, 166, 0.12); color: #0f766e; }
+.inv-type-icon.is-muted { background: var(--surface-3); color: var(--muted); }
+
+.inv-num {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+}
+
+.inv-owed.is-owed { font-weight: 700; color: #ef4444; }
+.inv-owed.is-clear { color: var(--muted); }
+
+.inv-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.inv-pill.is-green { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.inv-pill.is-orange { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+.inv-pill.is-red { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.inv-pill.is-muted { background: var(--surface-3); color: var(--muted); }
+
+.inv-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.inv-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 12px;
+    background: transparent;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    cursor: pointer;
+}
+
+.inv-btn:hover {
+    background: var(--surface-2);
+}
+
+.inv-btn.is-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    color: var(--muted);
+    font-size: 15px;
+    justify-content: center;
+}
+
+.inv-btn.is-icon:hover {
+    background: var(--surface-2);
+    color: rgb(var(--brand));
+}
+
+/* ── Pagination footer ───────────────────────────────────────────────── */
+
+.inv-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line-2);
+}
+
+.inv-foot-info {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.inv-foot-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.inv-per-page {
+    height: 32px;
+    padding: 0 8px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* ── Menus & popovers (export, row actions, date range) ──────────────── */
+
+.inv-menu-wrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.inv-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 38px;
+    padding: 0 14px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.inv-export:hover {
+    border-color: var(--line);
+}
+
+.inv-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 20;
+    min-width: 210px;
+    padding: 6px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(var(--shadow), 0.14);
+}
+
+.inv-menu.is-right {
+    left: auto;
+    right: 0;
+}
+
+/* The row "⋮" menu is portaled to <body> and placed with an inline
+   top/right (computed from the trigger's own position) — `left` has to be
+   cleared here too, or it keeps the base rule's `left: 0` and the menu
+   stretches from the viewport's left edge all the way to `right`, instead
+   of shrinking to its own content next to the button. */
+.inv-menu.is-fixed {
+    position: fixed;
+    top: auto;
+    left: auto;
+}
+
+.inv-menu button {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    background: transparent;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+    text-align: left;
+    cursor: pointer;
+}
+
+.inv-menu button:hover:not(:disabled) {
+    background: var(--surface-2);
+    color: rgb(var(--brand));
+}
+
+.inv-menu button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.inv-range-pop {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 20;
+    width: 320px;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+    box-shadow: 0 12px 28px rgba(var(--shadow), 0.14);
+}
+
+.inv-range-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.inv-range-presets button {
+    border: 1px solid var(--line-2);
+    background: var(--surface-2);
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    cursor: pointer;
+}
+
+.inv-range-presets button:hover {
+    border-color: rgb(var(--brand));
+    color: rgb(var(--brand));
+}
+
+/* ==========================================================================
+   Shared Pagination (.dt-) — Pagination.tsx and DataTable.tsx, app-wide.
+   Not scoped to billing: fixing it here fixes every table in the app.
+   ========================================================================== */
+
+.dt-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line-2);
+}
+
+.dt-info {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.dt-pages {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.dt-page {
+    display: inline-grid;
+    place-items: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    cursor: pointer;
+}
+
+.dt-page:hover:not(:disabled) {
+    background: var(--surface-2);
+}
+
+.dt-page:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.dt-page.is-active {
+    background: rgb(var(--brand));
+    border-color: rgb(var(--brand));
+    color: #ffffff;
+}
+
+/* ==========================================================================
+   Payments & Outstanding Registers (reusing .inv-/.bd- from the billing
+   dashboard) — a few tones and widgets neither screen needed before.
+   ========================================================================== */
+
+.inv-kpi-icon.is-red { background: #ef4444; }
+.inv-kpi-icon.is-teal { background: #14b8a6; }
+
+/* The change line reads as one sentence — arrow, number, "vs previous
+   month" — rather than the dashboard KPI's separate value-row + sub. */
+.inv-kpi-change-line {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.inv-kpi-change-line.is-good { color: #10b981; }
+.inv-kpi-change-line.is-bad { color: #ef4444; }
+
+/* Payments table's Method column: an icon beside the label, not a tinted
+   pill — the tender itself isn't a status worth colour-coding. */
+.inv-method {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink-2);
+    font-weight: 500;
+}
+
+.inv-method i {
+    color: var(--muted);
+    font-size: 14px;
+}
+
+/* ── Payment Methods: the compact 4th tile beside the 3 KPI cards ───────── */
+
+.pm-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 18px;
+    background: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+[data-theme='dark'] .pm-methods {
+    background: var(--surface);
+    border-color: var(--line);
+}
+
+.pm-methods-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pm-methods-icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    border-radius: 9px;
+    background: rgba(147, 51, 234, 0.12);
+    color: #9333ea;
+    font-size: 15px;
+}
+
+.pm-methods-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.pm-methods-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pm-methods-list li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.pm-methods-list i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+.pm-methods-list span {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--ink-2);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pm-methods-list b {
+    flex: 0 0 auto;
+    color: var(--ink);
+    font-weight: 700;
+}
+
+/* ── Toolbar row above a table: "Show N Entries" on the left, actions on
+   the right — sits inside the card, above .inv-table-wrap. ─────────────── */
+
+.inv-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.inv-entries {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+.inv-entries select {
+    height: 32px;
+    padding: 0 8px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
 }

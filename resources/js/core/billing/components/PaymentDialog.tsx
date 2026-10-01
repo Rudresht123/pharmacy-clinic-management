@@ -3,11 +3,13 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { resolveErrorMessage } from '@/shared/api/http';
 import { openDocument, useGenerateDocument } from '@/core/documents/api';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import {
     PAYMENT_METHOD_LABELS,
     useBillingSettings,
     useRecordPayment,
     type Invoice,
+    type InvoicePayment,
 } from '../api';
 
 /**
@@ -31,6 +33,7 @@ export function PaymentDialog({
     onPaid?: (invoice: Invoice) => void;
 }) {
     const { data: settings } = useBillingSettings();
+    const { can } = useTenantAuth();
     const record = useRecordPayment();
     const generate = useGenerateDocument();
 
@@ -41,6 +44,9 @@ export function PaymentDialog({
     const [reference, setReference] = useState('');
     const [error, setError] = useState<string | null>(null);
 
+    // The payment just taken, and the bill as it left it.
+    const [recorded, setRecorded] = useState<{ invoice: Invoice; payment: InvoicePayment } | null>(null);
+
     /* Re-arm for whichever bill was opened, at its own outstanding figure. */
     useEffect(() => {
         if (invoice) {
@@ -48,11 +54,25 @@ export function PaymentDialog({
             setMethod(methods[0] ?? 'cash');
             setReference('');
             setError(null);
+            setRecorded(null);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [invoice?.id]);
 
     if (!invoice) return null;
+
+    /*
+     * However the dialog is left once money has been taken — Done, the cross,
+     * Escape — the caller hears that the bill was paid, so the list behind it
+     * refreshes exactly as it did when the dialog closed on its own.
+     */
+    function finish() {
+        if (recorded) {
+            onPaid?.(recorded.invoice);
+        } else {
+            onClose();
+        }
+    }
 
     async function submit(event: React.FormEvent) {
         event.preventDefault();
@@ -68,25 +88,74 @@ export function PaymentDialog({
                 },
             });
 
-            onPaid?.(updated);
+            // The newest payment on the bill is the one just taken.
+            const payment = (updated.payments ?? [])
+                .filter((row) => !row.is_refund)
+                .reduce<InvoicePayment | null>((latest, row) => (!latest || row.id > latest.id ? row : latest), null);
+
+            if (payment) {
+                setRecorded({ invoice: updated, payment });
+            } else {
+                onPaid?.(updated);
+            }
         } catch (failure) {
             setError(resolveErrorMessage(failure));
         }
     }
 
-    async function printReceipt() {
+    /** The bill, or the receipt for the payment just taken. */
+    async function print(documentType: 'clinic_invoice' | 'clinic_receipt', subjectId: number) {
         setError(null);
 
         try {
             const document_ = await generate.mutateAsync({
-                document_type: 'clinic_invoice',
-                subject_id: invoice!.id,
+                document_type: documentType,
+                subject_id: subjectId,
             });
 
             await openDocument(document_);
         } catch (failure) {
             setError(resolveErrorMessage(failure));
         }
+    }
+
+    if (recorded) {
+        return (
+            <Modal open onClose={finish} title={`Payment recorded — ${invoice.invoice_number}`} size="md">
+                {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
+
+                <dl className="row fs-13 mb-3">
+                    <dt className="col-6">Received</dt>
+                    <dd className="col-6 text-end tabular-nums fw-bold">₹{recorded.payment.amount.toFixed(2)}</dd>
+                    <dt className="col-6">Mode</dt>
+                    <dd className="col-6 text-end">
+                        {PAYMENT_METHOD_LABELS[recorded.payment.method] ?? recorded.payment.method}
+                    </dd>
+                    <dt className="col-6">Receipt no.</dt>
+                    <dd className="col-6 text-end tabular-nums">{recorded.payment.receipt_number}</dd>
+                    <dt className="col-6">Still owed</dt>
+                    <dd className="col-6 text-end tabular-nums">₹{recorded.invoice.outstanding.toFixed(2)}</dd>
+                </dl>
+
+                <div className="mt-4 d-flex justify-content-end gap-2">
+                    {/* Offered now, because the patient is standing there. */}
+                    {can('documents.generate') && (
+                        <Button
+                            variant="light"
+                            icon="ti ti-printer"
+                            type="button"
+                            onClick={() => void print('clinic_receipt', recorded.payment.id)}
+                            disabled={generate.isPending}
+                        >
+                            {generate.isPending ? 'Preparing…' : 'Print receipt'}
+                        </Button>
+                    )}
+                    <Button type="button" icon="ti ti-check" onClick={finish}>
+                        Done
+                    </Button>
+                </div>
+            </Modal>
+        );
     }
 
     return (
@@ -156,7 +225,7 @@ export function PaymentDialog({
                         variant="light"
                         icon="ti ti-printer"
                         type="button"
-                        onClick={() => void printReceipt()}
+                        onClick={() => void print('clinic_invoice', invoice.id)}
                         disabled={generate.isPending}
                     >
                         Print bill

@@ -1,0 +1,291 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Receipts, Refund Slips aur Automatic Documents</title>
+<meta name="description" content="Invoice, receipt aur refund numbers; receipt aur refund slip par kya chhapta hai; har print button kahan aata hai; payment aur refund ka flow; Automatic documents ki settings; permissions aur dikkat aaye to kya karein.">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+    @page { margin: 16mm 14mm 18mm 14mm; }
+    body { font-family: 'DejaVu Sans', sans-serif; font-size: 9.5pt; color: #1e293b; line-height: 1.45; }
+    h1 { font-size: 19pt; color: #2e37a4; margin: 0 0 4px 0; }
+    h2 { font-size: 13pt; color: #2e37a4; margin: 20px 0 8px 0; padding-bottom: 4px; border-bottom: 1.2pt solid #c7cbf0; }
+    h3 { font-size: 10.5pt; color: #0f172a; margin: 14px 0 6px 0; }
+    p { margin: 0 0 7px 0; }
+    .sub { color: #64748b; font-size: 9pt; margin-bottom: 14px; }
+    .band { background-color: #eef0fb; border: 0.8pt solid #c7cbf0; padding: 10px 12px; margin: 10px 0 12px 0; }
+    .note { background-color: #fff8e6; border: 0.8pt solid #f1d9a0; padding: 8px 10px; margin: 8px 0; }
+    .ok { background-color: #e9f8ef; border: 0.8pt solid #a7dbbd; padding: 8px 10px; margin: 8px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 6px 0 10px 0; }
+    th { background-color: #2e37a4; color: #ffffff; text-align: left; font-size: 8.5pt; padding: 5px 6px; border: 0.6pt solid #2e37a4; }
+    td { border: 0.6pt solid #cbd5e1; padding: 5px 6px; vertical-align: top; font-size: 8.8pt; }
+    tr.alt td { background-color: #f8fafc; }
+    code, .mono { font-family: 'DejaVu Sans Mono', monospace; font-size: 8.3pt; color: #1e3a8a; }
+    .btn { font-weight: bold; color: #ffffff; background-color: #2e37a4; padding: 1px 5px; font-size: 8.3pt; }
+    .btnl { font-weight: bold; color: #2e37a4; background-color: #e6e8fa; padding: 1px 5px; font-size: 8.3pt; }
+    .path { font-weight: bold; color: #0f172a; }
+    ol, ul { margin: 2px 0 8px 0; padding-left: 18px; }
+    li { margin-bottom: 3px; }
+    .step td.n { width: 22px; text-align: center; font-weight: bold; color: #ffffff; background-color: #2e37a4; border-color: #2e37a4; }
+    .small { font-size: 8.3pt; color: #475569; }
+    /* Kept together: a heading never sits alone at the foot of a page, and a
+       row never splits across two. */
+    .keep { page-break-inside: avoid; }
+    tr { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    tr.grp td { background-color: #e6e8fa; color: #0f172a; font-weight: bold; border-color: #c7cbf0; }
+    .files td.mono { font-size: 7.4pt; }
+    .stamp { font-weight: bold; padding: 1px 6px; font-size: 8.3pt; }
+    .s-paid { background-color: #e9f8ef; color: #14804a; border: 0.6pt solid #a7dbbd; }
+    .s-part { background-color: #fdf4e3; color: #92650a; border: 0.6pt solid #e9c98a; }
+    .s-ref { background-color: #eef2ff; color: #2e37a4; border: 0.6pt solid #b9c3f5; }
+    .toc td { border: none; padding: 2px 4px; font-size: 9pt; }
+</style>
+</head>
+<body>
+
+<h1>Receipts, Refund Slips aur Automatic Documents</h1>
+<div class="sub">HMS &middot; Billing aur Documents &middot; ye kaise kaam karta hai, aur kaunsa button kahan aata hai &middot; 30 September 2026</div>
+
+<div class="band">
+    <b>Ek line mein:</b> har bill ka apna number hota hai, har payment ki apni receipt, har refund ki apni refund slip.
+    Ye sab ek Print button se ban sakte hain, ya aapke banaye niyam (rule) se apne aap. Jo bhi document banta hai,
+    woh patient ke record mein <b>Files &amp; Documents</b> ke andar save hota hai.
+</div>
+
+<table class="toc">
+    <tr><td>1.</td><td>Kaunse documents bante hain</td><td>6.</td><td>Automatic documents kaise kaam karte hain</td></tr>
+    <tr><td>2.</td><td>Numbers kaise bante hain</td><td>7.</td><td>Ek copy ka niyam (duplicate nahi)</td></tr>
+    <tr><td>3.</td><td>Receipt aur refund slip par kya chhapta hai</td><td>8.</td><td>Kisko kya dikhta hai (permissions)</td></tr>
+    <tr><td>4.</td><td>Buttons kahan aate hain</td><td>9.</td><td>Dikkat aaye to</td></tr>
+    <tr><td>5.</td><td>Payment lene ka poora flow</td><td>10.</td><td>Developers ke liye</td></tr>
+</table>
+
+<div class="keep"><h2>1. Kaunse documents bante hain</h2>
+
+<table>
+    <tr><th style="width:22%">Document</th><th style="width:25%">Kis cheez ka</th><th style="width:25%">Number (example)</th><th style="width:10%">Kagaz</th><th>Kaise banta hai</th></tr>
+    <tr><td><b>Clinic invoice</b></td><td>Poora bill: consultation, test, procedure</td><td class="mono">GGN/INV/26-27/00001</td><td>A4</td><td>Print button, ya rule se</td></tr>
+    <tr class="alt"><td><b>Clinic payment receipt</b></td><td>Sirf <b>ek payment</b>. Do kishton (instalments) mein diya gaya bill = do receipts.</td><td class="mono">GGN/RCP/26-27/00001</td><td>A4</td><td>Receipt button, ya rule se</td></tr>
+    <tr><td><b>Clinic refund receipt</b> (refund slip)</td><td>Sirf <b>ek refund</b>, yaani paisa wapas diya</td><td class="mono">GGN/RFD/26-27/00001</td><td>A4</td><td>Refund slip button, ya rule se</td></tr>
+    <tr class="alt"><td><b>Prescription</b></td><td>Doctor ka issue kiya hua parcha</td><td>Prescription ka number</td><td>A5</td><td>Rule se (Prescription issued)</td></tr>
+    <tr><td><b>Pharmacy invoice</b> / <b>Payment receipt</b></td><td>Pharmacy counter ki sale</td><td>Sale ka number</td><td>A5 / 80mm</td><td>Rule se (Pharmacy sale completed)</td></tr>
+</table></div>
+
+<p class="small">Pharmacy ki "Payment receipt" aur clinic ki "Clinic payment receipt" alag cheezein hain. Pehli pharmacy sale ki till-slip hai, doosri clinic bill ke ek payment ki receipt.</p>
+
+<div class="keep"><h2>2. Numbers kaise bante hain</h2>
+
+<table>
+    <tr><th style="width:18%">Hissa</th><th style="width:18%">Example</th><th>Matlab</th></tr>
+    <tr><td>Branch code</td><td class="mono">GGN</td><td>Branch ka code, jaise Gurgaon = GGN, Delhi = DEL. Har branch ki apni series.</td></tr>
+    <tr class="alt"><td>Document</td><td class="mono">INV / RCP / RFD</td><td>INV = invoice, RCP = payment receipt, RFD = refund</td></tr>
+    <tr><td>Financial year</td><td class="mono">26-27</td><td>April 2026 se March 2027. <b>Har 1 April ko counting 1 se dobara shuru.</b></td></tr>
+    <tr class="alt"><td>Kram (sequence)</td><td class="mono">00001</td><td>Us branch, us document aur us saal ka agla number</td></tr>
+</table></div>
+
+<ul>
+    <li><b>Number database deta hai</b>, bill ya payment save hote waqt. Koi staff khud number nahi daalta.</li>
+    <li><b>Beech mein number nahi chhootta.</b> Agar payment beech mein fail ho jaaye, to uska number wapas ho jaata hai aur agla payment wahi number leta hai.</li>
+    <li><b>Prefix badalna:</b> <span class="path">Settings &rsaquo; Billing</span> &rsaquo; card <b>"Invoice &amp; receipt numbers"</b>. Har branch ke Invoice, Receipt aur Refund ka prefix alag likh sakte hain, jaise <span class="mono">GGN/RCP</span> ki jagah <span class="mono">GUR-R</span>. Wahi card agla number bhi dikhata hai.</li>
+    <li>Naya prefix <b>agle bill se</b> lagta hai. Jo number pehle chhap chuke hain, woh kabhi nahi badalte.</li>
+    <li>Do branches ek jaisa prefix nahi rakh sakti, warna ek jaisa number ban sakta tha. System aisa save hone hi nahi deta.</li>
+    <li>Purane invoices (jaise <span class="mono">INV-00042</span>) apne purane number ke saath hi rehte hain.</li>
+</ul>
+
+<h2>3. Receipt aur refund slip par kya chhapta hai</h2>
+
+<div class="keep"><h3>Clinic payment receipt (ek payment)</h3>
+<table>
+    <tr><th style="width:28%">Hissa</th><th>Kya likha hota hai</th></tr>
+    <tr><td>Upar</td><td><b>Receipt No</b> sabse pehle, phir Invoice No aur Date (payment ki tareekh aur samay)</td></tr>
+    <tr class="alt"><td>Stamp</td><td><span class="stamp s-paid">PAID</span> agar is payment ke baad kuch baaki nahi; <span class="stamp s-part">PART PAID</span> agar abhi baaki hai</td></tr>
+    <tr><td>Patient details</td><td>Naam, Patient ID, umar/gender, mobile</td></tr>
+    <tr class="alt"><td>Summary</td><td>Bill ka total. Agar kuch baaki hai to <b>"Balance due"</b>, <b>is payment ke turant baad</b> ka.</td></tr>
+    <tr><td>Payment information</td><td>Amount Paid (sirf is payment ka), Payment Mode, Transaction Ref., Paid On, Amount in Words, aur QR code jismein receipt number hota hai</td></tr>
+    <tr class="alt"><td>Neeche</td><td>"Received by" (jis staff ne paisa liya) aur "Authorised signature" ke box</td></tr>
+</table></div>
+
+<div class="ok"><b>Reprint par bhi same:</b> pehli kisht ki receipt agle hafte dobara chhapo, to bhi wahi amount aur wahi "Balance due" aata hai jo us din patient ko diya gaya tha. Baad ki payments usmein nahi judti.</div>
+
+<div class="keep"><h3>Clinic refund receipt (refund slip)</h3>
+<table>
+    <tr><th style="width:28%">Hissa</th><th>Kya likha hota hai</th></tr>
+    <tr><td>Upar</td><td><b>Refund No</b> sabse pehle, phir Invoice No aur Date</td></tr>
+    <tr class="alt"><td>Stamp</td><td><span class="stamp s-ref">REFUNDED</span>, ye raqam aapko wapas di gayi</td></tr>
+    <tr><td>Refund information</td><td>Amount Refunded, Refund Mode, <b>Against Receipt</b> (kis receipt ka paisa wapas hua), Reason, Refunded On, Amount in Words</td></tr>
+    <tr class="alt"><td>Neeche</td><td>"Refunded by" aur "Authorised signature"</td></tr>
+</table></div>
+
+<div class="note"><b>Refund slip par "Balance due" jaan-boojhkar nahi chhapta.</b> System refund ke baad bill ka baaki amount badha deta hai. Agar slip par "Balance due ₹100" likha hota, to patient samajhta ki use abhi aur paise dene hain.</div>
+
+<h2>4. Buttons kahan aate hain</h2>
+
+<p>Print wale sabhi buttons tabhi dikhte hain jab user ke paas <b>"Print documents from a template"</b> (<span class="mono">documents.generate</span>) permission ho aur <b>Documents</b> module chalu ho.</p>
+
+<table>
+    <thead><tr><th style="width:30%">Button</th><th>Kya hota hai / kab dikhta hai</th></tr></thead>
+
+    <tr class="grp"><td colspan="2">Billing &rsaquo; Overview <span class="small">(Billing Dashboard, Recent invoices ki list)</span></td></tr>
+    <tr><td><span class="btnl">Print invoice</span> (printer icon)</td><td>Us bill ka PDF khulta hai. Draft ya cancelled bill par nahi dikhta.</td></tr>
+    <tr><td><span class="btnl">Take payment</span> (cash icon)</td><td>Payment ki window khulti hai (section 5 dekhiye)</td></tr>
+
+    <tr class="grp"><td colspan="2">Billing &rsaquo; Invoices <span class="small">(har bill ki row mein)</span></td></tr>
+    <tr><td><span class="btn">Take payment</span></td><td>Sirf tab jab bill final ho aur kuch baaki ho</td></tr>
+    <tr><td><span class="btnl">Print invoice</span> (printer icon)</td><td>Bill ka PDF</td></tr>
+    <tr><td><span class="btn">Close bill</span></td><td>Draft bill ko final karta hai; iske baad hi payment li ja sakti hai</td></tr>
+
+    <tr class="grp"><td colspan="2">Billing &rsaquo; Outstanding</td></tr>
+    <tr><td><span class="btn">Take payment</span></td><td>Jin bills par paisa baaki hai, unki list se seedha payment</td></tr>
+
+    <tr class="grp"><td colspan="2">Billing &rsaquo; Payments</td></tr>
+    <tr><td>(koi print button nahi)</td><td>Har payment ka number <b>Receipt #</b> column mein dikhta hai</td></tr>
+
+    <tr class="grp"><td colspan="2">Invoice detail page <span class="small">(Billing &rsaquo; Invoices &rsaquo; kisi bill par click)</span></td></tr>
+    <tr><td><span class="btnl">Print</span> (upar)</td><td>Bill ka PDF, hamesha abhi ki haalat ke saath (PAID / PART PAID / UNPAID)</td></tr>
+    <tr><td><span class="btn">Take payment</span> (upar)</td><td>Payment ki window</td></tr>
+    <tr><td><span class="btnl">Receipt</span><br><span class="small">Payments card, har payment ke saamne</span></td><td><b>Us ek payment ki receipt</b> (A4, ek page). Receipt number payment ke neeche likha hota hai.</td></tr>
+    <tr><td><span class="btnl">Refund slip</span><br><span class="small">Payments card, har refund row (&#8617; nishaan wali) ke saamne</span></td><td>Us refund ki slip (A4, ek page)</td></tr>
+    <tr><td><span class="btnl">Refund</span><br><span class="small">Payments card, payment ke saamne</span></td><td>Paisa wapas karne ki window: amount aur reason. Sirf <span class="mono">billing.refund</span> wale users ko dikhta hai.</td></tr>
+
+    <tr class="grp"><td colspan="2">"Take payment" window <span class="small">(upar ki kisi bhi screen se)</span></td></tr>
+    <tr><td><span class="btnl">Print bill</span> (neeche baayein)</td><td>Payment lene se pehle patient ko bill dikhane ke liye</td></tr>
+    <tr><td><span class="btn">Record payment</span></td><td>Payment save hoti hai, number milta hai, aur <b>"Payment recorded"</b> window khulti hai</td></tr>
+    <tr><td><span class="btnl">Print receipt</span><br><span class="small">"Payment recorded" window mein</span></td><td>Abhi li gayi payment ki receipt, jab patient saamne khada ho. Window mein Received, Mode, Receipt no. aur Still owed dikhte hain.</td></tr>
+
+    <tr class="grp"><td colspan="2">Patient page &rsaquo; Files &amp; Documents</td></tr>
+    <tr><td>Open / Download / Remove</td><td>Patient ke saare bane hue documents, chahe haath se print kiye gaye hon ya rule se bane hon. Remove karne se document chhup jaata hai, mitta nahi (reason ke saath).</td></tr>
+
+    <tr class="grp"><td colspan="2">OPD &rsaquo; Consultation &rsaquo; Documents tab</td></tr>
+    <tr><td>Open / Download</td><td>Wahi documents, is visit ke context mein</td></tr>
+</table>
+
+<div class="keep"><h3>Settings ki screens</h3>
+<table>
+    <tr><th style="width:30%">Screen</th><th>Kya karte hain</th><th style="width:26%">Permission</th></tr>
+    <tr><td><span class="path">Settings &rsaquo; Billing</span></td><td>Card "Invoice &amp; receipt numbers": har branch ke prefix, aur agla number</td><td class="mono">billing.manage_settings</td></tr>
+    <tr class="alt"><td><span class="path">Settings &rsaquo; Document templates</span></td><td>Har document ka letterhead aur design, jismein "Clinic payment receipt" aur "Clinic refund receipt" bhi hain. Publish kiya hua template hi print hota hai.</td><td class="mono">documents.template_view</td></tr>
+    <tr><td><span class="path">Settings &rsaquo; Automatic documents</span></td><td>Kaunsa document apne aap bane (section 6)</td><td class="mono">documents.template_org</td></tr>
+</table></div>
+
+<div class="keep"><h2>5. Payment lene ka poora flow</h2>
+
+<table class="step">
+    <tr><td class="n">1</td><td>Bill final hai (draft nahi). <b>Take payment</b> dabaiye: Invoice page, Invoices list, Outstanding ya Overview, kahin se bhi.</td></tr>
+    <tr><td class="n">2</td><td>Window mein patient, bill total, pehle diya gaya aur <b>Outstanding</b> dikhta hai. Method (Cash, UPI, Card...), amount aur reference (UPI txn id wagairah) bhariye.</td></tr>
+    <tr><td class="n">3</td><td><b>Record payment</b> dabaiye. Payment save hoti hai aur database use receipt number deta hai, jaise <span class="mono">GGN/RCP/26-27/00007</span>.</td></tr>
+    <tr><td class="n">4</td><td><b>"Payment recorded"</b> window khulti hai: kitna mila, mode, receipt no., kitna baaki. Yahan <b>Print receipt</b> dabaiye, ya <b>Done</b>.</td></tr>
+    <tr><td class="n">5</td><td>Agar clinic ne rule lagaya hai ("Payment received &rarr; Clinic payment receipt"), to receipt step 3 ke saath hi <b>apne aap ban chuki hoti hai</b>. Print receipt dabane par wahi copy khulti hai, nayi nahi banti.</td></tr>
+    <tr><td class="n">6</td><td>Receipt patient ke <b>Files &amp; Documents</b> mein save ho jaati hai. Baad mein Invoice page ke Payments card mein <b>Receipt</b> button se dobara bhi chhap sakti hai.</td></tr>
+</table></div>
+
+<div class="keep"><h3>Refund ka flow</h3>
+<table class="step">
+    <tr><td class="n">1</td><td>Invoice page &rsaquo; Payments card &rsaquo; payment ke saamne <b>Refund</b> dabaiye.</td></tr>
+    <tr><td class="n">2</td><td>Kitna wapas dena hai aur reason likhiye &rarr; <b>Refund</b>. Payment se zyada refund nahi ho sakta.</td></tr>
+    <tr><td class="n">3</td><td>Refund ki nayi row (&#8617; nishaan ke saath) aati hai aur use RFD number milta hai, jaise <span class="mono">GGN/RFD/26-27/00001</span>.</td></tr>
+    <tr><td class="n">4</td><td>Us row par <b>Refund slip</b> dabaiye, ya rule ho to slip apne aap ban chuki hoti hai.</td></tr>
+</table></div>
+
+<h2>6. Automatic documents kaise kaam karte hain</h2>
+
+<p><span class="path">Settings &rsaquo; Automatic documents</span> par clinic tay karta hai: <b>"jab ye ho, to ye document apne aap bana do."</b></p>
+
+<h3>Screen kaise use karein</h3>
+<ol>
+    <li>Daayein <b>"Applies to"</b> mein chuniye: <b>All branches</b> ya koi ek branch.</li>
+    <li>Baayein har module (Billing, Prescriptions, Pharmacy) ka card hai. Har row ek event hai, jaise "Payment received", aur usmein jo documents ban sakte hain unke checkbox hain.</li>
+    <li>Tick lagaiye aur upar <b>Save</b> dabaiye. Save sirf usi scope (All branches ya woh branch) ke niyam badalta hai.</li>
+    <li>Kisi branch ko chunne par "All branches" wale niyam ticked aur grey dikhte hain, saath mein <b>All branches</b> badge. Unhe wahan se nahi hata sakte; hatane ke liye "All branches" chuniye. Branch apne alag niyam jod sakti hai.</li>
+    <li>Bina save kiye branch badlenge to system poochta hai: "Discard unsaved changes?"</li>
+</ol>
+
+<div class="keep"><h3>Kis event par kya ban sakta hai</h3>
+<table>
+    <tr><th style="width:36%">Event (jab ye ho)</th><th style="width:34%">Ban sakta hai</th><th>Module</th></tr>
+    <tr><td>Invoice created (bill final hua)</td><td>Clinic invoice</td><td>Billing</td></tr>
+    <tr class="alt"><td>Payment received (har payment par)</td><td>Clinic payment receipt, Clinic invoice</td><td>Billing</td></tr>
+    <tr><td>Payment received, balance outstanding (kuch baaki hai)</td><td>Clinic payment receipt, Clinic invoice</td><td>Billing</td></tr>
+    <tr class="alt"><td>Invoice settled in full (poora bill chuk gaya)</td><td>Clinic payment receipt, Clinic invoice</td><td>Billing</td></tr>
+    <tr><td>Refund processed</td><td>Clinic refund receipt</td><td>Billing</td></tr>
+    <tr class="alt"><td>Prescription issued</td><td>Prescription</td><td>Prescriptions</td></tr>
+    <tr><td>Pharmacy sale completed</td><td>Pharmacy invoice, Payment receipt</td><td>Pharmacy</td></tr>
+</table></div>
+<p class="small">Screen par wahi events dikhte hain jinka module aapki organisation mein chalu hai. Galat jodi (jaise payment par prescription) na screen par milti hai, na server save karta hai.</p>
+
+<div class="keep"><h3>Andar kya hota hai</h3>
+<table class="step">
+    <tr><td class="n">1</td><td>Staff payment save karta hai. <b>Payment database mein pakka (commit) hone ke baad hi</b> event uthta hai. Agar payment fail ya rollback hua, to koi event nahi aur koi receipt nahi.</td></tr>
+    <tr><td class="n">2</td><td>System dekhta hai ki is event ke liye kaunse niyam hain: "All branches" wale, aur jis branch par payment hui uske apne.</td></tr>
+    <tr><td class="n">3</td><td>Jaanch hoti hai ki us branch par Documents module (aur document ka module) chalu hai. Band hai to kuch nahi banta.</td></tr>
+    <tr><td class="n">4</td><td>Document branch ke <b>published template</b> se banta hai aur patient ke Files &amp; Documents mein file hota hai.</td></tr>
+    <tr><td class="n">5</td><td>Kuch galat ho jaaye (template publish nahi, patient nahi) to <b>payment phir bhi safe rehti hai</b>. Receptionist ko "payment fail" nahi dikhta; galti sirf log mein jaati hai.</td></tr>
+</table></div>
+
+<div class="note"><b>Abhi nahi hai:</b> WhatsApp ya email se document patient ko bhejna. Documents sirf bante aur record mein file hote hain. Isliye screen par bhejne ka koi switch bhi nahi rakha gaya.</div>
+
+<div class="keep"><h2>7. Ek copy ka niyam (duplicate nahi banta)</h2>
+
+<table>
+    <tr><th style="width:42%">Halaat</th><th>Kya hota hai</th></tr>
+    <tr><td>"Payment received" aur "Invoice settled in full" dono par receipt tick hai</td><td>Poora bill chukane wali payment par dono event uthte hain, lekin <b>receipt ek hi</b> banti hai</td></tr>
+    <tr class="alt"><td>Wahi niyam "All branches" aur branch, dono par laga hai</td><td>Ek hi copy</td></tr>
+    <tr><td>Event dobara aa gaya (retry, double click)</td><td>Nayi copy nahi banti</td></tr>
+    <tr class="alt"><td>Rule se bani receipt kisi ne Remove kar di</td><td>Event dobara aane par <b>wapas nahi banti</b>, kyunki kisi ne jaan-boojhkar hatayi thi</td></tr>
+    <tr><td>Bill (Clinic invoice) ka rule "Payment received" par</td><td><b>Har payment par bill ki nayi copy</b>, kyunki bill badalta hai (UNPAID &rarr; PART PAID &rarr; PAID)</td></tr>
+    <tr class="alt"><td>Receipt rule se ban chuki hai aur koi <b>Print receipt / Receipt</b> dabata hai</td><td><b>Wahi copy khulti hai</b>, doosri file nahi hoti. Ek payment ki do receipts dekhkar do payment ka bhram hota.</td></tr>
+    <tr><td>Bill ka <b>Print</b> dabaya</td><td>Hamesha bill ki abhi ki haalat ke saath naya bill</td></tr>
+    <tr class="alt"><td>Rule se bani copy Remove ho chuki hai aur Print dabaya</td><td>Nayi copy banti hai</td></tr>
+    <tr><td>Koi rule nahi, Print do baar dabaya</td><td>Do copies (pehle jaisa: har Print ek nayi copy)</td></tr>
+</table></div>
+
+<h2>8. Kisko kya dikhta hai (permissions)</h2>
+<table>
+    <tr><th style="width:36%">Kaam</th><th style="width:32%">Permission</th><th>Note</th></tr>
+    <tr><td>Koi bhi Print / Receipt / Refund slip button</td><td class="mono">documents.generate</td><td>Documents module chalu hona chahiye</td></tr>
+    <tr class="alt"><td>Take payment</td><td class="mono">billing.collect_payment</td><td></td></tr>
+    <tr><td>Refund</td><td class="mono">billing.refund</td><td></td></tr>
+    <tr class="alt"><td>Bane hue bill/receipt kholna</td><td class="mono">documents.view</td><td>Billing ke documents "administrative" category mein aate hain</td></tr>
+    <tr><td>Prescription jaise medical documents kholna</td><td class="mono">documents.view_clinical</td><td></td></tr>
+    <tr class="alt"><td>Document remove karna</td><td class="mono">documents.delete</td><td>Reason ke saath; mitta nahi</td></tr>
+    <tr><td>Numbering prefixes badalna</td><td class="mono">billing.manage_settings</td><td>Organisation level</td></tr>
+    <tr class="alt"><td>Templates dekhna / badalna / publish</td><td class="mono">documents.template_view / _edit / _publish</td><td>Branch level</td></tr>
+    <tr><td>Automatic documents ke niyam</td><td class="mono">documents.template_org</td><td>Sirf owner / org admin; branch role ko nahi mil sakta</td></tr>
+</table>
+
+<h2>9. Dikkat aaye to</h2>
+<table>
+    <tr><th style="width:40%">Kya dikha</th><th>Kya karein</th></tr>
+    <tr><td>"No active template for this document. Publish one before printing."</td><td><span class="path">Settings &rsaquo; Document templates</span> mein us document ka template <b>Publish</b> kariye. Naye clinic ko receipt aur refund ke templates pehle se published milte hain.</td></tr>
+    <tr class="alt"><td>"This record has no patient on it..."</td><td>Bina patient ka (walk-in) bill kisi record mein file nahi ho sakta. Pehle bill par patient jodiye.</td></tr>
+    <tr><td>Error: <span class="mono">relation "number_series" / "document_rules" does not exist</span></td><td>Naya database update chalana baaki hai. Server par: <span class="mono">php artisan tenants:migrate</span>. Ye har clinic ka database update karta hai; sirf <span class="mono">php artisan migrate</span> kaafi nahi hai.</td></tr>
+    <tr class="alt"><td>Rule lagaya par receipt nahi bani</td><td>Jaanchiye: (1) niyam sahi scope par save hua? (2) us branch par Documents module chalu hai? (3) template published hai? (4) bill par patient hai? Log mein <span class="mono">document-automation.*</span> lines dekhiye.</td></tr>
+    <tr><td>Print button nahi dikh raha</td><td>User ke paas <span class="mono">documents.generate</span> hai? Bill draft ya cancelled to nahi?</td></tr>
+    <tr class="alt"><td>Refund slip par Balance due nahi</td><td>Jaan-boojhkar aisa hai (section 3 dekhiye)</td></tr>
+    <tr><td>Receipt button refund row par nahi, Refund slip payment row par nahi</td><td>Sahi hai. Paisa aana aur paisa wapas jaana alag kagaz hain; system ek ko doosre ke naam se chhapne hi nahi deta.</td></tr>
+</table>
+
+<div class="keep"><h2>10. Developers ke liye</h2>
+
+<table class="files">
+    <tr><th style="width:26%">Hissa</th><th>Files</th></tr>
+    <tr><td>Numbering</td><td class="mono">database/migrations/organization/<br>&nbsp;&nbsp;2026_10_15_000000_number_invoices_and_receipts_by_branch.php<br>app/Services/Billing/BranchNumbering.php<br>app/Http/Controllers/Api/V1/Tenant/BillingNumberingController.php</td></tr>
+    <tr class="alt"><td>Clinic events</td><td class="mono">app/Support/Clinic/ClinicEvents.php (events + kaunse documents)<br>app/Services/Clinic/ClinicEvent.php<br>app/Services/Clinic/ClinicEventDispatcher.php (after-commit, tenant guard)</td></tr>
+    <tr><td>Automation</td><td class="mono">app/Services/Documents/DocumentAutomation.php<br>app/Services/Documents/DocumentRules.php<br>app/Services/Documents/DocumentSubjects.php<br>app/Models/Tenant/DocumentRule.php<br>database/migrations/organization/<br>&nbsp;&nbsp;2026_10_16_000000_create_document_rules.php</td></tr>
+    <tr class="alt"><td>Banana aur file karna</td><td class="mono">app/Services/Documents/DocumentService.php (generate, filedAutomatically, recordKey)<br>app/Services/Documents/DocumentPayload.php (fromPayment, fromRefund)<br>app/Services/Documents/DocumentHtml.php<br>app/Support/Documents/DocumentTypes.php, Placeholders.php</td></tr>
+    <tr><td>API</td><td class="mono">POST /api/v1/tenant/documents/generate<br>GET | PUT /api/v1/tenant/document-rules<br>GET | PUT /api/v1/tenant/billing/numbering</td></tr>
+    <tr class="alt"><td>Frontend</td><td class="mono">resources/js/core/billing/components/PaymentDialog.tsx<br>resources/js/core/billing/pages/InvoicePage.tsx<br>resources/js/core/billing/pages/BillingSettingsPage.tsx<br>resources/js/core/documents/pages/DocumentAutomationPage.tsx</td></tr>
+    <tr><td>Tests</td><td class="mono">tests/Feature/Api/V1/Tenant/ClinicEventTest.php<br>BranchNumberingTest.php &middot; ClinicReceiptTest.php &middot; DocumentRulesTest.php</td></tr>
+</table></div>
+
+<h3>Kuch zaroori baatein</h3>
+<ul>
+    <li><b>Duplicate rokne wali key</b> <span class="mono">patient_documents.idempotency_key</span> hai, record par bani: <span class="mono">clinic_receipt|App\Models\Tenant\InvoicePayment#42</span>. Bill ke liye isme payment ya refund id bhi judti hai. Unique index hataye gaye documents par bhi lagta hai.</li>
+    <li><b>Queue nahi:</b> document usi request mein, commit ke baad banta hai. Isliye <span class="mono">queue:work</span> ki zaroorat nahi.</li>
+    <li><b>Tenant safety:</b> event us database ka naam saath rakhta hai jismein woh bana tha. Connection badal gaya ho to dispatcher use chalata hi nahi.</li>
+    <li><b>Niyam ki table mein "enabled" column nahi hai</b>, row hona hi haan hai. <span class="mono">location_id</span> null ka matlab sabhi branches.</li>
+    <li>Nayi tenant migration aaye to hamesha <span class="mono">php artisan tenants:migrate</span> chalaiye. Ye naye document templates bhi seed karta hai.</li>
+</ul>
+
+</body>
+</html>

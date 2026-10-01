@@ -6,11 +6,14 @@ namespace App\Services\Documents;
  * One organisation's decision: on this event, produce this document, do these
  * things with it.
  *
- * A VALUE OBJECT, NOT A MODEL. In Step 1 nothing persists these — DocumentRules
- * returns none — and when `document_rules` arrives in Step 3 the model maps
- * into this rather than being passed around itself. That keeps the automation
- * testable without a table, and keeps a row's shape from leaking into every
- * caller the moment somebody adds a column.
+ * A VALUE OBJECT, NOT A MODEL. DocumentRules reads `document_rules` and maps
+ * each row into this rather than passing the row around. That keeps the
+ * automation testable without a table, and keeps a row's shape from leaking
+ * into every caller the moment somebody adds a column.
+ *
+ * The delivery flags have no columns yet: nothing sends a document anywhere,
+ * so a stored row always means "generate and file it". They arrive in the
+ * table with the code that acts on them.
  */
 final class DocumentRule
 {

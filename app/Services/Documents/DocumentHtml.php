@@ -55,6 +55,8 @@ class DocumentHtml
         'clinic_invoice' => 'clipboard-text',
         'pharmacy_invoice' => 'pill',
         'payment_receipt' => 'cash',
+        'clinic_receipt' => 'cash',
+        'clinic_refund' => 'cash',
         'document_cover' => 'file-stack',
     ];
 
@@ -68,6 +70,8 @@ class DocumentHtml
         'pharmacy_invoice' => 'Dispensed by',
         'payment_receipt' => 'Received by',
         'clinic_invoice' => 'Received by',
+        'clinic_receipt' => 'Received by',
+        'clinic_refund' => 'Refunded by',
     ];
 
     public function __construct(
@@ -367,6 +371,7 @@ class DocumentHtml
             .is-paid { background-color: #e9f8ef; border: 0.6pt solid #a7dbbd; color: #14804a; }
             .is-part { background-color: #fdf4e3; border: 0.6pt solid #e9c98a; color: #92650a; }
             .is-unpaid { background-color: #fdeded; border: 0.6pt solid #f0b4b4; color: #a21d1d; }
+            .is-refund { background-color: #eef2ff; border: 0.6pt solid #b9c3f5; color: #2e37a4; }
 
             /* ---- the cards everything else sits in ---------------------- */
             .card { border: 0.6pt solid #e2e8f0; border-radius: 7px; margin-top: {$gap}; }
@@ -800,11 +805,22 @@ class DocumentHtml
      */
     private function meta(array $values, bool $receipt): string
     {
+        $receiptNumber = (string) ($values['receipt_number'] ?? '');
+        $refundNumber = (string) ($values['refund_number'] ?? '');
+        $documentNumber = (string) ($values['document_number'] ?? '');
+
         $facts = $this->pairs([
+            /* A receipt — or a refund — leads with its own number; the bill it
+               belongs to is the line under it. Its document number IS that
+               number, so the line is not printed twice. */
+            'Refund No' => $refundNumber,
+            'Receipt No' => $receiptNumber,
             'Invoice No' => $values['invoice_number'] ?? '',
             'Prescription No' => $values['prescription_number'] ?? '',
-            'Document No' => $values['document_number'] ?? '',
-            'Date' => $values['invoice_date'] ?? $values['prescription_date'] ?? $values['visit_date'] ?? '',
+            'Document No' => in_array($documentNumber, array_filter([$receiptNumber, $refundNumber]), true)
+                ? ''
+                : $documentNumber,
+            'Date' => $values['refund_date'] ?? $values['receipt_date'] ?? $values['invoice_date'] ?? $values['prescription_date'] ?? $values['visit_date'] ?? '',
             'Printed' => $values['generated_on'] ?? '',
         ]);
 
@@ -843,6 +859,7 @@ class DocumentHtml
         [$class, $icon, $note] = match ($state) {
             'PAID' => ['is-paid', 'circle-check', 'Thank you for your payment.'],
             'PART PAID' => ['is-part', 'clock', 'A balance is still outstanding.'],
+            'REFUNDED' => ['is-refund', 'cash', 'This amount has been returned to you.'],
             default => ['is-unpaid', 'circle-x', 'Payment has not been received.'],
         };
 
@@ -1165,16 +1182,31 @@ class DocumentHtml
     private function settlement(string $documentType, array $values, bool $receipt): string
     {
         $paid = (string) ($values['amount_paid'] ?? '');
+        $refunded = (string) ($values['refund_amount'] ?? '');
 
-        $rows = $this->pairs([
-            'Amount Paid' => $paid,
-            'Payment Mode' => $values['payment_method'] ?? '',
-            'Transaction Ref.' => $values['payment_reference'] ?? '',
-            'Paid On' => $values['payment_date'] ?? '',
-            /* The figure written out, which is what makes a receipt hard to
-               alter after it has been handed over. */
-            'Amount in Words' => $this->words($this->amount($paid !== '' ? $paid : ($values['total'] ?? ''))),
-        ]);
+        /*
+         * Money going back gets its own panel and its own words. Printed
+         * through the payment rows it read "Amount Paid ₹300" on a slip
+         * handing ₹300 back — the one sentence on it that has to be right.
+         */
+        $rows = $refunded !== ''
+            ? $this->pairs([
+                'Amount Refunded' => $refunded,
+                'Refund Mode' => $values['refund_method'] ?? '',
+                'Against Receipt' => $values['refunded_receipt_number'] ?? '',
+                'Reason' => $values['refund_reason'] ?? '',
+                'Refunded On' => $values['refund_date'] ?? '',
+                'Amount in Words' => $this->words($this->amount($refunded)),
+            ])
+            : $this->pairs([
+                'Amount Paid' => $paid,
+                'Payment Mode' => $values['payment_method'] ?? '',
+                'Transaction Ref.' => $values['payment_reference'] ?? '',
+                'Paid On' => $values['payment_date'] ?? '',
+                /* The figure written out, which is what makes a receipt hard to
+                   alter after it has been handed over. */
+                'Amount in Words' => $this->words($this->amount($paid !== '' ? $paid : ($values['total'] ?? ''))),
+            ]);
 
         if (trim($rows) === '') {
             return '';
@@ -1190,7 +1222,8 @@ class DocumentHtml
          * Absent on a till roll — 80mm of thermal paper has no room, and the
          * receipt already carries the number in text.
          */
-        $reference = trim((string) ($values['invoice_number'] ?? $values['document_number'] ?? ''));
+        // A receipt's square carries the receipt, not the bill behind it.
+        $reference = trim((string) ($values['refund_number'] ?? $values['receipt_number'] ?? $values['invoice_number'] ?? $values['document_number'] ?? ''));
 
         $qr = ! $receipt && $reference !== ''
             ? $this->qr->dataUri($reference, 220)
@@ -1205,7 +1238,7 @@ class DocumentHtml
                 .'<div class="qr-cap">Scan to verify<br>'.$this->e($reference).'</div>'
                 .'</td></tr></table>';
 
-        return $this->card('Payment information', 'credit-card', $content, false, true)
+        return $this->card($refunded !== '' ? 'Refund information' : 'Payment information', 'credit-card', $content, false, true)
             .$this->signatures($documentType, $values, $receipt);
     }
 

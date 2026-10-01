@@ -247,6 +247,21 @@ export function tenantNavigation(
     }
 
     /*
+     * Which documents make themselves — a receipt on every payment, a slip on
+     * every refund. Beside the letterhead because it is the same subject, but
+     * its own capability: deciding what every branch's counter prints is an
+     * organisation decision, where the letterhead may be a branch's own.
+     */
+    if (hasModule('documents') && can('documents.template_org')) {
+        settings.push({
+            label: 'Automatic documents',
+            to: '/settings/document-automation',
+            icon: 'ti ti-bolt',
+            match: '/settings/document-automation',
+        });
+    }
+
+    /*
      * When the clinic bills, what a patient may leave owing, which methods
      * the till takes. Set once and then left alone, like everything else
      * here — which is why it is here and no longer inside the Billing group,
@@ -803,6 +818,18 @@ export function tenantNavigation(
     if (organization.length > 0) {
         sections.push({ title: 'Organisation', items: organization });
     }
+
+    /* --- help -------------------------------------------------------------- */
+
+    /*
+     * How the software works — what each screen does and where each button
+     * is. For everybody signed in, whatever they may open: a receptionist
+     * asking "where is the receipt button" is the reader it is written for.
+     */
+    sections.push({
+        title: 'Help',
+        items: [{ label: 'Guide', to: '/guide', icon: 'ti ti-book', match: '/guide' }],
+    });
 
     /* --- what is coming -------------------------------------------------- */
 

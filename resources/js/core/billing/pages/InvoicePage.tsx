@@ -78,21 +78,26 @@ export default function InvoicePage() {
         }
     }
 
-    async function printInvoice() {
-        if (!invoice) return;
-
+    /** The bill itself, or the slip for one payment or refund against it. */
+    async function print(documentType: 'clinic_invoice' | 'clinic_receipt' | 'clinic_refund', subjectId: number) {
         setRefusal(null);
 
         try {
             const document_ = await generate.mutateAsync({
-                document_type: 'clinic_invoice',
-                subject_id: invoice.id,
+                document_type: documentType,
+                subject_id: subjectId,
             });
 
             await openDocument(document_);
         } catch (failure) {
             setRefusal(resolveErrorMessage(failure));
         }
+    }
+
+    async function printInvoice() {
+        if (!invoice) return;
+
+        await print('clinic_invoice', invoice.id);
     }
 
     if (isLoading || !invoice) {
@@ -332,15 +337,34 @@ export default function InvoicePage() {
                                             <span className={`tabular-nums fw-bold ${payment.is_refund ? 'text-danger' : ''}`}>
                                                 {payment.is_refund ? '−' : ''}{money(payment.amount)}
                                             </span>
-                                            {canRefund && !payment.is_refund && (
-                                                <div>
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-link btn-sm px-0"
-                                                        onClick={() => setRefunding(payment.id)}
-                                                    >
-                                                        Refund
-                                                    </button>
+                                            {(canPrint || (canRefund && !payment.is_refund)) && (
+                                                <div className="d-flex gap-2 justify-content-end">
+                                                    {/* This row's own slip — a receipt for money in, a
+                                                        refund receipt for money back — not the bill again. */}
+                                                    {canPrint && (
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-link btn-sm px-0"
+                                                            onClick={() =>
+                                                                void print(
+                                                                    payment.is_refund ? 'clinic_refund' : 'clinic_receipt',
+                                                                    payment.id,
+                                                                )
+                                                            }
+                                                            disabled={generate.isPending}
+                                                        >
+                                                            {payment.is_refund ? 'Refund slip' : 'Receipt'}
+                                                        </button>
+                                                    )}
+                                                    {canRefund && !payment.is_refund && (
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-link btn-sm px-0"
+                                                            onClick={() => setRefunding(payment.id)}
+                                                        >
+                                                            Refund
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

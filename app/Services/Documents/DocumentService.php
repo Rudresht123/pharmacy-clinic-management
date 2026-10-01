@@ -7,6 +7,7 @@ use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\File;
 use App\Models\Tenant\Invoice;
+use App\Models\Tenant\InvoicePayment;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\PatientDocument;
 use App\Models\Tenant\PharmacySale;
@@ -14,6 +15,7 @@ use App\Models\Tenant\Prescription;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Support\Documents\DocumentTypes;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -51,6 +53,12 @@ class DocumentService
     /**
      * Render one document and file it against the patient.
      *
+     * With an IDEMPOTENCY KEY — what the automation passes — asking twice files
+     * once: the second call hands back the document the first one filed, even
+     * one somebody has since removed with a reason, rather than printing it
+     * again behind their back. Without one — a person pressing Print — every
+     * call is a new copy, which is what pressing Print means.
+     *
      * @throws RuntimeException when this organization has no usable template
      */
     public function generate(
@@ -58,11 +66,16 @@ class DocumentService
         Model $subject,
         Organization $organization,
         ?Location $branch,
+        ?string $idempotencyKey = null,
     ): PatientDocument {
         $type = DocumentTypes::find($documentType);
 
         if ($type === null) {
             throw new RuntimeException('There is no such document type.');
+        }
+
+        if ($idempotencyKey !== null && ($filed = $this->alreadyFiled($idempotencyKey))) {
+            return $filed;
         }
 
         $resolved = $this->templates->resolve($documentType, $branch?->getKey());
@@ -120,7 +133,7 @@ class DocumentService
 
         try {
             return DB::connection(TenantConnectionService::CONNECTION)->transaction(
-                function () use ($path, $name, $bytes, $customerId, $appointmentId, $branch, $type, $documentType, $resolved, $version, $number) {
+                function () use ($path, $name, $bytes, $customerId, $appointmentId, $branch, $type, $documentType, $resolved, $version, $number, $idempotencyKey) {
                     $file = File::create([
                         'file_name' => $name,
                         'file_path' => $path,
@@ -145,6 +158,7 @@ class DocumentService
                         'title' => $number ? "{$type['name']} {$number}" : $type['name'],
                         'document_number' => $number,
                         'uploaded_by' => Auth::guard('web')->id(),
+                        'idempotency_key' => $idempotencyKey,
                     ]);
                 },
             );
@@ -153,8 +167,61 @@ class DocumentService
             // leave a file nothing points at.
             Storage::disk('local')->delete($path);
 
+            /*
+             * Two runs of one event raced past the check above and the other
+             * filed first. The unique index is the real guarantee; losing the
+             * race is not a failure, it is the answer.
+             */
+            if ($e instanceof UniqueConstraintViolationException
+                && $idempotencyKey !== null
+                && ($filed = $this->alreadyFiled($idempotencyKey))) {
+                return $filed;
+            }
+
             throw $e;
         }
+    }
+
+    /**
+     * The copy the automation filed for this record, if one is still on file.
+     *
+     * So pressing Print on a receipt the clinic already makes automatically
+     * opens THAT receipt rather than filing a second one beside it — two
+     * copies of one payment's receipt on a patient's record read as two
+     * payments.
+     *
+     * Never for a bill. A bill changes as it is paid, and somebody pressing
+     * Print on it wants it as it stands now, not the UNPAID copy made when it
+     * was drawn. A copy somebody removed is not handed back either: they
+     * removed it, and pressing Print is asking for a new one.
+     */
+    public function filedAutomatically(string $documentType, Model $subject): ?PatientDocument
+    {
+        if ($subject instanceof Invoice) {
+            return null;
+        }
+
+        return PatientDocument::query()
+            ->where('idempotency_key', self::recordKey($documentType, $subject))
+            ->first();
+    }
+
+    /**
+     * "clinic_receipt|App\Models\Tenant\InvoicePayment#42" — one document of
+     * one record. What an automatic copy is filed under; the automation adds
+     * the payment or refund to it for a bill, which is copied per payment.
+     */
+    public static function recordKey(string $documentType, Model $subject): string
+    {
+        return $documentType.'|'.$subject->getMorphClass().'#'.$subject->getKey();
+    }
+
+    /** The document already filed under this key, removed or not. */
+    private function alreadyFiled(string $idempotencyKey): ?PatientDocument
+    {
+        return PatientDocument::withTrashed()
+            ->where('idempotency_key', $idempotencyKey)
+            ->first();
     }
 
     /**
@@ -209,6 +276,8 @@ class DocumentService
              * against the patient alone).
              */
             $subject instanceof Invoice => [$subject->customer_id, $subject->appointment_id],
+            // A receipt files where its bill does.
+            $subject instanceof InvoicePayment => [$subject->invoice?->customer_id, $subject->invoice?->appointment_id],
             default => [null, null],
         };
     }
@@ -227,6 +296,7 @@ class DocumentService
             $subject instanceof Prescription => $subject->prescription_number,
             $subject instanceof PharmacySale => $subject->sale_number,
             $subject instanceof Invoice => $subject->invoice_number,
+            $subject instanceof InvoicePayment => $subject->receipt_number,
             default => null,
         };
     }

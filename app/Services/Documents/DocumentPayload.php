@@ -8,6 +8,7 @@ use App\Models\Tenant\BillableService;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Invoice;
 use App\Models\Tenant\InvoiceItem;
+use App\Models\Tenant\InvoicePayment;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\PatientDocument;
 use App\Models\Tenant\PharmacySale;
@@ -67,6 +68,8 @@ class DocumentPayload
             DocumentTypes::SUBJECT_PRESCRIPTION => $this->fromPrescription($subject, $values, $tables),
             DocumentTypes::SUBJECT_SALE => $this->fromSale($subject, $values, $tables),
             DocumentTypes::SUBJECT_INVOICE => $this->fromInvoice($subject, $values, $tables),
+            DocumentTypes::SUBJECT_PAYMENT => $this->fromPayment($subject, $values, $tables),
+            DocumentTypes::SUBJECT_REFUND => $this->fromRefund($subject, $values, $tables),
             default => null,
         };
 
@@ -511,6 +514,88 @@ class DocumentPayload
             Invoice::PARTIAL => 'PART PAID',
             default => 'UNPAID',
         };
+    }
+
+    /**
+     * One payment's receipt: the bill it was taken against, then what THIS
+     * payment was and what it left owing.
+     *
+     * Built on fromInvoice() for everything about the bill, then overwritten
+     * with the payment's own figures. The balance is worked out AS AT THIS
+     * PAYMENT — every payment and refund up to and including it — so a
+     * receipt reprinted next week still says what the one handed over at the
+     * counter said, whatever has been paid since.
+     *
+     * @param  array<string, string>  $values
+     * @param  array<string, mixed>  $tables
+     */
+    private function fromPayment(mixed $subject, array &$values, array &$tables): void
+    {
+        $payment = $subject instanceof InvoicePayment
+            ? $subject
+            : InvoicePayment::with('invoice')->find($subject);
+
+        // Money given back is fromRefund()'s, never a receipt's.
+        if (! $payment || $payment->is_refund || ! $payment->invoice) {
+            return;
+        }
+
+        $invoice = $payment->invoice;
+
+        $this->fromInvoice($invoice, $values, $tables);
+
+        $paidSoFar = $invoice->payments
+            ->filter(fn (InvoicePayment $row) => $row->id <= $payment->id)
+            ->sum(fn (InvoicePayment $row) => $row->is_refund ? -(float) $row->amount : (float) $row->amount);
+
+        $owing = max(0.0, round((float) $invoice->total_amount - $paidSoFar, 2));
+
+        $values['receipt_number'] = (string) $payment->receipt_number;
+        $values['receipt_date'] = $payment->paid_at?->format('d M Y, g:i A') ?? '';
+        $values['amount_paid'] = $this->money($payment->amount);
+        $values['balance'] = $this->money($owing);
+        $values['payment_method'] = ucfirst(str_replace('_', ' ', (string) $payment->method));
+        $values['payment_reference'] = (string) ($payment->reference ?? '');
+        $values['payment_date'] = $values['receipt_date'];
+        $values['payment_state'] = $owing <= 0.001 ? 'PAID' : 'PART PAID';
+    }
+
+    /**
+     * One refund's receipt: the bill it came out of, the receipt it undid,
+     * and what went back.
+     *
+     * The bill's own payment panel is emptied rather than left in place. It
+     * describes the latest money IN — "Amount Paid ₹500, UPI" — which on a
+     * refund slip is the wrong direction printed in the biggest type. And no
+     * balance is printed: a patient handed a refund with "Balance due" on it
+     * reads it as being told they owe the clinic.
+     *
+     * @param  array<string, string>  $values
+     * @param  array<string, mixed>  $tables
+     */
+    private function fromRefund(mixed $subject, array &$values, array &$tables): void
+    {
+        $refund = $subject instanceof InvoicePayment
+            ? $subject
+            : InvoicePayment::with(['invoice', 'refunded'])->find($subject);
+
+        if (! $refund || ! $refund->is_refund || ! $refund->invoice) {
+            return;
+        }
+
+        $this->fromInvoice($refund->invoice, $values, $tables);
+
+        foreach (['amount_paid', 'balance', 'payment_method', 'payment_reference', 'payment_date'] as $key) {
+            $values[$key] = '';
+        }
+
+        $values['refund_number'] = (string) $refund->receipt_number;
+        $values['refund_date'] = $refund->paid_at?->format('d M Y, g:i A') ?? '';
+        $values['refund_amount'] = $this->money($refund->amount);
+        $values['refund_method'] = ucfirst(str_replace('_', ' ', (string) $refund->method));
+        $values['refund_reason'] = (string) ($refund->notes ?? '');
+        $values['refunded_receipt_number'] = (string) ($refund->refunded?->receipt_number ?? '');
+        $values['payment_state'] = 'REFUNDED';
     }
 
     private function money(mixed $amount): string

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/api/http';
 import { resourceKey } from '@/shared/hooks/useResource';
 import type { Page } from '@/shared/api/resource';
@@ -43,6 +43,8 @@ export interface Invoice {
 
     customer_id: number | null;
     customer_name: string | null;
+    /** The registered patient's phone — present when the list loaded the patient. */
+    customer_phone?: string | null;
     walk_in_phone: string | null;
     is_walk_in: boolean;
 
@@ -81,6 +83,7 @@ export interface Invoice {
     terms: string | null;
 
     items?: InvoiceItem[];
+    items_count?: number;
     payments?: InvoicePayment[];
 
     created_by_name: string | null;
@@ -125,6 +128,50 @@ export function useInvoices(params: Params) {
             return data;
         },
     });
+}
+
+/** A card at the top of the Invoices screen. `change` is this month against last, in %. */
+export interface InvoiceCard {
+    value: number;
+    this_month?: number;
+    invoices?: number;
+    change: number | null;
+}
+
+export interface InvoiceSummary {
+    /** One per tab, following the filters on screen. */
+    counts: { outstanding: number; open: number; all: number; paid: number; cancelled: number };
+    /** The register as a whole — not narrowed by the filters. */
+    cards: { invoices: InvoiceCard; billed: InvoiceCard; outstanding: InvoiceCard; collected: InvoiceCard };
+}
+
+export function useInvoiceSummary(params: Params) {
+    return useQuery({
+        queryKey: resourceKey('tenant/billing', 'invoices', 'summary', params),
+        placeholderData: keepPreviousData,
+        queryFn: async (): Promise<InvoiceSummary> => {
+            const { data } = await http.get<ApiResponse<InvoiceSummary>>('/tenant/invoices/summary', { params });
+
+            return data.data;
+        },
+    });
+}
+
+/** Saves the list on screen — or only the ticked rows — as a CSV file. */
+export async function exportInvoices(params: Params, ids?: number[]): Promise<void> {
+    const { data } = await http.get<Blob>('/tenant/invoices/export', {
+        params: ids && ids.length > 0 ? { ...params, ids } : params,
+        responseType: 'blob',
+    });
+
+    const url = URL.createObjectURL(data);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = `invoices-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
 export function useInvoice(id: number | undefined) {
@@ -405,9 +452,69 @@ export function useBillingOverview(params?: {
 }) {
     return useQuery({
         queryKey: resourceKey('tenant/billing', 'overview', params),
+        // Switching the range keeps the dashboard up while the new figures load.
+        placeholderData: keepPreviousData,
         queryFn: async (): Promise<BillingOverview> => {
             const { data } = await http.get<ApiResponse<BillingOverview>>(
                 '/tenant/billing/overview',
+                { params },
+            );
+
+            return data.data;
+        },
+    });
+}
+
+/**
+ * The overview's invoice table — the window's bills, a page at a time.
+ *
+ * Its own request, so turning a page does not recompute every card and chart.
+ * Keyed under `overview`, so whatever refreshes the overview refreshes this.
+ * The previous page stays on screen while the next loads, rather than the
+ * table collapsing to a spinner between pages.
+ */
+export function useOverviewInvoices(params: { from: string; to: string; page: number; per_page: number }) {
+    return useQuery({
+        queryKey: resourceKey('tenant/billing', 'overview', 'invoices', params),
+        placeholderData: keepPreviousData,
+        queryFn: async (): Promise<Page<Invoice>> => {
+            const { data } = await http.get<Page<Invoice>>('/tenant/billing/overview/invoices', { params });
+
+            return data;
+        },
+    });
+}
+
+/** Everybody who owes money, grouped by patient — not windowed. */
+export function useOverviewOutstanding(params: { page: number; per_page: number }) {
+    return useQuery({
+        queryKey: resourceKey('tenant/billing', 'overview', 'outstanding', params),
+        placeholderData: keepPreviousData,
+        queryFn: async (): Promise<Page<OutstandingPatient>> => {
+            const { data } = await http.get<Page<OutstandingPatient>>('/tenant/billing/overview/outstanding', {
+                params,
+            });
+
+            return data;
+        },
+    });
+}
+
+export interface OutstandingSummary {
+    total_outstanding: number;
+    total_invoices: number;
+    unpaid: { count: number; amount: number };
+    partial: { count: number; amount: number };
+}
+
+/** The Outstanding page's own 4 cards — all-time unless `from`/`to` narrow it. */
+export function useOutstandingSummary(params?: { from?: string; to?: string; location_id?: number }) {
+    return useQuery({
+        queryKey: resourceKey('tenant/billing', 'overview', 'outstanding', 'summary', params),
+        placeholderData: keepPreviousData,
+        queryFn: async (): Promise<OutstandingSummary> => {
+            const { data } = await http.get<ApiResponse<OutstandingSummary>>(
+                '/tenant/billing/overview/outstanding/summary',
                 { params },
             );
 
@@ -441,6 +548,27 @@ export function usePayments(params: Params) {
             });
 
             return data;
+        },
+    });
+}
+
+export interface PaymentsSummary {
+    total_collected: { value: number; change: number | null };
+    transactions: { value: number; change: number | null };
+    total_refunds: { value: number; change: number | null };
+    methods: { method: string; count: number; amount: number; share: number }[];
+}
+
+export function usePaymentsSummary(params?: { from?: string; to?: string; location_id?: number }) {
+    return useQuery({
+        queryKey: resourceKey('tenant/billing', 'payments', 'summary', params),
+        placeholderData: keepPreviousData,
+        queryFn: async (): Promise<PaymentsSummary> => {
+            const { data } = await http.get<ApiResponse<PaymentsSummary>>('/tenant/billing/payments/summary', {
+                params,
+            });
+
+            return data.data;
         },
     });
 }

@@ -58,7 +58,13 @@ final class ClinicEvents
      * decides whether an organisation is even offered the event: a clinic
      * without the pharmacy module has no use for a sale rule.
      *
-     * @return array<string, array{label: string, module: string, at: string}>
+     * `documents` is what a rule on the event may make — the document types
+     * whose record the event actually carries. A payment carries its bill and
+     * its own row, so it can make a receipt or a copy of the bill; it carries
+     * no prescription, so it cannot make one. Offering anything else would be
+     * a rule that fails every time it fires.
+     *
+     * @return array<string, array{label: string, module: string, at: string, documents: list<string>}>
      */
     public static function all(): array
     {
@@ -67,36 +73,43 @@ final class ClinicEvents
                 'label' => 'Invoice created',
                 'module' => 'billing',
                 'at' => 'BillingService::draw() / finalize()',
+                'documents' => ['clinic_invoice'],
             ],
             self::PAYMENT_RECEIVED => [
                 'label' => 'Payment received',
                 'module' => 'billing',
                 'at' => 'BillingService::recordPayment()',
+                'documents' => ['clinic_receipt', 'clinic_invoice'],
             ],
             self::PAYMENT_PARTIALLY_RECEIVED => [
                 'label' => 'Payment received, balance outstanding',
                 'module' => 'billing',
                 'at' => 'BillingService::recordPayment()',
+                'documents' => ['clinic_receipt', 'clinic_invoice'],
             ],
             self::PAYMENT_FULLY_RECEIVED => [
                 'label' => 'Invoice settled in full',
                 'module' => 'billing',
                 'at' => 'BillingService::recordPayment()',
+                'documents' => ['clinic_receipt', 'clinic_invoice'],
             ],
             self::REFUND_PROCESSED => [
                 'label' => 'Refund processed',
                 'module' => 'billing',
                 'at' => 'BillingService::refund()',
+                'documents' => ['clinic_refund'],
             ],
             self::PRESCRIPTION_ISSUED => [
                 'label' => 'Prescription issued',
                 'module' => 'prescriptions',
                 'at' => 'PrescriptionService::issue()',
+                'documents' => ['prescription'],
             ],
             self::PHARMACY_SALE_COMPLETED => [
                 'label' => 'Pharmacy sale completed',
                 'module' => 'pharmacy',
                 'at' => 'SalesService::sell()',
+                'documents' => ['pharmacy_invoice', 'payment_receipt'],
             ],
         ];
     }
@@ -120,5 +133,15 @@ final class ClinicEvents
     public static function module(string $key): ?string
     {
         return self::all()[$key]['module'] ?? null;
+    }
+
+    /**
+     * The document types a rule on this event may make.
+     *
+     * @return list<string>
+     */
+    public static function documentsFor(string $key): array
+    {
+        return self::all()[$key]['documents'] ?? [];
     }
 }

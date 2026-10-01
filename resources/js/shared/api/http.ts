@@ -13,6 +13,12 @@ export const http: AxiosInstance = axios.create({
     baseURL: '/api/v1',
     withCredentials: true,
     withXSRFToken: true,
+    // Without this, a request that never gets a response (a stuck query, a
+    // dropped connection) hangs forever — the promise neither resolves nor
+    // rejects, so React Query's `isFetching` never clears and the full-page
+    // NavigationLoader, which only hides once nothing is in flight, spins on
+    // every screen after that, not just the one that made the slow call.
+    timeout: 20_000,
     headers: {
         Accept: 'application/json',
         'X-Requested-With': 'XMLHttpRequest',

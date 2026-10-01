@@ -43,6 +43,8 @@ use App\Http\Controllers\Api\V1\Tenant\MedicineBatchController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineController;
 use App\Http\Controllers\Api\V1\Tenant\OpdController;
 use App\Http\Controllers\Api\V1\Tenant\DocumentGenerationController;
+use App\Http\Controllers\Api\V1\Tenant\DocumentRuleController;
+use App\Http\Controllers\Api\V1\Tenant\GuideController;
 use App\Http\Controllers\Api\V1\Tenant\DocumentTemplateController;
 use App\Http\Controllers\Api\V1\Tenant\LocationManagerController;
 use App\Http\Controllers\Api\V1\Tenant\PatientDocumentController;
@@ -291,6 +293,19 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         */
         Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::post('auth/logout', [TenantAuthController::class, 'logout']);
+
+        /*
+        | The Guide section — how the software works, read from docs/guides.
+        | Ungated beyond being signed in: a guide holds nothing about a
+        | patient or a clinic. The slug pattern keeps a path out of the URL.
+        */
+        Route::get('guides', [GuideController::class, 'index'])->name('guides.index');
+        Route::get('guides/{slug}', [GuideController::class, 'show'])
+            ->where('slug', '[a-z0-9][a-z0-9-]*')
+            ->name('guides.show');
+        Route::get('guides/{slug}/pdf', [GuideController::class, 'pdf'])
+            ->where('slug', '[a-z0-9][a-z0-9-]*')
+            ->name('guides.pdf');
 
         /*
         | Reference lookups: facts about the world rather than about this
@@ -657,11 +672,28 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 */
                 Route::get('billing/overview', [BillingOverviewController::class, 'show'])
                     ->name('billing.overview');
+                // The overview's two tables, paged on their own so turning a
+                // page does not recompute every chart above them.
+                Route::get('billing/overview/invoices', [BillingOverviewController::class, 'invoices'])
+                    ->name('billing.overview.invoices');
+                Route::get('billing/overview/outstanding', [BillingOverviewController::class, 'outstanding'])
+                    ->name('billing.overview.outstanding');
+                Route::get('billing/overview/outstanding/summary', [BillingOverviewController::class, 'outstandingSummary'])
+                    ->name('billing.overview.outstanding.summary');
                 Route::get('billing/payments', [BillingOverviewController::class, 'payments'])
                     ->name('billing.payments');
+                Route::get('billing/payments/summary', [BillingOverviewController::class, 'paymentsSummary'])
+                    ->name('billing.payments.summary');
+                Route::get('billing/payments/export', [BillingOverviewController::class, 'exportPayments'])
+                    ->name('billing.payments.export');
 
                 Route::get('invoices', [InvoiceController::class, 'index'])
                     ->name('invoices.index');
+                // Before {invoice}, which would otherwise take "summary" for an id.
+                Route::get('invoices/summary', [InvoiceController::class, 'summary'])
+                    ->name('invoices.summary');
+                Route::get('invoices/export', [InvoiceController::class, 'export'])
+                    ->name('invoices.export');
                 Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])
                     ->name('invoices.show');
                 Route::get('billable-services', [BillableServiceController::class, 'index'])
@@ -933,6 +965,16 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             Route::post('documents/generate', [DocumentGenerationController::class, 'store'])
                 ->middleware('permission:documents.generate')
                 ->name('documents.generate');
+
+            /* Which documents make themselves — "a receipt on every payment".
+               What every branch's counter prints is the organisation's call,
+               so reading and saving both need `documents.template_org`. */
+            Route::middleware('permission:documents.template_org')->group(function () {
+                Route::get('document-rules', [DocumentRuleController::class, 'index'])
+                    ->name('documents.rules.index');
+                Route::put('document-rules', [DocumentRuleController::class, 'update'])
+                    ->name('documents.rules.update');
+            });
         });
 
         /*

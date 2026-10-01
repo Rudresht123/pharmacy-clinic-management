@@ -45,6 +45,8 @@ class PatientDocument extends Model
         'document_number',
         'notes',
         'uploaded_by',
+        // Set only by the automation — see DocumentService::generate().
+        'idempotency_key',
     ];
 
     public function customer(): BelongsTo

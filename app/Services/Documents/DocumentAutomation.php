@@ -2,7 +2,13 @@
 
 namespace App\Services\Documents;
 
+use App\Models\Platform\Organization;
+use App\Models\Tenant\Invoice;
+use App\Models\Tenant\Location;
 use App\Services\Clinic\ClinicEvent;
+use App\Services\Permissions\Permission;
+use App\Support\Documents\DocumentTypes;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -20,11 +26,19 @@ use Throwable;
  * committed it. Generating a document is a second thing that may or may not
  * happen. Delivering it is a third. Collapsing any two of those is how a
  * failed WhatsApp send ends up rolling back a payment.
+ *
+ * GENERATED IN THE REQUEST, after the commit — not queued. A queued document
+ * appears only where a worker is running, and a clinic with no worker would
+ * set a rule and see nothing happen, with nothing on the screen saying why.
+ * A receipt is one small page; the counter waits a moment longer for it.
+ * Delivery, when it arrives, is the part that goes on the queue.
  */
 class DocumentAutomation
 {
     public function __construct(
         private readonly DocumentRules $rules,
+        private readonly DocumentService $documents,
+        private readonly Permission $permissions,
     ) {}
 
     /**
@@ -85,27 +99,81 @@ class DocumentAutomation
             return;
         }
 
-        Log::info('document-automation.started', $context);
+        $type = DocumentTypes::find($rule->documentType);
+
+        // The event names the database; the organisation is looked up by it
+        // rather than carried, so the two can never disagree.
+        $organization = Organization::query()->where('database_name', $event->database)->first();
+
+        if ($type === null || $organization === null) {
+            Log::warning('document-automation.unresolvable', $context);
+
+            return;
+        }
 
         /*
-         * STEP 2 AND STEP 3 LAND HERE, in this order:
-         *
-         *   1. DocumentService::generate() for $rule->documentType, keyed by
-         *      $event->idempotencyKey() so a replayed event reuses the
-         *      document the first one filed rather than filing a second.
-         *   2. A delivery pass per enabled action, queued — never inline, and
-         *      never inside a transaction. WhatsAppManager and EmailManager
-         *      already queue and already log to `message_logs`; what is
-         *      missing is the join from a document to its sends.
-         *
-         * Not stubbed with a half-working generate() on purpose. A document
-         * produced without the idempotency constraint that Step 3 adds would
-         * duplicate receipts on the first retried request, and a duplicated
-         * receipt is a financial record that has to be voided by hand.
+         * A rule outlives the module it was made under. A clinic that has
+         * since dropped Documents — or the module the document needs — at
+         * this branch gets nothing, quietly: they switched it off.
          */
-        Log::info('document-automation.pending-implementation', $context + [
-            'idempotency_key' => $event->idempotencyKey(),
-            'delivers' => $rule->delivers(),
-        ]);
+        $modules = $this->permissions->modulesAt($organization, $event->locationId);
+
+        if (! in_array('documents', $modules, true) || array_diff($type['requires'], $modules) !== []) {
+            Log::info('document-automation.module-off', $context);
+
+            return;
+        }
+
+        $subject = DocumentSubjects::fromEvent($event, $type['subject']);
+
+        if ($subject === null) {
+            Log::warning('document-automation.no-subject', $context);
+
+            return;
+        }
+
+        Log::info('document-automation.started', $context);
+
+        $document = $this->documents->generate(
+            $rule->documentType,
+            $subject,
+            $organization,
+            $event->locationId === null ? null : Location::find($event->locationId),
+            $this->keyFor($event, $rule->documentType, $subject),
+        );
+
+        Log::info(
+            $document->wasRecentlyCreated ? 'document-automation.generated' : 'document-automation.already-filed',
+            $context + ['document_id' => $document->getKey()],
+        );
+    }
+
+    /**
+     * What makes this document this document, and not a second copy of it.
+     *
+     * THE RECORD, not the event. A receipt is one receipt per payment however
+     * many rules asked for it — "payment received" and "settled in full" both
+     * fire on the payment that settles a bill, and a clinic that ticked both
+     * wants one receipt, not two. The same goes for a prescription, a refund
+     * and a counter sale: one record, one automatic copy.
+     *
+     * A BILL is the exception, because a bill changes as it is paid. A copy
+     * printed when it was drawn and another when it was settled are two
+     * different sheets — UNPAID and PAID — so each payment or refund that
+     * prints one is its own copy.
+     */
+    private function keyFor(ClinicEvent $event, string $documentType, Model $subject): string
+    {
+        $key = DocumentService::recordKey($documentType, $subject);
+
+        if ($subject instanceof Invoice) {
+            foreach (['payment_id', 'refund_id'] as $discriminator) {
+                if (isset($event->meta[$discriminator])) {
+                    $key .= '|'.$discriminator.':'.$event->meta[$discriminator];
+                }
+            }
+        }
+
+        return $key;
     }
 }

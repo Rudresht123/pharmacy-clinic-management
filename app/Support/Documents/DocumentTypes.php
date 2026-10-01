@@ -27,7 +27,9 @@ namespace App\Support\Documents;
  * Invoice row rather than a PharmacySale. `pharmacy_invoice` and
  * `payment_receipt` are the shop's own bills and stay pointed at
  * PharmacySale; the two document types coexist for the same visit if both
- * modules run.
+ * modules run. `clinic_receipt` is the clinic's receipt for ONE payment
+ * against an Invoice, printed from the InvoicePayment row; `clinic_refund`
+ * is its counterpart for a refund row.
  *
  * `category` is the OTHER half, and a different question: it decides who may
  * READ the generated file, through DocumentCategories. A generated
@@ -48,6 +50,12 @@ class DocumentTypes
 
     /** The clinic's own invoice — an Invoice row from the billing module. */
     public const SUBJECT_INVOICE = 'invoice';
+
+    /** One payment against a clinic invoice — an InvoicePayment row. */
+    public const SUBJECT_PAYMENT = 'invoice_payment';
+
+    /** Money given back against a clinic invoice — an InvoicePayment refund row. */
+    public const SUBJECT_REFUND = 'invoice_refund';
 
     /** Paper sizes the renderer knows. */
     public const PAPER_A4 = 'a4';
@@ -145,6 +153,58 @@ class DocumentTypes
                 'paper' => self::PAPER_A4,
                 'requires' => ['billing'],
                 'groups' => ['organization', 'branch', 'patient', 'visit', 'invoice'],
+            ],
+            [
+                /*
+                 * ONE PAYMENT, not the bill. A bill settled in two instalments
+                 * is two of these, each proving what was actually handed over
+                 * that time — the amount, the mode, the reference, and what
+                 * was still owed afterwards. Its number is the payment's own
+                 * receipt number (GGN/RCP/26-27/00001).
+                 *
+                 * Separate from `payment_receipt`, which is the pharmacy
+                 * counter's till slip and prints from a PharmacySale. A
+                 * refund is not one of these either: money going back is a
+                 * different piece of paper.
+                 */
+                'key' => 'clinic_receipt',
+                'name' => 'Clinic payment receipt',
+                'description' => 'Proof of one payment against a clinic bill — each instalment gets its own.',
+                'icon' => 'ti ti-cash',
+                'subject' => self::SUBJECT_PAYMENT,
+                'category' => 'invoice',
+                /*
+                 * A4, like the bill it pays. There are no line items, but the
+                 * letterhead, the stamp, the summary, the payment panel with
+                 * its QR square and the two signature boxes are all fixed-size
+                 * blocks — on A5 the payment panel, which is the point of a
+                 * receipt, went over onto a second sheet even at 9pt.
+                 */
+                'paper' => self::PAPER_A4,
+                'requires' => ['billing'],
+                'groups' => ['organization', 'branch', 'patient', 'invoice', 'receipt'],
+            ],
+            [
+                /*
+                 * MONEY GIVEN BACK — one refund row, under the branch's refund
+                 * series (GGN/RFD/26-27/00001). It names the receipt it undid,
+                 * how much went back, how, and why, so the patient holds proof
+                 * of the return just as they hold proof of the payment.
+                 *
+                 * Its own subject rather than SUBJECT_PAYMENT, so a payment
+                 * can never be printed under a refund's title or the other way
+                 * round: each subject resolves only its own kind of row.
+                 */
+                'key' => 'clinic_refund',
+                'name' => 'Clinic refund receipt',
+                'description' => 'Proof of money given back against a clinic payment.',
+                'icon' => 'ti ti-cash',
+                'subject' => self::SUBJECT_REFUND,
+                'category' => 'invoice',
+                // A4 for the same reason as the receipt: one sheet, not two.
+                'paper' => self::PAPER_A4,
+                'requires' => ['billing'],
+                'groups' => ['organization', 'branch', 'patient', 'invoice', 'refund'],
             ],
             [
                 'key' => 'pharmacy_invoice',
