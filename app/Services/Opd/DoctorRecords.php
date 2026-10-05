@@ -4,6 +4,7 @@ namespace App\Services\Opd;
 
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Consultation;
+use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -23,6 +24,113 @@ class DoctorRecords
 {
     /** How far back a list reaches when nobody says. */
     private const DEFAULT_DAYS = 30;
+
+    /** How many people the patient list hands back. Search narrows past it. */
+    private const PATIENT_ROWS = 200;
+
+    /**
+     * Everybody on this doctor's books, one row a person.
+     *
+     * Grouped in the query rather than from `appointments()`: that list is a
+     * month of rows capped at 300, which on a busy clinic is ten days, and a
+     * patient seen in March would simply not be one of "my patients".
+     *
+     * Not windowed by date for the same reason. Cancelled bookings are not a
+     * relationship with the doctor, so they do not put somebody on the list.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function patients(Doctor $doctor, ?string $search = null): array
+    {
+        $today = now()->toDateString();
+
+        $books = Appointment::on('organization')
+            ->where('doctor_id', $doctor->id)
+            ->where('status', '!=', Appointment::STATUS_CANCELLED)
+            ->when($search, fn ($query, string $term) => $query->whereHas(
+                'customer',
+                fn ($customer) => $customer->where(fn ($match) => $match
+                    ->where('name', 'ilike', "%{$term}%")
+                    ->orWhere('code', 'ilike', "%{$term}%")
+                    ->orWhere('phone', 'ilike', "%{$term}%")),
+            ))
+            ->select('customer_id')
+            ->selectRaw('COUNT(*) AS visit_count')
+            ->selectRaw('MAX(CASE WHEN appointment_date <= ? THEN appointment_date END) AS last_on', [$today])
+            ->selectRaw(
+                'MIN(CASE WHEN appointment_date >= ? AND status = ? THEN appointment_date END) AS next_on',
+                [$today, Appointment::STATUS_BOOKED],
+            )
+            ->selectRaw('MAX(CASE WHEN appointment_date = ? THEN 1 ELSE 0 END) AS on_today', [$today])
+            ->groupBy('customer_id')
+            /*
+             * Seen before first, most recent first; then the people only
+             * booked so far. Spelled out rather than `NULLS LAST`, which only
+             * one of the databases this runs on understands.
+             */
+            ->orderByRaw('MAX(CASE WHEN appointment_date <= ? THEN 1 ELSE 0 END) DESC', [$today])
+            ->orderByDesc('last_on')
+            ->orderBy('next_on')
+            ->limit(self::PATIENT_ROWS)
+            ->get();
+
+        $ids = $books->pluck('customer_id')->map(fn ($id) => (int) $id)->all();
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $customers = Customer::on('organization')->whereIn('id', $ids)->get()->keyBy('id');
+
+        /*
+         * The last thing this doctor wrote for each of them — what they were
+         * last seen for, and whether they were asked back. One consultation a
+         * person, picked in the query, rather than every one they have ever
+         * had loaded to keep the newest.
+         */
+        $latest = Consultation::on('organization')
+            ->with('appointment')
+            ->whereIn('id', Consultation::on('organization')
+                ->selectRaw('MAX(id)')
+                ->where('doctor_id', $doctor->id)
+                ->whereIn('customer_id', $ids)
+                ->groupBy('customer_id'))
+            ->get()
+            ->keyBy('customer_id');
+
+        return $books
+            ->map(function (Appointment $row) use ($customers, $latest) {
+                $customer = $customers->get((int) $row->customer_id);
+                $last = $latest->get((int) $row->customer_id);
+
+                $seenOn = $last?->appointment?->appointment_date ?? $last?->created_at;
+                $due = $last?->follow_up_days ? $seenOn?->copy()->addDays((int) $last->follow_up_days) : null;
+
+                return [
+                    'customer_id' => (int) $row->customer_id,
+                    'customer_name' => $customer?->name,
+                    'customer_code' => $customer?->code,
+                    'age' => $customer?->date_of_birth?->age,
+                    'gender' => $customer?->gender,
+                    'phone' => $customer?->phone,
+
+                    'visit_count' => (int) $row->visit_count,
+                    'last_on' => $row->last_on ? substr((string) $row->last_on, 0, 10) : null,
+                    'next_on' => $row->next_on ? substr((string) $row->next_on, 0, 10) : null,
+                    'today' => (bool) $row->on_today,
+
+                    'diagnoses' => $last?->diagnoses ?? [],
+                    'follow_up_on' => $due?->toDateString(),
+
+                    // Negative once the date has passed, as on the follow-ups list.
+                    'follow_up_in' => $due
+                        ? (int) now()->startOfDay()->diffInDays($due->copy()->startOfDay(), false)
+                        : null,
+                ];
+            })
+            ->values()
+            ->all();
+    }
 
     /**
      * Their appointments over a window, whatever became of them.

@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\V1\Tenant;
 use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Models\Tenant\Doctor;
 use App\Services\Opd\AvailabilityService;
-use App\Services\Opd\DoctorRecords;
 use App\Services\Opd\DoctorDay;
+use App\Services\Opd\DoctorRecords;
 use App\Services\Opd\OpdBoard;
 use App\Services\Tenancy\TenantBranchAccess;
 use Illuminate\Http\JsonResponse;
@@ -82,19 +82,22 @@ class OpdController extends BaseApiController
     }
 
     /**
-     * A doctor's own records — one endpoint, four readings.
+     * A doctor's own records — one endpoint, several readings.
      *
-     * The four screens ask the same question of the same rows from different
-     * angles, and splitting them into four routes would be four places to keep
-     * the doctor check and the date window in step.
+     * The screens ask the same question of the same rows from different
+     * angles, and splitting them into a route each would be that many places
+     * to keep the doctor check and the date window in step.
+     *
+     * `q` narrows the patient list only; the others are windows of time.
      */
     public function myRecords(Request $request): JsonResponse
     {
         $request->validate([
-            'view' => ['required', 'in:appointments,consultations,prescriptions,investigations,follow-ups'],
+            'view' => ['required', 'in:appointments,consultations,prescriptions,investigations,follow-ups,patients'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'status' => ['nullable', 'string'],
+            'q' => ['nullable', 'string', 'max:100'],
         ]);
 
         $doctor = $this->signedInDoctor($request);
@@ -113,6 +116,7 @@ class OpdController extends BaseApiController
             'prescriptions' => $this->records->lines($doctor, 'prescription', $from, $to),
             'investigations' => $this->records->lines($doctor, 'investigations', $from, $to),
             'follow-ups' => $this->records->followUps($doctor),
+            'patients' => $this->records->patients($doctor, $request->string('q')->trim()->toString() ?: null),
         });
     }
 

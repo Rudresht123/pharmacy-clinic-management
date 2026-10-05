@@ -414,6 +414,60 @@ class ConsultationTest extends TenantTestCase
         $this->assertSame(7, $row['days']);
     }
 
+    /**
+     * "My patients" is one row a person, with what they were last seen for.
+     *
+     * Grouped on the server: a list built from a month of appointment rows
+     * would drop anybody last seen before it, and show a regular three times.
+     */
+    public function test_my_patients_lists_each_person_once_with_their_last_write_up(): void
+    {
+        [$organization, $ids, $branchId, $appointmentId] = $this->clinic();
+
+        // A second booking for the same patient, still to come.
+        $this->postJson('/api/v1/tenant/appointments', [
+            'customer_id' => $this->onTenant(
+                $organization,
+                fn () => Customer::on('organization')->where('name', 'Asha Rane')->value('id'),
+            ),
+            'doctor_id' => $ids['anjali'],
+            'location_id' => $branchId,
+            'appointment_date' => now()->next('Monday')->toDateString(),
+            'type' => 'booked',
+            'slot_at' => '10:30',
+        ])->assertCreated();
+
+        $this->signInAsDoctor($organization, 'anjali@clinic.test');
+
+        $this->putJson("/api/v1/tenant/appointments/{$appointmentId}/consultation", [
+            'diagnoses' => ['Hypertension'],
+            'follow_up_days' => 7,
+        ])->assertOk();
+
+        $rows = $this->getJson('/api/v1/tenant/opd/my-records?view=patients')
+            ->assertOk()
+            ->json('data');
+
+        $this->assertCount(1, $rows);
+        $this->assertSame('Asha Rane', $rows[0]['customer_name']);
+        $this->assertSame('9810000001', $rows[0]['phone']);
+        $this->assertSame(2, $rows[0]['visit_count']);
+        $this->assertSame(self::MONDAY, $rows[0]['last_on']);
+        $this->assertSame(now()->next('Monday')->toDateString(), $rows[0]['next_on']);
+        $this->assertSame(['Hypertension'], $rows[0]['diagnoses']);
+        $this->assertSame('2026-09-14', $rows[0]['follow_up_on']);
+
+        // Search reaches the phone number as well as the name, in any case.
+        $this->assertCount(1, $this->getJson('/api/v1/tenant/opd/my-records?view=patients&q=98100')->json('data'));
+        $this->assertCount(1, $this->getJson('/api/v1/tenant/opd/my-records?view=patients&q=asha')->json('data'));
+        $this->assertSame([], $this->getJson('/api/v1/tenant/opd/my-records?view=patients&q=nobody')->json('data'));
+
+        // The other doctor has never seen her.
+        $this->signInAsDoctor($organization, 'vikram@clinic.test');
+
+        $this->assertSame([], $this->getJson('/api/v1/tenant/opd/my-records?view=patients')->assertOk()->json('data'));
+    }
+
     /** The desk may work a queue; it has no records of its own. */
     public function test_somebody_who_is_not_a_doctor_has_no_records(): void
     {

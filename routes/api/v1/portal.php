@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Tenant\Portal\AppointmentController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\DoctorController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\HomeController;
+use App\Http\Controllers\Api\V1\Tenant\Portal\PrescriptionController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\SignInController;
 use Illuminate\Support\Facades\Route;
 
@@ -62,5 +63,10 @@ Route::middleware([
         Route::get('appointments', [AppointmentController::class, 'index'])
             ->middleware('permission:portal.appointments.view')
             ->name('appointments.index');
+    });
+
+    Route::middleware('module:prescriptions')->group(function () {
+        Route::get('prescriptions', [PrescriptionController::class, 'index'])->name('prescriptions.index');
+        Route::get('prescriptions/{id}', [PrescriptionController::class, 'show'])->name('prescriptions.show');
     });
 });
