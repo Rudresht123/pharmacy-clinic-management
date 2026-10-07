@@ -36,6 +36,9 @@ use App\Http\Controllers\Api\V1\Tenant\BranchRolePermissionController;
 use App\Http\Controllers\Api\V1\Tenant\EffectivePermissionController;
 use App\Http\Controllers\Api\V1\Tenant\LocationModuleController;
 use App\Http\Controllers\Api\V1\Tenant\ModuleLockController;
+use App\Http\Controllers\Api\V1\Tenant\DeviceController;
+use App\Http\Controllers\Api\V1\Tenant\OrganizationModuleSettingController;
+use App\Http\Controllers\Api\V1\Tenant\PharmacyOpdHandoffController;
 use App\Http\Controllers\Api\V1\Tenant\LabOrderController;
 use App\Http\Controllers\Api\V1\Tenant\LabTestCatalogController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineAvailabilityController;
@@ -287,6 +290,16 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             ->name('auth.token.revoke');
 
         /*
+        | This phone can receive pushes for me. Ungated beyond being signed in:
+        | the device is registered to whoever is, in the organization they
+        | signed in to — never to anybody named in the body.
+        */
+        Route::post('devices', [DeviceController::class, 'store'])->name('devices.store');
+        Route::delete('devices/{deviceId}', [DeviceController::class, 'destroy'])
+            ->where('deviceId', '[A-Za-z0-9._:-]{1,191}')
+            ->name('devices.destroy');
+
+        /*
         | The workspace's first screen. Ungated here because anybody who may
         | sign in may open their own dashboard; every panel inside it is gated
         | on its own capability and narrowed to their branches.
@@ -493,6 +506,16 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 Route::get('pharmacy-stores/{store}/medicines', [StoreMedicineController::class, 'index'])
                     ->name('pharmacy-stores.medicines.index');
             });
+
+            /*
+            | Patients from OPD — who the doctor just finished with, for this
+            | store's counter. Needs the OPD as well as the pharmacy, so a
+            | medical shop that was never sold appointments never reaches it;
+            | the controller then asks the same of the STORE'S branch.
+            */
+            Route::get('pharmacy-stores/{store}/opd-patients', [PharmacyOpdHandoffController::class, 'index'])
+                ->middleware(['module:appointments', 'permission:pharmacy.view'])
+                ->name('pharmacy-stores.opd-patients');
 
             // What a store holds, for a doctor choosing what to prescribe.
             Route::get('pharmacy-stores/{store}/availability', [MedicineAvailabilityController::class, 'atStore'])
@@ -1513,6 +1536,16 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 ->name('module-locks.show');
             Route::put('module-locks', [ModuleLockController::class, 'update'])
                 ->name('module-locks.update');
+
+            /*
+            | Which of the modules it was sold the organization actually uses —
+            | between the super admin's sale and each branch's opt-out, and the
+            | one switch that reaches every branch, including ones opened later.
+            */
+            Route::get('module-settings', [OrganizationModuleSettingController::class, 'show'])
+                ->name('module-settings.show');
+            Route::put('module-settings', [OrganizationModuleSettingController::class, 'update'])
+                ->name('module-settings.update');
 
             /*
             | Organisation setup — the owner configuring their organization.

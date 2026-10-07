@@ -3,7 +3,12 @@
 namespace App\Providers;
 
 use App\Models\Tenant\PersonalAccessToken;
+use App\Models\Tenant\User as TenantUser;
+use App\Observers\TenantUserDevicesObserver;
 use App\Services\Permissions\Permission;
+use App\Services\Push\FcmPushSender;
+use App\Services\Push\LogPushSender;
+use App\Services\Push\PushSender;
 use App\Services\Portal\Otp\LogOtpSender;
 use App\Services\Portal\Otp\OtpSender;
 use App\Services\Email\EmailManager;
@@ -54,6 +59,16 @@ class AppServiceProvider extends ServiceProvider
         });
 
         /*
+         * How a push reaches a phone. `log` until a Firebase project is
+         * configured — see config/push.php. Resolved per use, so changing
+         * PUSH_DRIVER needs no restart of anything but the worker.
+         */
+        $this->app->bind(PushSender::class, fn () => match (config('push.driver')) {
+            'fcm' => FcmPushSender::fromConfig(),
+            default => new LogPushSender,
+        });
+
+        /*
          * The central schema lives in database/migrations/masterdb, which
          * plain `php artisan migrate` does not scan — Laravel reads only the
          * top level of database/migrations.
@@ -97,6 +112,13 @@ class AppServiceProvider extends ServiceProvider
          * change first.
          */
         Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
+
+        /*
+         * Somebody deactivated or removed stops receiving this organization's
+         * pushes at once, however it happened — the People screen, a seeder,
+         * a console command.
+         */
+        TenantUser::observe(TenantUserDevicesObserver::class);
 
         /*
          * Point reset links at the SPA rather than the Blade route.

@@ -9,6 +9,7 @@ import { formatDate } from '@/shared/utils/format';
 import { notify } from '@/shared/utils/notify';
 import { customersHooks } from '@/core/customers/api';
 import { NoStores, StorePicker, useChosenStore } from '../components/StorePicker';
+import { OpdPatientsPanel } from '../components/OpdPatientsPanel';
 import { useStock, useStoreCategories, type MedicineBatch, type StockRow } from '../inventory';
 import { usePharmacySettings } from '../api';
 import { newIdempotencyKey, useCreateSale, type Sale, type SaleInput } from '../sales';
@@ -364,6 +365,18 @@ export default function PosPage() {
                 tone="teal"
                 crumbs={[{ label: 'Pharmacy' }, { label: 'Counter' }]}
                 actions={<StorePicker stores={stores} value={store} onChange={choose} />}
+            />
+
+            {/*
+                Who the doctor just finished with — only where this branch runs
+                both the OPD and the pharmacy. Tapping one starts the bill for
+                them.
+            */}
+            <OpdPatientsPanel
+                storeId={store.id}
+                onPick={(patient) => {
+                    if (patient.patient.id !== null) setCustomerId(String(patient.patient.id));
+                }}
             />
 
             <div className="pos-grid">

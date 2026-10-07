@@ -6,6 +6,7 @@ import { notify } from '@/shared/utils/notify';
 import { useFieldSettings, useSaveFieldSettings } from '@/core/field-settings/api';
 import { BranchModulePanel } from '@/core/roles/components/BranchModulePanel';
 import { ModuleLockPanel } from '@/core/roles/components/ModuleLockPanel';
+import { OrganizationModulePanel } from '@/core/roles/components/OrganizationModulePanel';
 import { locationsHooks } from '@/core/locations/api';
 import { useConfirmSetupStep } from '../api';
 import { toFieldInputs } from '../fieldInputs';
@@ -167,10 +168,24 @@ export function SettingsSection({ step, onDirty, nav }: SectionProps) {
                 )}
             </div>
 
+            {/*
+                The organisation's answer comes first: a branch can only choose
+                among what the organisation itself uses.
+            */}
+            <div className="su-block">
+                <h3>Modules your organisation uses</h3>
+                <p>
+                    Everything you were sold, and whether you use it at all. Switch one off here and it is
+                    off at every branch — say, a pharmacy you have bought but not opened yet.
+                </p>
+
+                <OrganizationModulePanel />
+            </div>
+
             <div className="su-block">
                 <h3>Modules at each branch</h3>
                 <p>
-                    Everything your organisation has is on at every branch until you switch it off. A
+                    Everything your organisation uses is on at every branch until you switch it off. A
                     pharmacy counter might not run OPD; a clinic might not keep stock. Saved per branch.
                 </p>
 

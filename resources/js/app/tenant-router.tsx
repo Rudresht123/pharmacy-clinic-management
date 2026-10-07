@@ -21,6 +21,7 @@ const TenantUserFormPage = lazy(() => import('@/core/tenant-users/pages/TenantUs
 const FieldSettingsPage = lazy(() => import('@/core/field-settings/pages/FieldSettingsPage'));
 const TenantHistoryPage = lazy(() => import('@/core/tenant-history/pages/TenantHistoryPage'));
 const RolesPage = lazy(() => import('@/core/roles/pages/RolesPage'));
+const ModuleSettingsPage = lazy(() => import('@/core/roles/pages/ModuleSettingsPage'));
 const DoctorListPage = lazy(() => import('@/core/doctors/pages/DoctorListPage'));
 const DoctorFormPage = lazy(() => import('@/core/doctors/pages/DoctorFormPage'));
 const MyDayPage = lazy(() => import('@/core/opd/pages/MyDayPage'));
@@ -61,6 +62,7 @@ const GuidesPage = lazy(() => import('@/core/guides/pages/GuidesPage'));
 const GuidePage = lazy(() => import('@/core/guides/pages/GuidePage'));
 const WhatsAppPage = lazy(() => import('@/core/communication/pages/WhatsAppPage'));
 const EmailPage = lazy(() => import('@/core/communication/pages/EmailPage'));
+const NotificationTemplatesPage = lazy(() => import('@/core/communication/pages/NotificationTemplatesPage'));
 const CampaignWizardPage = lazy(() => import('@/core/communication/pages/CampaignWizardPage'));
 
 /**
@@ -561,6 +563,7 @@ export function TenantAppRoutes() {
                                 <Route element={<RequireCapability capability="communication.view" />}>
                                     <Route path="/communication/whatsapp" element={<WhatsAppPage />} />
                                     <Route path="/communication/email" element={<EmailPage />} />
+                                    <Route path="/communication/notifications" element={<NotificationTemplatesPage />} />
                                 </Route>
 
                                 {/* Building a campaign is a write, and the
@@ -601,6 +604,12 @@ export function TenantAppRoutes() {
                                 is decided per role on the server. */}
                             <Route element={<RequireCapability capability="people.view" />}>
                                 <Route path="/roles" element={<RolesPage />} />
+                            </Route>
+
+                            {/* Which modules run where — the owner's alone,
+                                as every API route behind it is. */}
+                            <Route element={<RequireOwner />}>
+                                <Route path="/settings/modules" element={<ModuleSettingsPage />} />
                             </Route>
 
                             {/* One settings screen; the tab lives in the URL so a

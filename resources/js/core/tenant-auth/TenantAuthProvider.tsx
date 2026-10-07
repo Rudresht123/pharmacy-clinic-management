@@ -14,9 +14,11 @@ import {
     type TenantLoginPayload,
     type TenantBranch,
     type TenantSession,
+    type RealtimeConfig,
 } from './api';
 import { setActiveBranchHeader, setUnauthenticatedHandler } from '@/shared/api/http';
 import { queryClient } from '@/shared/api/queryClient';
+import { disconnectRealtime } from '@/shared/realtime/echo';
 
 interface TenantAuthContextValue {
     user: TenantUser | null;
@@ -37,6 +39,14 @@ interface TenantAuthContextValue {
      * and has to be.
      */
     can(capability: string): boolean;
+    /**
+     * Whether a module or derived feature is on where this person works — e.g.
+     * `feature('opd_pharmacy_handoff')`. The server's answer (sold, on for the
+     * organisation, not off at the branch); a key it did not send is off.
+     */
+    feature(key: string): boolean;
+    /** How to reach Reverb, or `{ enabled: false }`. */
+    realtime: RealtimeConfig;
     /**
      * Where this person may work. Empty for the owner and head office, who
      * work across the network — the switcher hides itself for both.
@@ -108,6 +118,8 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
     const [organization, setOrganization] = useState<TenantOrganization | null>(null);
     const [modules, setModules] = useState<string[]>([]);
     const [capabilities, setCapabilities] = useState<string[]>([]);
+    const [features, setFeatures] = useState<Record<string, boolean>>({});
+    const [realtime, setRealtime] = useState<RealtimeConfig>({ enabled: false });
     const [branches, setBranches] = useState<TenantBranch[]>([]);
     const [activeBranch, setActive] = useState<number | null>(null);
 
@@ -125,6 +137,8 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         setOrganization(session.organization);
         setModules(session.modules ?? []);
         setCapabilities(session.capabilities ?? []);
+        setFeatures(session.features ?? {});
+        setRealtime(session.realtime ?? { enabled: false });
         setBranches(session.branches ?? []);
         setActive(session.active_branch ?? null);
         setDoctorId(session.doctor_id ?? null);
@@ -136,6 +150,11 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         setOrganization(null);
         setModules([]);
         setCapabilities([]);
+        setFeatures({});
+        setRealtime({ enabled: false });
+
+        // Signed out, or the session is gone: stop listening as them.
+        disconnectRealtime();
         setBranches([]);
         setActive(null);
         setDoctorId(null);
@@ -197,6 +216,8 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         [capabilities],
     );
 
+    const feature = useCallback((key: string) => features[key] === true, [features]);
+
     const markSetupCompleted = useCallback(() => setSetupCompleted(true), []);
 
     /*
@@ -210,6 +231,8 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
 
         setModules(session.modules ?? []);
         setCapabilities(session.capabilities ?? []);
+        setFeatures(session.features ?? {});
+        setRealtime(session.realtime ?? { enabled: false });
         setDoctorId(session.doctor_id ?? null);
         setSetupCompleted(session.setup_completed ?? true);
     }, []);
@@ -222,6 +245,8 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         tenantAuthApi.me().then((session) => {
             setModules(session.modules ?? []);
             setCapabilities(session.capabilities ?? []);
+            setFeatures(session.features ?? {});
+            setRealtime(session.realtime ?? { enabled: false });
             setActive(session.active_branch ?? null);
             setDoctorId(session.doctor_id ?? null);
             setSetupCompleted(session.setup_completed ?? true);
@@ -235,6 +260,8 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             modules,
             capabilities,
             can,
+            feature,
+            realtime,
             branches,
             activeBranch,
             refreshSession,
@@ -254,6 +281,8 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             modules,
             capabilities,
             can,
+            feature,
+            realtime,
             branches,
             activeBranch,
             refreshSession,

@@ -52,6 +52,30 @@ final class ClinicEvents
     public const PHARMACY_SALE_COMPLETED = 'pharmacy_sale_completed';
 
     /**
+     * The doctor finished with a patient.
+     *
+     * NOT the visit finishing — that waits on the pharmacy, the lab and the
+     * till. This is the moment the patient walks out of the room, which is
+     * what the pharmacy counter wants to hear about live. It makes no
+     * document, so the document-rules screen never offers it; realtime is
+     * what reacts to it (App\Services\Realtime\RealtimeBroadcaster).
+     */
+    public const CONSULTATION_COMPLETED = 'consultation_completed';
+
+    /**
+     * A named time was booked — at the desk or from the patient app.
+     *
+     * Not a walk-in: somebody standing at the counter does not need a
+     * confirmation of the visit they are already having. What reacts is the
+     * clinic's own "Send appointment confirmation" rule
+     * (App\Services\Communication\AutomationSender).
+     */
+    public const APPOINTMENT_BOOKED = 'appointment_booked';
+
+    /** A booking was called off — the clinic's "Send cancellation notice" rule. */
+    public const APPOINTMENT_CANCELLED = 'appointment_cancelled';
+
+    /**
      * Every event, with the module it belongs to and where it is dispatched.
      *
      * `module` is what a later configuration screen groups by, and what
@@ -110,6 +134,26 @@ final class ClinicEvents
                 'module' => 'pharmacy',
                 'at' => 'SalesService::sell()',
                 'documents' => ['pharmacy_invoice', 'payment_receipt'],
+            ],
+            self::CONSULTATION_COMPLETED => [
+                'label' => 'Consultation completed',
+                'module' => 'appointments',
+                'at' => 'VisitWorkflow::completeConsultation()',
+                // Nothing to print — DocumentRuleController skips an event
+                // with no documents, so it is never offered as a rule.
+                'documents' => [],
+            ],
+            self::APPOINTMENT_BOOKED => [
+                'label' => 'Appointment booked',
+                'module' => 'appointments',
+                'at' => 'BookingService::book()',
+                'documents' => [],
+            ],
+            self::APPOINTMENT_CANCELLED => [
+                'label' => 'Appointment cancelled',
+                'module' => 'appointments',
+                'at' => 'BookingService::cancel()',
+                'documents' => [],
             ],
         ];
     }

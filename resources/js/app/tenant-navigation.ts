@@ -233,6 +233,21 @@ export function tenantNavigation(
     }
 
     /*
+     * Which modules run where: the organisation's own switch, each branch's,
+     * and which are compulsory. The owner's alone — no capability reaches it,
+     * because a role able to switch a module on could re-open a door the
+     * owner closed.
+     */
+    if (isOwner) {
+        settings.push({
+            label: 'Modules',
+            to: '/settings/modules',
+            icon: 'ti ti-puzzle',
+            match: '/settings/modules',
+        });
+    }
+
+    /*
      * The letterhead. A different capability from `settings.manage` on
      * purpose — a branch manager may redesign their own branch's printed
      * documents while holding none of the organisation's field settings.
@@ -780,6 +795,13 @@ export function tenantNavigation(
                     to: '/communication/email',
                     icon: 'ti ti-mail',
                     match: '/communication/email',
+                },
+                {
+                    // Push and the in-app bell: Global → Organisation → Branch wording.
+                    label: 'App notifications',
+                    to: '/communication/notifications',
+                    icon: 'ti ti-bell-ringing',
+                    match: '/communication/notifications',
                 },
                 {
                     label: 'SMS',

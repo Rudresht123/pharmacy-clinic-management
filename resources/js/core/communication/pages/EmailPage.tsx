@@ -327,6 +327,8 @@ It will reach ${reach} patients.` : ''),
                         <div className="col-12 col-xxl-8">
                             <AutomationRules
                                 rules={data.rules}
+                                connected={data.account.is_connected}
+                                templates={data.templates}
                                 saving={toggleRule.isPending}
                                 onToggle={
                                     manage

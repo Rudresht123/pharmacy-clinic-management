@@ -5,8 +5,8 @@ namespace App\Services\Permissions;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\BranchMembership;
 use App\Models\Tenant\BranchRoleCapability;
-use App\Models\Tenant\LocationModule;
 use App\Models\Tenant\User;
+use App\Services\Modules\FeatureResolver;
 use App\Services\Modules\ModuleAccess;
 use App\Support\Modules\ModuleRegistry;
 
@@ -18,8 +18,11 @@ use App\Support\Modules\ModuleRegistry;
  *
  *   1. Did the super admin sell this module to the organization?
  *      (`organization_modules`, master database — ModuleAccess)
- *   2. Does the branch this is happening at run that module?
- *      (`location_modules`, tenant database)
+ *   2. Does the branch this is happening at run that module? Which is two
+ *      questions — has the organization switched it off for itself
+ *      (`organization_module_settings`), and has this branch opted out
+ *      (`location_modules`) — both answered by FeatureResolver, together with
+ *      level one, so the formula lives in exactly one place.
  *   3. Does this person hold the capability HERE?
  *      Their organization-scoped role, which applies everywhere, plus the
  *      branch-scoped role on their membership at this branch — and nothing
@@ -65,6 +68,7 @@ class Permission
     private const DESK_CAPABILITIES = [
         'appointments.queue',
     ];
+
     /**
      * Modules already worked out for a branch this request.
      *
@@ -100,6 +104,7 @@ class Permission
 
     public function __construct(
         private readonly ModuleAccess $modules,
+        private readonly FeatureResolver $features,
     ) {}
 
     /**
@@ -108,35 +113,29 @@ class Permission
      * A null branch means organization-wide — what the owner sees, and the
      * right answer when nothing branch-specific is being asked about.
      *
+     * The deciding is FeatureResolver's; this only remembers the answer for
+     * the rest of the request. Every gate, the session payload and every
+     * screen ask here, so none of them can disagree about what "running"
+     * means.
+     *
      * @return list<string>
      */
     public function modulesAt(Organization $organization, ?int $locationId): array
     {
         $cacheKey = $organization->getKey().':'.($locationId ?? '-');
 
-        if (isset($this->resolved[$cacheKey])) {
-            return $this->resolved[$cacheKey];
-        }
+        return $this->resolved[$cacheKey] ??= $this->features->enabled($organization, $locationId);
+    }
 
-        $entitled = $this->modules->enabled($organization);
-
-        if ($locationId === null) {
-            return $this->resolved[$cacheKey] = $entitled;
-        }
-
-        /*
-         * Only the switched-off rows are read. A branch with no rows keeps
-         * everything the organization holds, which is what makes this whole
-         * level opt-in: an organization that never opens the screen behaves
-         * exactly as it did before the table existed.
-         */
-        $off = LocationModule::query()
-            ->where('location_id', $locationId)
-            ->where('is_enabled', false)
-            ->pluck('module_key')
-            ->all();
-
-        return $this->resolved[$cacheKey] = array_values(array_diff($entitled, $off));
+    /**
+     * The same answer as modulesAt(), as the on/off map a client reads —
+     * every module plus the derived features such as the OPD handoff.
+     *
+     * @return array<string, bool>
+     */
+    public function featuresAt(Organization $organization, ?int $locationId): array
+    {
+        return $this->features->toMap($this->modulesAt($organization, $locationId));
     }
 
     /**

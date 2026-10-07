@@ -31,6 +31,35 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    /*
+    |--------------------------------------------------------------------------
+    | Realtime — who may subscribe to what
+    |--------------------------------------------------------------------------
+    |
+    | POST /api/v1/broadcasting/auth, behind exactly the stack every tenant API
+    | route uses: the database is chosen from the session or the
+    | X-Organization header, the user is found in THAT database, and a phone's
+    | token user is adopted onto the `web` guard the channels ask. A user can
+    | therefore only ever be authorized against the organization they signed
+    | in to — the channel callbacks in routes/channels.php then check the rest.
+    |
+    | Not the framework default (the `web` group with no tenant resolution):
+    | that would look the user up in whatever database happened to be
+    | connected, which on this architecture is nobody's.
+    */
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        [
+            'prefix' => 'api/v1',
+            'middleware' => [
+                'api',
+                'resolve.tenant',
+                'resolve.tenant.header',
+                'auth:web,tenant-api',
+                'tenant.actor',
+            ],
+        ],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [
             EnsureFrontendRequestsAreStateful::class,

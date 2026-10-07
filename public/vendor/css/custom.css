@@ -23932,3 +23932,219 @@ select.dt-input {
     font-weight: 600;
     color: var(--ink);
 }
+
+/* ---------------------------------------------------------------------------
+   Patients from OPD — the counter's strip above the shelf and the bill.
+   Only rendered where the branch runs both the OPD and the pharmacy.
+   ------------------------------------------------------------------------- */
+
+.opd-handoff {
+    margin-bottom: 16px;
+}
+
+.opd-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-3);
+}
+
+.opd-live.is-live {
+    background: rgba(var(--brand), 0.10);
+    color: rgb(var(--brand));
+}
+
+.opd-empty {
+    margin: 0;
+    font-size: 13px;
+    color: var(--ink-3);
+}
+
+.opd-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.opd-patient {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    text-align: left;
+    color: var(--ink-2);
+    transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.opd-patient:not(:disabled):hover {
+    border-color: rgba(var(--brand), 0.45);
+    box-shadow: 0 2px 10px rgba(var(--shadow), 0.06);
+}
+
+.opd-patient:disabled {
+    cursor: default;
+}
+
+/* Waiting on the counter: the ones this strip exists for. */
+.opd-patient.is-waiting {
+    border-color: rgba(var(--brand), 0.30);
+}
+
+.opd-token {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: rgba(var(--brand), 0.10);
+    font-weight: 700;
+    color: rgb(var(--brand));
+    font-variant-numeric: tabular-nums;
+}
+
+.opd-who {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.opd-who b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink);
+}
+
+.opd-who small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--ink-3);
+}
+
+.opd-state {
+    flex: none;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-3);
+}
+
+.opd-state.is-waiting {
+    background: #fdf6e7;
+    color: #8a5a00;
+}
+
+.opd-state.is-done {
+    background: #e8f7f0;
+    color: #0f7a4d;
+}
+
+[data-theme='dark'] .opd-state.is-waiting {
+    background: rgba(245, 180, 60, 0.16);
+    color: #f3c46b;
+}
+
+[data-theme='dark'] .opd-state.is-done {
+    background: rgba(40, 190, 120, 0.16);
+    color: #6fd6a6;
+}
+
+/* ---------------------------------------------------------------------------
+   App notifications — Global → Organisation → Branch wording.
+   ------------------------------------------------------------------------- */
+
+.nt-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-2);
+}
+
+.nt-preview small {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+}
+
+.nt-preview b {
+    color: var(--ink);
+}
+
+.nt-preview p {
+    margin: 0;
+    color: var(--ink-2);
+}
+
+.nt-levels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.nt-level {
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.nt-level-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+    color: var(--ink);
+}
+
+.nt-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.nt-chip {
+    border: 0;
+    cursor: pointer;
+    font-family: var(--bs-font-monospace, monospace);
+}
+
+.nt-chip:hover {
+    background: rgba(var(--brand), 0.10);
+    color: rgb(var(--brand));
+}
+
+.nt-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}

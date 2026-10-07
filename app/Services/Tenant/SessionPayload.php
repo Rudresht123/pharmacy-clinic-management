@@ -8,6 +8,7 @@ use App\Models\Platform\Organization;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\User;
+use App\Services\Modules\FeatureResolver;
 use App\Services\Permissions\Permission;
 
 /**
@@ -25,6 +26,7 @@ class SessionPayload
     public function __construct(
         private readonly Permission $permission,
         private readonly OrganizationSetup $setup,
+        private readonly FeatureResolver $features,
     ) {}
 
     /** @return array<string, mixed> */
@@ -82,7 +84,33 @@ class SessionPayload
              * what is not here and EnsureTenantHasModule refuses it, from this
              * same service — the menu and the API agree by construction.
              */
-            'modules' => $this->permission->modulesAt($organization, $branch),
+            'modules' => $modules = $this->permission->modulesAt($organization, $branch),
+
+            /*
+             * The same answer as `modules`, as an on/off map — every module
+             * the software has, plus the features made of more than one
+             * (`opd_pharmacy_handoff`). A client asks `features.pharmacy`
+             * rather than searching a list, and a pharmacy-only business reads
+             * the handoff as false instead of having to know which two modules
+             * it needs. Laravel is the source of truth for this, never the
+             * client and never Firebase.
+             */
+            'features' => $this->permission->featuresAt($organization, $branch),
+
+            /*
+             * WhatsApp, SMS and email live inside the communication module, so
+             * they are reported under it: usable where the module runs here
+             * AND the clinic has connected an account for the channel.
+             */
+            'communication' => $this->features->communicationFor($modules),
+
+            /*
+             * How to reach Reverb, when it is running. Which CHANNELS to join
+             * is not here: each screen is handed its own channel name by the
+             * endpoint that loads it, from the server that will later
+             * authorize the subscription — a client never builds one.
+             */
+            'realtime' => $this->realtime(),
 
             /*
              * This person's own capabilities, NOT the organization's pool.
@@ -123,6 +151,35 @@ class SessionPayload
 
         return $this->for($user, $organization) + [
             'token' => $user->createToken($device)->plainTextToken,
+        ];
+    }
+
+    /**
+     * Connection details for Reverb, or `enabled: false`.
+     *
+     * Disabled whenever broadcasting is not Reverb or has no key — a client
+     * told so falls back to re-fetching, rather than opening a socket to
+     * nowhere and showing a counter that never updates. The key is the public
+     * half; the secret never leaves the server.
+     *
+     * @return array<string, mixed>
+     */
+    private function realtime(): array
+    {
+        $connection = (array) config('broadcasting.connections.reverb', []);
+
+        if (config('broadcasting.default') !== 'reverb' || blank($connection['key'] ?? null)) {
+            return ['enabled' => false];
+        }
+
+        return [
+            'enabled' => true,
+            'driver' => 'reverb',
+            'key' => $connection['key'],
+            'host' => $connection['client']['host'] ?? null,
+            'port' => $connection['client']['port'] ?? null,
+            'scheme' => $connection['client']['scheme'] ?? 'https',
+            'auth_endpoint' => '/api/v1/broadcasting/auth',
         ];
     }
 

@@ -121,8 +121,11 @@ class ModuleLockController extends BaseApiController
             ->get();
 
         foreach ($conflicts->groupBy('location_id') as $locationId => $rows) {
+            // What was OFF there. A branch can now also store a deliberate
+            // `true`, and counting that row would log it as switched off.
             $was = LocationModule::query()
                 ->where('location_id', $locationId)
+                ->where('is_enabled', false)
                 ->pluck('module_key')
                 ->all();
 

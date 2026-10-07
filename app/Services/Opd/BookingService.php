@@ -6,6 +6,9 @@ use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\User;
 use App\Services\Billing\BillingTriggerResolver;
+use App\Services\Clinic\ClinicEvent;
+use App\Services\Clinic\ClinicEventDispatcher;
+use App\Support\Clinic\ClinicEvents;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -27,7 +30,19 @@ class BookingService
          * advance-payment clinic (trigger `checkin`) uses it at all.
          */
         private readonly ?BillingTriggerResolver $billingTrigger = null,
+        private readonly ?ClinicEventDispatcher $events = null,
     ) {}
+
+    /**
+     * Whoever reacts to a booking. Resolved at the moment of use rather than
+     * trusted to the constructor: Laravel 12 leaves an optional
+     * `?Service $x = null` parameter at its default unless the service is
+     * bound, so a constructor-only dependency would be null in every request.
+     */
+    private function events(): ClinicEventDispatcher
+    {
+        return $this->events ?? app(ClinicEventDispatcher::class);
+    }
 
     /**
      * The times still free for a doctor on a date.
@@ -136,7 +151,7 @@ class BookingService
             );
         }
 
-        return Appointment::on('organization')->create([
+        $appointment = Appointment::on('organization')->create([
             'customer_id' => $attributes['customer_id'],
             'doctor_id' => $doctor->id,
             'location_id' => $attributes['location_id'],
@@ -151,6 +166,12 @@ class BookingService
             'slot_at' => $slot,
             'notes' => $attributes['notes'] ?? null,
         ]);
+
+        // Whatever the clinic has switched on for a booking — a confirmation
+        // email, a WhatsApp — held until any surrounding transaction commits.
+        $this->events()->dispatch(ClinicEvent::for(ClinicEvents::APPOINTMENT_BOOKED, $appointment));
+
+        return $appointment;
     }
 
     /**
@@ -271,6 +292,8 @@ class BookingService
             'next_action' => null,
             'cancellation_reason' => $reason,
         ])->save();
+
+        $this->events()->dispatch(ClinicEvent::for(ClinicEvents::APPOINTMENT_CANCELLED, $appointment));
 
         return $appointment;
     }

@@ -2,7 +2,9 @@
 
 namespace App\Services\Clinic;
 
+use App\Services\Communication\AutomationSender;
 use App\Services\Documents\DocumentAutomation;
+use App\Services\Realtime\RealtimeBroadcaster;
 use App\Services\Tenancy\TenantConnectionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -38,6 +40,8 @@ class ClinicEventDispatcher
 {
     public function __construct(
         private readonly DocumentAutomation $documents,
+        private readonly RealtimeBroadcaster $realtime,
+        private readonly AutomationSender $automation,
     ) {}
 
     public function dispatch(ClinicEvent $event): void
@@ -85,6 +89,37 @@ class ClinicEventDispatcher
             report($e);
 
             Log::error('clinic-event.failed', $event->forLog() + [
+                'reason' => $e->getMessage(),
+            ]);
+        }
+
+        /*
+         * Realtime in its own try, after the paperwork: a Reverb that is down
+         * must not cost anybody a receipt, and a document rule that throws
+         * must not stop the pharmacy counter hearing about the patient.
+         */
+        try {
+            $this->realtime->handle($event);
+        } catch (Throwable $e) {
+            report($e);
+
+            Log::error('clinic-event.realtime-failed', $event->forLog() + [
+                'reason' => $e->getMessage(),
+            ]);
+        }
+
+        /*
+         * The clinic's automation rules — a confirmation email, a WhatsApp
+         * receipt — each only if that channel, rule and template are all on.
+         * Its own try again: an SMTP account that is misconfigured must not
+         * stop the receipt PDF or the pharmacy counter.
+         */
+        try {
+            $this->automation->handle($event);
+        } catch (Throwable $e) {
+            report($e);
+
+            Log::error('clinic-event.automation-failed', $event->forLog() + [
                 'reason' => $e->getMessage(),
             ]);
         }

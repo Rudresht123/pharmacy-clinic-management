@@ -5,6 +5,7 @@ namespace Tests\Feature\Api\V1\Tenant;
 use App\Models\Platform\Module;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\ActivityLog;
+use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Consultation;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Location;
@@ -466,6 +467,39 @@ class ConsultationTest extends TenantTestCase
         $this->signInAsDoctor($organization, 'vikram@clinic.test');
 
         $this->assertSame([], $this->getJson('/api/v1/tenant/opd/my-records?view=patients')->assertOk()->json('data'));
+    }
+
+    /**
+     * Somebody due later today has not been seen today.
+     *
+     * Their booking puts them on today's list, but "last visit: today" for a
+     * patient who has not walked in yet is a visit that has not happened.
+     */
+    public function test_a_booking_for_today_is_not_a_visit_until_they_arrive(): void
+    {
+        [$organization, $ids, $branchId] = $this->clinic();
+
+        $this->onTenant($organization, function () use ($ids, $branchId) {
+            $customer = Customer::on('organization')->create(['name' => 'Ravi Kumar', 'phone' => '9810000002']);
+
+            Appointment::on('organization')->create([
+                'customer_id' => $customer->id,
+                'doctor_id' => $ids['anjali'],
+                'location_id' => $branchId,
+                'appointment_date' => now()->toDateString(),
+                'type' => Appointment::BOOKED,
+                'status' => Appointment::STATUS_BOOKED,
+                'slot_at' => '18:00',
+            ]);
+        });
+
+        $this->signInAsDoctor($organization, 'anjali@clinic.test');
+
+        $ravi = collect($this->getJson('/api/v1/tenant/opd/my-records?view=patients')->assertOk()->json('data'))
+            ->firstWhere('customer_name', 'Ravi Kumar');
+
+        $this->assertTrue($ravi['today']);
+        $this->assertNull($ravi['last_on']);
     }
 
     /** The desk may work a queue; it has no records of its own. */

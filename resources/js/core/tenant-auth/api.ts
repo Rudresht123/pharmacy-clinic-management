@@ -66,6 +66,17 @@ export interface TenantBranch {
     is_primary: boolean;
 }
 
+/** Connection details for Reverb, from the session. The key is the public half. */
+export interface RealtimeConfig {
+    enabled: boolean;
+    driver?: 'reverb';
+    key?: string;
+    host?: string | null;
+    port?: number | null;
+    scheme?: string;
+    auth_endpoint?: string;
+}
+
 export interface TenantSession {
     user: TenantUser;
     organization: TenantOrganization;
@@ -108,6 +119,26 @@ export interface TenantSession {
      * because they bypass roles; a member of staff gets the intersection.
      */
     capabilities: string[];
+
+    /**
+     * The same answer as `modules`, as an on/off map — every module, plus the
+     * features made of more than one, such as `opd_pharmacy_handoff`. Read
+     * `features.pharmacy` rather than searching `modules`.
+     */
+    features?: Record<string, boolean>;
+
+    /**
+     * WhatsApp, SMS and email, inside the communication module: a channel is
+     * true only where the module runs here AND an account is connected.
+     */
+    communication?: { enabled: boolean; channels: Record<string, boolean> };
+
+    /**
+     * How to reach Reverb, or `{ enabled: false }` when it is not running — in
+     * which case live screens fall back to re-fetching. Which channel to join
+     * is never here: each screen gets its channel from the endpoint it loads.
+     */
+    realtime?: RealtimeConfig;
 
     /**
      * Whether the owner has finished organisation setup. Until then the

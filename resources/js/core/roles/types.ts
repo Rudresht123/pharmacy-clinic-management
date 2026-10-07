@@ -108,6 +108,7 @@ export interface BranchRolePermissions {
  */
 export type PermissionSource =
     | 'not_sold'
+    | 'organization_off'
     | 'module_off'
     | 'owner'
     | 'organization_role'
@@ -162,6 +163,27 @@ export const ROLE_ICONS = [
     'ti ti-eye',
 ] as const;
 
+/**
+ * One module the organization was sold, with the organization's own answer —
+ * between the super admin's sale and each branch's opt-out.
+ */
+export interface OrganizationModule {
+    key: string;
+    name: string;
+    description: string;
+    icon: string;
+    group: string;
+
+    /** Switched on for the whole organization. Off here is off at every branch. */
+    is_enabled: boolean;
+
+    /** Compulsory at every branch, so it cannot be switched off until unlocked. */
+    is_locked: boolean;
+
+    /** The modules this one cannot run without. */
+    requires: string[];
+}
+
 /** One switchable module at one branch — level two of the permission flow. */
 export interface BranchModule {
     key: string;
@@ -177,4 +199,17 @@ export interface BranchModule {
      * would be refused on save — the refusal is still the enforcement.
      */
     is_locked?: boolean;
+
+    /**
+     * False when the organization has switched this module off everywhere.
+     * Shown so the branch can see why it is off, rather than the module
+     * vanishing — no branch can switch it back on.
+     */
+    organization_enabled?: boolean;
+
+    /** This branch's own choice: true, false, or null for inherited. */
+    override?: boolean | null;
+
+    /** Which level decided `is_enabled` — FeatureResolver's reason codes. */
+    reason?: string;
 }

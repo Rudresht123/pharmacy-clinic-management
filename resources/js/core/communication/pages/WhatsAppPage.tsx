@@ -275,6 +275,8 @@ export default function WhatsAppPage() {
                         <div className="col-12 col-xxl-5">
                             <AutomationRules
                                 rules={data.rules}
+                                connected={data.account.is_connected}
+                                templates={data.templates}
                                 saving={toggleRule.isPending}
                                 onToggle={
                                     manage

@@ -9,6 +9,7 @@ import type {
     BranchRolePermissions,
     EffectivePermissions,
     GrantableModule,
+    OrganizationModule,
     Role,
     RoleMember,
     RolePayload,
@@ -240,6 +241,59 @@ export function useSaveModuleLocks() {
             client.invalidateQueries({ queryKey: resourceKey('tenant/locations') });
 
             notify.success('Saved');
+        },
+    });
+}
+
+/*
+|------------------------------------------------------------------------------
+| Which of the modules it was sold the organization actually uses
+|------------------------------------------------------------------------------
+|
+| Between the super admin's sale and each branch's opt-out. Off here is off at
+| every branch, including branches opened later. Keyed on its own, like the
+| locks: it is the organization's answer, not a fact about any one branch.
+*/
+
+export function useModuleSettings() {
+    return useQuery({
+        queryKey: resourceKey('tenant/module-settings'),
+        queryFn: async (): Promise<OrganizationModule[]> => {
+            const { data } = await http.get<ApiResponse<{ modules: OrganizationModule[] }>>(
+                '/tenant/module-settings',
+            );
+
+            return data.data.modules;
+        },
+    });
+}
+
+export function useSaveModuleSettings() {
+    const client = useQueryClient();
+
+    return useMutation({
+        // Only what changed: the server leaves every module not named alone,
+        // so a stale screen cannot switch off something it never showed.
+        mutationFn: async (changes: Record<string, boolean>) => {
+            const { data } = await http.put<ApiResponse<{ modules: OrganizationModule[] }>>(
+                '/tenant/module-settings',
+                { modules: changes },
+            );
+
+            return data.data.modules;
+        },
+        onSuccess: (modules) => {
+            client.setQueryData(resourceKey('tenant/module-settings'), modules);
+
+            /*
+             * Every branch's module screen reads the organization's answer,
+             * and the lock list only offers what the organization runs — both
+             * are out of date the moment this changes.
+             */
+            client.invalidateQueries({ queryKey: resourceKey('tenant/locations') });
+            client.invalidateQueries({ queryKey: resourceKey('tenant/module-locks') });
+
+            notify.success('Organisation modules saved');
         },
     });
 }

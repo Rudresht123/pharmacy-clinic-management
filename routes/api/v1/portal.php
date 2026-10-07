@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Tenant\DeviceController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\AppointmentController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\DoctorController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\HomeController;
@@ -46,6 +47,13 @@ Route::middleware([
     'portal.patient',
 ])->group(function () {
     Route::get('home', [HomeController::class, 'show'])->name('home');
+
+    // The patient's own phone, for pushes about their own care — the same
+    // controller staff use, registered to whoever is signed in.
+    Route::post('devices', [DeviceController::class, 'store'])->name('devices.store');
+    Route::delete('devices/{deviceId}', [DeviceController::class, 'destroy'])
+        ->where('deviceId', '[A-Za-z0-9._:-]{1,191}')
+        ->name('devices.destroy');
 
     Route::middleware('module:appointments')->group(function () {
         Route::middleware('permission:portal.appointments.book')->group(function () {

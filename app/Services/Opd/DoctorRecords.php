@@ -44,6 +44,16 @@ class DoctorRecords
     {
         $today = now()->toDateString();
 
+        /*
+         * A visit that took place, for "last visit". Not a no-show, and not
+         * today's booking before they have arrived — somebody due at six who
+         * has not come yet was last seen whenever they were last seen, not
+         * "today". An earlier date counts as it stands: a doctor can write up
+         * a visit the desk never checked in.
+         */
+        $happened = 'status <> ? AND (appointment_date < ? OR (appointment_date = ? AND status <> ?))';
+        $bindings = [Appointment::STATUS_NO_SHOW, $today, $today, Appointment::STATUS_BOOKED];
+
         $books = Appointment::on('organization')
             ->where('doctor_id', $doctor->id)
             ->where('status', '!=', Appointment::STATUS_CANCELLED)
@@ -56,7 +66,7 @@ class DoctorRecords
             ))
             ->select('customer_id')
             ->selectRaw('COUNT(*) AS visit_count')
-            ->selectRaw('MAX(CASE WHEN appointment_date <= ? THEN appointment_date END) AS last_on', [$today])
+            ->selectRaw("MAX(CASE WHEN {$happened} THEN appointment_date END) AS last_on", $bindings)
             ->selectRaw(
                 'MIN(CASE WHEN appointment_date >= ? AND status = ? THEN appointment_date END) AS next_on',
                 [$today, Appointment::STATUS_BOOKED],
@@ -68,7 +78,7 @@ class DoctorRecords
              * booked so far. Spelled out rather than `NULLS LAST`, which only
              * one of the databases this runs on understands.
              */
-            ->orderByRaw('MAX(CASE WHEN appointment_date <= ? THEN 1 ELSE 0 END) DESC', [$today])
+            ->orderByRaw("MAX(CASE WHEN {$happened} THEN 1 ELSE 0 END) DESC", $bindings)
             ->orderByDesc('last_on')
             ->orderBy('next_on')
             ->limit(self::PATIENT_ROWS)
@@ -208,6 +218,16 @@ class DoctorRecords
                 'customer_id' => $row->customer_id,
                 'customer_name' => $row->customer?->name,
                 'customer_code' => $row->customer?->code,
+
+                /*
+                 * Still being written. Starting a consultation makes its row,
+                 * so a patient in the room right now is on this list with
+                 * whatever has been typed so far; a feed of finished work
+                 * leaves them out. Asked this way round rather than as
+                 * "completed" so a write-up from before the workflow tracked
+                 * completion still counts as finished.
+                 */
+                'in_progress' => $row->appointment?->consultation_status === Appointment::CONSULT_IN_PROGRESS,
 
                 'minutes' => $row->appointment ? $this->minutesIn($row->appointment) : null,
 

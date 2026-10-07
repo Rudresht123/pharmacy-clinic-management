@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1\Tenant\Auth;
 use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Http\Requests\Api\V1\Tenant\Auth\LoginRequest;
 use App\Http\Resources\Tenant\UserResource;
+use App\Models\Tenant\PersonalAccessToken;
 use App\Models\Tenant\User as TenantUser;
+use App\Services\Push\DeviceRegistry;
 use App\Services\Tenant\SessionPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -93,9 +95,22 @@ class AuthController extends BaseApiController
      * Only that one. Signing out on a phone must not sign the same person out
      * of the front desk's tablet.
      */
-    public function revokeToken(Request $request): JsonResponse
+    public function revokeToken(Request $request, DeviceRegistry $devices): JsonResponse
     {
-        $this->actor($request)?->currentAccessToken()?->delete();
+        $user = $this->actor($request);
+        $token = $user?->currentAccessToken();
+        $organization = $request->attributes->get('tenant.organization');
+
+        /*
+         * The phone that signed out stops receiving pushes too — only the one
+         * registered under THIS sign-in, for the same reason only this token
+         * is revoked: the tablet at the front desk is still signed in.
+         */
+        if ($user !== null && $token instanceof PersonalAccessToken && $organization !== null) {
+            $devices->signedOut($organization, $user, (int) $token->getKey());
+        }
+
+        $token?->delete();
 
         return $this->noContent('Signed out successfully.');
     }

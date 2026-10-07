@@ -25,6 +25,7 @@ const SOURCE: Record<PermissionSource, { label: string; tone: string }> = {
     branch_role: { label: 'Branch role', tone: 'ok' },
     branch_override: { label: 'Switched off for this branch', tone: 'warn' },
     user_denied: { label: 'Denied for this person', tone: 'warn' },
+    organization_off: { label: 'Module off for the organisation', tone: 'off' },
     module_off: { label: 'Module off at this branch', tone: 'off' },
     not_sold: { label: 'Not in your plan', tone: 'off' },
     no_role: { label: 'No role grants it', tone: 'off' },

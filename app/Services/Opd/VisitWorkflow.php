@@ -10,6 +10,9 @@ use App\Models\Tenant\PharmacySale;
 use App\Models\Tenant\Prescription;
 use App\Models\Tenant\User;
 use App\Services\Billing\BillingTriggerResolver;
+use App\Services\Clinic\ClinicEvent;
+use App\Services\Clinic\ClinicEventDispatcher;
+use App\Support\Clinic\ClinicEvents;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -56,8 +59,23 @@ class VisitWorkflow
      */
     public function __construct(
         private readonly ?BillingTriggerResolver $billingTrigger = null,
+        private readonly ?ClinicEventDispatcher $events = null,
     ) {}
 
+    /**
+     * Whoever reacts to what happens here.
+     *
+     * Resolved at the moment of use, NOT trusted to the constructor. Laravel
+     * 12's container fills an optional `?Service $x = null` parameter with its
+     * default unless that service is explicitly bound — so a constructor-only
+     * dependency is silently null in every real request, and a consultation
+     * would complete without anybody ever hearing. The parameter stays so a
+     * test can hand one in, and so `new VisitWorkflow` still works.
+     */
+    private function events(): ClinicEventDispatcher
+    {
+        return $this->events ?? app(ClinicEventDispatcher::class);
+    }
 
     /**
      * Where a patient goes next, in the order the department asks.
@@ -253,6 +271,14 @@ class VisitWorkflow
             // never from what anybody chose. Runs AFTER the invoice attempt,
             // so `pending().billing` sees the row that was just written.
             $this->settle($locked);
+
+            /*
+             * Tell whoever reacts — the pharmacy counter, live. Raised inside
+             * the transaction on purpose: the dispatcher holds it until COMMIT
+             * and drops it on rollback, so a completion that failed is never
+             * announced.
+             */
+            $this->events()->dispatch(ClinicEvent::for(ClinicEvents::CONSULTATION_COMPLETED, $locked));
 
             return $locked;
         });

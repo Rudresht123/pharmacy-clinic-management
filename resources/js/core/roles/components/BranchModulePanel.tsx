@@ -97,10 +97,11 @@ export function BranchModulePanel({ locationId }: { locationId: number }) {
                 <div className="bm-list">
                     {(modules ?? []).map((module) => {
                         const enabled = on.includes(module.key);
+                        const offForOrganization = module.organization_enabled === false;
 
                         return (
                             <label
-                                className={`bm-item${enabled ? ' is-on' : ''}${module.is_locked ? ' is-locked' : ''}`}
+                                className={`bm-item${enabled ? ' is-on' : ''}${module.is_locked || offForOrganization ? ' is-locked' : ''}`}
                                 key={module.key}
                             >
                                 <span className="rp-module-icon is-slate" aria-hidden="true">
@@ -118,7 +119,19 @@ export function BranchModulePanel({ locationId }: { locationId: number }) {
                                     control that is always refused on save is
                                     worse than no control.
                                 */}
-                                {module.is_locked ? (
+                                {/*
+                                    Switched off for the whole organisation: no
+                                    branch can switch it back on, so it gets a
+                                    padlock too, in the off position.
+                                */}
+                                {offForOrganization ? (
+                                    <span
+                                        className="rp-lock"
+                                        title="Switched off for your organisation"
+                                    >
+                                        <i className="ti ti-lock-off" aria-hidden="true" />
+                                    </span>
+                                ) : module.is_locked ? (
                                     <span
                                         className="rp-lock is-on"
                                         title="Required by your organisation"

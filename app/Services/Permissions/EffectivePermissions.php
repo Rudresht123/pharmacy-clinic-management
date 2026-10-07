@@ -31,6 +31,9 @@ class EffectivePermissions
     /** Never granted here, because the organization was never sold the module. */
     public const NOT_SOLD = 'not_sold';
 
+    /** Sold, but the organization has switched it off everywhere. */
+    public const ORGANIZATION_OFF = 'organization_off';
+
     /** Sold, but the branch does not run it. */
     public const MODULE_OFF = 'module_off';
 
@@ -68,6 +71,7 @@ class EffectivePermissions
         $branch = $this->permission->branchFor($user, $locationId);
 
         $entitled = $this->modules->enabled($organization);
+        $organizationRunning = $this->permission->modulesAt($organization, null);
         $running = $this->permission->modulesAt($organization, $branch);
 
         $membership = $user->membershipAt($branch);
@@ -101,6 +105,7 @@ class EffectivePermissions
                     $capability,
                     $module,
                     $entitled,
+                    $organizationRunning,
                     $running,
                     $user,
                     $organizationCapabilities,
@@ -127,6 +132,7 @@ class EffectivePermissions
      * One capability's answer, asked in the order Permission asks it.
      *
      * @param  list<string>  $entitled
+     * @param  list<string>  $organizationRunning
      * @param  list<string>  $running
      * @param  list<string>  $organizationCapabilities
      * @param  list<string>  $branchCapabilities
@@ -138,6 +144,7 @@ class EffectivePermissions
         string $capability,
         ?string $module,
         array $entitled,
+        array $organizationRunning,
         array $running,
         User $user,
         array $organizationCapabilities,
@@ -148,6 +155,12 @@ class EffectivePermissions
         // Levels one and two, which no role and no owner can talk round.
         if ($module === null || ! in_array($module, $entitled, true)) {
             return ['allowed' => false, 'source' => self::NOT_SOLD];
+        }
+
+        // Told apart from the branch switching it off: the fix is the owner's
+        // organisation-wide switch, not this branch's screen.
+        if (! in_array($module, $organizationRunning, true)) {
+            return ['allowed' => false, 'source' => self::ORGANIZATION_OFF];
         }
 
         if (! in_array($module, $running, true)) {

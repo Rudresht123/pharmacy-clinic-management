@@ -1,6 +1,89 @@
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
-import type { AutomationRule } from '../types';
+import type { AutomationRule, MessageTemplate } from '../types';
+
+/**
+ * The rules the server actually sends today (App\Services\Communication).
+ * Anything else can be configured but does not fire yet, and says so rather
+ * than looking switched on.
+ */
+const WIRED = [
+    'appointment.confirmed',
+    'appointment.cancelled',
+    'payment.received',
+    'appointment.reminder_day',
+    'appointment.reminder_hour',
+];
+
+interface Readiness {
+    tone: 'is-live' | 'is-wait' | 'is-fail' | 'is-muted';
+    label: string;
+    title?: string;
+}
+
+/**
+ * Whether a switched-on rule will really send, and if not, which switch is off.
+ *
+ * Mirrors the server's checks in the same order (AutomationSender::send):
+ * the channel connected, a template chosen, that template active and
+ * approved. A clinic sees "Waiting: approve the template" on the row instead
+ * of switching a rule on and wondering why nobody was told. The server stays
+ * the enforcement; this only explains it.
+ */
+function readiness(
+    rule: AutomationRule,
+    connected: boolean,
+    templates: MessageTemplate[],
+): Readiness | null {
+    if (!rule.is_enabled) {
+        return null;
+    }
+
+    if (rule.channel === 'sms') {
+        return { tone: 'is-muted', label: 'Not available yet', title: 'No SMS provider is set up yet.' };
+    }
+
+    if (!WIRED.includes(rule.event_key)) {
+        return { tone: 'is-muted', label: 'Not sent automatically yet' };
+    }
+
+    if (!connected) {
+        return {
+            tone: 'is-wait',
+            label: 'Waiting: account not connected',
+            title: 'Connect this channel in its settings — nothing is sent until then.',
+        };
+    }
+
+    const template = templates.find((entry) => entry.id === rule.message_template_id);
+
+    // "No template" already shows beside the name.
+    if (!template) {
+        return null;
+    }
+
+    if (!template.is_active) {
+        return { tone: 'is-wait', label: 'Waiting: template switched off' };
+    }
+
+    if (template.status === 'rejected') {
+        return { tone: 'is-fail', label: 'Template rejected' };
+    }
+
+    if (template.status !== 'approved') {
+        return {
+            tone: 'is-wait',
+            label: template.status === 'pending' ? 'Waiting: template pending approval' : 'Waiting: approve the template',
+            title: 'Only an approved template is ever sent — a draft never reaches a patient.',
+        };
+    }
+
+    return {
+        tone: 'is-live',
+        label: 'Sending',
+        title: 'Sent to every patient who has an address on this channel.',
+    };
+}
 
 /** "1440 minutes before" is not how anybody says a day. */
 function lead(minutes: number | null): string | null {
@@ -38,8 +121,17 @@ export function AutomationRules({
     onEdit,
     description,
     saving,
+    connected,
+    templates,
 }: {
     rules: AutomationRule[];
+    /**
+     * Whether this channel's account is connected, and its templates — given,
+     * each switched-on rule says whether it will really send. Left out, the
+     * rows show only their own switch, as before.
+     */
+    connected?: boolean;
+    templates?: MessageTemplate[];
     /**
      * Both absent for somebody who may only read this list.
      *
@@ -68,6 +160,10 @@ export function AutomationRules({
                 <ul className="comm-rules">
                     {rules.map((rule) => {
                         const timing = lead(rule.lead_minutes);
+                        const ready =
+                            connected === undefined || templates === undefined
+                                ? null
+                                : readiness(rule, connected, templates);
 
                         return (
                             <li key={rule.id}>
@@ -89,6 +185,12 @@ export function AutomationRules({
                                             <span className="comm-tag">{rule.template_name}</span>
                                         ) : (
                                             <span className="comm-pill is-wait">No template</span>
+                                        )}
+
+                                        {ready && (
+                                            <span className={`comm-pill ${ready.tone}`} title={ready.title}>
+                                                {ready.label}
+                                            </span>
                                         )}
                                     </span>
                                 </span>

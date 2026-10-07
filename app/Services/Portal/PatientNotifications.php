@@ -2,9 +2,12 @@
 
 namespace App\Services\Portal;
 
+use App\Jobs\SendPushNotification;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\PatientNotification;
+use App\Models\Tenant\User;
+use App\Services\Tenancy\CurrentTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -66,6 +69,49 @@ class PatientNotifications
             'body' => $body,
             'appointment_id' => $appointment->id,
         ]);
+
+        $this->push($appointment, $type, $title, $body);
+    }
+
+    /**
+     * The same words, to the patient's own phones.
+     *
+     * The in-app notification above is the record; this only wakes the phone
+     * to it. Queued after commit, so a booking that rolled back never buzzes
+     * anybody, and addressed to the patient's own logins in THIS organization
+     * — the job looks their devices up by organization and user, never by
+     * anything the request said.
+     *
+     * A patient with no app login, or no registered phone, simply gets
+     * nothing pushed; the in-app notification is still there.
+     */
+    private function push(Appointment $appointment, string $type, string $title, string $body): void
+    {
+        $organization = CurrentTenant::organization();
+
+        if ($organization === null || $appointment->customer_id === null) {
+            return;
+        }
+
+        $logins = User::query()
+            ->where('userable_type', Customer::class)
+            ->where('userable_id', $appointment->customer_id)
+            ->where('is_active', true)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($logins === []) {
+            return;
+        }
+
+        SendPushNotification::dispatch(
+            $organization->getKey(),
+            $logins,
+            $title,
+            $body,
+            ['type' => $type, 'appointment_id' => $appointment->id],
+        )->afterCommit();
     }
 
     private function of(Customer $patient): Builder
