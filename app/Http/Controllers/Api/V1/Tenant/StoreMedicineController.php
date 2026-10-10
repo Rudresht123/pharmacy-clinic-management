@@ -19,6 +19,8 @@ use Illuminate\Http\Request;
  *
  * Reading follows `view` on the store; changing follows `configure`, both
  * through PharmacyStorePolicy.
+ *
+ * @group Tenant > Pharmacy > Medicines
  */
 class StoreMedicineController extends BaseApiController
 {

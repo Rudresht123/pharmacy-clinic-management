@@ -17,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Stock adjustments at a store: damage, write-offs, count corrections.
+ *
+ * @group Tenant > Pharmacy > Stock
  */
 class StockAdjustmentController extends BaseApiController
 {

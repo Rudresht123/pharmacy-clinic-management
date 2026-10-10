@@ -27,6 +27,8 @@ class PharmacySaleItem extends Model
         'batch_number_snapshot',
         'expiry_date_snapshot',
         'quantity',
+        // How many of these came back — never more than were sold.
+        'returned_quantity',
         'mrp',
         'unit_price',
         'discount_percent',
@@ -43,6 +45,7 @@ class PharmacySaleItem extends Model
         return [
             'expiry_date_snapshot' => 'date',
             'quantity' => 'integer',
+            'returned_quantity' => 'integer',
             'mrp' => 'decimal:2',
             'unit_price' => 'decimal:2',
             'discount_percent' => 'decimal:2',

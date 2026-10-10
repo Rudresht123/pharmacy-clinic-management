@@ -29,6 +29,9 @@ use Illuminate\Validation\ValidationException;
  * The answer to a successful sign-in is the SAME session payload staff get
  * (SessionPayload), token included — the app builds its screens from the
  * capabilities in it, not from knowing it is talking to a patient.
+ *
+ * @group Patient Portal > Authentication
+ * @unauthenticated
  */
 class SignInController extends BaseApiController
 {

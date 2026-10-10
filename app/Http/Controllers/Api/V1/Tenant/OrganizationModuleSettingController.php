@@ -27,6 +27,8 @@ use Illuminate\Validation\ValidationException;
  *
  * Only ever narrows. A module the organisation was not sold is not offered,
  * and nothing written here can make one run.
+ *
+ * @group Tenant > Module Settings
  */
 class OrganizationModuleSettingController extends BaseApiController
 {

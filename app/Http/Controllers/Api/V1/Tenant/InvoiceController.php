@@ -34,6 +34,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *
  * Every endpoint scopes to the branches this person may act at, via
  * TenantBranchAccess — owners see everywhere, staff see their memberships.
+ *
+ * @group Tenant > Billing
  */
 class InvoiceController extends BaseApiController
 {
@@ -69,7 +71,7 @@ class InvoiceController extends BaseApiController
                     $direction,
                 )->orderBy('walk_in_name', $direction);
             } else {
-                $query->orderByRaw('(total_amount - paid_amount) '.$direction);
+                $query->orderByRaw(Invoice::OWED_SQL.' '.$direction);
             }
 
             $page = $query->orderByDesc('id')->paginate($this->resolvePerPage($request))->withQueryString();
@@ -121,7 +123,7 @@ class InvoiceController extends BaseApiController
             $month[1]->toDateString(),
         ]);
 
-        $owing = fn (Builder $q) => round((float) (clone $q)->outstanding()->sum(DB::raw('total_amount - paid_amount')), 2);
+        $owing = fn (Builder $q) => round((float) (clone $q)->outstanding()->sum(DB::raw(Invoice::OWED_SQL)), 2);
 
         // Money actually taken in a month — by when it was paid, refunds netted.
         $collectedIn = fn (array $month) => round((float) InvoicePayment::query()
@@ -384,12 +386,10 @@ class InvoiceController extends BaseApiController
     }
 
     /**
-     * Declare a visit's bill complete — it may now be paid.
+     * Declare a draft bill complete — it may now be paid.
      *
-     * What the "Finalize" button on the billing screen calls, and what a
-     * `manual`-trigger organisation uses for every visit. Collects anything
-     * the visit has produced since the draft was last touched, then closes
-     * it.
+     * Visit bills are drawn and finalized in one step now, so a draft is one
+     * left from before each department billed for itself; this closes it.
      */
     public function finalize(Request $request, Invoice $invoice): JsonResponse
     {
@@ -397,12 +397,11 @@ class InvoiceController extends BaseApiController
 
         try {
             /*
-             * Via the resolver rather than BillingService directly, so a
-             * charge that landed after the last event — a dispensing while
-             * the patient walked to the counter — is swept in before the
-             * total is fixed.
+             * A visit draft via the resolver, so the OPD's own charges land
+             * on it before the total is fixed. Anything else — a lab bill, a
+             * manual one — is finalized as it stands.
              */
-            if ($invoice->appointment_id) {
+            if ($invoice->kind === Invoice::KIND_VISIT && $invoice->appointment_id) {
                 $appointment = Appointment::query()->findOrFail($invoice->appointment_id);
                 $finalized = $this->trigger->finalizeForVisit($appointment);
             } else {
@@ -444,12 +443,12 @@ class InvoiceController extends BaseApiController
     }
 
     /**
-     * Draw and finalize a visit's bill from the billing screen.
+     * The OPD's bill for a visit, drawn now at the desk.
      *
-     * For the `manual`-trigger organisation, and for the visit whose
-     * automatic trigger never fired — a doctor who charged nothing, a lab
-     * order priced after the fact. Gathers everything the visit produced and
-     * closes the bill in one step.
+     * For the `manual`-timing organisation, and for the visit whose timing
+     * passed with nothing priced. OPD charges only — the doctor's fee and the
+     * per-visit charges; the lab bills its own orders and the pharmacy its
+     * own sales. Answers with the visit's bill if it already has one.
      */
     public function billVisit(Request $request): JsonResponse
     {
@@ -464,14 +463,14 @@ class InvoiceController extends BaseApiController
         }
 
         try {
-            $invoice = $this->trigger->finalizeForVisit($appointment);
+            $invoice = $this->trigger->billVisit($appointment);
         } catch (BillingConflict $e) {
             return $this->fail($e->getMessage(), 422);
         }
 
         if ($invoice === null) {
             return $this->fail(
-                'Nothing to bill for this visit yet — no consultation fee, lab charge or dispensing has been priced.',
+                'Nothing to bill for this visit — the doctor has no consultation fee and no per-visit charge is priced.',
                 422,
             );
         }

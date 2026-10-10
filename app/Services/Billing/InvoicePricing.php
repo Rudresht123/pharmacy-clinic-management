@@ -2,8 +2,6 @@
 
 namespace App\Services\Billing;
 
-use App\Models\Tenant\BillingSetting;
-
 /**
  * The arithmetic behind an invoice line and its totals.
  *
@@ -16,6 +14,11 @@ use App\Models\Tenant\BillingSetting;
  * line priced tax-inclusive treats 100 as the after-tax figure and works
  * back — because "the display price is ₹100 and 18% is inside it" is what a
  * shop advertising an all-in price actually means.
+ *
+ * WHICH OF THE TWO is the invoice's own answer, copied onto it when it was
+ * drawn — never today's settings. A bill drawn tax-exclusive and topped up
+ * after the clinic switched to inclusive pricing must not add its new lines,
+ * or re-sum its old ones, under a rule it was never priced by.
  */
 class InvoicePricing
 {
@@ -36,7 +39,7 @@ class InvoicePricing
      *     line_total: float,
      * }
      */
-    public function line(array $input, BillingSetting $settings): array
+    public function line(array $input, bool $taxInclusive): array
     {
         $quantity = round((float) ($input['quantity'] ?? 1), 2);
         $unitPrice = round((float) ($input['unit_price'] ?? 0), 2);
@@ -54,7 +57,7 @@ class InvoicePricing
 
         $afterDiscount = round(max(0.0, $gross - $discountAmount), 2);
 
-        if ($settings->prices_include_tax) {
+        if ($taxInclusive) {
             /*
              * The unit price already carries the tax. Back it out so the row
              * still records what the tax component was.
@@ -84,7 +87,7 @@ class InvoicePricing
      * @param  list<array<string, mixed>>  $lines  each one already run through line()
      * @return array{subtotal: float, discount_amount: float, tax_amount: float, total_amount: float}
      */
-    public function totals(array $lines, BillingSetting $settings): array
+    public function totals(array $lines, bool $taxInclusive): array
     {
         $subtotal = 0.0;
         $discount = 0.0;
@@ -106,7 +109,7 @@ class InvoicePricing
          * totals already contain it. Subtracting it from the subtotal is what
          * gives a bill that adds up.
          */
-        if ($settings->prices_include_tax) {
+        if ($taxInclusive) {
             $subtotal = round($subtotal - $tax, 2);
         }
 

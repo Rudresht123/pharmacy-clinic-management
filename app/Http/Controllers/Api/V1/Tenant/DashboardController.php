@@ -20,6 +20,8 @@ use Illuminate\Http\Request;
  * A signed-in person holding nothing gets a valid, nearly empty summary rather
  * than a 403, which is the honest answer: they may be here, there is just
  * nothing yet to show them.
+ *
+ * @group Tenant > Dashboard
  */
 class DashboardController extends BaseApiController
 {

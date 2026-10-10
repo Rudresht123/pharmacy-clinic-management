@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Auth;
  * happening there today. Both sit behind `appointments.view` — the same
  * question the queue asks — so somebody who runs the desk can use them
  * without also holding `branches.view`, which they have no reason to.
+ *
+ * @group Tenant > Appointments & OPD
  */
 class OpdController extends BaseApiController
 {

@@ -5,6 +5,7 @@ namespace App\Services\Documents;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\BillableService;
+use App\Models\Tenant\BillingSetting;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Invoice;
 use App\Models\Tenant\InvoiceItem;
@@ -40,6 +41,15 @@ use Illuminate\Support\Facades\Auth;
 class DocumentPayload
 {
     /**
+     * What money is printed with on the document being built.
+     *
+     * The organisation's symbol by default; a clinic invoice prints in the
+     * currency it was ISSUED in (see fromInvoice), so changing the currency
+     * setting never reprints last year's bills in this year's money.
+     */
+    private string $symbol = '₹';
+
+    /**
      * @return array{values: array<string, string>, tables: array<string, array{columns: list<string>, rows: list<list<string>>}>}
      */
     public function build(
@@ -53,6 +63,8 @@ class DocumentPayload
         if ($type === null) {
             return ['values' => [], 'tables' => []];
         }
+
+        $this->symbol = $this->symbolFor(null);
 
         $values = [
             ...$this->organizationValues($organization),
@@ -348,7 +360,8 @@ class DocumentPayload
         $values['tax'] = $this->money($sale->tax_amount);
         $values['total'] = $this->money($total);
         $values['amount_paid'] = $this->money($paid);
-        $values['balance'] = $this->money(max(0, $total - $paid));
+        // Goods taken back are no longer owed for.
+        $values['balance'] = $this->money(max(0, $sale->amountDue()));
 
         $rows = [];
 
@@ -425,6 +438,9 @@ class DocumentPayload
         $paid = (float) $invoice->paid_amount;
         $total = (float) $invoice->total_amount;
 
+        // In the money it was issued in.
+        $this->symbol = $this->symbolFor($invoice->currency_code);
+
         $values['invoice_number'] = (string) ($invoice->invoice_number ?? '');
         $values['invoice_date'] = $invoice->invoice_date?->format('d M Y') ?? '';
         $values['doctor_name'] = (string) ($invoice->doctor?->name ?? '');
@@ -433,7 +449,8 @@ class DocumentPayload
         $values['tax'] = $this->money($invoice->tax_amount);
         $values['total'] = $this->money($total);
         $values['amount_paid'] = $this->money($paid);
-        $values['balance'] = $this->money(max(0, $total - $paid));
+        // A refund credits the bill, so it never reappears here as owing.
+        $values['balance'] = $this->money($invoice->outstanding());
 
         /*
          * Lines GROUPED BY WHERE THEY CAME FROM, with a heading per group.
@@ -511,9 +528,10 @@ class DocumentPayload
             $values['payment_date'] = $settled->paid_at?->format('d M Y, g:i A') ?? '';
         }
 
-        $values['payment_state'] = match ($invoice->payment_status) {
-            Invoice::PAID => 'PAID',
-            Invoice::PARTIAL => 'PART PAID',
+        $values['payment_state'] = match (true) {
+            $invoice->status === Invoice::STATUS_REFUNDED => 'REFUNDED',
+            $invoice->payment_status === Invoice::PAID => 'PAID',
+            $invoice->payment_status === Invoice::PARTIAL => 'PART PAID',
             default => 'UNPAID',
         };
     }
@@ -546,11 +564,16 @@ class DocumentPayload
 
         $this->fromInvoice($invoice, $values, $tables);
 
-        $paidSoFar = $invoice->payments
-            ->filter(fn (InvoicePayment $row) => $row->id <= $payment->id)
-            ->sum(fn (InvoicePayment $row) => $row->is_refund ? -(float) $row->amount : (float) $row->amount);
+        /*
+         * Everything taken up to and including this payment. A refund in
+         * between credits the bill by what it handed back, so it changes
+         * nothing about what was still owed — total less everything taken.
+         */
+        $takenSoFar = $invoice->payments
+            ->filter(fn (InvoicePayment $row) => $row->id <= $payment->id && ! $row->is_refund)
+            ->sum(fn (InvoicePayment $row) => (float) $row->amount);
 
-        $owing = max(0.0, round((float) $invoice->total_amount - $paidSoFar, 2));
+        $owing = max(0.0, round((float) $invoice->total_amount - $takenSoFar, 2));
 
         $values['receipt_number'] = (string) $payment->receipt_number;
         $values['receipt_date'] = $payment->paid_at?->format('d M Y, g:i A') ?? '';
@@ -602,6 +625,25 @@ class DocumentPayload
 
     private function money(mixed $amount): string
     {
-        return '₹'.number_format((float) $amount, 2);
+        return $this->symbol.number_format((float) $amount, 2);
+    }
+
+    /**
+     * The symbol to print for a currency.
+     *
+     * The organisation's own symbol for its own currency; for a bill issued
+     * in a currency the organisation has since moved away from, the code
+     * itself ("USD 120.00") — honest, where guessing a symbol would not be.
+     */
+    private function symbolFor(?string $currency): string
+    {
+        $settings = BillingSetting::current();
+        $own = strtoupper((string) $settings->currency_code);
+
+        if ($currency === null || strtoupper($currency) === $own) {
+            return (string) ($settings->currency_symbol ?: '₹');
+        }
+
+        return strtoupper($currency).' ';
     }
 }

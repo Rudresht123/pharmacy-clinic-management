@@ -23,6 +23,8 @@ use Illuminate\Validation\Rule;
  *
  * Reading follows `view` on the store (PharmacyStorePolicy); acting on a
  * batch follows MedicineBatchPolicy, asked about the batch's store's branch.
+ *
+ * @group Tenant > Pharmacy > Medicines
  */
 class MedicineBatchController extends BaseApiController
 {

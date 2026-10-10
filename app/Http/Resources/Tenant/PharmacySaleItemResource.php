@@ -29,6 +29,8 @@ class PharmacySaleItemResource extends JsonResource
             'expiry_date' => $this->expiry_date_snapshot?->toDateString(),
 
             'quantity' => $this->quantity,
+            // How many came back, so a return screen offers only what is left.
+            'returned_quantity' => (int) $this->returned_quantity,
 
             'mrp' => (float) $this->mrp,
             'unit_price' => (float) $this->unit_price,

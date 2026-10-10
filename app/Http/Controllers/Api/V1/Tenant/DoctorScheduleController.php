@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\DB;
  * These are availability windows. Nothing here generates or stores
  * appointment slots — those are computed when somebody asks, from the window
  * and its slot length.
+ *
+ * @group Tenant > Appointments & OPD
  */
 class DoctorScheduleController extends BaseApiController
 {

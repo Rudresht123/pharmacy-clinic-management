@@ -21,6 +21,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * Everything here is scoped to the branches this person may act at, the same
  * way the invoice list is — an overview that summed branches somebody cannot
  * open would report money they are not allowed to see.
+ *
+ * @group Tenant > Billing
  */
 class BillingOverviewController extends BaseApiController
 {

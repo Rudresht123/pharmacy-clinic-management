@@ -30,6 +30,8 @@ use Illuminate\Validation\ValidationException;
  * The FCM token never leaves the server. It is what Firebase delivers to, and
  * the screen has no use for it beyond telling two phones apart — which the
  * last few characters do.
+ *
+ * @group Tenant > Devices & Push
  */
 class PushDeviceController extends BaseApiController
 {

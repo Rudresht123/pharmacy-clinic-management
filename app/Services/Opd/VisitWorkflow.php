@@ -3,6 +3,7 @@
 namespace App\Services\Opd;
 
 use App\Models\Tenant\Appointment;
+use App\Models\Tenant\BillingSetting;
 use App\Models\Tenant\Consultation;
 use App\Models\Tenant\Invoice;
 use App\Models\Tenant\LabOrder;
@@ -52,15 +53,28 @@ use Illuminate\Support\Facades\Auth;
 class VisitWorkflow
 {
     /*
-     * The trigger resolver decides whether finishing a consultation, a
-     * dispensing or a lab result draws an invoice — the billing settings say
-     * WHEN a bill is drawn, and this asks. Injected rather than fetched from
-     * the container so a test can swap it out.
+     * The trigger resolver decides whether finishing a consultation draws the
+     * OPD's bill — the billing settings say WHEN, and this asks. Accepted
+     * here so a test can swap it out; resolved at the moment of use otherwise
+     * (see billing()).
      */
     public function __construct(
         private readonly ?BillingTriggerResolver $billingTrigger = null,
         private readonly ?ClinicEventDispatcher $events = null,
     ) {}
+
+    /**
+     * Whoever decides whether this moment is when the OPD bills.
+     *
+     * Resolved at the moment of use for the same reason as events(): left to
+     * the constructor it was null in every real request, which is why no
+     * consultation ever drew a bill. Resolving here also sidesteps the
+     * construction cycle (the resolver's BillingService refreshes visits).
+     */
+    private function billing(): BillingTriggerResolver
+    {
+        return $this->billingTrigger ?? app(BillingTriggerResolver::class);
+    }
 
     /**
      * Whoever reacts to what happens here.
@@ -255,17 +269,16 @@ class VisitWorkflow
             ])->save();
 
             /*
-             * Ask the billing settings whether this is the point where a
-             * visit becomes a bill.
+             * Ask the billing settings whether this is the point where the
+             * OPD bills the visit.
              *
              * Inside the same transaction so a failure to draw the invoice
              * rolls the completion back with it — a visit that closed and
              * left no charge would be worse than one that has to be finished
              * again. Idempotent: reopening and re-completing does not draw
-             * a second invoice (the resolver checks for one against the
-             * appointment first).
+             * a second invoice (the resolver answers with the visit's bill).
              */
-            $this->billingTrigger?->onConsultationCompleted($locked);
+            $this->billing()->onConsultationCompleted($locked);
 
             // What the visit becomes is decided from what the doctor made,
             // never from what anybody chose. Runs AFTER the invoice attempt,
@@ -392,40 +405,52 @@ class VisitWorkflow
                 ->outstanding()
                 ->exists(),
 
-            /*
-             * Money owed on a bill that stands.
-             *
-             * Two sources, and the split between them is the consolidation
-             * rule made visible:
-             *
-             *   THE PHARMACY'S OWN BILL, for a counter sale with no visit
-             *   behind it. `billed_via_invoice` is deliberately NOT counted:
-             *   a dispensing that belongs to this visit has had its money
-             *   moved onto the visit's invoice, and counting it here as well
-             *   would hold the visit open for a debt that is already
-             *   represented below.
-             *
-             *   THE VISIT'S CONSOLIDATED INVOICE, which holds the visit open
-             *   in two different states. A DRAFT is still collecting charges
-             *   — the doctor is done but the lab is not, say — and the visit
-             *   plainly is not finished. A finalized one that still owes
-             *   money is the ordinary "go and pay" case. Either way the
-             *   patient has something left to do at the counter.
-             *
-             * A cancelled bill owes nothing — the stock or the charge went
-             * with it — so cancelled rows are excluded from both.
-             */
-            'billing' => PharmacySale::on('organization')
-                ->where('appointment_id', $appointment->id)
-                ->where('status', PharmacySale::COMPLETED)
-                ->whereIn('payment_status', [PharmacySale::UNPAID, PharmacySale::PARTIAL])
-                ->exists()
-                || Invoice::on('organization')
-                    ->where('appointment_id', $appointment->id)
-                    ->where('kind', Invoice::KIND_VISIT)
-                    ->whereIn('status', [Invoice::STATUS_DRAFT, ...Invoice::OWES_MONEY])
-                    ->exists(),
+            'billing' => $this->owesMoney($appointment),
         ];
+    }
+
+    /**
+     * Money owed on a bill that belongs to this visit.
+     *
+     * Each department's own bill, asked separately — they are separate bills:
+     *
+     *   THE PHARMACY'S SALE, owed at the pharmacy counter under the
+     *   pharmacy's own credit setting. (`billed_via_invoice` is a sale whose
+     *   money an older visit invoice took over; it is owed there, not here.)
+     *
+     *   THE OPD'S AND THE LAB'S INVOICES. A finalized one that still owes
+     *   money is the ordinary "go and pay" case; a draft — a running tab left
+     *   from before each department billed for itself — is still unfinished
+     *   business too.
+     *
+     * UNLESS THE ORGANISATION BILLS ON CREDIT. Then a registered patient may
+     * leave with an invoice unpaid: the visit closes, and the balance waits
+     * under Outstanding. A walk-in is never on credit — there is nobody to
+     * ask later.
+     *
+     * A cancelled bill owes nothing, so cancelled rows are excluded from both.
+     */
+    private function owesMoney(Appointment $appointment): bool
+    {
+        $pharmacy = PharmacySale::on('organization')
+            ->where('appointment_id', $appointment->id)
+            ->where('status', PharmacySale::COMPLETED)
+            ->whereIn('payment_status', [PharmacySale::UNPAID, PharmacySale::PARTIAL])
+            ->exists();
+
+        if ($pharmacy) {
+            return true;
+        }
+
+        if ($appointment->customer_id !== null && BillingSetting::current()->allowsCredit()) {
+            return false;
+        }
+
+        return Invoice::on('organization')
+            ->where('appointment_id', $appointment->id)
+            ->whereIn('kind', [Invoice::KIND_VISIT, Invoice::KIND_LAB])
+            ->whereIn('status', [Invoice::STATUS_DRAFT, ...Invoice::OWES_MONEY])
+            ->exists();
     }
 
     /**

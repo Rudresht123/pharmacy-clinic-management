@@ -36,6 +36,13 @@ class BillableService extends Model
 
     public const KIND_CONSULTATION = 'consultation';
 
+    /**
+     * Charged INSTEAD of the doctor's fee when the patient comes back inside
+     * the follow-up period the same doctor set at their last visit. Priced
+     * at nothing, it makes follow-ups free.
+     */
+    public const KIND_FOLLOW_UP = 'follow_up';
+
     public const KIND_PROCEDURE = 'procedure';
 
     public const KIND_SERVICE = 'service';
@@ -45,6 +52,7 @@ class BillableService extends Model
     public const KINDS = [
         self::KIND_REGISTRATION,
         self::KIND_CONSULTATION,
+        self::KIND_FOLLOW_UP,
         self::KIND_PROCEDURE,
         self::KIND_SERVICE,
         self::KIND_CUSTOM,

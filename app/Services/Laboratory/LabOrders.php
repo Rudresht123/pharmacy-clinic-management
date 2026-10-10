@@ -31,12 +31,18 @@ class LabOrders
     public function __construct(
         private readonly VisitWorkflow $visits,
         /*
-         * Nullable to keep a directly-constructed instance (a test, a
-         * seeder) working. In an HTTP request the container populates it,
-         * and a completed order's priced tests join the visit's bill.
+         * Nullable so a test can hand one in; resolved at the moment of use
+         * otherwise — left to the constructor it was null in every real
+         * request. It bills the ORDER, on its own invoice, at the lab's own
+         * timing; nothing here touches the OPD's bill for the visit.
          */
         private readonly ?BillingTriggerResolver $billingTrigger = null,
     ) {}
+
+    private function billing(): BillingTriggerResolver
+    {
+        return $this->billingTrigger ?? app(BillingTriggerResolver::class);
+    }
 
     /**
      * The doctor orders tests.
@@ -76,6 +82,9 @@ class LabOrders
 
             $this->syncItems($order, $data['items'] ?? []);
 
+            // A lab that bills when tests are ordered bills now.
+            $this->billing()->onLabOrdered($order);
+
             /*
              * Asked straight away, because a doctor can order tests after
              * completing the consultation — reading a result and wanting
@@ -114,6 +123,10 @@ class LabOrders
 
             if (array_key_exists('items', $data)) {
                 $this->syncItems($locked, $data['items'] ?? []);
+
+                // A bill already drawn follows the tests while nothing is paid.
+                $this->billing()->onLabOrderChanged($locked);
+                $this->refreshVisit($locked);
             }
 
             return $locked->load('items');
@@ -226,7 +239,15 @@ class LabOrders
                 'completed_by' => $this->actorId($actor),
             ])->save();
 
-            $this->closeVisitIfReady($locked);
+            /*
+             * The bill FIRST, for a lab that bills on sign-off — so that when
+             * the workflow then asks "is this visit finished", the bill it
+             * reads already exists. The other way round would close a visit a
+             * moment before it acquired something to pay for.
+             */
+            $this->billing()->onLabCompleted($locked);
+
+            $this->refreshVisit($locked);
 
             return $locked->load('items');
         });
@@ -248,6 +269,10 @@ class LabOrders
                 'status' => LabOrderItem::CANCELLED,
                 'notes' => $reason,
             ])->save();
+
+            // A test that will not be done is not one anybody owes for.
+            $this->billing()->onLabOrderChanged($order);
+            $this->refreshVisit($order);
 
             return $fresh;
         });
@@ -276,8 +301,14 @@ class LabOrders
                 $item->forceFill(['status' => LabOrderItem::CANCELLED])->save();
             }
 
+            /*
+             * Its bill goes with it while nothing has been paid. Money taken
+             * stays on the record until somebody refunds it.
+             */
+            $this->billing()->onLabOrderCancelled($locked, $reason);
+
             // A withdrawn order is no longer work the visit is waiting on.
-            $this->closeVisitIfReady($locked);
+            $this->refreshVisit($locked);
 
             return $locked->load('items');
         });
@@ -394,27 +425,17 @@ class LabOrders
     /**
      * Tell the visit that something changed here.
      *
-     * Two things, in order. The lab's charges go onto the visit's
-     * consolidated invoice FIRST — so that when the workflow then asks "is
-     * this visit finished", the bill it reads already includes the tests.
-     * Doing it the other way round would close a visit a moment before it
-     * acquired something to pay for.
-     *
-     * Both guarded on the visit still existing, because an order can outlive
-     * the appointment being soft-deleted, and a missing visit is not a reason
-     * to fail a result the lab has already produced.
+     * Guarded on the visit still existing, because an order can outlive the
+     * appointment being soft-deleted, and a missing visit is not a reason to
+     * fail a result the lab has already produced.
      */
-    private function closeVisitIfReady(LabOrder $order): void
+    private function refreshVisit(LabOrder $order): void
     {
         $appointment = Appointment::on('organization')->find($order->appointment_id);
 
-        if (! $appointment) {
-            return;
+        if ($appointment) {
+            $this->visits->refresh($appointment);
         }
-
-        $this->billingTrigger?->onLaboratoryCompleted($appointment);
-
-        $this->visits->refresh($appointment);
     }
 
     private function assertCanMoveTo(LabOrder $order, string $status): void

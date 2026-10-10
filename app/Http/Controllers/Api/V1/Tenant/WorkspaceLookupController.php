@@ -24,6 +24,9 @@ use Illuminate\Http\JsonResponse;
  * exists, so it is rate limited at the route. The fields it returns are fixed
  * by OrganizationSummaryResource and deliberately dull — name, code, subdomain,
  * logo. Nothing operational, and in particular never `database_name`.
+ *
+ * @group Tenant > Branding & Workspace
+ * @unauthenticated
  */
 class WorkspaceLookupController extends BaseApiController
 {

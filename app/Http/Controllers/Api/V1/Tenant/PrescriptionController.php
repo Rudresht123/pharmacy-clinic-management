@@ -26,6 +26,8 @@ use Illuminate\Support\Facades\Auth;
  * asks about the prescription's own branch and, for writing, whether this
  * is the doctor who saw the patient. PrescriptionService decides whether the
  * prescription's state allows the change.
+ *
+ * @group Tenant > Prescriptions
  */
 class PrescriptionController extends BaseApiController
 {

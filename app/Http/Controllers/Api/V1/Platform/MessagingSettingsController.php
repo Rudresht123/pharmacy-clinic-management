@@ -20,6 +20,8 @@ use Illuminate\Validation\Rule;
  * One controller for both channels because the job is identical: pick a
  * provider, store its credentials encrypted, prove they work. The difference
  * between them is a config file, not code.
+ *
+ * @group Platform > Messaging Settings
  */
 class MessagingSettingsController extends BaseApiController
 {

@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\Hash;
 /**
  * The people inside one organization. Owner-only throughout — deciding who
  * can sign in is not something a staff account should be able to change.
+ *
+ * @group Tenant > Users, Roles & Permissions
  */
 class UserController extends BaseApiController
 {

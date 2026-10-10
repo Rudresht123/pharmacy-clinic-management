@@ -37,6 +37,8 @@ use Illuminate\Validation\ValidationException;
  * Neither can make a module run here that the organization does not run: a
  * stored `true` is a record of a choice, and FeatureResolver never lets it
  * outrank the organization.
+ *
+ * @group Tenant > Locations & Branches
  */
 class LocationModuleController extends BaseApiController
 {

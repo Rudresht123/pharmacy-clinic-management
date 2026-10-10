@@ -57,7 +57,7 @@ class BillingReports
          */
         $outstanding = (float) $scope(Invoice::query())
             ->outstanding()
-            ->sum(DB::raw('total_amount - paid_amount'));
+            ->sum(DB::raw(Invoice::OWED_SQL));
         $outstandingCount = (int) $scope(Invoice::query())->outstanding()->count();
         $outstandingPatients = (int) $scope(Invoice::query())
             ->outstanding()
@@ -245,7 +245,7 @@ class BillingReports
             $out[] = [
                 'key' => $bucket['key'],
                 'label' => $bucket['label'],
-                'amount' => round((float) (clone $query)->sum(DB::raw('total_amount - paid_amount')), 2),
+                'amount' => round((float) (clone $query)->sum(DB::raw(Invoice::OWED_SQL)), 2),
                 'invoices' => (int) (clone $query)->count(),
             ];
         }
@@ -302,6 +302,8 @@ class BillingReports
             ->selectRaw('MAX(invoices.invoice_date) AS last_visit')
             ->selectRaw('SUM(invoices.total_amount) AS total')
             ->selectRaw('SUM(invoices.paid_amount) AS paid')
+            // Money handed back credits the bill — never a debt.
+            ->selectRaw('SUM(invoices.refunded_amount) AS refunded')
             ->groupByRaw('COALESCE(invoices.customer_id::text, invoices.walk_in_phone), COALESCE(customers.name, invoices.walk_in_name, invoices.walk_in_phone, \'Walk-in\')')
             ->orderByRaw('MAX(invoices.invoice_date) DESC')
             // A tie-break, so two people last seen the same day keep their
@@ -314,6 +316,7 @@ class BillingReports
     {
         $total = round((float) $row->total, 2);
         $paid = round((float) $row->paid, 2);
+        $refunded = round((float) ($row->refunded ?? 0), 2);
         $lastVisit = Carbon::parse($row->last_visit);
 
         return [
@@ -323,7 +326,7 @@ class BillingReports
             'last_visit' => $lastVisit->toDateString(),
             'total' => $total,
             'paid' => $paid,
-            'due' => round(max(0.0, $total - $paid), 2),
+            'due' => round(max(0.0, $total - $paid - $refunded), 2),
             'days' => (int) $lastVisit->diffInDays(Carbon::today()),
         ];
     }
@@ -650,7 +653,7 @@ class BillingReports
             ->when($from !== null, fn (Builder $q) => $q->whereDate('invoice_date', '>=', $from->toDateString()))
             ->when($to !== null, fn (Builder $q) => $q->whereDate('invoice_date', '<=', $to->toDateString()));
 
-        $owed = fn (Builder $q) => round((float) $q->sum(DB::raw('total_amount - paid_amount')), 2);
+        $owed = fn (Builder $q) => round((float) $q->sum(DB::raw(Invoice::OWED_SQL)), 2);
 
         $unpaid = $query()->where('payment_status', Invoice::UNPAID);
         $partial = $query()->where('payment_status', Invoice::PARTIAL);

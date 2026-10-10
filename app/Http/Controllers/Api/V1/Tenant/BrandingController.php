@@ -16,6 +16,9 @@ use Illuminate\Http\Request;
  *
  * Public and unauthenticated on purpose — a subdomain existing at all is
  * already visible to anyone who visits it, and a name/logo isn't sensitive.
+ *
+ * @group Tenant > Branding & Workspace
+ * @unauthenticated
  */
 class BrandingController extends BaseApiController
 {

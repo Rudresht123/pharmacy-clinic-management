@@ -12,6 +12,9 @@ use App\Repositories\Platform\Contracts\OrganizationTypeRepositoryInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * @group Platform > Organizations
+ */
 class OrganizationTypeController extends BaseApiController
 {
     use HandlesTableQueries;

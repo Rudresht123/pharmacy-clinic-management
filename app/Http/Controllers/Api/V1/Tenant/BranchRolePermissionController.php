@@ -27,6 +27,8 @@ use Illuminate\Validation\ValidationException;
  * role cannot appear in the body at all, so "a branch may never grant what the
  * organization did not" is not a check that could be forgotten — there is no
  * way to write it down.
+ *
+ * @group Tenant > Users, Roles & Permissions
  */
 class BranchRolePermissionController extends BaseApiController
 {

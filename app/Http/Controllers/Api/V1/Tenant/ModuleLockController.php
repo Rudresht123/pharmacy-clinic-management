@@ -25,6 +25,8 @@ use Illuminate\Support\Facades\DB;
  * answers in the meantime, which is the state `location_modules` deletes rows
  * rather than storing `true` specifically to avoid. Every branch turned back
  * on is written to the activity log under its own name.
+ *
+ * @group Tenant > Module Settings
  */
 class ModuleLockController extends BaseApiController
 {

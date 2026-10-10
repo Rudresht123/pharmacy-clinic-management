@@ -22,6 +22,8 @@ use Illuminate\Support\Str;
  * Owner-only on the route, and deliberately not reachable through a capability.
  * A role able to edit roles could grant itself every other one, which would
  * leave the other two levels deciding nothing.
+ *
+ * @group Tenant > Users, Roles & Permissions
  */
 class RoleController extends BaseApiController
 {

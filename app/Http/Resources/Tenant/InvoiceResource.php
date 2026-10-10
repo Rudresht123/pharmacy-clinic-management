@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Tenant;
 
+use App\Models\Tenant\BillingSetting;
 use App\Models\Tenant\Invoice;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -36,6 +37,11 @@ class InvoiceResource extends JsonResource
             'payment_status' => $this->payment_status,
             'trigger' => $this->trigger,
             'kind' => $this->kind,
+            'lab_order_id' => $this->lab_order_id,
+
+            // What it was priced under, as it was drawn — never today's settings.
+            'currency_code' => $this->currency_code,
+            'prices_include_tax' => $this->prices_include_tax,
 
             /*
              * Whether the bill is still collecting charges. The screen shows
@@ -52,7 +58,21 @@ class InvoiceResource extends JsonResource
             'round_off' => (float) $this->round_off,
             'total_amount' => (float) $this->total_amount,
             'paid_amount' => (float) $this->paid_amount,
+            // Money handed back — it credits the bill, so it is not owed again.
+            'refunded_amount' => (float) $this->refunded_amount,
             'outstanding' => $this->outstanding(),
+
+            /*
+             * Whether the bill may still be corrected by hand — a draft, or
+             * an issued bill nothing has been paid against while the
+             * settings allow it. The screen asks this rather than guessing.
+             */
+            'editable' => $this->when(
+                $this->relationLoaded('payments'),
+                fn () => ! $this->isCancelled()
+                    && $this->payments->isEmpty()
+                    && ($this->isDraft() || (bool) BillingSetting::current()->allow_edit_before_payment),
+            ),
 
             'notes' => $this->notes,
             'terms' => $this->terms,

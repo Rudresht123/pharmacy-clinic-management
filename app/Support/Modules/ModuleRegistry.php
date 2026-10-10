@@ -250,6 +250,18 @@ class ModuleRegistry
                      */
                     ['key' => 'billing.manage_settings', 'name' => 'Change billing settings', 'scope' => self::SCOPE_ORGANIZATION],
                     ['key' => 'billing.manage_services', 'name' => 'Manage billable services', 'scope' => self::SCOPE_ORGANIZATION],
+
+                    /*
+                     * The money across every department — OPD and lab
+                     * invoices, the pharmacy's bills, every payment and
+                     * refund — in one view. Its own capability because it is
+                     * a management question, not a counter one: a cashier
+                     * who takes payments for the OPD has no business reading
+                     * the pharmacy's takings. Per branch, like the rest: a
+                     * branch manager reads their branch, head office reads
+                     * every branch.
+                     */
+                    ['key' => 'billing.finance', 'name' => 'View finance across OPD, lab and pharmacy', 'scope' => self::SCOPE_BRANCH],
                 ],
             ],
 
@@ -512,7 +524,7 @@ class ModuleRegistry
                     ['key' => 'pharmacy.view', 'name' => 'View stock and the dispensing queue', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.dispense', 'name' => 'Dispense prescriptions', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.sell', 'name' => 'Sell at the counter', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'pharmacy.sale_cancel', 'name' => 'Cancel a bill', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.sale_cancel', 'name' => 'Cancel a bill or take goods back', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.inward', 'name' => 'Receive stock (GRN)', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.adjust', 'name' => 'Adjust stock', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.transfer', 'name' => 'Transfer stock between stores', 'scope' => self::SCOPE_BRANCH],

@@ -57,7 +57,17 @@ class StoreInvoiceRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:2000'],
 
             'items' => ['required', 'array', 'min:1', 'max:100'],
-            'items.*.source_type' => ['required', 'string', Rule::in(InvoiceItem::SOURCES)],
+            /*
+             * A new manual bill carries only what a person may put on one —
+             * a service, a procedure, a typed line. An edit may also keep a
+             * consultation or lab line already on the bill; BillingService
+             * checks that each one really is.
+             */
+            'items.*.source_type' => [
+                'required',
+                'string',
+                Rule::in($this->isMethod('post') ? InvoiceItem::MANUAL_SOURCES : InvoiceItem::SOURCES),
+            ],
             'items.*.source_id' => ['nullable', 'integer'],
             'items.*.billable_service_id' => ['nullable', 'integer', $any(BillableService::class)],
             'items.*.description' => ['required', 'string', 'max:191'],
@@ -75,6 +85,7 @@ class StoreInvoiceRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'items.*.source_type.in' => 'Only services, procedures and typed lines can be added to a bill by hand.',
             'items.required' => 'An invoice needs at least one line.',
             'walk_in_name.required_without' => 'Every invoice has to name a patient or a walk-in.',
         ];

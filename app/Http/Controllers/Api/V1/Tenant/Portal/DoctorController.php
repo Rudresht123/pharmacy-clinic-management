@@ -9,7 +9,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
-/** Finding a doctor, and when they are free. */
+/**
+ * Finding a doctor, and when they are free.
+ *
+ * @group Patient Portal > Doctors
+ */
 class DoctorController extends PortalController
 {
     public function __construct(

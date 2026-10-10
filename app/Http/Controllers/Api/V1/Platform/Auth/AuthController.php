@@ -16,9 +16,14 @@ use Illuminate\Validation\Rule;
  * Every method here speaks to the `platform` guard explicitly. Nothing in
  * this controller may fall back to the default guard, because the default is
  * the tenant one.
+ *
+ * @group Platform > Authentication
  */
 class AuthController extends BaseApiController
 {
+    /**
+     * @unauthenticated
+     */
     public function login(LoginRequest $request): JsonResponse
     {
         $request->authenticate();

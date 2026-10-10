@@ -12,43 +12,37 @@ use App\Models\Tenant\Doctor;
 use App\Models\Tenant\Invoice;
 use App\Models\Tenant\InvoiceItem;
 use App\Models\Tenant\LabOrder;
-use App\Models\Tenant\PharmacySale;
+use App\Models\Tenant\LabOrderItem;
 use App\Services\Permissions\Permission;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Collection;
 
 /**
- * One visit, one invoice.
+ * When a department's work becomes a bill — each department for itself.
  *
- * A visit produces charges at different moments and from different modules —
- * the doctor finishes, the lab signs off, the counter dispenses — and a
- * patient should be handed ONE document at the end, not one per department.
+ * THE OPD bills a visit: the doctor's fee (or the follow-up fee, when the
+ * patient is back inside the follow-up period), and the per-visit and
+ * procedure charges from the price list. Drawn at the organisation's OPD
+ * timing — check-in, after the consultation, or only when the desk bills it
+ * — as one invoice per visit, made payable the moment it is drawn.
  *
- * THE SHAPE OF IT
+ * THE LAB bills an order: its priced tests, at the lab's own timing — when
+ * the tests are ordered, when the lab signs them off, or only by hand. One
+ * invoice per order.
  *
- *   Every billable event calls its handler here. Each handler does the same
- *   two things in the same order:
+ * THE PHARMACY bills nothing here. Its bill is the sale, settled at its own
+ * counter, and medicines never appear on an OPD or lab invoice — which is
+ * what stops a patient being asked to pay for the same strip twice.
  *
- *     1. make sure the visit has a draft invoice (drawing one if this is the
- *        first charge), and append everything the visit has produced SO FAR;
- *     2. ask whether the organisation's trigger says this event is the one
- *        that completes the bill — and finalize only then.
+ * IDEMPOTENT EVERYWHERE. Every entry point looks for the live bill first and
+ * answers with it; the partial unique indexes (one live visit invoice per
+ * appointment, one live lab invoice per order) make the loser of a race read
+ * the winner's row rather than draw a second bill. A visit or order billed,
+ * reopened and completed again is still billed once.
  *
- *   So the lines accumulate regardless of trigger, and the trigger decides
- *   only WHEN the patient may pay. A clinic billing after consultation and a
- *   clinic billing after pharmacy produce the same invoice; they present it
- *   at different moments.
- *
- * WHY COLLECT EVERYTHING EVERY TIME rather than appending just the new
- * charge: events do not arrive in a fixed order, and some arrive twice. A
- * lab order completed before the consultation, a dispensing reversed and
- * redone, a consultation reopened — collecting the visit's whole current
- * state and letting `BillingService::addLines()` skip what is already there
- * is idempotent by construction. Appending deltas would need every caller to
- * know what had already been billed, which is exactly the knowledge that
- * goes stale.
- *
- * WHAT IS NOT SWEPT IN. A registration fee is taken at the desk before there
- * is a visit, and a manual bill is the exception hatch — both are their own
- * invoice `kind` and neither is ever folded into a visit.
+ * NEVER A DRAFT LEFT BEHIND. A visit invoice is drawn and finalized in one
+ * transaction, so the visit moves straight to "awaiting payment" (or closes)
+ * instead of waiting on a running tab nobody will close.
  */
 class BillingTriggerResolver
 {
@@ -57,85 +51,437 @@ class BillingTriggerResolver
     ) {}
 
     /* ===================================================================
-     | THE EVENTS
+     | OPD
      |===================================================================*/
-
-    /** The doctor has finished writing up. */
-    public function onConsultationCompleted(Appointment $appointment): ?Invoice
-    {
-        return $this->handle($appointment, BillingSetting::TRIGGER_CONSULTATION);
-    }
-
-    /** The counter has dispensed against this visit's prescription. */
-    public function onPharmacyDispensed(Appointment $appointment): ?Invoice
-    {
-        return $this->handle($appointment, BillingSetting::TRIGGER_PHARMACY);
-    }
-
-    /** The bench has signed a lab order off. */
-    public function onLaboratoryCompleted(Appointment $appointment): ?Invoice
-    {
-        return $this->handle($appointment, BillingSetting::TRIGGER_LABORATORY);
-    }
 
     /** The patient has arrived and been checked in. */
     public function onCheckedIn(Appointment $appointment): ?Invoice
     {
-        return $this->handle($appointment, BillingSetting::TRIGGER_CHECKIN);
+        return $this->opd($appointment, BillingSetting::TRIGGER_CHECKIN);
+    }
+
+    /** The doctor has finished writing up. */
+    public function onConsultationCompleted(Appointment $appointment): ?Invoice
+    {
+        return $this->opd($appointment, BillingSetting::TRIGGER_CONSULTATION);
     }
 
     /**
-     * The counter is drawing (or completing) this visit's bill by hand.
+     * The desk bills this visit by hand.
      *
-     * The `manual` escape: collects whatever the visit has produced and
-     * finalizes it immediately, whatever the configured trigger says. This
-     * is what the "Finalize bill" button on the billing screen calls.
+     * Whatever the OPD timing says — this is how a `manual` clinic bills
+     * every visit, and how anybody bills a visit whose timing passed with
+     * nothing priced. Answers with the visit's bill if it already has one.
      */
-    public function finalizeForVisit(Appointment $appointment): ?Invoice
+    public function billVisit(Appointment $appointment): ?Invoice
     {
-        if (! $this->billingIsOn($appointment)) {
+        if (! $this->runs('billing', $appointment->location_id)) {
             throw BillingConflict::because('Billing is not enabled at this branch.');
         }
 
-        $invoice = $this->gather($appointment, BillingSetting::current());
+        if (in_array($appointment->status, [Appointment::STATUS_CANCELLED, Appointment::STATUS_NO_SHOW], true)) {
+            throw BillingConflict::because('This visit did not happen, so there is nothing to bill.');
+        }
 
-        if ($invoice === null) {
+        return $this->billOpd($appointment, BillingSetting::TRIGGER_MANUAL);
+    }
+
+    /** Kept for callers that finalize a visit's bill: the same act. */
+    public function finalizeForVisit(Appointment $appointment): ?Invoice
+    {
+        return $this->billVisit($appointment);
+    }
+
+    /**
+     * Bill the visit if this event is the organisation's OPD timing.
+     *
+     * Silent when it is not, when billing does not run at the branch, and
+     * when the visit has nothing priced — a doctor with no fee and no
+     * per-visit charges is a real configuration, not an error.
+     */
+    private function opd(Appointment $appointment, string $event): ?Invoice
+    {
+        if (! $this->runs('billing', $appointment->location_id)) {
             return null;
         }
 
-        return $this->billing->finalize($invoice);
+        if (BillingSetting::current()->opdTrigger() !== $event) {
+            return null;
+        }
+
+        return $this->billOpd($appointment, $event);
     }
+
+    private function billOpd(Appointment $appointment, string $trigger): ?Invoice
+    {
+        $existing = Invoice::query()->liveForVisit($appointment->id)->first();
+
+        if ($existing) {
+            /*
+             * A running tab drawn before each department billed for itself:
+             * close it with the OPD's own charges on it, rather than draw a
+             * second visit bill beside it — which the index would refuse.
+             */
+            if ($existing->isDraft()) {
+                $this->billing->addLines($existing, $this->opdLines($appointment));
+
+                return $this->billing->finalize($existing);
+            }
+
+            return $existing;
+        }
+
+        $lines = $this->opdLines($appointment);
+
+        if ($lines === []) {
+            return null;
+        }
+
+        $consultation = Consultation::query()->where('appointment_id', $appointment->id)->first();
+
+        try {
+            return (new Invoice)->getConnection()->transaction(fn () => $this->billing->finalize(
+                $this->billing->draw([
+                    'location_id' => $appointment->location_id,
+                    'customer_id' => $appointment->customer_id,
+                    'appointment_id' => $appointment->id,
+                    'consultation_id' => $consultation?->id,
+                    'doctor_id' => $appointment->doctor_id,
+                    'kind' => Invoice::KIND_VISIT,
+                    'trigger' => $trigger,
+                ], $lines),
+            ));
+        } catch (UniqueConstraintViolationException) {
+            // Another event billed this visit a moment ago — that bill is the answer.
+            return Invoice::query()->liveForVisit($appointment->id)->first();
+        }
+    }
+
+    /**
+     * What the OPD charges for this visit.
+     *
+     *   1. The doctor's fee — or, when this visit is a follow-up inside the
+     *      period the doctor set last time and the branch prices follow-ups,
+     *      the follow-up fee instead (which may be nothing at all).
+     *   2. Every per-visit and procedure charge on the price list, the
+     *      branch's own price winning over the organisation's for the same
+     *      service. The price list screen says these join every visit's bill.
+     *
+     * Medicines and tests are never here: their departments bill them.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function opdLines(Appointment $appointment): array
+    {
+        $settings = BillingSetting::current();
+        $consultation = Consultation::query()->where('appointment_id', $appointment->id)->first();
+        $doctor = $appointment->doctor_id ? Doctor::query()->find($appointment->doctor_id) : null;
+
+        $services = $this->priceList($appointment->location_id, [
+            BillableService::KIND_FOLLOW_UP,
+            BillableService::KIND_CONSULTATION,
+            BillableService::KIND_PROCEDURE,
+        ]);
+
+        $lines = [];
+
+        $followUp = $this->isFollowUp($appointment)
+            ? $services->firstWhere('kind', BillableService::KIND_FOLLOW_UP)
+            : null;
+
+        if ($followUp) {
+            $price = round((float) $followUp->default_price, 2);
+
+            if ($price > 0) {
+                $lines[] = [
+                    'source_type' => InvoiceItem::SOURCE_CONSULTATION,
+                    'source_id' => $consultation?->id,
+                    'billable_service_id' => $followUp->id,
+                    'description' => sprintf('%s — %s', $followUp->name, $doctor?->name ?? 'Doctor'),
+                    'quantity' => 1,
+                    'unit_price' => $price,
+                    'tax_percent' => (float) $followUp->tax_percent,
+                ];
+            }
+        } else {
+            $fee = $doctor?->default_consultation_fee !== null
+                ? round((float) $doctor->default_consultation_fee, 2)
+                : 0.0;
+
+            if ($fee > 0) {
+                $lines[] = [
+                    'source_type' => InvoiceItem::SOURCE_CONSULTATION,
+                    // Null at check-in: there is no write-up yet, and the
+                    // visit's one-bill index is what keeps it single.
+                    'source_id' => $consultation?->id,
+                    'description' => sprintf('Consultation — %s', $doctor?->name ?? 'Doctor'),
+                    'quantity' => 1,
+                    'unit_price' => $fee,
+                    'tax_percent' => (float) $settings->default_tax_percent,
+                ];
+            }
+        }
+
+        foreach ($services as $service) {
+            if ($service->kind === BillableService::KIND_FOLLOW_UP) {
+                continue;
+            }
+
+            $price = round((float) $service->default_price, 2);
+
+            if ($price <= 0) {
+                continue;
+            }
+
+            $lines[] = [
+                'source_type' => $service->kind === BillableService::KIND_PROCEDURE
+                    ? InvoiceItem::SOURCE_PROCEDURE
+                    : InvoiceItem::SOURCE_SERVICE,
+                'source_id' => $service->id,
+                'billable_service_id' => $service->id,
+                'description' => $service->name,
+                'quantity' => 1,
+                'unit_price' => $price,
+                'tax_percent' => (float) $service->tax_percent,
+            ];
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Whether the patient is back inside the follow-up period the same
+     * doctor set at an earlier visit.
+     *
+     * Read from what the doctor actually wrote — `follow_up_days` on the
+     * earlier consultation — counted from that visit's date.
+     */
+    private function isFollowUp(Appointment $appointment): bool
+    {
+        if (! $appointment->customer_id || ! $appointment->doctor_id || ! $appointment->appointment_date) {
+            return false;
+        }
+
+        $today = $appointment->appointment_date->copy()->startOfDay();
+
+        return Consultation::query()
+            ->where('customer_id', $appointment->customer_id)
+            ->where('doctor_id', $appointment->doctor_id)
+            ->where('appointment_id', '!=', $appointment->id)
+            ->where('follow_up_days', '>', 0)
+            ->whereHas('appointment', fn ($visit) => $visit
+                ->whereDate('appointment_date', '<', $today)
+                ->whereNotIn('status', [Appointment::STATUS_CANCELLED, Appointment::STATUS_NO_SHOW]))
+            ->with('appointment')
+            ->get()
+            ->contains(fn (Consultation $earlier) => $earlier->appointment
+                && $today->lessThanOrEqualTo(
+                    $earlier->appointment->appointment_date->copy()->startOfDay()->addDays((int) $earlier->follow_up_days),
+                ));
+    }
+
+    /**
+     * The active price-list rows of some kinds, as one branch sees them.
+     *
+     * A branch's own row replaces the organisation's row for the same
+     * service — matched by code, or by name where there is no code — rather
+     * than being charged beside it.
+     *
+     * @param  list<string>  $kinds
+     * @return Collection<int, BillableService>
+     */
+    private function priceList(?int $locationId, array $kinds): Collection
+    {
+        return BillableService::query()
+            ->active()
+            ->forBranch($locationId)
+            ->whereIn('kind', $kinds)
+            // The branch's rows first, so they are the ones kept below.
+            ->orderByRaw('location_id IS NULL')
+            ->orderBy('position')
+            ->orderBy('id')
+            ->get()
+            ->unique(fn (BillableService $service) => $service->kind.':'.mb_strtolower(trim((string) ($service->code ?: $service->name))))
+            ->sortBy([['position', 'asc'], ['id', 'asc']])
+            ->values();
+    }
+
+    /* ===================================================================
+     | LABORATORY
+     |===================================================================*/
+
+    /** The doctor has ordered tests. */
+    public function onLabOrdered(LabOrder $order): ?Invoice
+    {
+        return $this->lab($order, BillingSetting::TRIGGER_LAB_ORDER);
+    }
+
+    /** The lab has signed the order off. */
+    public function onLabCompleted(LabOrder $order): ?Invoice
+    {
+        return $this->lab($order, BillingSetting::TRIGGER_LABORATORY);
+    }
+
+    /**
+     * The lab counter bills this order by hand — whatever the lab timing.
+     *
+     * Answers with the order's bill if it already has one; null when nothing
+     * on it is priced.
+     */
+    public function billLabOrder(LabOrder $order): ?Invoice
+    {
+        if (! $this->runs('laboratory', $order->location_id) || ! $this->runs('billing', $order->location_id)) {
+            throw BillingConflict::because('The laboratory is not enabled at this branch.');
+        }
+
+        if ($order->status === LabOrder::CANCELLED) {
+            throw BillingConflict::because("{$order->order_number} is cancelled, so there is nothing to bill.");
+        }
+
+        return $this->billLab($order, BillingSetting::TRIGGER_MANUAL);
+    }
+
+    /**
+     * The order's tests changed — added, removed, or one cancelled.
+     *
+     * A bill already drawn follows the order while nothing has been paid
+     * against it; once money has moved it stands, and the difference is the
+     * counter's to settle. An order billed at ordering time that had nothing
+     * priced and now does is billed now.
+     */
+    public function onLabOrderChanged(LabOrder $order): ?Invoice
+    {
+        $invoice = Invoice::query()->liveForLabOrder($order->id)->first();
+
+        if (! $invoice) {
+            return $order->status === LabOrder::CANCELLED
+                ? null
+                : $this->lab($order, BillingSetting::TRIGGER_LAB_ORDER);
+        }
+
+        $lines = $this->labLines($order);
+
+        if ($lines === []) {
+            if (! $invoice->hasMoneyMoved()) {
+                return $this->billing->cancel($invoice, "Nothing left to charge on {$order->order_number}.");
+            }
+
+            return $invoice;
+        }
+
+        return $this->billing->resync($invoice, $lines, "Tests on {$order->order_number} changed.") ?? $invoice;
+    }
+
+    /**
+     * The order was withdrawn.
+     *
+     * Its bill is cancelled with it while nothing has been paid. A bill that
+     * has taken money is left standing: handing money back is a refund,
+     * which somebody has to make and which leaves its own record.
+     */
+    public function onLabOrderCancelled(LabOrder $order, string $reason): ?Invoice
+    {
+        $invoice = Invoice::query()->liveForLabOrder($order->id)->first();
+
+        if (! $invoice || $invoice->hasMoneyMoved()) {
+            return $invoice;
+        }
+
+        return $this->billing->cancel($invoice, mb_substr("{$order->order_number} cancelled: {$reason}", 0, 500));
+    }
+
+    private function lab(LabOrder $order, string $event): ?Invoice
+    {
+        if (! $this->runs('laboratory', $order->location_id) || ! $this->runs('billing', $order->location_id)) {
+            return null;
+        }
+
+        if (BillingSetting::current()->labTrigger() !== $event) {
+            return null;
+        }
+
+        return $this->billLab($order, $event);
+    }
+
+    private function billLab(LabOrder $order, string $trigger): ?Invoice
+    {
+        $existing = Invoice::query()->liveForLabOrder($order->id)->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $lines = $this->labLines($order);
+
+        if ($lines === []) {
+            return null;
+        }
+
+        try {
+            return $this->billing->draw([
+                'location_id' => $order->location_id,
+                'customer_id' => $order->customer_id,
+                'appointment_id' => $order->appointment_id,
+                'consultation_id' => $order->consultation_id,
+                'lab_order_id' => $order->id,
+                'doctor_id' => $order->doctor_id,
+                'kind' => Invoice::KIND_LAB,
+                'trigger' => $trigger,
+            ], $lines);
+        } catch (UniqueConstraintViolationException) {
+            return Invoice::query()->liveForLabOrder($order->id)->first();
+        }
+    }
+
+    /**
+     * The order's priced tests, at the price taken when they were ordered.
+     *
+     * Never the catalogue as it reads now — a test repriced next month must
+     * not rewrite what this patient was charged. Freehand lines carry no
+     * price and bill nothing; cancelled tests are not work anybody owes for.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function labLines(LabOrder $order): array
+    {
+        return LabOrderItem::query()
+            ->where('lab_order_id', $order->id)
+            ->whereNot('status', LabOrderItem::CANCELLED)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (LabOrderItem $item) => $item->isBillable())
+            ->map(fn (LabOrderItem $item) => [
+                'source_type' => InvoiceItem::SOURCE_LAB_TEST,
+                'source_id' => $item->id,
+                'description' => sprintf('Lab — %s', $item->test_name),
+                'quantity' => 1,
+                'unit_price' => round((float) $item->price_snapshot, 2),
+                'tax_percent' => (float) ($item->tax_percent_snapshot ?? 0),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /* ===================================================================
+     | REGISTRATION
+     |===================================================================*/
 
     /**
      * A patient's record has just been opened, and the desk charges for it.
      *
-     * ITS OWN INVOICE, not part of any visit. Registration happens before
-     * there is an appointment to attach it to — often days before — and the
-     * patient walks away from the desk with the receipt in hand. Folding it
-     * into a visit that may never happen would be holding somebody's money
-     * against a document they cannot see.
-     *
-     * Null when the organisation charges nothing to register, which is most
-     * of them.
+     * ITS OWN INVOICE, not part of any visit. Null when the organisation
+     * charges nothing to register, which is most of them.
      */
     public function onPatientRegistered(Customer $customer, int $locationId): ?Invoice
     {
-        if (! $this->billingIsOnAt($locationId)) {
+        if (! $this->runs('billing', $locationId)) {
             return null;
         }
 
-        $settings = BillingSetting::current();
-
-        $services = BillableService::query()
-            ->active()
-            ->forBranch($locationId)
-            ->where('kind', BillableService::KIND_REGISTRATION)
-            ->orderBy('position')
-            ->get();
-
         $lines = [];
 
-        foreach ($services as $service) {
+        foreach ($this->priceList($locationId, [BillableService::KIND_REGISTRATION]) as $service) {
             $price = round((float) $service->default_price, 2);
 
             if ($price <= 0) {
@@ -165,303 +511,10 @@ class BillingTriggerResolver
         ], $lines);
     }
 
-    /* ===================================================================
-     | THE ENGINE
-     |===================================================================*/
-
-    /**
-     * Accumulate this visit's charges, then finalize if this event is the
-     * configured trigger.
-     *
-     * `$event` is which trigger the CALLER represents. Finalization happens
-     * only when that matches the organisation's setting — every other event
-     * still contributes its lines and leaves the bill open.
-     */
-    private function handle(Appointment $appointment, string $event): ?Invoice
-    {
-        if (! $this->billingIsOn($appointment)) {
-            return null;
-        }
-
-        $settings = BillingSetting::current();
-
-        $invoice = $this->gather($appointment, $settings);
-
-        if ($invoice === null) {
-            return null;
-        }
-
-        if ($settings->default_trigger !== $event) {
-            // Charges banked; somebody else closes the bill.
-            return $invoice;
-        }
-
-        /*
-         * The configured moment has arrived — but not if the visit is still
-         * obviously producing charges. A clinic that bills after consultation
-         * while a lab order is outstanding would hand the patient a bill and
-         * then another one an hour later, which is the thing consolidation
-         * exists to stop.
-         */
-        if ($this->stillProducingCharges($appointment, $event)) {
-            return $invoice;
-        }
-
-        return $this->billing->finalize($invoice);
-    }
-
-    /**
-     * The visit's draft invoice, carrying everything it has produced so far.
-     *
-     * Draws one if this is the first charge. Null when the visit has produced
-     * nothing billable at all — a clinic that has priced nothing, which is a
-     * real state and not an error.
-     */
-    private function gather(Appointment $appointment, BillingSetting $settings): ?Invoice
-    {
-        $lines = [
-            ...$this->consultationLines($appointment, $settings),
-            ...$this->laboratoryLines($appointment),
-            ...$this->pharmacyLines($appointment),
-        ];
-
-        $existing = Invoice::query()->liveForVisit($appointment->id)->first();
-
-        if ($existing) {
-            // Already finalized — the bill has been presented, so nothing
-            // more is appended to it. Later charges are the counter's problem
-            // to raise as a separate bill, deliberately.
-            if (! $existing->acceptsMoreLines()) {
-                return $existing;
-            }
-
-            return $this->billing->addLines($existing, $lines);
-        }
-
-        if ($lines === []) {
-            return null;
-        }
-
-        $consultation = Consultation::query()
-            ->where('appointment_id', $appointment->id)
-            ->first();
-
-        return $this->billing->draw([
-            'location_id' => $appointment->location_id,
-            'customer_id' => $appointment->customer_id,
-            'appointment_id' => $appointment->id,
-            'consultation_id' => $consultation?->id,
-            'doctor_id' => $appointment->doctor_id,
-            'kind' => Invoice::KIND_VISIT,
-            'trigger' => $settings->default_trigger,
-        ], $lines);
-    }
-
-    /**
-     * Whether finalizing now would be premature.
-     *
-     * Only the departments that are actually mid-work hold the bill open.
-     * The event that fired is excluded — a pharmacy trigger firing on a
-     * dispensing must not wait for the prescription it has just filled.
-     */
-    private function stillProducingCharges(Appointment $appointment, string $event): bool
-    {
-        if ($event !== BillingSetting::TRIGGER_LABORATORY) {
-            $labOutstanding = LabOrder::query()
-                ->where('appointment_id', $appointment->id)
-                ->outstanding()
-                ->exists();
-
-            if ($labOutstanding) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /* ===================================================================
-     | WHERE THE CHARGES COME FROM
-     |===================================================================*/
-
-    /**
-     * The doctor's fee, and anything the organisation charges per visit.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function consultationLines(Appointment $appointment, BillingSetting $settings): array
-    {
-        $consultation = Consultation::query()
-            ->where('appointment_id', $appointment->id)
-            ->first();
-
-        if (! $consultation) {
-            return [];
-        }
-
-        $lines = [];
-
-        $doctor = $appointment->doctor_id
-            ? Doctor::query()->find($appointment->doctor_id)
-            : null;
-
-        $fee = $doctor?->default_consultation_fee !== null
-            ? round((float) $doctor->default_consultation_fee, 2)
-            : 0.0;
-
-        if ($fee > 0) {
-            $lines[] = [
-                'source_type' => InvoiceItem::SOURCE_CONSULTATION,
-                'source_id' => $consultation->id,
-                'description' => sprintf('Consultation — %s', $doctor?->name ?? 'Doctor'),
-                'quantity' => 1,
-                'unit_price' => $fee,
-                'tax_percent' => (float) $settings->default_tax_percent,
-            ];
-        }
-
-        $services = BillableService::query()
-            ->active()
-            ->forBranch($appointment->location_id)
-            ->whereIn('kind', [BillableService::KIND_CONSULTATION, BillableService::KIND_PROCEDURE])
-            ->orderBy('position')
-            ->get();
-
-        foreach ($services as $service) {
-            $price = round((float) $service->default_price, 2);
-
-            if ($price <= 0) {
-                continue;
-            }
-
-            $lines[] = [
-                'source_type' => $service->kind === BillableService::KIND_PROCEDURE
-                    ? InvoiceItem::SOURCE_PROCEDURE
-                    : InvoiceItem::SOURCE_SERVICE,
-                'source_id' => $service->id,
-                'billable_service_id' => $service->id,
-                'description' => $service->name,
-                'quantity' => 1,
-                'unit_price' => $price,
-                'tax_percent' => (float) $service->tax_percent,
-            ];
-        }
-
-        return $lines;
-    }
-
-    /**
-     * Tests ordered at this visit that carry a price.
-     *
-     * Priced from the SNAPSHOT taken when the test was ordered, never from
-     * the catalogue as it reads now — a test repriced next month must not
-     * rewrite what this patient was charged. A freehand line (no catalogue
-     * entry, no snapshot) is ordered and run exactly as before and bills
-     * nothing.
-     *
-     * Cancelled orders are excluded; a withdrawn test is not work anybody
-     * owes for.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function laboratoryLines(Appointment $appointment): array
-    {
-        $orders = LabOrder::query()
-            ->where('appointment_id', $appointment->id)
-            ->whereNot('status', LabOrder::CANCELLED)
-            ->with('items')
-            ->get();
-
-        $lines = [];
-
-        foreach ($orders as $order) {
-            foreach ($order->items as $item) {
-                if (! $item->isBillable()) {
-                    continue;
-                }
-
-                $lines[] = [
-                    'source_type' => InvoiceItem::SOURCE_LAB_TEST,
-                    'source_id' => $item->id,
-                    'description' => sprintf('Lab — %s', $item->test_name),
-                    'quantity' => 1,
-                    'unit_price' => round((float) $item->price_snapshot, 2),
-                    'tax_percent' => (float) ($item->tax_percent_snapshot ?? 0),
-                ];
-            }
-        }
-
-        return $lines;
-    }
-
-    /**
-     * Medicines dispensed against this visit.
-     *
-     * Read off `pharmacy_sale_items`, which keeps its own name, batch and
-     * price snapshots — so the invoice says what was actually handed over,
-     * at the price it was handed over for, however the catalogue reads
-     * afterwards.
-     *
-     * The sale row stays where it is: it owns the stock movement and the
-     * prescription crediting, and the pharmacy's own reports read it. What
-     * moves here is only the MONEY, and `SalesService` marks the sale
-     * `billed_via_invoice` so the till stops asking for it too.
-     *
-     * Cancelled sales are excluded — the stock went back and the charge with
-     * it.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function pharmacyLines(Appointment $appointment): array
-    {
-        $sales = PharmacySale::query()
-            ->where('appointment_id', $appointment->id)
-            ->where('status', PharmacySale::COMPLETED)
-            ->with('items')
-            ->get();
-
-        $lines = [];
-
-        foreach ($sales as $sale) {
-            foreach ($sale->items as $item) {
-                $lines[] = [
-                    'source_type' => InvoiceItem::SOURCE_PHARMACY_SALE_ITEM,
-                    'source_id' => $item->id,
-                    'description' => sprintf(
-                        '%s%s',
-                        $item->item_name_snapshot,
-                        $item->batch_number_snapshot ? " (batch {$item->batch_number_snapshot})" : '',
-                    ),
-                    /* Carried across so the clinic's tax invoice can name the
-                       code the medicine was actually billed under. */
-                    'hsn_code' => $item->hsn_code_snapshot,
-                    'quantity' => (float) $item->quantity,
-                    'unit_price' => (float) $item->unit_price,
-                    'discount_amount' => (float) $item->discount_amount,
-                    /*
-                     * The tax the sale already worked out, as a rate. The
-                     * pharmacy prices tax-inclusive or exclusive per its own
-                     * settings and the line total already reflects that;
-                     * carrying the RATE lets the invoice re-derive the same
-                     * figure under its own settings rather than double-taxing.
-                     */
-                    'tax_percent' => (float) $item->tax_rate,
-                ];
-            }
-        }
-
-        return $lines;
-    }
-
     /* ---------------------------------------------------------- plumbing */
 
-    private function billingIsOn(Appointment $appointment): bool
-    {
-        return $this->billingIsOnAt($appointment->location_id);
-    }
-
     /**
-     * Whether billing runs at this branch.
+     * Whether a module runs at this branch.
      *
      * Reads the organisation off the request that started this — every
      * trigger fires inside a tenant HTTP request, where
@@ -469,12 +522,12 @@ class BillingTriggerResolver
      * artisan job) the schema is trusted: the tables are per-organisation, so
      * one that migrated at all has the module.
      */
-    private function billingIsOnAt(?int $locationId): bool
+    private function runs(string $module, ?int $locationId): bool
     {
         $organization = request()->attributes->get('tenant.organization');
 
         if ($organization instanceof Organization) {
-            return app(Permission::class)->hasModule($organization, 'billing', $locationId);
+            return app(Permission::class)->hasModule($organization, $module, $locationId);
         }
 
         return true;

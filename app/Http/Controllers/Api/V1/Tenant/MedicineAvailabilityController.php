@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Auth;
 /**
  * Is it on the shelf? Behind `medicines.view` — the doctor's question while
  * prescribing — rather than `pharmacy.view`, which opens the stock screens.
+ *
+ * @group Tenant > Pharmacy > Medicines
  */
 class MedicineAvailabilityController extends BaseApiController
 {

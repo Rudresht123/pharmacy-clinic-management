@@ -158,6 +158,8 @@ class RoleTemplates
                     'billing.cancel',
                     'billing.collect_payment',
                     'billing.refund',
+                    // The branch's money across OPD, lab and pharmacy, together.
+                    'billing.finance',
                     'communication.view',
                 ],
             ],
@@ -399,6 +401,8 @@ class RoleTemplates
                     'billing.cancel',
                     'billing.collect_payment',
                     'billing.refund',
+                    // The branch's books across every department, in one place.
+                    'billing.finance',
                     'documents.view',
                     'documents.generate',
                 ],
@@ -458,6 +462,8 @@ class RoleTemplates
                     'billing.cancel',
                     'billing.collect_payment',
                     'billing.refund',
+                    // Every branch's money, every department, by scope-lift.
+                    'billing.finance',
                     'settings.audit',
                 ],
             ],

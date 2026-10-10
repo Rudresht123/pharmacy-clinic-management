@@ -643,6 +643,18 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 ->middleware('permission:pharmacy.sale_cancel')
                 ->name('sales.cancel');
 
+            /*
+            | The rest of a credit sale, taken at this counter — never routed
+            | through Billing. And goods brought back: the same authority as
+            | cancelling, since both return stock and money.
+            */
+            Route::post('sales/{sale}/payments', [PharmacySaleController::class, 'collect'])
+                ->middleware('permission:pharmacy.sell,pharmacy.dispense')
+                ->name('sales.payments.store');
+            Route::post('sales/{sale}/returns', [PharmacySaleController::class, 'returnItems'])
+                ->middleware('permission:pharmacy.sale_cancel')
+                ->name('sales.returns.store');
+
             Route::post('pharmacy-stores/{store}/inwards', [StockInwardController::class, 'store'])
                 ->middleware('permission:pharmacy.inward')
                 ->name('pharmacy-stores.inwards.store');
@@ -761,6 +773,18 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             Route::post('invoices/{invoice}/payments/{payment}/refund', [InvoicePaymentController::class, 'refund'])
                 ->middleware('permission:billing.refund')
                 ->name('invoices.payments.refund');
+
+            /*
+            | Finance — every department's money read together: OPD and lab
+            | invoices, the pharmacy's bills, every payment and refund. A
+            | report, not a till; `billing.finance`, per branch.
+            */
+            Route::middleware('permission:billing.finance')->group(function () {
+                Route::get('finance/summary', [FinanceController::class, 'summary'])
+                    ->name('finance.summary');
+                Route::get('finance/documents', [FinanceController::class, 'documents'])
+                    ->name('finance.documents');
+            });
 
             Route::put('billing/settings', [BillingSettingController::class, 'update'])
                 ->middleware('permission:billing.manage_settings')
@@ -897,6 +921,16 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 Route::post('lab-orders/{order}/cancel', [LabOrderController::class, 'cancel'])
                     ->name('lab-orders.cancel');
             });
+
+            /*
+            | The lab bills its own order, on its own invoice. Drawing one is
+            | the same authority as drawing any bill (`billing.create`), and
+            | only where the lab runs. Taking the money is the ordinary
+            | invoice payment route — the lab counter needs no second till.
+            */
+            Route::post('lab-orders/{order}/bill', [LabOrderController::class, 'bill'])
+                ->middleware(['module:billing', 'permission:billing.create'])
+                ->name('lab-orders.bill');
         });
 
         /*

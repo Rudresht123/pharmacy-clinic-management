@@ -19,6 +19,7 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/.scribe/endpoints.cache
 /vendor
 Homestead.json
 Homestead.yaml

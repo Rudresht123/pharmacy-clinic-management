@@ -1,0 +1,925 @@
+name: 'Tenant > Prescriptions'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/prescriptions
+    metadata:
+      custom: []
+      groupName: 'Tenant > Prescriptions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Prescriptions at the branches the caller works at.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/prescriptions/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Prescriptions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the prescription.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/appointments/{appointment_id}/prescription'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Prescriptions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        The visit's live prescription, if one has been started, with the store
+        it would be dispensed from and what that store holds of each line.
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      appointment_id:
+        custom: []
+        name: appointment_id
+        description: 'The ID of the appointment.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      appointment_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/tenant/prescriptions
+    metadata:
+      custom: []
+      groupName: 'Tenant > Prescriptions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      valid_until:
+        custom: []
+        name: valid_until
+        description: 'Must be a valid date. Must be a date after or equal to <code>today</code>.'
+        required: false
+        example: '2052-11-02'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      clinical_notes:
+        custom: []
+        name: clinical_notes
+        description: 'Must not be greater than 5000 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      items:
+        custom: []
+        name: items
+        description: 'Must not have more than 30 items.'
+        required: false
+        example: null
+        type: 'object[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      appointment_id:
+        custom: []
+        name: appointment_id
+        description: 'Must match an existing stored value.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].id':
+        custom: []
+        name: 'items[].id'
+        description: ''
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].medicine_id':
+        custom: []
+        name: 'items[].medicine_id'
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].medicine_name':
+        custom: []
+        name: 'items[].medicine_name'
+        description: 'This field is required when <code>items.*.medicine_id</code> is not present. Must not be greater than 191 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].dose_amount':
+        custom: []
+        name: 'items[].dose_amount'
+        description: 'Must not be greater than 9999.'
+        required: false
+        example: 7
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].dose_unit':
+        custom: []
+        name: 'items[].dose_unit'
+        description: 'Must not be greater than 20 characters.'
+        required: false
+        example: zmiyvdljnikhwayk
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].morning':
+        custom: []
+        name: 'items[].morning'
+        description: 'Must be at least 0. Must not be greater than 99.'
+        required: false
+        example: 8
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].afternoon':
+        custom: []
+        name: 'items[].afternoon'
+        description: 'Must be at least 0. Must not be greater than 99.'
+        required: false
+        example: 24
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].evening':
+        custom: []
+        name: 'items[].evening'
+        description: 'Must be at least 0. Must not be greater than 99.'
+        required: false
+        example: 8
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].night':
+        custom: []
+        name: 'items[].night'
+        description: 'Must be at least 0. Must not be greater than 99.'
+        required: false
+        example: 6
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].frequency':
+        custom: []
+        name: 'items[].frequency'
+        description: ''
+        required: false
+        example: od
+        type: string
+        enumValues:
+          - od
+          - bd
+          - tds
+          - qid
+          - hs
+          - sos
+          - stat
+          - weekly
+          - custom
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].food_timing':
+        custom: []
+        name: 'items[].food_timing'
+        description: ''
+        required: false
+        example: after_food
+        type: string
+        enumValues:
+          - before_food
+          - after_food
+          - with_food
+          - empty_stomach
+          - any
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].duration':
+        custom: []
+        name: 'items[].duration'
+        description: 'Must be at least 1. Must not be greater than 3650.'
+        required: false
+        example: 25
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].duration_unit':
+        custom: []
+        name: 'items[].duration_unit'
+        description: 'This field is required when <code>items.*.duration</code> is present.'
+        required: false
+        example: continuous
+        type: string
+        enumValues:
+          - days
+          - weeks
+          - months
+          - continuous
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].route':
+        custom: []
+        name: 'items[].route'
+        description: ''
+        required: false
+        example: oral
+        type: string
+        enumValues:
+          - oral
+          - iv
+          - im
+          - sc
+          - topical
+          - inhalation
+          - ophthalmic
+          - otic
+          - nasal
+          - rectal
+          - vaginal
+          - sublingual
+          - other
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].prescribed_quantity':
+        custom: []
+        name: 'items[].prescribed_quantity'
+        description: 'Must be at least 1. Must not be greater than 100000.'
+        required: false
+        example: 25
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].instructions':
+        custom: []
+        name: 'items[].instructions'
+        description: 'Must not be greater than 1000 characters.'
+        required: false
+        example: w
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      valid_until: '2052-11-02'
+      clinical_notes: 'n'
+      appointment_id: 16
+      items:
+        -
+          id: 16
+          medicine_id: 16
+          medicine_name: 'n'
+          dose_amount: 7
+          dose_unit: zmiyvdljnikhwayk
+          morning: 8
+          afternoon: 24
+          evening: 8
+          night: 6
+          frequency: od
+          food_timing: after_food
+          duration: 25
+          duration_unit: continuous
+          route: oral
+          prescribed_quantity: 25
+          instructions: w
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: 'api/v1/tenant/prescriptions/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Prescriptions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the prescription.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      valid_until:
+        custom: []
+        name: valid_until
+        description: 'Must be a valid date. Must be a date after or equal to <code>today</code>.'
+        required: false
+        example: '2052-11-02'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      clinical_notes:
+        custom: []
+        name: clinical_notes
+        description: 'Must not be greater than 5000 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      items:
+        custom: []
+        name: items
+        description: 'Must not have more than 30 items.'
+        required: false
+        example: null
+        type: 'object[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].id':
+        custom: []
+        name: 'items[].id'
+        description: ''
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].medicine_id':
+        custom: []
+        name: 'items[].medicine_id'
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].medicine_name':
+        custom: []
+        name: 'items[].medicine_name'
+        description: 'This field is required when <code>items.*.medicine_id</code> is not present. Must not be greater than 191 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].dose_amount':
+        custom: []
+        name: 'items[].dose_amount'
+        description: 'Must not be greater than 9999.'
+        required: false
+        example: 7
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].dose_unit':
+        custom: []
+        name: 'items[].dose_unit'
+        description: 'Must not be greater than 20 characters.'
+        required: false
+        example: zmiyvdljnikhwayk
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].morning':
+        custom: []
+        name: 'items[].morning'
+        description: 'Must be at least 0. Must not be greater than 99.'
+        required: false
+        example: 8
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].afternoon':
+        custom: []
+        name: 'items[].afternoon'
+        description: 'Must be at least 0. Must not be greater than 99.'
+        required: false
+        example: 24
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].evening':
+        custom: []
+        name: 'items[].evening'
+        description: 'Must be at least 0. Must not be greater than 99.'
+        required: false
+        example: 8
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].night':
+        custom: []
+        name: 'items[].night'
+        description: 'Must be at least 0. Must not be greater than 99.'
+        required: false
+        example: 6
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].frequency':
+        custom: []
+        name: 'items[].frequency'
+        description: ''
+        required: false
+        example: od
+        type: string
+        enumValues:
+          - od
+          - bd
+          - tds
+          - qid
+          - hs
+          - sos
+          - stat
+          - weekly
+          - custom
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].food_timing':
+        custom: []
+        name: 'items[].food_timing'
+        description: ''
+        required: false
+        example: with_food
+        type: string
+        enumValues:
+          - before_food
+          - after_food
+          - with_food
+          - empty_stomach
+          - any
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].duration':
+        custom: []
+        name: 'items[].duration'
+        description: 'Must be at least 1. Must not be greater than 3650.'
+        required: false
+        example: 25
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].duration_unit':
+        custom: []
+        name: 'items[].duration_unit'
+        description: 'This field is required when <code>items.*.duration</code> is present.'
+        required: false
+        example: months
+        type: string
+        enumValues:
+          - days
+          - weeks
+          - months
+          - continuous
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].route':
+        custom: []
+        name: 'items[].route'
+        description: ''
+        required: false
+        example: iv
+        type: string
+        enumValues:
+          - oral
+          - iv
+          - im
+          - sc
+          - topical
+          - inhalation
+          - ophthalmic
+          - otic
+          - nasal
+          - rectal
+          - vaginal
+          - sublingual
+          - other
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].prescribed_quantity':
+        custom: []
+        name: 'items[].prescribed_quantity'
+        description: 'Must be at least 1. Must not be greater than 100000.'
+        required: false
+        example: 25
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].instructions':
+        custom: []
+        name: 'items[].instructions'
+        description: 'Must not be greater than 1000 characters.'
+        required: false
+        example: w
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      valid_until: '2052-11-02'
+      clinical_notes: 'n'
+      items:
+        -
+          id: 16
+          medicine_id: 16
+          medicine_name: 'n'
+          dose_amount: 7
+          dose_unit: zmiyvdljnikhwayk
+          morning: 8
+          afternoon: 24
+          evening: 8
+          night: 6
+          frequency: od
+          food_timing: with_food
+          duration: 25
+          duration_unit: months
+          route: iv
+          prescribed_quantity: 25
+          instructions: w
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/tenant/prescriptions/{prescription_id}/issue'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Prescriptions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      prescription_id:
+        custom: []
+        name: prescription_id
+        description: 'The ID of the prescription.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      prescription_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      valid_until:
+        custom: []
+        name: valid_until
+        description: 'Must be a valid date. Must be a date after or equal to <code>today</code>.'
+        required: false
+        example: '2052-11-02'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      valid_until: '2052-11-02'
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/tenant/prescriptions/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Prescriptions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Remove a draft, with a reason.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the prescription.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      reason:
+        custom: []
+        name: reason
+        description: 'Must not be greater than 500 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      reason: b
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/tenant/prescriptions/{prescription_id}/cancel'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Prescriptions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      prescription_id:
+        custom: []
+        name: prescription_id
+        description: 'The ID of the prescription.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      prescription_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      reason:
+        custom: []
+        name: reason
+        description: 'Must not be greater than 500 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      reason: b
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null

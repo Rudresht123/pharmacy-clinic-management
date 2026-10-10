@@ -41,6 +41,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * all three have passed. There is deliberately no URL on the resource: a
  * public or signed link is a way around the check that does not even leave a
  * refused request behind it.
+ *
+ * @group Tenant > Patient Documents
  */
 class PatientDocumentController extends BaseApiController
 {

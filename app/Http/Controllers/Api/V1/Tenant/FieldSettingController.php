@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\DB;
  *
  * Reads are open to any signed-in tenant user (their forms need them);
  * writes sit behind `tenant.owner` on the route.
+ *
+ * @group Tenant > Field Settings
  */
 class FieldSettingController extends BaseApiController
 {

@@ -1,0 +1,1909 @@
+name: 'Tenant > Billing'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/billing/overview
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Figures for the overview: cards, trend, status breakdown, recent bills.'
+      description: |-
+        One request rather than five, because they are read together and a
+        dashboard that paints in five stages reads as a slow one.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/billing/overview/invoices
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: "The dashboard's invoice table: the window's bills, a page at a time."
+      description: |-
+        Its own endpoint rather than a page parameter on show(): turning a page
+        of this table must not recompute every card and chart above it. Loaded
+        with items and doctor, which the table's Type and Doctor columns read
+        and the plain invoice list does not carry.
+
+        Newest first, and by id within a day, so a page boundary never falls
+        between two bills of the same date in a different order each time.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/billing/overview/outstanding
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Who owes money, grouped by patient, a page at a time.'
+      description: |-
+        Not windowed: money owed from last month is still owed today, and the
+        table would otherwise lose a debt the moment its bill aged out of the
+        range at the top of the page.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/billing/overview/outstanding/summary
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: "The outstanding register's own cards — unpaid against partially paid."
+      description: |-
+        The date range is optional here, unlike every other window on this
+        controller: outstanding money does not age out just because it falls
+        off the front of a range, so the figures are all-time unless the
+        screen's own filter actually narrows them.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      from:
+        custom: []
+        name: from
+        description: 'Must be a valid date.'
+        required: false
+        example: '2026-10-10T12:36:50'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      to:
+        custom: []
+        name: to
+        description: 'Must be a valid date. Must be a date after or equal to <code>from</code>.'
+        required: false
+        example: '2052-11-02'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      from: '2026-10-10T12:36:50'
+      to: '2052-11-02'
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/billing/payments
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Every payment taken, newest first — the register a till reconciles from.'
+      description: |-
+        Refunds are rows here too, marked as such rather than filtered out: a
+        register that hides them cannot be reconciled against a drawer.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/billing/payments/summary
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: "The payments register's own cards and tender tabs."
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/billing/payments/export
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        The payments register as a spreadsheet — every row the filters match,
+        not just the page on screen.
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/invoices
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/invoices/summary
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'The figures above the list: the four cards, and a count on every tab.'
+      description: |-
+        The COUNTS follow the filters on screen — search, dates, type — so a
+        tab never promises twelve bills and opens on three. The CARDS do not:
+        they are the register as a whole, this month against last, which is
+        what somebody glancing at the top of the page is asking.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/invoices/export
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'The list as it stands on screen, as a spreadsheet.'
+      description: |-
+        The same filters as index(), every page of them — or only the rows
+        somebody ticked, when `ids` is given. CSV rather than .xlsx: it opens in
+        Excel and anything else, and needs no library to write.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      ids:
+        custom: []
+        name: ids
+        description: ''
+        required: false
+        example:
+          - 16
+        type: 'integer[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      ids:
+        - 16
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/invoices/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the invoice.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/billable-services
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/billing/settings
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/billing/numbering
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/tenant/invoices
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      location_id:
+        custom: []
+        name: location_id
+        description: 'Must match an existing stored value.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      customer_id:
+        custom: []
+        name: customer_id
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      walk_in_name:
+        custom: []
+        name: walk_in_name
+        description: 'This field is required when <code>customer_id</code> is not present. Must not be greater than 120 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      walk_in_phone:
+        custom: []
+        name: walk_in_phone
+        description: 'Must not be greater than 20 characters.'
+        required: false
+        example: gzmiyvdljnikhway
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      appointment_id:
+        custom: []
+        name: appointment_id
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      consultation_id:
+        custom: []
+        name: consultation_id
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      doctor_id:
+        custom: []
+        name: doctor_id
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      notes:
+        custom: []
+        name: notes
+        description: 'Must not be greater than 2000 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      items:
+        custom: []
+        name: items
+        description: 'Must have at least 1 items. Must not have more than 100 items.'
+        required: true
+        example:
+          - []
+        type: 'object[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].source_type':
+        custom: []
+        name: 'items[].source_type'
+        description: ''
+        required: true
+        example: service
+        type: string
+        enumValues:
+          - procedure
+          - service
+          - custom
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].source_id':
+        custom: []
+        name: 'items[].source_id'
+        description: ''
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].billable_service_id':
+        custom: []
+        name: 'items[].billable_service_id'
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].description':
+        custom: []
+        name: 'items[].description'
+        description: 'Must not be greater than 191 characters.'
+        required: true
+        example: 'Et animi quos velit et fugiat.'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].quantity':
+        custom: []
+        name: 'items[].quantity'
+        description: 'Must be at least 0.01. Must not be greater than 99999.99.'
+        required: true
+        example: 1
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].unit_price':
+        custom: []
+        name: 'items[].unit_price'
+        description: 'Must be at least 0. Must not be greater than 9999999.99.'
+        required: true
+        example: 5
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].discount_percent':
+        custom: []
+        name: 'items[].discount_percent'
+        description: 'Must be at least 0. Must not be greater than 100.'
+        required: false
+        example: 19
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].discount_amount':
+        custom: []
+        name: 'items[].discount_amount'
+        description: 'Must be at least 0.'
+        required: false
+        example: 52
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].tax_percent':
+        custom: []
+        name: 'items[].tax_percent'
+        description: 'Must be at least 0. Must not be greater than 100.'
+        required: false
+        example: 5
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      location_id: 16
+      customer_id: 16
+      walk_in_name: 'n'
+      walk_in_phone: gzmiyvdljnikhway
+      appointment_id: 16
+      consultation_id: 16
+      doctor_id: 16
+      notes: 'n'
+      items:
+        -
+          source_type: service
+          source_id: 16
+          billable_service_id: 16
+          description: 'Et animi quos velit et fugiat.'
+          quantity: 1
+          unit_price: 5
+          discount_percent: 19
+          discount_amount: 52
+          tax_percent: 5
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/tenant/invoices/bill-visit
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: "The OPD's bill for a visit, drawn now at the desk."
+      description: |-
+        For the `manual`-timing organisation, and for the visit whose timing
+        passed with nothing priced. OPD charges only — the doctor's fee and the
+        per-visit charges; the lab bills its own orders and the pharmacy its
+        own sales. Answers with the visit's bill if it already has one.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      appointment_id:
+        custom: []
+        name: appointment_id
+        description: 'Must match an existing stored value.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      appointment_id: 16
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/tenant/invoices/{invoice_id}/finalize'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Declare a draft bill complete — it may now be paid.'
+      description: |-
+        Visit bills are drawn and finalized in one step now, so a draft is one
+        left from before each department billed for itself; this closes it.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      invoice_id:
+        custom: []
+        name: invoice_id
+        description: 'The ID of the invoice.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      invoice_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: 'api/v1/tenant/invoices/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: "Rewrite an unpaid invoice's lines. Refused after any payment."
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the invoice.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      location_id:
+        custom: []
+        name: location_id
+        description: 'Must match an existing stored value.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      customer_id:
+        custom: []
+        name: customer_id
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      walk_in_name:
+        custom: []
+        name: walk_in_name
+        description: 'This field is required when <code>customer_id</code> is not present. Must not be greater than 120 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      walk_in_phone:
+        custom: []
+        name: walk_in_phone
+        description: 'Must not be greater than 20 characters.'
+        required: false
+        example: gzmiyvdljnikhway
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      appointment_id:
+        custom: []
+        name: appointment_id
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      consultation_id:
+        custom: []
+        name: consultation_id
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      doctor_id:
+        custom: []
+        name: doctor_id
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      notes:
+        custom: []
+        name: notes
+        description: 'Must not be greater than 2000 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      items:
+        custom: []
+        name: items
+        description: 'Must have at least 1 items. Must not have more than 100 items.'
+        required: true
+        example:
+          - []
+        type: 'object[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].source_type':
+        custom: []
+        name: 'items[].source_type'
+        description: ''
+        required: true
+        example: consultation
+        type: string
+        enumValues:
+          - consultation
+          - pharmacy_sale_item
+          - lab_test
+          - procedure
+          - service
+          - custom
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].source_id':
+        custom: []
+        name: 'items[].source_id'
+        description: ''
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].billable_service_id':
+        custom: []
+        name: 'items[].billable_service_id'
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].description':
+        custom: []
+        name: 'items[].description'
+        description: 'Must not be greater than 191 characters.'
+        required: true
+        example: 'Et animi quos velit et fugiat.'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].quantity':
+        custom: []
+        name: 'items[].quantity'
+        description: 'Must be at least 0.01. Must not be greater than 99999.99.'
+        required: true
+        example: 1
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].unit_price':
+        custom: []
+        name: 'items[].unit_price'
+        description: 'Must be at least 0. Must not be greater than 9999999.99.'
+        required: true
+        example: 5
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].discount_percent':
+        custom: []
+        name: 'items[].discount_percent'
+        description: 'Must be at least 0. Must not be greater than 100.'
+        required: false
+        example: 19
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].discount_amount':
+        custom: []
+        name: 'items[].discount_amount'
+        description: 'Must be at least 0.'
+        required: false
+        example: 52
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].tax_percent':
+        custom: []
+        name: 'items[].tax_percent'
+        description: 'Must be at least 0. Must not be greater than 100.'
+        required: false
+        example: 5
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      location_id: 16
+      customer_id: 16
+      walk_in_name: 'n'
+      walk_in_phone: gzmiyvdljnikhway
+      appointment_id: 16
+      consultation_id: 16
+      doctor_id: 16
+      notes: 'n'
+      items:
+        -
+          source_type: consultation
+          source_id: 16
+          billable_service_id: 16
+          description: 'Et animi quos velit et fugiat.'
+          quantity: 1
+          unit_price: 5
+          discount_percent: 19
+          discount_amount: 52
+          tax_percent: 5
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/tenant/invoices/{invoice_id}/cancel'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      invoice_id:
+        custom: []
+        name: invoice_id
+        description: 'The ID of the invoice.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      invoice_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      reason:
+        custom: []
+        name: reason
+        description: 'Must not be greater than 500 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      reason: b
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/tenant/invoices/{invoice_id}/payments'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Record a payment against an invoice.'
+      description: |-
+        One tender (`method`, `amount`) or several (`tenders[]`) — a bill
+        settled ₹300 cash and ₹200 UPI is one collection, which is what lets a
+        clinic that takes bills in full still take that one.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      invoice_id:
+        custom: []
+        name: invoice_id
+        description: 'The ID of the invoice.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      invoice_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      idempotency_key:
+        custom: []
+        name: idempotency_key
+        description: 'Must not be greater than 100 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      tenders:
+        custom: []
+        name: tenders
+        description: 'Must have at least 1 items. Must not have more than 5 items.'
+        required: false
+        example: null
+        type: 'object[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      method:
+        custom: []
+        name: method
+        description: 'This field is required when <code>tenders</code> is not present.'
+        required: false
+        example: null
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      amount:
+        custom: []
+        name: amount
+        description: 'This field is required when <code>tenders</code> is not present. Must be at least 0.01. Must not be greater than 9999999.99.'
+        required: false
+        example: 22
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      reference:
+        custom: []
+        name: reference
+        description: 'Must not be greater than 60 characters.'
+        required: false
+        example: g
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      notes:
+        custom: []
+        name: notes
+        description: 'Must not be greater than 500 characters.'
+        required: false
+        example: z
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'tenders[].method':
+        custom: []
+        name: 'tenders[].method'
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'tenders[].amount':
+        custom: []
+        name: 'tenders[].amount'
+        description: 'Must be at least 0.01. Must not be greater than 9999999.99.'
+        required: true
+        example: 22
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'tenders[].reference':
+        custom: []
+        name: 'tenders[].reference'
+        description: 'Must not be greater than 60 characters.'
+        required: false
+        example: g
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      idempotency_key: b
+      amount: 22
+      reference: g
+      notes: z
+      tenders:
+        -
+          method: architecto
+          amount: 22
+          reference: g
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/tenant/invoices/{invoice_id}/payments/{payment_id}/refund'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Refund an already-recorded payment.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      invoice_id:
+        custom: []
+        name: invoice_id
+        description: 'The ID of the invoice.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      payment_id:
+        custom: []
+        name: payment_id
+        description: 'The ID of the payment.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      invoice_id: 16
+      payment_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      idempotency_key:
+        custom: []
+        name: idempotency_key
+        description: 'Must not be greater than 100 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      amount:
+        custom: []
+        name: amount
+        description: 'Must be at least 0.01. Must not be greater than 9999999.99.'
+        required: true
+        example: 22
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      reason:
+        custom: []
+        name: reason
+        description: 'Must not be greater than 500 characters.'
+        required: false
+        example: g
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      idempotency_key: b
+      amount: 22
+      reason: g
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: api/v1/tenant/billing/settings
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      default_trigger:
+        custom: []
+        name: default_trigger
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      lab_trigger:
+        custom: []
+        name: lab_trigger
+        description: 'Optional so an older screen that does not know about it still saves.'
+        required: false
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      payment_methods:
+        custom: []
+        name: payment_methods
+        description: ''
+        required: false
+        example:
+          - architecto
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      payment_behaviour:
+        custom: []
+        name: payment_behaviour
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      prices_include_tax:
+        custom: []
+        name: prices_include_tax
+        description: ''
+        required: true
+        example: false
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      default_tax_percent:
+        custom: []
+        name: default_tax_percent
+        description: 'Must be at least 0. Must not be greater than 100.'
+        required: true
+        example: 22
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      allow_edit_before_payment:
+        custom: []
+        name: allow_edit_before_payment
+        description: ''
+        required: true
+        example: true
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      invoice_prefix:
+        custom: []
+        name: invoice_prefix
+        description: 'Must not be greater than 12 characters.'
+        required: true
+        example: gzmi
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      currency_code:
+        custom: []
+        name: currency_code
+        description: 'Must be 3 characters.'
+        required: true
+        example: yvd
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      currency_symbol:
+        custom: []
+        name: currency_symbol
+        description: 'Must not be greater than 4 characters.'
+        required: true
+        example: ljni
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      terms:
+        custom: []
+        name: terms
+        description: 'Must not be greater than 2000 characters.'
+        required: false
+        example: k
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      footer:
+        custom: []
+        name: footer
+        description: 'Must not be greater than 500 characters.'
+        required: false
+        example: h
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      default_trigger: architecto
+      lab_trigger: architecto
+      payment_methods:
+        - architecto
+      payment_behaviour: architecto
+      prices_include_tax: false
+      default_tax_percent: 22
+      allow_edit_before_payment: true
+      invoice_prefix: gzmi
+      currency_code: yvd
+      currency_symbol: ljni
+      terms: k
+      footer: h
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: api/v1/tenant/billing/numbering
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      series:
+        custom: []
+        name: series
+        description: 'Must have at least 1 items.'
+        required: true
+        example:
+          - []
+        type: 'object[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'series[].location_id':
+        custom: []
+        name: 'series[].location_id'
+        description: ''
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'series[].document_type':
+        custom: []
+        name: 'series[].document_type'
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'series[].prefix':
+        custom: []
+        name: 'series[].prefix'
+        description: |-
+          *
+           * Printed on every bill and quoted back over the phone, so kept to
+           * what reads cleanly: capitals, digits, / and -. It cannot end in
+           * a separator — the year follows after a slash of its own.
+           */. Must match the regex /^[A-Z0-9](?:[A-Z0-9\/-]*[A-Z0-9])?$/. Must not be greater than 20 characters.
+        required: true
+        example: ngzmiyvdljnikhwa
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      series:
+        -
+          location_id: 16
+          document_type: architecto
+          prefix: ngzmiyvdljnikhwa
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/tenant/billable-services
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: 'api/v1/tenant/billable-services/{service_id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      service_id:
+        custom: []
+        name: service_id
+        description: 'The ID of the service.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      service_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/tenant/billable-services/{service_id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      service_id:
+        custom: []
+        name: service_id
+        description: 'The ID of the service.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      service_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null

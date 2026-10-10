@@ -18,6 +18,8 @@ use Illuminate\Http\Request;
  *
  * Route model binding resolves on the ULID (see Organization::getRouteKeyName),
  * so every path here is /organizations/{uuid}.
+ *
+ * @group Platform > Organizations
  */
 class OrganizationController extends BaseApiController
 {

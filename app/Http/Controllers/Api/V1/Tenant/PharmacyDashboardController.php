@@ -16,6 +16,8 @@ use Illuminate\Http\JsonResponse;
  * rather than the branch the request happens to be acting at. Nothing here is
  * a figure somebody could not already reach by opening those screens one at a
  * time; this saves them the walk.
+ *
+ * @group Tenant > Pharmacy > Stores & Sales
  */
 class PharmacyDashboardController extends BaseApiController
 {

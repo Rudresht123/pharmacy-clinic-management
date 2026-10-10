@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -133,6 +134,17 @@ class LabOrder extends Model
     public function items(): HasMany
     {
         return $this->hasMany(LabOrderItem::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * The lab's bill for this order, while it stands — what the lab counter
+     * collects against. At most one, by the partial unique index.
+     */
+    public function liveInvoice(): HasOne
+    {
+        return $this->hasOne(Invoice::class)
+            ->where('kind', Invoice::KIND_LAB)
+            ->whereNot('status', Invoice::STATUS_CANCELLED);
     }
 
     public function starter(): BelongsTo

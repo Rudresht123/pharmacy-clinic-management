@@ -19,6 +19,8 @@ use Illuminate\Http\Request;
  * Open to every signed-in patient; what is IN it depends on what they may do.
  * A patient whose role cannot see appointments gets a home screen without
  * them — `null`, not a 403 — because the screen itself is theirs either way.
+ *
+ * @group Patient Portal > Home
  */
 class HomeController extends PortalController
 {

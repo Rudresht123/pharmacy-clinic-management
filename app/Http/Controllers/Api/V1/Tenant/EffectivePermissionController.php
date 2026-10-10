@@ -22,6 +22,8 @@ use Illuminate\Http\Request;
  * holds: it reveals nothing about a person that their own role screen does not
  * already say, and withholding it from the people who answer "why can't I…"
  * would leave them reading the database by hand.
+ *
+ * @group Tenant > Users, Roles & Permissions
  */
 class EffectivePermissionController extends BaseApiController
 {

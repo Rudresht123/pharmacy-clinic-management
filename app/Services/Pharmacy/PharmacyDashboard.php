@@ -218,8 +218,10 @@ class PharmacyDashboard
     {
         $taken = PharmacySalePayment::query()
             ->whereHas('sale', fn ($sale) => $this->soldSince($sale, $store, $from))
-            ->selectRaw('method AS label, SUM(amount) AS value')
+            // Money handed back counts against the method it went back by.
+            ->selectRaw('method AS label, SUM('.PharmacySalePayment::NET_SQL.') AS value')
             ->groupBy('method')
+            ->havingRaw('SUM('.PharmacySalePayment::NET_SQL.') <> 0')
             ->orderByDesc('value')
             ->get()
             ->map(fn ($row) => ['label' => (string) $row->label, 'value' => (float) $row->value])
@@ -229,7 +231,7 @@ class PharmacyDashboard
             ->where('pharmacy_store_id', $store->id)
             ->completed()
             ->where('sale_date', '>=', $from->copy()->startOfDay())
-            ->selectRaw('COALESCE(SUM(total_amount - paid_amount), 0) AS due')
+            ->selectRaw('COALESCE(SUM('.PharmacySale::DUE_SQL.'), 0) AS due')
             ->value('due');
 
         if ($owed > 0) {
@@ -267,7 +269,8 @@ class PharmacyDashboard
             ->completed()
             ->whereBetween('sale_date', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
             ->selectRaw('sale_date::date AS day')
-            ->selectRaw('COALESCE(SUM(total_amount), 0) AS total')
+            // Net of goods brought back.
+            ->selectRaw('COALESCE(SUM(total_amount - returned_amount), 0) AS total')
             ->selectRaw('COUNT(*) AS bills')
             ->groupByRaw('sale_date::date')
             ->get()
@@ -317,7 +320,8 @@ class PharmacyDashboard
                     ->where('status', PharmacySale::COMPLETED)
                     ->whereBetween('sale_date', [$day->copy()->startOfDay(), $day->copy()->endOfDay()]),
             )
-            ->selectRaw('COALESCE(SUM(taxable_amount - COALESCE(unit_cost, 0) * quantity), 0) AS profit')
+            // What was kept, not what came back.
+            ->selectRaw('COALESCE(SUM((taxable_amount - COALESCE(unit_cost, 0) * quantity) * (quantity - returned_quantity)::numeric / quantity), 0) AS profit')
             ->value('profit');
     }
 
@@ -327,7 +331,7 @@ class PharmacyDashboard
         return (float) PharmacySale::query()
             ->where('pharmacy_store_id', $store->id)
             ->completed()
-            ->selectRaw('COALESCE(SUM(total_amount - paid_amount), 0) AS due')
+            ->selectRaw('COALESCE(SUM('.PharmacySale::DUE_SQL.'), 0) AS due')
             ->value('due');
     }
 

@@ -37,6 +37,8 @@ use RuntimeException;
  * moment it exists and somebody may already be holding it; a wrong one is
  * removed with a reason and a new one printed, which leaves both in the audit
  * trail.
+ *
+ * @group Tenant > Patient Documents
  */
 class DocumentGenerationController extends BaseApiController
 {

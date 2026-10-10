@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Hash;
 /**
  * Public, unauthenticated: the flow an invited organization admin follows
  * from the emailed setup link.
+ *
+ * @group Onboarding
+ * @unauthenticated
  */
 class OrganizationSetupController extends BaseApiController
 {

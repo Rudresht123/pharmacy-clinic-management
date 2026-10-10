@@ -62,6 +62,22 @@ class LabOrderResource extends JsonResource
                 fn () => $this->items->where('status', LabOrderItem::PENDING)->count(),
             ),
 
+            /*
+             * The lab's own bill for this order, so the lab counter can say
+             * what is owed and take it without opening Billing. Null when
+             * nothing has been billed — by timing, or because nothing on the
+             * order is priced.
+             */
+            'invoice' => $this->whenLoaded('liveInvoice', fn () => $this->liveInvoice ? [
+                'id' => $this->liveInvoice->id,
+                'invoice_number' => $this->liveInvoice->invoice_number,
+                'status' => $this->liveInvoice->status,
+                'total_amount' => (float) $this->liveInvoice->total_amount,
+                'paid_amount' => (float) $this->liveInvoice->paid_amount,
+                'refunded_amount' => (float) $this->liveInvoice->refunded_amount,
+                'outstanding' => $this->liveInvoice->outstanding(),
+            ] : null),
+
             // What this order's state allows, the same contract the
             // appointment resource offers: possible here, permitted there.
             'available' => [

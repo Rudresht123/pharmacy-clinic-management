@@ -16,6 +16,8 @@ use Illuminate\Validation\Rule;
  * writing is `billing.manage_services` — organisation-scoped, so the
  * catalogue reads the same at every branch. A branch-level override row
  * (with `location_id` set) is allowed for a price that varies by branch.
+ *
+ * @group Tenant > Billing
  */
 class BillableServiceController extends BaseApiController
 {

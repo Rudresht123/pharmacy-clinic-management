@@ -20,6 +20,8 @@ use Illuminate\Validation\ValidationException;
  * Writing is `communication.manage` because a template is what every patient
  * on the register will read; reading is `communication.view`, since the
  * screens that list them are the ones a receptionist opens.
+ *
+ * @group Tenant > Communications & Automation
  */
 class MessageTemplateController extends BaseApiController
 {

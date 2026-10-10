@@ -25,6 +25,8 @@ use Illuminate\Http\Request;
  *
  * Read-only. Rows arrive from the RecordsHistory trait on the models, so a
  * change made by a console command is recorded exactly like one made here.
+ *
+ * @group Tenant > Audit History
  */
 class HistoryController extends BaseApiController
 {

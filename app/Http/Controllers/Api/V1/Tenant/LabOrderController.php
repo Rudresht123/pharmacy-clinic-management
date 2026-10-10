@@ -11,7 +11,11 @@ use App\Http\Resources\Tenant\LabOrderResource;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\LabOrder;
 use App\Models\Tenant\LabOrderItem;
+use App\Models\Tenant\User;
+use App\Services\Billing\BillingConflict;
+use App\Services\Billing\BillingTriggerResolver;
 use App\Services\Laboratory\LabOrders;
+use App\Services\Permissions\Permission;
 use App\Services\Tenancy\TenantBranchAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -34,6 +38,8 @@ use Illuminate\Support\Facades\Auth;
  * The route holds the capability at the acting branch; LabOrderPolicy asks
  * about the ORDER's own branch. LabOrders decides whether its state allows
  * the change.
+ *
+ * @group Tenant > Laboratory
  */
 class LabOrderController extends BaseApiController
 {
@@ -44,7 +50,66 @@ class LabOrderController extends BaseApiController
     public function __construct(
         private readonly LabOrders $orders,
         private readonly TenantBranchAccess $branches,
+        private readonly BillingTriggerResolver $billing,
+        private readonly Permission $permission,
     ) {}
+
+    /** What an order is loaded with for this caller. */
+    private function with(): array
+    {
+        return [...self::WITH, ...$this->billingRelations()];
+    }
+
+    /**
+     * The order's bill, for somebody who handles money.
+     *
+     * A technician entering results has no need to read what the patient
+     * owes; somebody who may see invoices or take payment does, and the lab
+     * counter is one of those places.
+     *
+     * @return list<string>
+     */
+    private function billingRelations(): array
+    {
+        $organization = request()->attributes->get('tenant.organization');
+        $user = Auth::guard('web')->user();
+
+        if (! $organization || ! $user instanceof User) {
+            return [];
+        }
+
+        $handlesMoney = $this->permission->allows($organization, $user, 'billing.view')
+            || $this->permission->allows($organization, $user, 'billing.collect_payment');
+
+        return $handlesMoney ? ['liveInvoice'] : [];
+    }
+
+    /**
+     * Bill this order now, at the lab counter — whatever the lab's timing.
+     *
+     * Drawing a bill is `billing.create`; the order has to be one the caller
+     * may see. Answers with the order's bill if it already has one, so a
+     * double-click raises one invoice.
+     */
+    public function bill(LabOrder $order): JsonResponse
+    {
+        $this->authorizeTenant('view', $order);
+
+        try {
+            $invoice = $this->billing->billLabOrder($order);
+        } catch (BillingConflict $e) {
+            return $this->fail($e->getMessage(), 422);
+        }
+
+        if ($invoice === null) {
+            return $this->fail('Nothing on this order is priced, so there is nothing to bill.', 422);
+        }
+
+        return $this->ok(
+            LabOrderResource::make($order->fresh()->load($this->with())),
+            "{$invoice->invoice_number} is ready for payment",
+        );
+    }
 
     /**
      * The worklist, at the branches the caller works at.
@@ -59,7 +124,7 @@ class LabOrderController extends BaseApiController
         $mine = $this->branches->allowed(Auth::guard('web')->user());
 
         $query = LabOrder::query()
-            ->with(['items', 'patient', 'doctor', 'location', 'appointment'])
+            ->with(['items', 'patient', 'doctor', 'location', 'appointment', ...$this->billingRelations()])
             ->when($mine !== null, fn (Builder $q) => $q->whereIn('location_id', $mine ?: [0]))
             ->when($request->boolean('outstanding'), fn (Builder $q) => $q->outstanding())
             ->when($request->filled('status'), fn (Builder $q) => $q->where('status', $request->string('status')->toString()))
@@ -83,7 +148,7 @@ class LabOrderController extends BaseApiController
     {
         $this->authorizeTenant('view', $order);
 
-        return $this->ok(LabOrderResource::make($order->load(self::WITH)));
+        return $this->ok(LabOrderResource::make($order->load($this->with())));
     }
 
     /** Every order raised at one visit — what the consultation screen reads. */
@@ -94,7 +159,7 @@ class LabOrderController extends BaseApiController
         return $this->ok([
             'appointment_id' => $appointment->id,
             'orders' => LabOrderResource::collection(
-                $appointment->labOrders()->with(self::WITH)->latest('id')->get()
+                $appointment->labOrders()->with($this->with())->latest('id')->get()
             ),
         ]);
     }
@@ -110,7 +175,7 @@ class LabOrderController extends BaseApiController
         $order = $this->orders->create($appointment, $data);
 
         return $this->created(
-            LabOrderResource::make($order->load(self::WITH)),
+            LabOrderResource::make($order->load($this->with())),
             "{$order->order_number} ordered",
         );
     }
@@ -122,7 +187,7 @@ class LabOrderController extends BaseApiController
 
         $updated = $this->orders->update($order, $request->validated());
 
-        return $this->ok(LabOrderResource::make($updated->load(self::WITH)), 'Lab order saved');
+        return $this->ok(LabOrderResource::make($updated->load($this->with())), 'Lab order saved');
     }
 
     /** A technician picks it up. */
@@ -133,7 +198,7 @@ class LabOrderController extends BaseApiController
         $started = $this->orders->start($order, $request->user());
 
         return $this->ok(
-            LabOrderResource::make($started->load(self::WITH)),
+            LabOrderResource::make($started->load($this->with())),
             "{$started->order_number} in progress",
         );
     }
@@ -195,7 +260,7 @@ class LabOrderController extends BaseApiController
         $completed = $this->orders->complete($order, $request->user());
 
         return $this->ok(
-            LabOrderResource::make($completed->load(self::WITH)),
+            LabOrderResource::make($completed->load($this->with())),
             "{$completed->order_number} completed",
         );
     }
@@ -209,7 +274,7 @@ class LabOrderController extends BaseApiController
         $cancelled = $this->orders->cancel($order, $validated['reason'], $request->user());
 
         return $this->ok(
-            LabOrderResource::make($cancelled->load(self::WITH)),
+            LabOrderResource::make($cancelled->load($this->with())),
             "{$cancelled->order_number} cancelled",
         );
     }

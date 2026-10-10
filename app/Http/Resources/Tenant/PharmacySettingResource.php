@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources\Tenant;
 
+use App\Models\Tenant\BillingSetting;
+use App\Models\Tenant\PharmacySalePayment;
 use App\Models\Tenant\PharmacySetting;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -27,6 +29,16 @@ class PharmacySettingResource extends JsonResource
             'require_prescription' => (bool) $this->require_prescription,
 
             'default_payment_method' => $this->default_payment_method,
+
+            /*
+             * What the counter may take — the organisation's list from
+             * Billing settings, one list for every counter. Read here so the
+             * till does not need billing access to know it.
+             */
+            'accepted_payment_methods' => array_values(array_intersect(
+                PharmacySalePayment::METHODS,
+                (array) BillingSetting::current()->payment_methods,
+            )),
 
             'updated_at' => $this->updated_at?->toIso8601String(),
             'updated_by_name' => $this->whenLoaded('editor', fn () => $this->editor?->name),

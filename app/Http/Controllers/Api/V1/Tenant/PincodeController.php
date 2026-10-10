@@ -15,6 +15,8 @@ use Illuminate\Http\JsonResponse;
  * a supplier tomorrow — which is why it lives under `lookups` rather than
  * under the customers it was first written for. Signed-in users only, so it
  * is not an open relay to India Post for anybody on the internet.
+ *
+ * @group Tenant > Lookups
  */
 class PincodeController extends BaseApiController
 {

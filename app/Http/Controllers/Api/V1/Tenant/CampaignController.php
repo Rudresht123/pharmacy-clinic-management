@@ -23,6 +23,8 @@ use Illuminate\Validation\Rule;
  * dispatcher does the rest, so nothing here has to know how sending works.
  * That separation is what lets a campaign be scheduled, unscheduled and
  * rescheduled without anything being sent by accident in between.
+ *
+ * @group Tenant > Communications & Automation
  */
 class CampaignController extends BaseApiController
 {

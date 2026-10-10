@@ -54,6 +54,8 @@ class InvoicePayment extends Model
         'created_by',
         'is_refund',
         'refunds_payment_id',
+        // A double-tapped "take payment" answers with the row the first tap wrote.
+        'idempotency_key',
     ];
 
     protected function casts(): array

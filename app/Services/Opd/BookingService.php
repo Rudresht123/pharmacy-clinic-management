@@ -26,8 +26,8 @@ class BookingService
     public function __construct(
         private readonly AvailabilityService $availability,
         /*
-         * Nullable so a directly-constructed instance still books. Only an
-         * advance-payment clinic (trigger `checkin`) uses it at all.
+         * Nullable so a test can hand one in; resolved at check-in otherwise.
+         * Only an advance-payment clinic (OPD timing `checkin`) bills there.
          */
         private readonly ?BillingTriggerResolver $billingTrigger = null,
         private readonly ?ClinicEventDispatcher $events = null,
@@ -251,12 +251,13 @@ class BookingService
                     /*
                      * An advance-payment clinic bills here.
                      *
-                     * Only where the organisation's trigger is `checkin` —
+                     * Only where the organisation's OPD timing is `checkin` —
                      * the resolver checks that itself and does nothing
                      * otherwise, so every other clinic's check-in is
-                     * unchanged.
+                     * unchanged. Resolved at use, like events(): left to the
+                     * constructor it was null in every real request.
                      */
-                    $this->billingTrigger?->onCheckedIn($appointment);
+                    ($this->billingTrigger ?? app(BillingTriggerResolver::class))->onCheckedIn($appointment);
 
                     return $appointment;
                 });

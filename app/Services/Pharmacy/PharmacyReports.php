@@ -103,19 +103,26 @@ class PharmacyReports
     /** @return array<string, mixed> */
     private function salesSummary(PharmacyStore $store, Carbon $from, Carbon $to): array
     {
+        /*
+         * Net of goods brought back, and "still owed" by the same rule the
+         * bill itself uses — so a return reduces the takings it undid, and a
+         * bill whose money an older visit invoice took over is not owed here.
+         */
         $totals = $this->sales($store, $from, $to)
-            ->selectRaw('COUNT(*) AS bills, COALESCE(SUM(total_amount), 0) AS total')
+            ->selectRaw('COUNT(*) AS bills, COALESCE(SUM(total_amount - returned_amount), 0) AS total')
             ->selectRaw('COALESCE(SUM(paid_amount), 0) AS paid')
-            ->selectRaw('COALESCE(SUM(total_amount - paid_amount), 0) AS due')
+            ->selectRaw('COALESCE(SUM('.PharmacySale::DUE_SQL.'), 0) AS due')
             ->first();
 
         $bills = (int) ($totals?->bills ?? 0);
         $total = (float) ($totals?->total ?? 0);
 
+        // Money handed back counts against the method it went back by.
         $tenders = PharmacySalePayment::query()
             ->whereHas('sale', fn (Builder $sale) => $this->soldBetween($sale, $store, $from, $to))
-            ->selectRaw('method AS label, SUM(amount) AS value')
+            ->selectRaw('method AS label, SUM('.PharmacySalePayment::NET_SQL.') AS value')
             ->groupBy('method')
+            ->havingRaw('SUM('.PharmacySalePayment::NET_SQL.') <> 0')
             ->orderByDesc('value')
             ->get()
             ->map(fn ($row) => ['label' => (string) $row->label, 'value' => (float) $row->value])
@@ -128,7 +135,7 @@ class PharmacyReports
                 ['label' => 'Average bill', 'value' => $bills > 0 ? round($total / $bills, 2) : 0, 'money' => true],
                 ['label' => 'Still owed', 'value' => (float) ($totals?->due ?? 0), 'money' => true],
             ],
-            'series' => $this->perDay($this->sales($store, $from, $to), 'sale_date', 'total_amount', $from, $to),
+            'series' => $this->perDay($this->sales($store, $from, $to), 'sale_date', 'total_amount - returned_amount', $from, $to),
             'splits' => [
                 ['title' => 'How it was paid', 'kind' => 'donut', 'tenders' => true, 'rows' => $tenders],
                 ['title' => 'What sold', 'kind' => 'bars', 'rows' => $this->topSold($store, $from, $to)],
@@ -347,9 +354,9 @@ class PharmacyReports
     private function profitSummary(PharmacyStore $store, Carbon $from, Carbon $to): array
     {
         $row = $this->soldItems($store, $from, $to)
-            ->selectRaw('COALESCE(SUM(taxable_amount), 0) AS revenue')
-            ->selectRaw('COALESCE(SUM(COALESCE(unit_cost, 0) * quantity), 0) AS cost')
-            ->selectRaw('COALESCE(SUM(quantity), 0) AS units')
+            ->selectRaw('COALESCE(SUM(taxable_amount * (quantity - returned_quantity)::numeric / quantity), 0) AS revenue')
+            ->selectRaw('COALESCE(SUM(COALESCE(unit_cost, 0) * (quantity - returned_quantity)), 0) AS cost')
+            ->selectRaw('COALESCE(SUM(quantity - returned_quantity), 0) AS units')
             ->first();
 
         $revenue = (float) ($row?->revenue ?? 0);
@@ -400,11 +407,11 @@ class PharmacyReports
     private function gstSummary(PharmacyStore $store, Carbon $from, Carbon $to): array
     {
         $row = $this->soldItems($store, $from, $to)
-            ->selectRaw('COALESCE(SUM(taxable_amount), 0) AS taxable, COALESCE(SUM(tax_amount), 0) AS tax')
+            ->selectRaw('COALESCE(SUM(taxable_amount * (quantity - returned_quantity)::numeric / quantity), 0) AS taxable, COALESCE(SUM(tax_amount * (quantity - returned_quantity)::numeric / quantity), 0) AS tax')
             ->first();
 
         $byRate = $this->soldItems($store, $from, $to)
-            ->selectRaw('tax_rate, SUM(tax_amount) AS tax')
+            ->selectRaw('tax_rate, SUM(tax_amount * (quantity - returned_quantity)::numeric / quantity) AS tax')
             ->groupBy('tax_rate')
             ->orderByDesc('tax')
             ->get()
@@ -433,7 +440,7 @@ class PharmacyReports
     {
         return $this->soldItems($store, $from, $to)
             ->selectRaw("COALESCE(NULLIF(hsn_code_snapshot, ''), '—') AS hsn, tax_rate")
-            ->selectRaw('SUM(quantity) AS units, SUM(taxable_amount) AS taxable, SUM(tax_amount) AS tax')
+            ->selectRaw('SUM(quantity - returned_quantity) AS units, SUM(taxable_amount * (quantity - returned_quantity)::numeric / quantity) AS taxable, SUM(tax_amount * (quantity - returned_quantity)::numeric / quantity) AS tax')
             ->groupBy('hsn', 'tax_rate')
             ->orderByDesc('tax')
             ->paginate($perPage)
@@ -448,7 +455,7 @@ class PharmacyReports
     private function topSold(PharmacyStore $store, Carbon $from, Carbon $to): array
     {
         return $this->soldItems($store, $from, $to)
-            ->selectRaw('item_name_snapshot AS label, SUM(line_total) AS value')
+            ->selectRaw('item_name_snapshot AS label, SUM(line_total * (quantity - returned_quantity)::numeric / quantity) AS value')
             ->groupBy('item_name_snapshot')
             ->orderByDesc('value')
             ->limit(8)
@@ -593,10 +600,10 @@ class PharmacyReports
             ->selectRaw('pharmacy_sale_items.medicine_id')
             ->selectRaw('MAX(medicines.generic_name) AS generic_name, MAX(medicines.brand_name) AS brand_name')
             ->selectRaw('MAX(medicines.strength) AS strength')
-            ->selectRaw('SUM(pharmacy_sale_items.quantity) AS units')
-            ->selectRaw('SUM(pharmacy_sale_items.taxable_amount) AS revenue')
-            ->selectRaw('SUM(COALESCE(pharmacy_sale_items.unit_cost, 0) * pharmacy_sale_items.quantity) AS cost')
-            ->selectRaw('SUM(pharmacy_sale_items.taxable_amount - COALESCE(pharmacy_sale_items.unit_cost, 0) * pharmacy_sale_items.quantity) AS margin')
+            ->selectRaw('SUM(pharmacy_sale_items.quantity - pharmacy_sale_items.returned_quantity) AS units')
+            ->selectRaw('SUM(pharmacy_sale_items.taxable_amount * (pharmacy_sale_items.quantity - pharmacy_sale_items.returned_quantity)::numeric / pharmacy_sale_items.quantity) AS revenue')
+            ->selectRaw('SUM(COALESCE(pharmacy_sale_items.unit_cost, 0) * (pharmacy_sale_items.quantity - pharmacy_sale_items.returned_quantity)) AS cost')
+            ->selectRaw('SUM(pharmacy_sale_items.taxable_amount * (pharmacy_sale_items.quantity - pharmacy_sale_items.returned_quantity)::numeric / pharmacy_sale_items.quantity - COALESCE(pharmacy_sale_items.unit_cost, 0) * (pharmacy_sale_items.quantity - pharmacy_sale_items.returned_quantity)) AS margin')
             ->groupBy('pharmacy_sale_items.medicine_id');
     }
 

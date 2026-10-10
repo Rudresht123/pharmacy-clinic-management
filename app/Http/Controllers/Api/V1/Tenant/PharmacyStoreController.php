@@ -25,6 +25,8 @@ use Illuminate\Support\Facades\Auth;
  * The route says which capability each action needs at the acting branch;
  * PharmacyStorePolicy then asks the same question about the store's own
  * branch. The rules about default stores live in PharmacyStores.
+ *
+ * @group Tenant > Pharmacy > Stores & Sales
  */
 class PharmacyStoreController extends BaseApiController
 {

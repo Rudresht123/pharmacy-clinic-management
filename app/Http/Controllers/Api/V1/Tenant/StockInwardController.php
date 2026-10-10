@@ -20,6 +20,8 @@ use Illuminate\Http\Request;
  * Receiving is `pharmacy.inward`; cancelling one is `pharmacy.adjust`,
  * because it takes stock back off the books. Both are asked about the
  * store's branch through PharmacyStorePolicy.
+ *
+ * @group Tenant > Pharmacy > Stock
  */
 class StockInwardController extends BaseApiController
 {

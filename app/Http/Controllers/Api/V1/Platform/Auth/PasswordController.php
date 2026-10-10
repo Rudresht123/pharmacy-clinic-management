@@ -18,6 +18,8 @@ use Illuminate\Validation\ValidationException;
  * Uses the `platform_users` broker throughout, so tokens are issued and
  * redeemed against platform_password_resets and can never be crossed with a
  * tenant account that happens to share an email address.
+ *
+ * @group Platform > Authentication
  */
 class PasswordController extends BaseApiController
 {
@@ -26,6 +28,8 @@ class PasswordController extends BaseApiController
     /**
      * Email a reset link. The response is identical whether or not the
      * address exists, so this cannot be used to enumerate administrators.
+     *
+     * @unauthenticated
      */
     public function forgot(Request $request): JsonResponse
     {
@@ -40,6 +44,9 @@ class PasswordController extends BaseApiController
         );
     }
 
+    /**
+     * @unauthenticated
+     */
     public function reset(Request $request): JsonResponse
     {
         $request->validate([

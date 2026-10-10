@@ -30,6 +30,8 @@ use Illuminate\Validation\Rule;
  * between — the setup checklist is derived from the same state the template
  * list shows, and the two arriving apart is how a screen tells a patient it is
  * ready before it is.
+ *
+ * @group Tenant > Communications & Automation
  */
 class CommunicationController extends BaseApiController
 {

@@ -22,6 +22,8 @@ use Illuminate\Http\Request;
  * that does not offer it. What this answers instead is the question a
  * platform administrator actually has: who is on each module, and whose
  * subscription is about to lapse.
+ *
+ * @group Platform > Modules
  */
 class ModuleController extends BaseApiController
 {

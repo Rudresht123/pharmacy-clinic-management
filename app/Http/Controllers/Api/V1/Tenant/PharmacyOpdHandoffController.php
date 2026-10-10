@@ -30,6 +30,8 @@ use Illuminate\Http\Request;
  *
  * The answer carries the channel to listen on, so the client never builds a
  * channel name — the server that authorizes the subscription also names it.
+ *
+ * @group Tenant > Pharmacy > Stores & Sales
  */
 class PharmacyOpdHandoffController extends BaseApiController
 {

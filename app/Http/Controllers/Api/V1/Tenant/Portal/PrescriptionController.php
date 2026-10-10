@@ -7,7 +7,11 @@ use App\Models\Tenant\Prescription;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/** The patient's own prescriptions. */
+/**
+ * The patient's own prescriptions.
+ *
+ * @group Patient Portal > Prescriptions
+ */
 class PrescriptionController extends PortalController
 {
     public function index(Request $request): JsonResponse

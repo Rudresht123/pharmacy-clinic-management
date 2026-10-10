@@ -12,6 +12,7 @@ use App\Services\Clinic\ClinicEvent;
 use App\Services\Clinic\ClinicEventDispatcher;
 use App\Services\Opd\VisitWorkflow;
 use App\Support\Clinic\ClinicEvents;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -22,13 +23,20 @@ use Illuminate\Support\Facades\Auth;
  * `invoice_payments`. Scattering these across controllers is how a bill and
  * its payments come to disagree.
  *
- * IDEMPOTENCY IS BY SOURCE, not by client key. A consultation billed twice
- * is a real error (the second attempt names a source the invoice already
- * carries), and the partial unique index on `(invoice_id, source_type,
- * source_id)` catches it at the database. Higher up, `existingFor()` asks
- * "does a live invoice already exist for this consultation" before drawing
- * one at all — the trigger resolver uses this to make "complete consultation"
- * safe to click again after a crash.
+ * Every department that draws an invoice — the OPD for a visit, the lab for
+ * an order, the desk for a manual bill — draws it here. The pharmacy does
+ * not: its bill is the sale, and SalesService owns it.
+ *
+ * IDEMPOTENCY. Drawing is idempotent by SOURCE: a consultation billed twice
+ * names a source the invoice already carries, and the partial unique indexes
+ * (one line per source per invoice, one live invoice per visit and per lab
+ * order) catch a second attempt at the database. Taking money is idempotent
+ * by KEY: a collection carrying an Idempotency-Key the register has already
+ * seen answers with the bill as that first collection left it.
+ *
+ * WHAT A BILL WAS PRICED UNDER is copied onto it as it is drawn — currency
+ * and whether prices include tax — and every later re-sum reads the bill's
+ * own copy. Changing the settings never re-reads an issued bill.
  */
 class BillingService
 {
@@ -44,12 +52,8 @@ class BillingService
         private readonly ClinicEventDispatcher $events,
         /*
          * Nullable to avoid a construction cycle: VisitWorkflow depends on
-         * BillingTriggerResolver, which depends on this. In an ordinary HTTP
-         * request the container resolves the pieces in the right order and
-         * this arrives populated; in a test that constructs BillingService
-         * directly it can be left out and payment recording still works —
-         * the visit will just miss its status refresh, which no assertion
-         * about the invoice itself cares about.
+         * BillingTriggerResolver, which depends on this. Resolved at the
+         * moment of use when absent — see refreshVisit().
          */
         private readonly ?VisitWorkflow $visits = null,
     ) {}
@@ -61,10 +65,10 @@ class BillingService
      * what to charge for. Returns the persisted invoice with `items` and
      * `payments` loaded, so a caller can hand it straight back to the client.
      *
-     * `kind` decides whether this is the consolidated visit bill (which opens
-     * as a DRAFT and collects charges until something finalizes it) or a
-     * standalone one — a registration fee taken at the desk, or a manual bill
-     * — which is payable the moment it exists.
+     * A VISIT invoice opens as a DRAFT and is finalized by whoever drew it —
+     * BillingTriggerResolver does both in one transaction, so a draft is
+     * never left behind. Every other kind (registration, manual, lab) is
+     * payable the moment it exists.
      *
      * @param  array{
      *     location_id: int,
@@ -73,6 +77,7 @@ class BillingService
      *     walk_in_phone?: string|null,
      *     appointment_id?: int|null,
      *     consultation_id?: int|null,
+     *     lab_order_id?: int|null,
      *     doctor_id?: int|null,
      *     trigger: string,
      *     kind?: string,
@@ -85,36 +90,16 @@ class BillingService
         return $this->transaction(function () use ($header, $lines) {
             $settings = BillingSetting::current();
 
-            $priced = array_map(
-                fn (array $line) => [
-                    'source_type' => $line['source_type'],
-                    'source_id' => $line['source_id'] ?? null,
-                    'billable_service_id' => $line['billable_service_id'] ?? null,
-                    'hsn_code' => $line['hsn_code'] ?? null,
-                    'description' => (string) $line['description'],
-                    ...$this->pricing->line([
-                        'quantity' => $line['quantity'] ?? 1,
-                        'unit_price' => $line['unit_price'] ?? 0,
-                        'discount_percent' => $line['discount_percent'] ?? 0,
-                        'discount_amount' => $line['discount_amount'] ?? 0,
-                        'tax_percent' => $line['tax_percent'] ?? $settings->default_tax_percent,
-                    ], $settings),
-                ],
-                $lines,
-            );
+            // The rule this bill is priced by, fixed now and kept.
+            $taxInclusive = (bool) $settings->prices_include_tax;
 
-            $totals = $this->pricing->totals($priced, $settings);
+            $priced = $this->price($lines, $settings, $taxInclusive);
+            $totals = $this->pricing->totals($priced, $taxInclusive);
 
             $actor = Auth::guard('web')->user();
 
             $kind = $header['kind'] ?? Invoice::KIND_VISIT;
 
-            /*
-             * A visit bill opens as a draft and stays one until something
-             * finalizes it — the whole visit's charges land on it first.
-             * A registration fee or a manual bill is payable immediately:
-             * there is nothing else coming, and the patient is at the desk.
-             */
             $status = $kind === Invoice::KIND_VISIT
                 ? Invoice::STATUS_DRAFT
                 : Invoice::STATUS_PENDING;
@@ -126,13 +111,17 @@ class BillingService
                 'walk_in_phone' => $header['walk_in_phone'] ?? null,
                 'appointment_id' => $header['appointment_id'] ?? null,
                 'consultation_id' => $header['consultation_id'] ?? null,
+                'lab_order_id' => $header['lab_order_id'] ?? null,
                 'doctor_id' => $header['doctor_id'] ?? null,
                 'invoice_date' => now(),
                 'status' => $status,
                 'kind' => $kind,
                 'trigger' => $header['trigger'],
+                'currency_code' => $settings->currency_code,
+                'prices_include_tax' => $taxInclusive,
                 ...$totals,
                 'paid_amount' => 0,
+                'refunded_amount' => 0,
                 'payment_status' => Invoice::UNPAID,
                 'notes' => $header['notes'] ?? null,
                 'terms' => $settings->terms,
@@ -152,13 +141,15 @@ class BillingService
             }
 
             /*
-             * A registration fee or a manual bill opens payable, so this is
-             * the moment it became a bill. A visit invoice opens as a draft
-             * and raises the same event from finalize() instead — one
-             * `invoice_created` per invoice, at whichever of the two points
-             * it actually became something a patient could be handed.
+             * A bill payable from the start became a bill now. A visit draft
+             * raises the same event from finalize() instead — one
+             * `invoice_created` per invoice, at whichever point it actually
+             * became something a patient could be handed.
              */
             if ($invoice->isFinalized()) {
+                // A bill for nothing owes nothing, and must not sit "pending".
+                $this->settle($invoice);
+
                 $this->events->dispatch(
                     ClinicEvent::for(ClinicEvents::INVOICE_CREATED, $invoice, [
                         'kind' => $invoice->kind,
@@ -171,10 +162,24 @@ class BillingService
     }
 
     /**
-     * Rewrite an unpaid invoice's lines — same shape as draw, in place.
+     * Rewrite an invoice's lines — staff correcting a bill.
      *
-     * Refused once anything has been paid: correcting the total on a bill the
-     * patient has partly settled is a different act (refund, then reissue).
+     * WHO MAY, AND WHEN:
+     *
+     *   - a DRAFT is a running tab, and may always be corrected;
+     *   - an ISSUED bill may be corrected only while nothing has been paid
+     *     against it and the billing settings allow editing before payment;
+     *   - a bill any money has moved against — paid, part paid, or paid and
+     *     refunded — is never edited. The correction for that is a refund
+     *     (which credits the bill) or cancelling and raising a new one, both
+     *     of which leave their own record.
+     *
+     * A line drawn from the workflow (a consultation, a lab test) may be kept
+     * or dropped, but not invented: only a catalogue service, a procedure or
+     * a typed line can be added by hand.
+     *
+     * Audited: the lines before and after are written to the activity log
+     * against the invoice, alongside the totals the save itself records.
      *
      * @param  list<array<string, mixed>>  $lines
      */
@@ -183,73 +188,109 @@ class BillingService
         return $this->transaction(function () use ($invoice, $lines, $notes) {
             $locked = $this->lock($invoice);
 
-            if ($locked->isCancelled()) {
-                throw BillingConflict::because("Invoice {$locked->invoice_number} is cancelled and cannot be edited.");
-            }
+            $this->assertEditable($locked);
 
-            if ((float) $locked->paid_amount > 0) {
+            if (! $locked->isDraft() && ! BillingSetting::current()->allow_edit_before_payment) {
                 throw BillingConflict::because(
-                    "Invoice {$locked->invoice_number} has a payment against it. Refund the payment before changing what was charged."
+                    "Invoice {$locked->invoice_number} has been issued, and your billing settings do not allow editing a bill after that. Cancel it and raise a corrected one."
                 );
             }
 
-            $settings = BillingSetting::current();
+            $this->assertSourcesBelong($locked, $lines);
 
-            $priced = array_map(
-                fn (array $line) => [
-                    'source_type' => $line['source_type'],
-                    'source_id' => $line['source_id'] ?? null,
-                    'billable_service_id' => $line['billable_service_id'] ?? null,
-                    'hsn_code' => $line['hsn_code'] ?? null,
-                    'description' => (string) $line['description'],
-                    ...$this->pricing->line([
-                        'quantity' => $line['quantity'] ?? 1,
-                        'unit_price' => $line['unit_price'] ?? 0,
-                        'discount_percent' => $line['discount_percent'] ?? 0,
-                        'discount_amount' => $line['discount_amount'] ?? 0,
-                        'tax_percent' => $line['tax_percent'] ?? $settings->default_tax_percent,
-                    ], $settings),
-                ],
-                $lines,
-            );
+            return $this->replace($locked, $lines, $notes ?? $locked->notes, null);
+        });
+    }
 
-            $totals = $this->pricing->totals($priced, $settings);
+    /**
+     * Bring a bill's lines back in step with what it was drawn from.
+     *
+     * The SYSTEM's correction, not staff's: a lab order whose tests changed
+     * after its bill was drawn. The editing setting does not apply — nobody
+     * is repricing anything, the order itself changed — but the money rule
+     * does: once anything has been paid, the bill stands, and the difference
+     * is somebody's to settle by hand.
+     *
+     * Null when the bill can no longer follow its source, so the caller can
+     * say so rather than pretend it did.
+     *
+     * @param  list<array<string, mixed>>  $lines
+     */
+    public function resync(Invoice $invoice, array $lines, string $reason): ?Invoice
+    {
+        return $this->transaction(function () use ($invoice, $lines, $reason) {
+            $locked = $this->lock($invoice);
 
-            // Old lines out, new lines in — inside the transaction, so the
-            // invoice never reads mid-swap.
-            $locked->items()->delete();
-
-            foreach ($priced as $line) {
-                InvoiceItem::create(['invoice_id' => $locked->id, ...$line]);
+            if ($locked->isCancelled() || $locked->hasMoneyMoved()) {
+                return null;
             }
 
-            /*
-             * The status is left exactly as it was. Rewriting a DRAFT's lines
-             * must not finalize it — the visit may still be producing charges
-             * — and rewriting a finalized one keeps it payable.
-             */
-            $locked->forceFill([
-                ...$totals,
-                'notes' => $notes ?? $locked->notes,
-            ])->save();
-
-            return $locked->load(['items', 'payments', 'customer']);
+            return $this->replace($locked, $lines, $locked->notes, $reason);
         });
+    }
+
+    /**
+     * Swap a locked, editable invoice's lines and re-sum it.
+     *
+     * @param  list<array<string, mixed>>  $lines
+     */
+    private function replace(Invoice $locked, array $lines, ?string $notes, ?string $reason): Invoice
+    {
+        $settings = BillingSetting::current();
+        $taxInclusive = $locked->pricesIncludeTax();
+
+        $before = $this->describe($locked->items()->orderBy('id')->get()->all());
+
+        $priced = $this->price($lines, $settings, $taxInclusive);
+
+        /*
+         * The line guard's one door, opened for this statement and closed
+         * again straight after. The database still refuses unless the bill
+         * is uncancelled and no money has ever moved against it — the same
+         * rule as assertEditable(), held where a bug cannot route around it.
+         */
+        $connection = $locked->getConnection();
+        $connection->statement("SET LOCAL hms.invoice_rewrite = 'on'");
+        InvoiceItem::query()->where('invoice_id', $locked->id)->delete();
+        $connection->statement("SET LOCAL hms.invoice_rewrite = 'off'");
+
+        foreach ($priced as $line) {
+            InvoiceItem::create(['invoice_id' => $locked->id, ...$line]);
+        }
+
+        $after = $this->describe($priced);
+
+        $locked->withHistoryNote($reason)
+            ->forceFill([...$this->pricing->totals($priced, $taxInclusive), 'notes' => $notes])
+            ->save();
+
+        $locked->writeHistoryFor('items', $before, $after);
+
+        /*
+         * The status is left as it was, other than what the money now says:
+         * a draft stays a draft (the visit may still be producing charges),
+         * an issued bill stays payable — or becomes settled, if it now comes
+         * to nothing.
+         */
+        if ($locked->isFinalized()) {
+            $this->settle($locked);
+        }
+
+        $this->refreshVisit($locked);
+
+        return $locked->load(['items', 'payments', 'customer']);
     }
 
     /**
      * Append charges to a bill that is still collecting them.
      *
-     * THE HEART OF CONSOLIDATION. A visit produces charges at different
-     * moments — the doctor finishes, the lab signs off, the counter
-     * dispenses — and each of those calls this rather than drawing an
-     * invoice of its own. The patient is handed one document at the end.
+     * Kept for a visit draft drawn before each department billed for itself:
+     * the OPD's own charges are added to it and it is finalized, rather than
+     * a second visit bill being drawn beside it.
      *
      * IDEMPOTENT BY SOURCE. A line naming a `source_type`/`source_id` this
-     * invoice already carries is skipped rather than duplicated, so a lab
-     * order completed, reopened and completed again does not charge twice.
-     * The partial unique index on `(invoice_id, source_type, source_id)` is
-     * the backstop underneath that.
+     * invoice already carries is skipped rather than duplicated. The partial
+     * unique index on `(invoice_id, source_type, source_id)` is the backstop.
      *
      * Refused once finalized: the bill has been presented, and a charge
      * appearing after the patient has read the total is how a counter loses
@@ -289,7 +330,7 @@ class BillingService
                 ->map(fn (InvoiceItem $item) => $item->source_type.':'.$item->source_id)
                 ->all();
 
-            $added = 0;
+            $fresh = [];
 
             foreach ($lines as $line) {
                 $key = ($line['source_type'] ?? '').':'.($line['source_id'] ?? '');
@@ -298,28 +339,16 @@ class BillingService
                     continue;
                 }
 
-                InvoiceItem::create([
-                    'invoice_id' => $locked->id,
-                    'source_type' => $line['source_type'],
-                    'source_id' => $line['source_id'] ?? null,
-                    'billable_service_id' => $line['billable_service_id'] ?? null,
-                    'hsn_code' => $line['hsn_code'] ?? null,
-                    'description' => (string) $line['description'],
-                    ...$this->pricing->line([
-                        'quantity' => $line['quantity'] ?? 1,
-                        'unit_price' => $line['unit_price'] ?? 0,
-                        'discount_percent' => $line['discount_percent'] ?? 0,
-                        'discount_amount' => $line['discount_amount'] ?? 0,
-                        'tax_percent' => $line['tax_percent'] ?? $settings->default_tax_percent,
-                    ], $settings),
-                ]);
-
+                $fresh[] = $line;
                 $already[] = $key;
-                $added++;
             }
 
-            if ($added > 0) {
-                $this->recalculate($locked, $settings);
+            foreach ($this->price($fresh, $settings, $locked->pricesIncludeTax()) as $line) {
+                InvoiceItem::create(['invoice_id' => $locked->id, ...$line]);
+            }
+
+            if ($fresh !== []) {
+                $this->recalculate($locked);
             }
 
             return $locked->load(['items', 'payments', 'customer']);
@@ -328,10 +357,6 @@ class BillingService
 
     /**
      * Declare the bill complete — it may now be paid.
-     *
-     * Until this, a visit invoice is a running tab and the counter refuses
-     * money against it. The organisation's billing trigger decides which
-     * event calls this; `manual` leaves it to whoever is at the desk.
      *
      * Idempotent: finalizing a finalized invoice is the same invoice back,
      * not an error, because two events racing to be "the last one" is normal.
@@ -349,11 +374,9 @@ class BillingService
                 return $locked->load(['items', 'payments', 'customer']);
             }
 
-            $settings = BillingSetting::current();
-
             // Totals are recomputed here rather than trusted: lines may have
             // been added by several different events since the last sum.
-            $this->recalculate($locked, $settings);
+            $this->recalculate($locked);
 
             $actor = Auth::guard('web')->user();
 
@@ -362,6 +385,9 @@ class BillingService
                 'finalized_at' => now(),
                 'finalized_by' => $actor instanceof User ? $actor->id : null,
             ])->save();
+
+            // A bill for nothing is settled the moment it exists.
+            $this->settle($locked);
 
             // The visit can now report "awaiting payment" honestly — before
             // this it was a draft nobody could settle.
@@ -384,13 +410,11 @@ class BillingService
     }
 
     /**
-     * Re-sum an invoice from its own lines.
+     * Re-sum an invoice from its own lines, under its own tax rule.
      *
-     * Expects the row locked and inside a transaction. Every path that
-     * changes what is on a bill ends here, so the header and the lines can
-     * never disagree.
+     * Expects the row locked and inside a transaction.
      */
-    private function recalculate(Invoice $locked, BillingSetting $settings): void
+    private function recalculate(Invoice $locked): void
     {
         $lines = InvoiceItem::query()
             ->where('invoice_id', $locked->id)
@@ -404,201 +428,283 @@ class BillingService
             ])
             ->all();
 
-        $locked->forceFill($this->pricing->totals($lines, $settings))->save();
+        $locked->forceFill($this->pricing->totals($lines, $locked->pricesIncludeTax()))->save();
     }
 
     /**
-     * Take a payment against an invoice.
-     *
-     * The invoice's `paid_amount` and `payment_status` are recomputed from
-     * the payments — never trusted from the request — so a double-click at
-     * the till cannot mark a bill paid twice.
+     * Take one payment against an invoice.
      *
      * @param  array{method: string, amount: float|int, reference?: string|null, notes?: string|null}  $payment
      */
-    public function recordPayment(Invoice $invoice, array $payment): Invoice
+    public function recordPayment(Invoice $invoice, array $payment, ?string $key = null): Invoice
     {
-        return $this->transaction(function () use ($invoice, $payment) {
-            $locked = $this->lock($invoice);
+        return $this->collect($invoice, [$payment], $key);
+    }
 
-            if ($locked->isCancelled()) {
-                throw BillingConflict::because("Invoice {$locked->invoice_number} is cancelled — nothing to pay.");
+    /**
+     * Take money against an invoice — one tender or several, as one act.
+     *
+     * Several because a patient settling ₹500 as ₹300 cash and ₹200 UPI is
+     * paying the bill once, and a clinic that takes bills in full must still
+     * be able to take that. Each tender is its own row with its own receipt
+     * number; the policy is asked of what they come to together.
+     *
+     * THE ORGANISATION'S RULES, enforced here rather than trusted to a
+     * screen:
+     *
+     *   - full     what is taken has to clear the bill;
+     *   - partial  any part of what is owed may be taken;
+     *   - credit   the same, and the visit may close with the rest owing.
+     *
+     * The invoice's `paid_amount` and status are recomputed from the payment
+     * rows — never trusted from the request.
+     *
+     * IDEMPOTENT BY KEY. A key the register has already seen answers with the
+     * bill as that collection left it, recording nothing. Asked again under
+     * the row lock, so a double-tap that arrives while the first is still
+     * saving waits for it and then finds it.
+     *
+     * @param  list<array{method: string, amount: float|int, reference?: string|null, notes?: string|null}>  $tenders
+     */
+    public function collect(Invoice $invoice, array $tenders, ?string $key = null): Invoice
+    {
+        if ($key !== null && ($replay = $this->replayed($invoice, $key))) {
+            return $replay;
+        }
+
+        try {
+            return $this->transaction(function () use ($invoice, $tenders, $key) {
+                $locked = $this->lock($invoice);
+
+                if ($key !== null && ($replay = $this->replayed($locked, $key))) {
+                    return $replay;
+                }
+
+                if ($locked->isCancelled()) {
+                    throw BillingConflict::because("Invoice {$locked->invoice_number} is cancelled — nothing to pay.");
+                }
+
+                /*
+                 * A draft is a running tab, not a bill. Taking money against
+                 * one would be asking the patient to pay before the last
+                 * charge has landed.
+                 */
+                if ($locked->isDraft()) {
+                    throw BillingConflict::because(
+                        "Invoice {$locked->invoice_number} is still collecting charges for this visit. Finalize it before taking payment."
+                    );
+                }
+
+                if ($tenders === []) {
+                    throw BillingConflict::because('Say how much was paid, and how.');
+                }
+
+                $settings = BillingSetting::current();
+                $amounts = [];
+
+                foreach ($tenders as $tender) {
+                    $amount = round((float) $tender['amount'], 2);
+
+                    if ($amount <= 0) {
+                        throw BillingConflict::because('A payment has to be a positive amount.');
+                    }
+
+                    if (! $settings->accepts((string) $tender['method'])) {
+                        throw BillingConflict::because(sprintf(
+                            'This clinic does not take %s. Change payment settings to add it.',
+                            str_replace('_', ' ', (string) $tender['method']),
+                        ));
+                    }
+
+                    $amounts[] = $amount;
+                }
+
+                $total = round(array_sum($amounts), 2);
+                $outstanding = $locked->outstanding();
+
+                if ($total > $outstanding + 0.001) {
+                    throw BillingConflict::because(sprintf(
+                        'That is more than the invoice owes. Outstanding is %.2f.',
+                        $outstanding,
+                    ));
+                }
+
+                if (! $settings->allowsPartialPayment() && $total < $outstanding - 0.001) {
+                    throw BillingConflict::because(sprintf(
+                        'This clinic takes bills in full. Take %.2f — split it across payment methods if you need to.',
+                        $outstanding,
+                    ));
+                }
+
+                $actor = Auth::guard('web')->user();
+                $records = [];
+
+                foreach (array_values($tenders) as $index => $tender) {
+                    $records[] = InvoicePayment::create([
+                        'invoice_id' => $locked->id,
+                        'method' => $tender['method'],
+                        'amount' => $amounts[$index],
+                        'reference' => $tender['reference'] ?? null,
+                        'notes' => $tender['notes'] ?? null,
+                        'paid_at' => now(),
+                        'created_by' => $actor instanceof User ? $actor->id : null,
+                        'is_refund' => false,
+                        // The first tender carries the key; the rest are told apart from it.
+                        'idempotency_key' => $key === null ? null : ($index === 0 ? $key : "{$key}#{$index}"),
+                    ]);
+                }
+
+                $this->settle($locked);
+
+                // Tell the visit the till has moved, so its own status column
+                // stops reading `awaiting_payment` the moment the balance is nil.
+                $this->refreshVisit($locked);
+
+                /*
+                 * TWO EVENTS PER PAYMENT, NOT ONE.
+                 *
+                 * `payment_received` always fires — the fact that money
+                 * changed hands, and a clinic that receipts every payment
+                 * wants exactly this. The second says what the payment did to
+                 * the bill, because "a receipt for each instalment" and
+                 * "settled in full only once" are different pieces of paper.
+                 * Only the last tender of a collection can be the one that
+                 * settled it.
+                 */
+                $settled = $locked->outstanding() <= 0.001;
+                $last = count($records) - 1;
+
+                foreach ($records as $index => $record) {
+                    $meta = ['payment_id' => $record->id, 'method' => $record->method];
+
+                    $this->events->dispatch(
+                        ClinicEvent::for(ClinicEvents::PAYMENT_RECEIVED, $locked, $meta),
+                    );
+
+                    $this->events->dispatch(ClinicEvent::for(
+                        $settled && $index === $last
+                            ? ClinicEvents::PAYMENT_FULLY_RECEIVED
+                            : ClinicEvents::PAYMENT_PARTIALLY_RECEIVED,
+                        $locked,
+                        $meta,
+                    ));
+                }
+
+                return $locked->load(['items', 'payments', 'customer']);
+            });
+        } catch (UniqueConstraintViolationException $e) {
+            // Two taps raced past the lock check — the winner's row is the answer.
+            if ($key !== null && ($replay = $this->replayed($invoice, $key))) {
+                return $replay;
             }
 
-            /*
-             * A draft is a running tab, not a bill.
-             *
-             * Taking money against one is the exact failure consolidation
-             * exists to prevent: the patient pays for the consultation, then
-             * the lab result lands and they are asked again at the door.
-             */
-            if ($locked->isDraft()) {
-                throw BillingConflict::because(
-                    "Invoice {$locked->invoice_number} is still collecting charges for this visit. Finalize it before taking payment."
-                );
-            }
-
-            $amount = round((float) $payment['amount'], 2);
-
-            if ($amount <= 0) {
-                throw BillingConflict::because('A payment has to be a positive amount.');
-            }
-
-            $outstanding = $locked->outstanding();
-
-            if ($amount > $outstanding + 0.001) {
-                throw BillingConflict::because(sprintf(
-                    'That is more than the invoice owes. Outstanding is %.2f.',
-                    $outstanding,
-                ));
-            }
-
-            $settings = BillingSetting::current();
-
-            if (! in_array($payment['method'], $settings->payment_methods, true)) {
-                throw BillingConflict::because(sprintf(
-                    'This clinic does not take %s. Change payment settings to add it.',
-                    $payment['method'],
-                ));
-            }
-
-            $actor = Auth::guard('web')->user();
-
-            $record = InvoicePayment::create([
-                'invoice_id' => $locked->id,
-                'method' => $payment['method'],
-                'amount' => $amount,
-                'reference' => $payment['reference'] ?? null,
-                'notes' => $payment['notes'] ?? null,
-                'paid_at' => now(),
-                'created_by' => $actor instanceof User ? $actor->id : null,
-                'is_refund' => false,
-            ]);
-
-            $this->settle($locked);
-
-            // Tell the visit the till has moved, so its own status column
-            // stops reading `awaiting_payment` the moment the balance is nil.
-            $this->refreshVisit($locked);
-
-            /*
-             * TWO EVENTS, NOT ONE.
-             *
-             * `payment_received` always fires — it is the fact that money
-             * changed hands, and a clinic that receipts every payment wants
-             * exactly this. The second says what the payment did to the bill,
-             * because those are different pieces of paper: a clinic may want a
-             * receipt for each instalment but a "settled in full" only once,
-             * and one event carrying a flag would make that rule a condition
-             * rather than a choice.
-             *
-             * Read from the invoice after settle() rather than computed from
-             * the amount, so the answer matches what the row now says.
-             */
-            $settled = $locked->outstanding() <= 0.001;
-            $meta = ['payment_id' => $record->id, 'method' => $record->method];
-
-            $this->events->dispatch(
-                ClinicEvent::for(ClinicEvents::PAYMENT_RECEIVED, $locked, $meta),
-            );
-
-            $this->events->dispatch(ClinicEvent::for(
-                $settled
-                    ? ClinicEvents::PAYMENT_FULLY_RECEIVED
-                    : ClinicEvents::PAYMENT_PARTIALLY_RECEIVED,
-                $locked,
-                $meta,
-            ));
-
-            return $locked->load(['items', 'payments', 'customer']);
-        });
+            throw $e;
+        }
     }
 
     /**
      * Refund a payment.
      *
-     * The refund row carries the same amount as the payment it undoes (a
-     * partial refund is a smaller row against the same original). Recomputes
-     * paid_amount and status from the net.
+     * A refund CREDITS THE BILL: money handed back reduces what the bill is
+     * for, so a bill paid in full and refunded in full owes nothing — it
+     * reads `refunded`, not `pending` — and a partial refund leaves a bill
+     * `partially_refunded`. The refund row carries the method of the payment
+     * it undoes, and its own number from the branch's refund series.
+     *
+     * Idempotent by key, like a payment.
      */
-    public function refund(Invoice $invoice, InvoicePayment $payment, float $amount, ?string $reason = null): Invoice
+    public function refund(Invoice $invoice, InvoicePayment $payment, float $amount, ?string $reason = null, ?string $key = null): Invoice
     {
-        return $this->transaction(function () use ($invoice, $payment, $amount, $reason) {
-            $locked = $this->lock($invoice);
+        if ($key !== null && ($replay = $this->replayed($invoice, $key))) {
+            return $replay;
+        }
 
-            if ($payment->invoice_id !== $locked->id) {
-                throw BillingConflict::because('That payment is not against this invoice.');
-            }
+        try {
+            return $this->transaction(function () use ($invoice, $payment, $amount, $reason, $key) {
+                $locked = $this->lock($invoice);
 
-            if ($payment->is_refund) {
-                throw BillingConflict::because('That row is already a refund — you cannot refund a refund.');
-            }
+                if ($key !== null && ($replay = $this->replayed($locked, $key))) {
+                    return $replay;
+                }
 
-            $amount = round($amount, 2);
+                if ($payment->invoice_id !== $locked->id) {
+                    throw BillingConflict::because('That payment is not against this invoice.');
+                }
 
-            if ($amount <= 0) {
-                throw BillingConflict::because('A refund has to be a positive amount.');
-            }
+                if ($payment->is_refund) {
+                    throw BillingConflict::because('That row is already a refund — you cannot refund a refund.');
+                }
 
-            $paidForThis = (float) $payment->amount;
-            $alreadyRefunded = (float) InvoicePayment::query()
-                ->where('refunds_payment_id', $payment->id)
-                ->where('is_refund', true)
-                ->sum('amount');
+                $amount = round($amount, 2);
 
-            $refundable = round($paidForThis - $alreadyRefunded, 2);
+                if ($amount <= 0) {
+                    throw BillingConflict::because('A refund has to be a positive amount.');
+                }
 
-            if ($amount > $refundable + 0.001) {
-                throw BillingConflict::because(sprintf(
-                    'That payment has %.2f left to refund; %.2f was asked for.',
-                    $refundable,
-                    $amount,
-                ));
-            }
+                $alreadyRefunded = (float) InvoicePayment::query()
+                    ->where('refunds_payment_id', $payment->id)
+                    ->where('is_refund', true)
+                    ->sum('amount');
 
-            $actor = Auth::guard('web')->user();
+                $refundable = round((float) $payment->amount - $alreadyRefunded, 2);
 
-            $record = InvoicePayment::create([
-                'invoice_id' => $locked->id,
-                'method' => $payment->method,
-                'amount' => $amount,
-                'reference' => $payment->reference,
-                'notes' => $reason,
-                'paid_at' => now(),
-                'created_by' => $actor instanceof User ? $actor->id : null,
-                'is_refund' => true,
-                'refunds_payment_id' => $payment->id,
-            ]);
+                if ($amount > $refundable + 0.001) {
+                    throw BillingConflict::because(sprintf(
+                        'That payment has %.2f left to refund; %.2f was asked for.',
+                        $refundable,
+                        $amount,
+                    ));
+                }
 
-            $this->settle($locked);
+                $actor = Auth::guard('web')->user();
 
-            // Same as recordPayment — a refund pushes the visit back into
-            // `awaiting_payment` if it had briefly moved past.
-            $this->refreshVisit($locked);
-
-            /*
-             * Money went back. Deliberately NOT also raising a payment event:
-             * a refund is its own document (a credit note, a refund receipt),
-             * and a clinic whose rule says "receipt on payment_received"
-             * must not have one printed when it gives money back.
-             */
-            $this->events->dispatch(
-                ClinicEvent::for(ClinicEvents::REFUND_PROCESSED, $locked, [
-                    'refund_id' => $record->id,
+                $record = InvoicePayment::create([
+                    'invoice_id' => $locked->id,
+                    'method' => $payment->method,
+                    'amount' => $amount,
+                    'reference' => $payment->reference,
+                    'notes' => $reason,
+                    'paid_at' => now(),
+                    'created_by' => $actor instanceof User ? $actor->id : null,
+                    'is_refund' => true,
                     'refunds_payment_id' => $payment->id,
-                ]),
-            );
+                    'idempotency_key' => $key,
+                ]);
 
-            return $locked->load(['items', 'payments', 'customer']);
-        });
+                $this->settle($locked);
+
+                $this->refreshVisit($locked);
+
+                /*
+                 * Money went back. Deliberately NOT also raising a payment
+                 * event: a refund is its own document, and a clinic whose
+                 * rule says "receipt on payment_received" must not have one
+                 * printed when it gives money back.
+                 */
+                $this->events->dispatch(
+                    ClinicEvent::for(ClinicEvents::REFUND_PROCESSED, $locked, [
+                        'refund_id' => $record->id,
+                        'refunds_payment_id' => $payment->id,
+                    ]),
+                );
+
+                return $locked->load(['items', 'payments', 'customer']);
+            });
+        } catch (UniqueConstraintViolationException $e) {
+            if ($key !== null && ($replay = $this->replayed($invoice, $key))) {
+                return $replay;
+            }
+
+            throw $e;
+        }
     }
 
     /**
      * Cancel an invoice.
      *
-     * Refused once fully paid — money that has been taken has to be refunded
-     * before the bill can be closed as cancelled — but allowed while there is
-     * only outstanding balance.
+     * Refused while money taken against it is still held — refund it first,
+     * so the cancellation and the money going back are both on the record —
+     * but allowed while there is only outstanding balance.
      */
     public function cancel(Invoice $invoice, string $reason): Invoice
     {
@@ -634,9 +740,7 @@ class BillingService
 
     /**
      * Whether a live invoice already exists for a given source — a
-     * consultation, an appointment, whatever. The trigger resolver checks
-     * this before drawing so completing a consultation twice does not draw
-     * two invoices.
+     * consultation, an appointment, whatever.
      */
     public function existingFor(string $sourceType, int $sourceId, ?int $locationId = null): ?Invoice
     {
@@ -654,48 +758,180 @@ class BillingService
     }
 
     /**
-     * Recompute paid_amount and both status columns from the payments.
+     * Recompute the money columns and status from the payment rows.
      *
-     * Called inside every path that writes a payment or a refund. The row
-     * has to be locked when this is called — every caller above satisfies
-     * that.
+     *   paid_amount      money taken, less money handed back — what is held
+     *   refunded_amount  money handed back, which also credits the bill
+     *   outstanding      total − paid − refunded = total − everything taken
+     *
+     * Status, for a bill that is not cancelled or a draft:
+     *
+     *   still owes        → partially_paid if anything is held, else pending
+     *   owes nothing      → paid; or refunded if everything taken went back;
+     *                       or partially_refunded if some of it did
+     *
+     * Called inside every path that writes a payment or a refund, with the
+     * row locked.
      */
     private function settle(Invoice $locked): void
     {
-        $net = (float) InvoicePayment::query()
+        $taken = (float) InvoicePayment::query()
             ->where('invoice_id', $locked->id)
-            ->selectRaw("COALESCE(SUM(CASE WHEN is_refund THEN -amount ELSE amount END), 0) AS net")
-            ->value('net');
+            ->where('is_refund', false)
+            ->sum('amount');
 
-        $net = round($net, 2);
-        $total = (float) $locked->total_amount;
+        $returned = (float) InvoicePayment::query()
+            ->where('invoice_id', $locked->id)
+            ->where('is_refund', true)
+            ->sum('amount');
+
+        $held = round(max(0.0, $taken - $returned), 2);
+        $returned = round($returned, 2);
+        $owed = round((float) $locked->total_amount - $held - $returned, 2);
 
         $paymentStatus = match (true) {
-            $net <= 0.001 => Invoice::UNPAID,
-            $net >= $total - 0.001 => Invoice::PAID,
-            default => Invoice::PARTIAL,
+            $owed <= 0.001 => Invoice::PAID,
+            $held > 0.001 => Invoice::PARTIAL,
+            default => Invoice::UNPAID,
         };
 
         $status = match (true) {
             $locked->isCancelled() => Invoice::STATUS_CANCELLED,
-            $paymentStatus === Invoice::PAID => Invoice::STATUS_PAID,
-            $paymentStatus === Invoice::PARTIAL => Invoice::STATUS_PARTIALLY_PAID,
-            default => Invoice::STATUS_PENDING,
+            $locked->isDraft() => Invoice::STATUS_DRAFT,
+            $owed > 0.001 && $held > 0.001 => Invoice::STATUS_PARTIALLY_PAID,
+            $owed > 0.001 => Invoice::STATUS_PENDING,
+            $returned <= 0.001 => Invoice::STATUS_PAID,
+            $held <= 0.001 => Invoice::STATUS_REFUNDED,
+            default => Invoice::STATUS_PARTIALLY_REFUNDED,
         };
 
         $locked->forceFill([
-            'paid_amount' => max(0.0, $net),
+            'paid_amount' => $held,
+            'refunded_amount' => $returned,
             'payment_status' => $paymentStatus,
             'status' => $status,
         ])->save();
     }
 
     /**
+     * The bill as a previous collection left it, when this key has been seen.
+     *
+     * A key used against a DIFFERENT bill is refused rather than replayed:
+     * answering with somebody else's invoice would be worse than an error.
+     */
+    private function replayed(Invoice $invoice, string $key): ?Invoice
+    {
+        $seen = InvoicePayment::query()->where('idempotency_key', $key)->first();
+
+        if (! $seen) {
+            return null;
+        }
+
+        if ((int) $seen->invoice_id !== (int) $invoice->id) {
+            throw BillingConflict::because('That request was already used for a different invoice. Reload and try again.');
+        }
+
+        return Invoice::query()->with(['items', 'payments', 'customer'])->findOrFail($invoice->id);
+    }
+
+    /** Refuse an edit on a bill whose money has moved, or that is cancelled. */
+    private function assertEditable(Invoice $locked): void
+    {
+        if ($locked->isCancelled()) {
+            throw BillingConflict::because("Invoice {$locked->invoice_number} is cancelled and cannot be edited.");
+        }
+
+        if ($locked->hasMoneyMoved()) {
+            throw BillingConflict::because(
+                "Invoice {$locked->invoice_number} has had money taken against it, so it cannot be edited. Refund the payment, or cancel it and raise a corrected bill."
+            );
+        }
+    }
+
+    /**
+     * A line from the workflow may be kept, but not typed in.
+     *
+     * Consultation, lab and pharmacy lines name a real record. Allowing them
+     * through an edit would let a hand-typed line claim to be a consultation
+     * — or a pharmacy sale already paid at the counter — so each one must
+     * already be on this bill.
+     *
+     * @param  list<array<string, mixed>>  $lines
+     */
+    private function assertSourcesBelong(Invoice $locked, array $lines): void
+    {
+        $carried = InvoiceItem::query()
+            ->where('invoice_id', $locked->id)
+            ->get(['source_type', 'source_id'])
+            ->map(fn (InvoiceItem $item) => $item->source_type.':'.$item->source_id)
+            ->all();
+
+        foreach ($lines as $line) {
+            $type = (string) ($line['source_type'] ?? '');
+
+            if (in_array($type, InvoiceItem::MANUAL_SOURCES, true)) {
+                continue;
+            }
+
+            if (! in_array($type.':'.($line['source_id'] ?? ''), $carried, true)) {
+                throw BillingConflict::because(
+                    'Only services, procedures and typed lines can be added to a bill by hand.'
+                );
+            }
+        }
+    }
+
+    /**
+     * Price a set of lines under one tax rule.
+     *
+     * @param  list<array<string, mixed>>  $lines
+     * @return list<array<string, mixed>>
+     */
+    private function price(array $lines, BillingSetting $settings, bool $taxInclusive): array
+    {
+        return array_map(
+            fn (array $line) => [
+                'source_type' => $line['source_type'],
+                'source_id' => $line['source_id'] ?? null,
+                'billable_service_id' => $line['billable_service_id'] ?? null,
+                'hsn_code' => $line['hsn_code'] ?? null,
+                'description' => (string) $line['description'],
+                ...$this->pricing->line([
+                    'quantity' => $line['quantity'] ?? 1,
+                    'unit_price' => $line['unit_price'] ?? 0,
+                    'discount_percent' => $line['discount_percent'] ?? 0,
+                    'discount_amount' => $line['discount_amount'] ?? 0,
+                    'tax_percent' => $line['tax_percent'] ?? $settings->default_tax_percent,
+                ], $taxInclusive),
+            ],
+            array_values($lines),
+        );
+    }
+
+    /**
+     * Lines as the activity log shows them: "Consultation × 1 = 500.00".
+     *
+     * @param  list<InvoiceItem|array<string, mixed>>  $lines
+     * @return list<string>
+     */
+    private function describe(array $lines): array
+    {
+        return array_map(function ($line) {
+            $line = $line instanceof InvoiceItem ? $line->toArray() : $line;
+
+            return sprintf(
+                '%s × %s = %.2f',
+                $line['description'],
+                rtrim(rtrim(number_format((float) $line['quantity'], 2, '.', ''), '0'), '.'),
+                (float) $line['line_total'],
+            );
+        }, $lines);
+    }
+
+    /**
      * Tell the visit workflow that something on this invoice moved.
      *
-     * A no-op for a manual invoice (no appointment) or when the workflow was
-     * not injected — the second is only true in a test that spun up
-     * BillingService directly.
+     * A no-op for a bill with no visit behind it.
      */
     private function refreshVisit(Invoice $locked): void
     {

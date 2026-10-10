@@ -27,6 +27,8 @@ use RuntimeException;
  *
  * The branch check is about *which* branch rather than about seniority; what
  * somebody may do is the route's `permission:` middleware.
+ *
+ * @group Tenant > Appointments & OPD
  */
 class AppointmentController extends BaseApiController
 {

@@ -22,6 +22,8 @@ use Illuminate\Validation\Rule;
  *
  * Registering again is normal and cheap: the app calls this after every
  * sign-in and whenever Firebase rotates the token.
+ *
+ * @group Tenant > Devices & Push
  */
 class DeviceController extends BaseApiController
 {

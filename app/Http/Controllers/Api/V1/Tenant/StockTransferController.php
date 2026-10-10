@@ -17,6 +17,8 @@ use Illuminate\Http\Request;
 /**
  * Transfers between stores. Asking `transfer` of both stores is what makes
  * a transfer need access to both branches.
+ *
+ * @group Tenant > Pharmacy > Stock
  */
 class StockTransferController extends BaseApiController
 {

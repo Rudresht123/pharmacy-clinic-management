@@ -34,6 +34,8 @@ use Illuminate\Validation\ValidationException;
  * `documents.template_org` for both reading and saving: a rule decides what
  * every branch's counter prints, which is the organisation administrator's
  * call, the same as its letterhead.
+ *
+ * @group Tenant > Patient Documents
  */
 class DocumentRuleController extends BaseApiController
 {

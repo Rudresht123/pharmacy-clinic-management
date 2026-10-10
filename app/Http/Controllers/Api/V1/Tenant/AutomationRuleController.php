@@ -17,6 +17,8 @@ use Illuminate\Validation\Rule;
  * Only updating: the rules are the clinic events the application knows how to
  * react to, so they are seeded rather than invented. A clinic chooses whether
  * each one sends, what it sends, and how far ahead — not what the events are.
+ *
+ * @group Tenant > Communications & Automation
  */
 class AutomationRuleController extends BaseApiController
 {

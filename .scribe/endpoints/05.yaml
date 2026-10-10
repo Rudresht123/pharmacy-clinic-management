@@ -1,0 +1,181 @@
+name: 'Platform > Messaging Settings'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/admin/messaging/{channel}'
+    metadata:
+      custom: []
+      groupName: 'Platform > Messaging Settings'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'What is configured, and what is still missing.'
+      description: |-
+        Returns the SHAPE of the credentials and never their contents. A secret
+        comes back as `is_set: true` and nothing more — an administrator needs
+        to know whether a token is present, not what it is, and a secret that
+        reaches the browser is a secret in somebody's devtools and browser cache.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      channel:
+        custom: []
+        name: channel
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      channel: architecto
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: 'api/v1/admin/messaging/{channel}'
+    metadata:
+      custom: []
+      groupName: 'Platform > Messaging Settings'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Save the provider and its credentials.'
+      description: |-
+        A blank secret MEANS "leave it alone". Without that rule, opening this
+        screen to correct a host name and saving would wipe the password, and
+        every clinic on the platform would stop sending at once.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      channel:
+        custom: []
+        name: channel
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      channel: architecto
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      provider_key:
+        custom: []
+        name: provider_key
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      credentials:
+        custom: []
+        name: credentials
+        description: 'Must not be greater than 500 characters.'
+        required: false
+        example:
+          - 'n'
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      provider_key: architecto
+      credentials:
+        - 'n'
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/admin/messaging/{channel}/test'
+    metadata:
+      custom: []
+      groupName: 'Platform > Messaging Settings'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: "Whether the platform's credentials actually work."
+      description: |-
+        Answers with the normalized result and NOTHING ELSE. A provider's own
+        error text is for the server log: a Digiware URL carries its token in
+        the query string, and an SMTP failure quotes the transport DSN, which
+        carries the password.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      channel:
+        custom: []
+        name: channel
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      channel: architecto
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null

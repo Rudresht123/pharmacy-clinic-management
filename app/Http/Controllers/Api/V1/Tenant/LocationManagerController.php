@@ -27,6 +27,8 @@ use Illuminate\Validation\Rule;
  * membership row and the role on it, and both halves move together, in one
  * transaction, so a branch can never end up with a manager who holds nothing
  * or a role-holder nobody calls the manager.
+ *
+ * @group Tenant > Locations & Branches
  */
 class LocationManagerController extends BaseApiController
 {

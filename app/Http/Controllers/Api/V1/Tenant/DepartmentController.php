@@ -17,6 +17,8 @@ use Illuminate\Http\Request;
  * screens pick from the tree. Changed under `settings.manage`, the
  * capability that kept the department list before it became a tree. The
  * rules of the tree are DepartmentService's.
+ *
+ * @group Tenant > Appointments & OPD
  */
 class DepartmentController extends BaseApiController
 {

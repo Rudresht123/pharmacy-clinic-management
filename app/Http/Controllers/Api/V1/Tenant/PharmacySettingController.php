@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Auth;
  *
  * Read with `pharmacy.view` because the POS needs them to price and warn;
  * changed with `pharmacy.stores`, the organisation-wide setup capability.
+ *
+ * @group Tenant > Pharmacy > Stores & Sales
  */
 class PharmacySettingController extends BaseApiController
 {

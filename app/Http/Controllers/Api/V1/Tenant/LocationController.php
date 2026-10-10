@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * An organization's own locations. Reads are open to any signed-in tenant
  * user; writes sit behind `tenant.owner` on the route.
+ *
+ * @group Tenant > Locations & Branches
  */
 class LocationController extends BaseApiController
 {

@@ -15,6 +15,8 @@ use Illuminate\Http\Request;
 /**
  * A store's ledger, newest first. Read-only: nothing here, or anywhere,
  * edits a movement.
+ *
+ * @group Tenant > Pharmacy > Stock
  */
 class StockMovementController extends BaseApiController
 {

@@ -28,6 +28,8 @@ use Illuminate\Http\Request;
  * Starting and completing used to be AppointmentController's `start` and
  * `complete`, behind `appointments.queue` — the receptionist's key. That is
  * the arrangement this file exists to replace.
+ *
+ * @group Tenant > Appointments & OPD
  */
 class ConsultationController extends BaseApiController
 {

@@ -16,6 +16,8 @@ use Illuminate\Validation\Rule;
  * Reading is `billing.view`, beside the rest of the billing settings; changing
  * a prefix is `billing.manage_settings`. Nothing here issues a number — see
  * BranchNumbering.
+ *
+ * @group Tenant > Billing
  */
 class BillingNumberingController extends BaseApiController
 {

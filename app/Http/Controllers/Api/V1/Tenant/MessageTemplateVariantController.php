@@ -29,6 +29,8 @@ use Illuminate\Validation\ValidationException;
  *
  * Not WhatsApp: its wording is what the provider approved under the template's
  * name, and a branch rewording it would be a message nobody approved.
+ *
+ * @group Tenant > Communications & Automation
  */
 class MessageTemplateVariantController extends BaseApiController
 {

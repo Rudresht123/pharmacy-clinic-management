@@ -21,6 +21,8 @@ use Illuminate\Validation\Rule;
  *
  * A branch may hold its own row for the same test at a different price; the
  * order resolver prefers it over the organisation default.
+ *
+ * @group Tenant > Laboratory
  */
 class LabTestCatalogController extends BaseApiController
 {

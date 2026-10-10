@@ -38,6 +38,8 @@ use Illuminate\Validation\Rule;
  * unpublished draft version, creating one if the last version is already
  * published. So V1 stays exactly as it was the day a prescription was printed
  * from it, and the edit becomes V2 — which is the whole point of the module.
+ *
+ * @group Tenant > Patient Documents
  */
 class DocumentTemplateController extends BaseApiController
 {

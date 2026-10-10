@@ -20,9 +20,14 @@ use Illuminate\Support\Facades\Auth;
  * controller may fall back to the default guard's ambient behavior, since
  * getting the wrong tenant database connected is a data-isolation bug, not
  * just an auth bug.
+ *
+ * @group Tenant > Authentication
  */
 class AuthController extends BaseApiController
 {
+    /**
+     * @unauthenticated
+     */
     public function login(LoginRequest $request, SessionPayload $session): JsonResponse
     {
         $organization = $request->authenticate();
@@ -76,6 +81,8 @@ class AuthController extends BaseApiController
      * The credential check, the rate limit and the lifecycle rules are the same
      * ones [login] uses -- LoginRequest owns both paths so they cannot drift.
      * The only difference is that no session is written.
+     *
+     * @unauthenticated
      */
     public function token(LoginRequest $request, SessionPayload $session): JsonResponse
     {

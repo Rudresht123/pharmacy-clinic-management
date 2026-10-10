@@ -1,0 +1,910 @@
+name: 'Tenant > Pharmacy > Stock'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/movements'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Stock'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/movements/summary'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Stock'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        The four headline figures above the ledger: how many entries, how much
+        moved in, how much moved out, and the net of the two — over the same
+        filters as the table, plus the same window one period earlier so the
+        screen can say "+12%" against something.
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/inwards'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Stock'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/adjustments'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Stock'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/transfers'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Stock'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Transfers out of or into this store.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/inwards/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Stock'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the inward.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/stock-transfers/{transfer_id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Stock'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Readable by anyone who can see either end.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      transfer_id:
+        custom: []
+        name: transfer_id
+        description: 'The ID of the transfer.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      transfer_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/inwards'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Stock'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Post a note. A repeated Idempotency-Key answers 200 with the first one.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      idempotency_key:
+        custom: []
+        name: idempotency_key
+        description: 'Must not be greater than 100 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      inward_type:
+        custom: []
+        name: inward_type
+        description: ''
+        required: true
+        example: return_from_patient
+        type: string
+        enumValues:
+          - purchase
+          - opening_balance
+          - return_from_patient
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      supplier_id:
+        custom: []
+        name: supplier_id
+        description: 'This field is required when <code>inward_type</code> is <code>purchase</code>.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      supplier_invoice_no:
+        custom: []
+        name: supplier_invoice_no
+        description: 'Must not be greater than 60 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      supplier_invoice_date:
+        custom: []
+        name: supplier_invoice_date
+        description: 'Must be a valid date. Must be a date before or equal to <code>today</code>.'
+        required: false
+        example: '2022-11-04'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      received_date:
+        custom: []
+        name: received_date
+        description: 'Must be a valid date. Must be a date before or equal to <code>today</code>.'
+        required: true
+        example: '2022-11-04'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      notes:
+        custom: []
+        name: notes
+        description: 'Must not be greater than 2000 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      items:
+        custom: []
+        name: items
+        description: 'Must have at least 1 items. Must not have more than 100 items.'
+        required: true
+        example:
+          - []
+        type: 'object[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].medicine_id':
+        custom: []
+        name: 'items[].medicine_id'
+        description: ''
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].batch_number':
+        custom: []
+        name: 'items[].batch_number'
+        description: 'Must not be greater than 60 characters.'
+        required: true
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].expiry_date':
+        custom: []
+        name: 'items[].expiry_date'
+        description: 'Must be a valid date. Must be a date after <code>today</code>.'
+        required: true
+        example: '2052-11-02'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].manufacture_date':
+        custom: []
+        name: 'items[].manufacture_date'
+        description: 'Must be a valid date. Must be a date before or equal to <code>today</code>. Must be a date before <code>items.*.expiry_date</code>.'
+        required: false
+        example: '2022-11-04'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].in_packs':
+        custom: []
+        name: 'items[].in_packs'
+        description: ''
+        required: false
+        example: true
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].quantity':
+        custom: []
+        name: 'items[].quantity'
+        description: 'Must be at least 1. Must not be greater than 1000000.'
+        required: true
+        example: 22
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].free_quantity':
+        custom: []
+        name: 'items[].free_quantity'
+        description: 'Must be at least 0. Must not be greater than 1000000.'
+        required: false
+        example: 7
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'items[].purchase_price':
+        custom: []
+        name: 'items[].purchase_price'
+        description: 'Must be at least 0. Must not be greater than 9999999.99.'
+        required: true
+        example: 16
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].mrp':
+        custom: []
+        name: 'items[].mrp'
+        description: 'Must be at least 0.01. Must not be greater than 9999999.99.'
+        required: true
+        example: 17
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].selling_price':
+        custom: []
+        name: 'items[].selling_price'
+        description: 'Must be at least 0.'
+        required: false
+        example: 8
+        type: number
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      idempotency_key: b
+      inward_type: return_from_patient
+      supplier_id: 16
+      supplier_invoice_no: 'n'
+      supplier_invoice_date: '2022-11-04'
+      received_date: '2022-11-04'
+      notes: 'n'
+      items:
+        -
+          medicine_id: 16
+          batch_number: 'n'
+          expiry_date: '2052-11-02'
+          manufacture_date: '2022-11-04'
+          in_packs: true
+          quantity: 22
+          free_quantity: 7
+          purchase_price: 16
+          mrp: 17
+          selling_price: 8
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/tenant/inwards/{inward_id}/cancel'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Stock'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      inward_id:
+        custom: []
+        name: inward_id
+        description: 'The ID of the inward.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      inward_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      reason:
+        custom: []
+        name: reason
+        description: 'Must not be greater than 500 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      reason: b
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/adjustments'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Stock'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'A repeated Idempotency-Key answers 200 with the first adjustment.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      idempotency_key:
+        custom: []
+        name: idempotency_key
+        description: 'Must not be greater than 100 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      medicine_batch_id:
+        custom: []
+        name: medicine_batch_id
+        description: 'Must match an existing stored value.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      direction:
+        custom: []
+        name: direction
+        description: ''
+        required: true
+        example: increase
+        type: string
+        enumValues:
+          - increase
+          - decrease
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      quantity:
+        custom: []
+        name: quantity
+        description: 'Must be at least 1. Must not be greater than 1000000.'
+        required: true
+        example: 22
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      reason_code:
+        custom: []
+        name: reason_code
+        description: ''
+        required: true
+        example: loss
+        type: string
+        enumValues:
+          - damage
+          - expiry_writeoff
+          - count_correction
+          - loss
+          - other
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      reason:
+        custom: []
+        name: reason
+        description: 'Must not be greater than 500 characters.'
+        required: true
+        example: g
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      idempotency_key: b
+      medicine_batch_id: 16
+      direction: increase
+      quantity: 22
+      reason_code: loss
+      reason: g
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/tenant/stock-transfers
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Stock'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'A repeated Idempotency-Key answers 200 with the first transfer.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      idempotency_key:
+        custom: []
+        name: idempotency_key
+        description: 'Must not be greater than 100 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      from_store_id:
+        custom: []
+        name: from_store_id
+        description: 'Must match an existing stored value.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      to_store_id:
+        custom: []
+        name: to_store_id
+        description: 'The value and <code>from_store_id</code> must be different. Must match an existing stored value.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      notes:
+        custom: []
+        name: notes
+        description: 'Must not be greater than 2000 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      items:
+        custom: []
+        name: items
+        description: 'Must have at least 1 items. Must not have more than 100 items.'
+        required: true
+        example:
+          - []
+        type: 'object[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].batch_id':
+        custom: []
+        name: 'items[].batch_id'
+        description: 'Must match an existing stored value.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'items[].quantity':
+        custom: []
+        name: 'items[].quantity'
+        description: 'Must be at least 1. Must not be greater than 1000000.'
+        required: true
+        example: 22
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      idempotency_key: b
+      from_store_id: 16
+      to_store_id: 16
+      notes: 'n'
+      items:
+        -
+          batch_id: 16
+          quantity: 22
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null

@@ -37,6 +37,20 @@ class InvoiceItem extends Model
         self::SOURCE_CUSTOM,
     ];
 
+    /**
+     * What a person may put on a bill by hand.
+     *
+     * The rest name a real record — a consultation, a lab test, a pharmacy
+     * sale line — and only the workflow that owns that record draws them. A
+     * hand-typed line claiming to be a pharmacy sale already paid at the
+     * counter is how a patient gets charged twice.
+     */
+    public const MANUAL_SOURCES = [
+        self::SOURCE_PROCEDURE,
+        self::SOURCE_SERVICE,
+        self::SOURCE_CUSTOM,
+    ];
+
     protected $connection = 'organization';
 
     protected $fillable = [

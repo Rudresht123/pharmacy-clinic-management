@@ -42,6 +42,8 @@ class PharmacySaleResource extends JsonResource
             'round_off' => (float) $this->round_off,
             'total_amount' => (float) $this->total_amount,
             'paid_amount' => (float) $this->paid_amount,
+            // The value of goods brought back — what the bill is no longer for.
+            'returned_amount' => (float) $this->returned_amount,
             'amount_due' => $this->amountDue(),
             'payment_status' => $this->payment_status,
 
@@ -53,8 +55,27 @@ class PharmacySaleResource extends JsonResource
                 'id' => $payment->id,
                 'method' => $payment->method,
                 'amount' => (float) $payment->amount,
+                // Money handed back — on a cancelled bill, or for goods returned.
+                'is_refund' => (bool) $payment->is_refund,
                 'reference' => $payment->reference,
+                'notes' => $payment->notes,
                 'paid_at' => $payment->paid_at?->toIso8601String(),
+            ])),
+            'returns' => $this->whenLoaded('returns', fn () => $this->returns->map(fn ($return) => [
+                'id' => $return->id,
+                'return_number' => $return->return_number,
+                'return_date' => $return->return_date?->toIso8601String(),
+                'reason' => $return->reason,
+                'total_amount' => (float) $return->total_amount,
+                'refund_amount' => (float) $return->refund_amount,
+                'created_by_name' => $return->created_by_name,
+                'items' => $return->relationLoaded('items')
+                    ? $return->items->map(fn ($item) => [
+                        'pharmacy_sale_item_id' => $item->pharmacy_sale_item_id,
+                        'quantity' => (int) $item->quantity,
+                        'line_total' => (float) $item->line_total,
+                    ])->all()
+                    : [],
             ])),
 
             'created_by_name' => $this->created_by_name,

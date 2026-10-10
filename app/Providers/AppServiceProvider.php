@@ -133,5 +133,22 @@ class AppServiceProvider extends ServiceProvider
                 '/reset-password/'.$token.'?email='.urlencode($notifiable->getEmailForPasswordReset())
             )
         );
+
+        /*
+        | Scribe (dev-only, so this class only exists when scribe:generate can
+        | run) instantiates FormRequests with `new $class` to read their
+        | rules(), which fails on every FormRequest here that takes a
+        | constructor dependency — e.g. the two LoginRequests take a tenant/
+        | connection service. Routing it through the container instead makes
+        | those resolve the same way a real request would.
+        */
+        if (class_exists(\Knuckles\Scribe\Tools\Globals::class)) {
+            // `build()`, not `make()`: make() also fires the container's
+            // afterResolving(ValidatesWhenResolved::class) hook, which runs
+            // the FormRequest's real validation against an empty request and
+            // throws. build() only resolves constructor dependencies.
+            \Knuckles\Scribe\Tools\Globals::$__instantiateFormRequestUsing =
+                fn (string $class) => $this->app->build($class);
+        }
     }
 }

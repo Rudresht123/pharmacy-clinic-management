@@ -26,6 +26,8 @@ use Illuminate\Support\Facades\Auth;
  * Open to any signed-in tenant user, unlike Locations and People: serving a
  * customer at the counter means being able to create one. Deleting is the
  * exception — that is an owner decision, and the route says so.
+ *
+ * @group Tenant > Customers
  */
 class CustomerController extends BaseApiController
 {

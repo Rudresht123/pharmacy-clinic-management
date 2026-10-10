@@ -34,17 +34,22 @@ class PharmacySale extends Model
     public const UNPAID = 'unpaid';
 
     /**
-     * The clinic is collecting this, not the counter.
+     * A visit invoice took this sale's money over.
      *
-     * A dispensing that belongs to a visit is billed on that visit's
-     * consolidated invoice — consultation, lab and medicines on one document
-     * — so the till must not also ask for it. The sale row still exists, and
-     * still moved the stock; what it no longer does is own the money.
-     *
-     * Reports read this as "not outstanding here": the pharmacy is owed
-     * nothing, because the billing counter is.
+     * LEGACY. Visit billing once folded dispensed medicines into the visit's
+     * invoice and marked the sale so; each department now bills for itself
+     * and nothing writes this any more. Rows that carry it are read as "owed
+     * on that invoice, not here" — the pharmacy is owed nothing for them, and
+     * the finance view counts their value once, on the invoice.
      */
     public const BILLED_VIA_INVOICE = 'billed_via_invoice';
+
+    /**
+     * What is still owed on a bill, in SQL — goods taken back are no longer
+     * owed for, and a sale whose money an invoice took over owes nothing here.
+     */
+    public const DUE_SQL = "(CASE WHEN payment_status = 'billed_via_invoice' THEN 0 "
+        .'ELSE GREATEST(total_amount - returned_amount - paid_amount, 0) END)';
 
     public const PAYMENT_STATUSES = [
         self::PAID,
@@ -83,6 +88,7 @@ class PharmacySale extends Model
         'round_off',
         'total_amount',
         'paid_amount',
+        'returned_amount',
         'payment_status',
         'notes',
         'idempotency_key',
@@ -102,7 +108,14 @@ class PharmacySale extends Model
             'round_off' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'paid_amount' => 'decimal:2',
+            'returned_amount' => 'decimal:2',
         ];
+    }
+
+    /** What came back over the counter, newest last. */
+    public function returns(): HasMany
+    {
+        return $this->hasMany(PharmacySaleReturn::class)->orderBy('id');
     }
 
     public function store(): BelongsTo
@@ -135,10 +148,23 @@ class PharmacySale extends Model
         return $this->hasMany(PharmacySalePayment::class);
     }
 
-    /** What is still owed on it — nothing, on a bill paid in full. */
+    /**
+     * What is still owed on it — nothing, on a bill paid in full.
+     *
+     * Goods taken back are subtracted: a ₹300 bill with ₹100 returned and
+     * ₹200 paid owes nothing. A sale whose money a visit invoice took over
+     * (legacy) owes nothing here either.
+     */
     public function amountDue(): float
     {
-        return round((float) $this->total_amount - (float) $this->paid_amount, 2);
+        if ($this->payment_status === self::BILLED_VIA_INVOICE) {
+            return 0.0;
+        }
+
+        return round(max(
+            0.0,
+            (float) $this->total_amount - (float) $this->returned_amount - (float) $this->paid_amount,
+        ), 2);
     }
 
     /** Who it was sold to, however they were recorded. */

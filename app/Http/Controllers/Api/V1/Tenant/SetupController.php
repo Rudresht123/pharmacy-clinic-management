@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\DB;
  *
  * Distinct from Onboarding\OrganizationSetupController, which is the public
  * invitation link where the owner first chooses a password.
+ *
+ * @group Tenant > Setup
  */
 class SetupController extends BaseApiController
 {

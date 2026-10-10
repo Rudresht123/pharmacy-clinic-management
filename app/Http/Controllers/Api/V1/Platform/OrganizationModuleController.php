@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\DB;
  * organization is *able* to do; who inside it may do each thing is the
  * organization's own business, and will be answered by roles built on the
  * capability pool these entitlements produce.
+ *
+ * @group Platform > Organizations
  */
 class OrganizationModuleController extends BaseApiController
 {

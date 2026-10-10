@@ -23,6 +23,8 @@ use Illuminate\Http\Request;
  * prescribe. Written only by `medicines.manage`, an organization-scoped
  * capability: changing the catalogue changes what every branch prescribes.
  * Restoring a removed medicine is `pharmacy.restore`. The routes say which.
+ *
+ * @group Tenant > Pharmacy > Medicines
  */
 class MedicineController extends BaseApiController
 {

@@ -28,6 +28,8 @@ use Illuminate\Support\Facades\DB;
  * Readable by anyone signed in — the booking screen needs the list — and
  * writable only by the owner, which the route says rather than this class.
  * The whole controller sits behind `module:appointments`.
+ *
+ * @group Tenant > Appointments & OPD
  */
 class DoctorController extends BaseApiController
 {

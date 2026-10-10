@@ -12,7 +12,11 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use RuntimeException;
 
-/** The patient's own appointments. */
+/**
+ * The patient's own appointments.
+ *
+ * @group Patient Portal > Appointments
+ */
 class AppointmentController extends PortalController
 {
     public function __construct(

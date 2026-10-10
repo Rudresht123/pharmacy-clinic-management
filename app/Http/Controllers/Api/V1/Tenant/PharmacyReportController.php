@@ -22,6 +22,8 @@ use Illuminate\Support\Carbon;
  *
  * Behind `pharmacy.view`, and asked about the STORE's branch rather than the
  * acting one: a report is about a counter, wherever the reader is sitting.
+ *
+ * @group Tenant > Pharmacy > Stores & Sales
  */
 class PharmacyReportController extends BaseApiController
 {

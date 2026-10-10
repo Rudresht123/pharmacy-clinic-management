@@ -30,6 +30,8 @@ use Illuminate\Support\Facades\DB;
  * administers one branch writes a deny at that branch, and somebody who
  * administers the network writes one that applies everywhere. Neither has to
  * choose, because neither has a meaningful second option.
+ *
+ * @group Tenant > Users, Roles & Permissions
  */
 class UserPermissionController extends BaseApiController
 {

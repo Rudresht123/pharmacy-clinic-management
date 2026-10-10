@@ -18,6 +18,8 @@ use Illuminate\Http\Request;
  * RecordsHistory trait on the models themselves, so a change made from a
  * console command or a queued job is recorded exactly like one made through
  * the API.
+ *
+ * @group Platform > Audit
  */
 class AuditController extends BaseApiController
 {

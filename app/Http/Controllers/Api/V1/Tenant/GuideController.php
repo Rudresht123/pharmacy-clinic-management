@@ -20,6 +20,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * NOT to a patient signed in to the portal. The staff routes keep patients out
  * by the capabilities patients do not hold; these ask for none, so they say it
  * themselves. A guide to the counter's screens is not the patient's to read.
+ *
+ * @group Tenant > Guides
  */
 class GuideController extends BaseApiController
 {

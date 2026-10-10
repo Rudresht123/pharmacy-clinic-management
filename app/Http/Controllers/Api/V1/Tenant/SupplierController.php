@@ -18,6 +18,8 @@ use Illuminate\Http\Request;
  * store Policy here: the route's capability is the whole question. Reading
  * is `pharmacy.view`, changing the list is `pharmacy.stores`, restoring is
  * `pharmacy.restore`.
+ *
+ * @group Tenant > Pharmacy > Suppliers
  */
 class SupplierController extends BaseApiController
 {

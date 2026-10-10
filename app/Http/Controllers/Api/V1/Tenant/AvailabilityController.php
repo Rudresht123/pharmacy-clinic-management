@@ -22,6 +22,8 @@ use Illuminate\Support\Carbon;
  * is no table of slots and there will not be one: a schedule is an
  * availability window, and materialising it would mean regenerating on every
  * edit and reconciling bookings against rows that had moved underneath them.
+ *
+ * @group Tenant > Appointments & OPD
  */
 class AvailabilityController extends BaseApiController
 {
