@@ -38,6 +38,8 @@ class InvoiceListTest extends TenantTestCase
         $this->travelTo('2026-09-15 11:00:00');
 
         $this->organization = $this->provisionOrganization('IL');
+        // These bills are paid in instalments; the default is in full.
+        $this->allowPartPayments($this->organization);
 
         $this->onTenant($this->organization, function () {
             $this->branch = Location::create([

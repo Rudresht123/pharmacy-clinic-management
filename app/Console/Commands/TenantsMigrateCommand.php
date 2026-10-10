@@ -6,6 +6,7 @@ use App\Models\Platform\Organization;
 use App\Models\Platform\TenantMigrationState;
 use App\Repositories\Platform\Contracts\TenantMigrationRunRepositoryInterface;
 use App\Repositories\Platform\Contracts\TenantMigrationStateRepositoryInterface;
+use App\Services\Communication\OptionalModuleTemplateSeeder;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DefaultRoleSeeder;
 use App\Services\Tenant\DefaultTemplateSeeder;
@@ -261,6 +262,14 @@ class TenantsMigrateCommand extends Command
 
             if ($templates !== []) {
                 $this->line('  Seeded templates: '.implode(', ', $templates));
+            }
+
+            /* And an optional module's notification defaults — lab report
+               ready, for an organization with laboratory — same reason. */
+            $notifications = app(OptionalModuleTemplateSeeder::class)->seed($organization);
+
+            if ($notifications !== []) {
+                $this->line('  Seeded notification templates: '.implode(', ', $notifications));
             }
 
             $after = $this->currentVersion();

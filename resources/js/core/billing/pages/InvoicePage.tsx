@@ -7,10 +7,12 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { formatDate } from '@/shared/utils/format';
 import { resolveErrorMessage } from '@/shared/api/http';
+import { newIdempotencyKey } from '@/shared/utils/idempotency';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { ReasonDialog } from '@/core/medicines/components/ReasonDialog';
 import { openDocument, useGenerateDocument } from '@/core/documents/api';
 import {
+    INVOICE_KIND_LABELS,
     INVOICE_STATUS_LABELS,
     PAYMENT_METHOD_LABELS,
     PAYMENT_STATUS_LABELS,
@@ -58,7 +60,15 @@ export default function InvoicePage() {
     const [payingOpen, setPayingOpen] = useState(false);
     const [cancellingOpen, setCancellingOpen] = useState(false);
     const [refunding, setRefunding] = useState<number>();
+    // One key per refund dialog: a double-tapped "Refund" gives money back once.
+    const [refundKey, setRefundKey] = useState(newIdempotencyKey);
     const [refusal, setRefusal] = useState<string | null>(null);
+
+    function startRefund(paymentId: number) {
+        setRefundKey(newIdempotencyKey());
+        setRefusal(null);
+        setRefunding(paymentId);
+    }
 
     const cancel = useCancelInvoice();
     const refund = useRefundPayment();
@@ -109,7 +119,11 @@ export default function InvoicePage() {
             ? 'danger'
             : invoice.status === 'paid'
               ? 'success'
-              : 'info';
+              : invoice.status === 'refunded' || invoice.status === 'partially_refunded'
+                ? 'warning'
+                : 'info';
+
+    const refunded = invoice.refunded_amount ?? 0;
 
     async function confirmCancel(reason: string) {
         if (!invoice) return;
@@ -196,8 +210,12 @@ export default function InvoicePage() {
                                 <span className={`badge bg-${tone}-subtle text-${tone} me-2`}>
                                     {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
                                 </span>
+                                {/* Which department's book this bill is in. */}
+                                <span className="badge bg-primary-subtle text-primary me-2">
+                                    {INVOICE_KIND_LABELS[invoice.kind] ?? invoice.kind}
+                                </span>
                                 <span className="badge bg-secondary-subtle text-secondary">
-                                    Trigger: {invoice.trigger}
+                                    Trigger: {invoice.trigger.replace(/_/g, ' ')}
                                 </span>
                             </div>
                             {invoice.created_by_name && (
@@ -213,10 +231,10 @@ export default function InvoicePage() {
 
                         {invoice.is_draft && (
                             <div className="alert alert-warning py-2 mb-3">
-                                <b>Still collecting charges.</b> This visit may yet produce more —
-                                a lab result, a dispensing. Close the bill when the patient is
-                                ready to pay, and anything that landed in the meantime is swept
-                                in first.
+                                <b>Not closed yet.</b> This bill was opened before each department
+                                billed for itself. Close it to take payment — the OPD&apos;s own
+                                charges are added first. Lab tests and medicines are billed by the
+                                lab and the pharmacy on their own bills.
                             </div>
                         )}
 
@@ -287,6 +305,13 @@ export default function InvoicePage() {
                             <dd className="col-4 text-end tabular-nums fw-bold">{money(invoice.total_amount)}</dd>
                             <dt className="col-8 text-end">Paid</dt>
                             <dd className="col-4 text-end tabular-nums">{money(invoice.paid_amount)}</dd>
+                            {refunded > 0 && (
+                                <>
+                                    {/* Handed back — and credited to the bill, so never owed again. */}
+                                    <dt className="col-8 text-end">Refunded</dt>
+                                    <dd className="col-4 text-end tabular-nums">{money(refunded)}</dd>
+                                </>
+                            )}
                             <dt className="col-8 text-end text-danger">Outstanding</dt>
                             <dd className="col-4 text-end tabular-nums text-danger fw-bold">
                                 {money(invoice.outstanding)}
@@ -360,7 +385,7 @@ export default function InvoicePage() {
                                                         <button
                                                             type="button"
                                                             className="btn btn-link btn-sm px-0"
-                                                            onClick={() => setRefunding(payment.id)}
+                                                            onClick={() => startRefund(payment.id)}
                                                         >
                                                             Refund
                                                         </button>
@@ -384,6 +409,11 @@ export default function InvoicePage() {
                                 <>
                                     <b>{money(invoice.outstanding)}</b> outstanding of{' '}
                                     <b>{money(invoice.total_amount)}</b>.
+                                </>
+                            ) : refunded > 0 ? (
+                                <>
+                                    Nothing owed — <b>{money(refunded)}</b> was handed back and credited to the
+                                    bill.
                                 </>
                             ) : (
                                 <>Settled in full.</>
@@ -426,6 +456,7 @@ export default function InvoicePage() {
                             paymentId: refunding,
                             amount,
                             reason,
+                            key: refundKey,
                         });
                         setRefunding(undefined);
                     } catch (failure) {
@@ -468,7 +499,8 @@ function RefundModal({
                 {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
                 <p className="fs-13 text-muted">
                     Refunding <b>₹{payment.amount.toFixed(2)}</b> paid by{' '}
-                    {PAYMENT_METHOD_LABELS[payment.method] ?? payment.method}.
+                    {PAYMENT_METHOD_LABELS[payment.method] ?? payment.method}. A refund also credits the
+                    bill — the patient is not asked for it again.
                 </p>
 
                 <div className="mb-3">

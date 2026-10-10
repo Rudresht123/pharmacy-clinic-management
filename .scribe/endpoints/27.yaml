@@ -232,7 +232,7 @@ endpoints:
         name: category
         description: ''
         required: true
-        example: invoice
+        example: imaging
         type: string
         enumValues:
           - lab_report
@@ -284,7 +284,7 @@ endpoints:
         nullable: true
         deprecated: false
     cleanBodyParameters:
-      category: invoice
+      category: imaging
       title: b
       notes: 'n'
     fileParameters:
@@ -572,7 +572,7 @@ endpoints:
         name: document_type
         description: ''
         required: true
-        example: patient_registration
+        example: clinic_invoice
         type: string
         enumValues:
           - patient_registration
@@ -612,7 +612,7 @@ endpoints:
     cleanBodyParameters:
       name: b
       description: 'Et animi quos velit et fugiat.'
-      document_type: patient_registration
+      document_type: clinic_invoice
       location_id: 16
       config: []
     fileParameters: []
@@ -691,7 +691,7 @@ endpoints:
         name: document_type
         description: ''
         required: true
-        example: payment_receipt
+        example: clinic_receipt
         type: string
         enumValues:
           - patient_registration
@@ -731,7 +731,7 @@ endpoints:
     cleanBodyParameters:
       name: b
       description: 'Et animi quos velit et fugiat.'
-      document_type: payment_receipt
+      document_type: clinic_receipt
       location_id: 16
       config: []
     fileParameters: []

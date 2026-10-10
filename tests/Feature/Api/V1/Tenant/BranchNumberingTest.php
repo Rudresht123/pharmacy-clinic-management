@@ -53,6 +53,8 @@ class BranchNumberingTest extends TenantTestCase
         $this->travelTo(self::A_DAY);
 
         $this->organization = $this->provisionOrganization('NB');
+        // These bills are paid in instalments; the default is in full.
+        $this->allowPartPayments($this->organization);
 
         $this->onTenant($this->organization, function () {
             $this->gurgaon = Location::create([
@@ -247,10 +249,13 @@ class BranchNumberingTest extends TenantTestCase
             $this->assertStringStartsWith('INV-', $legacy);
 
             // And the counters carry on from where the backfill left them.
-            $this->assertSame('GGN/INV/26-27/00001', $this->bill($this->gurgaon)->invoice_number);
+            $next = $this->bill($this->gurgaon);
+            $this->assertSame('GGN/INV/26-27/00001', $next->invoice_number);
 
-            // The refund left 50 owing on September's bill.
-            $this->assertSame('GGN/RCP/26-27/00003', $this->pay($september, 50)->receipt_number);
+            // The refund credited September's bill — it is not owed again —
+            // and the receipt counter carries on from the backfill.
+            $this->assertSame(0.0, $september->fresh()->outstanding());
+            $this->assertSame('GGN/RCP/26-27/00003', $this->pay($next, 500)->receipt_number);
         });
     }
 

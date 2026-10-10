@@ -6,6 +6,7 @@ use App\Http\Middleware\ResolveTenantFromHeader;
 use App\Jobs\SendPushNotification;
 use App\Models\Platform\FirebaseDevice;
 use App\Models\Platform\Organization;
+use App\Models\Tenant\MessageLog;
 use App\Models\Tenant\User as TenantUser;
 use App\Services\Push\DeviceRegistry;
 use App\Services\Push\FcmPushSender;
@@ -295,6 +296,54 @@ class PushNotificationTest extends TenantTestCase
         $this->register($fortis, $this->phoneToken($apollo), 'fcm-x')->assertStatus(401);
 
         $this->assertSame(0, FirebaseDevice::query()->count());
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Testing the wiring yourself
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_hitting_test_push_with_no_device_registered_says_so(): void
+    {
+        $organization = $this->provisionOrganization('PN');
+        $token = $this->phoneToken($organization);
+
+        $this->asPhone($organization, $token)
+            ->getJson('/api/v1/tenant/devices/test-push')
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'No phone is registered for app notifications on this account yet. Open the app, sign in, and allow notifications first.');
+    }
+
+    public function test_hitting_test_push_with_a_device_registered_queues_one_to_yourself(): void
+    {
+        $organization = $this->provisionOrganization('PN');
+        $token = $this->phoneToken($organization);
+
+        $this->register($organization, $token, 'fcm-self-test')->assertOk();
+
+        $this->asPhone($organization, $token)
+            ->getJson('/api/v1/tenant/devices/test-push')
+            ->assertOk()
+            ->assertJsonPath('message', 'Test push sent to your own phone.');
+
+        $this->onTenant($organization, function () {
+            $log = MessageLog::query()->where('is_test', true)->sole();
+
+            $this->assertSame('push', $log->channel);
+            $this->assertTrue((bool) $log->is_test);
+        });
+    }
+
+    public function test_hitting_test_push_signed_out_is_refused(): void
+    {
+        $organization = $this->provisionOrganization('PN');
+
+        $this->fresh();
+
+        $this->withHeaders([ResolveTenantFromHeader::HEADER => $organization->subdomain])
+            ->getJson('/api/v1/tenant/devices/test-push')
+            ->assertStatus(401);
     }
 
     /*

@@ -160,7 +160,8 @@ class PharmacySalesTest extends TenantTestCase
         $this->assertSame(90, $this->available($batch));
         $this->assertSame(PharmacySale::COMPLETED, $sale['status']);
         $this->assertSame(PharmacySale::PAID, $sale['payment_status']);
-        $this->assertStringStartsWith('INV-', $sale['sale_number']);
+        // The branch's own series, by financial year.
+        $this->assertMatchesRegularExpression('#^S-PBH/PH/\d{2}-\d{2}/00001$#', $sale['sale_number']);
 
         $this->onTenant($this->organization, function () use ($batch) {
             $movement = StockMovement::on('organization')
@@ -409,8 +410,9 @@ class PharmacySalesTest extends TenantTestCase
         $first = $this->sell()->assertCreated()->json('data.sale_number');
         $second = $this->sell()->assertCreated()->json('data.sale_number');
 
-        $this->assertStringStartsWith('BILL-', $first);
-        $this->assertNotSame($first, $second);
+        // The prefix the pharmacy chose, in the branch's own year-wise series.
+        $this->assertMatchesRegularExpression('#^S-PBH/BILL/\d{2}-\d{2}/00001$#', $first);
+        $this->assertMatchesRegularExpression('#^S-PBH/BILL/\d{2}-\d{2}/00002$#', $second);
 
         // How it was priced is copied onto the bill, not looked up later.
         $sale = $this->getJson("/api/v1/tenant/sales/{$this->onTenant($this->organization, fn () => PharmacySale::on('organization')->latest('id')->value('id'))}")

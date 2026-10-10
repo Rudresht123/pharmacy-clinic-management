@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Tenant\DeviceController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\AppointmentController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\DoctorController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\HomeController;
+use App\Http\Controllers\Api\V1\Tenant\Portal\LabReportController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\PrescriptionController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\SignInController;
 use Illuminate\Support\Facades\Route;
@@ -55,6 +56,13 @@ Route::middleware([
         ->where('deviceId', '[A-Za-z0-9._:-]{1,191}')
         ->name('devices.destroy');
 
+    // One canned push to whoever hits this, on their own phone — how a
+    // patient checks push actually reaches them, end to end. Carries
+    // `query-auth` so the link works pasted straight into a browser.
+    Route::get('devices/test-push', [DeviceController::class, 'testPush'])
+        ->middleware('query-auth')
+        ->name('devices.test-push');
+
     Route::middleware('module:appointments')->group(function () {
         Route::middleware('permission:portal.appointments.book')->group(function () {
             Route::get('doctors', [DoctorController::class, 'index'])->name('doctors.index');
@@ -76,5 +84,10 @@ Route::middleware([
     Route::middleware('module:prescriptions')->group(function () {
         Route::get('prescriptions', [PrescriptionController::class, 'index'])->name('prescriptions.index');
         Route::get('prescriptions/{id}', [PrescriptionController::class, 'show'])->name('prescriptions.show');
+    });
+
+    Route::middleware('module:laboratory')->group(function () {
+        Route::get('lab-reports', [LabReportController::class, 'index'])->name('lab-reports.index');
+        Route::get('lab-reports/{id}', [LabReportController::class, 'show'])->name('lab-reports.show');
     });
 });

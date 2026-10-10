@@ -9,7 +9,10 @@ use App\Models\Tenant\LabOrderItem;
 use App\Models\Tenant\LabTestCatalog;
 use App\Models\Tenant\User;
 use App\Services\Billing\BillingTriggerResolver;
+use App\Services\Clinic\ClinicEvent;
+use App\Services\Clinic\ClinicEventDispatcher;
 use App\Services\Opd\VisitWorkflow;
+use App\Support\Clinic\ClinicEvents;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -37,11 +40,22 @@ class LabOrders
          * timing; nothing here touches the OPD's bill for the visit.
          */
         private readonly ?BillingTriggerResolver $billingTrigger = null,
+        private readonly ?ClinicEventDispatcher $events = null,
     ) {}
 
     private function billing(): BillingTriggerResolver
     {
         return $this->billingTrigger ?? app(BillingTriggerResolver::class);
+    }
+
+    /**
+     * Resolved at the moment of use rather than trusted to the constructor —
+     * see BookingService::events() for why an optional constructor dependency
+     * alone is null in every real request under Laravel 12.
+     */
+    private function events(): ClinicEventDispatcher
+    {
+        return $this->events ?? app(ClinicEventDispatcher::class);
     }
 
     /**
@@ -248,6 +262,10 @@ class LabOrders
             $this->billing()->onLabCompleted($locked);
 
             $this->refreshVisit($locked);
+
+            // Whatever the clinic has switched on for a finished order — an
+            // email the report is ready — held until this transaction commits.
+            $this->events()->dispatch(ClinicEvent::for(ClinicEvents::LAB_REPORT_READY, $locked));
 
             return $locked->load('items');
         });

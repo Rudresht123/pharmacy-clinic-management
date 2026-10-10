@@ -34,6 +34,10 @@ class AutomationRule extends Model
 
     public const PAYMENT_RECEIVED = 'payment.received';
 
+    public const LAB_REPORT_READY = 'lab.report_ready';
+
+    public const PATIENT_REGISTERED = 'patient.registered';
+
     protected $connection = 'organization';
 
     protected $table = 'automation_rules';

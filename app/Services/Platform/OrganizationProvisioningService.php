@@ -8,6 +8,7 @@ use App\Repositories\Platform\Contracts\DbClusterRepositoryInterface;
 use App\Repositories\Platform\Contracts\OrganizationRepositoryInterface;
 use App\Repositories\Platform\Contracts\TenantDatabaseRepositoryInterface;
 use App\Repositories\Platform\Contracts\TenantProvisionEventRepositoryInterface;
+use App\Services\Communication\OptionalModuleTemplateSeeder;
 use App\Services\Notifications\EmailService;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
@@ -168,6 +169,19 @@ class OrganizationProvisioningService
                 fn () => $this->seedDefaultRoles($organization),
             );
 
+            /*
+             * The notification templates an optional module's events need —
+             * lab report ready, for now. Its own step because, like roles and
+             * document templates, it reads this organisation's module
+             * entitlements from the MASTER database, which only this step
+             * (not the migration before it) can do.
+             */
+            $this->runStep(
+                $organization,
+                'seed_notification_templates',
+                fn () => $this->seedNotificationTemplates($organization),
+            );
+
             $this->runStep(
                 $organization,
                 'create_owner_account',
@@ -291,6 +305,20 @@ class OrganizationProvisioningService
            sold — an organization that can do nothing on day one is one
            somebody has to be walked through before it works. */
         app(DefaultTemplateSeeder::class)->seed($organization);
+    }
+
+    /**
+     * Default notification templates for whatever optional modules this
+     * organisation was sold — lab report ready, for an org with laboratory.
+     * The unconditional defaults (appointment confirmed, reminders, payment
+     * received, welcome) arrive via the tenant's own migrations instead; see
+     * OptionalModuleTemplateSeeder's docblock for why this one piece can't.
+     */
+    private function seedNotificationTemplates(Organization $organization): void
+    {
+        $this->tenants->connect($organization->database_name);
+
+        app(OptionalModuleTemplateSeeder::class)->seed($organization);
     }
 
     /**

@@ -61,6 +61,21 @@ class BookableDoctors
     }
 
     /**
+     * Whether this doctor has a weekly sitting at all — the same rule
+     * `search()` filters the list by.
+     *
+     * A one-off extra session (added for the desk, not for patients) can
+     * still produce open slots in `openSlots()`/`offers()` with no weekly
+     * row behind it at all. Without this check, a doctor invisible in the
+     * list stays reachable, and bookable, by id — a stale card, a deep
+     * link, a favourite.
+     */
+    public function hasSchedule(Doctor $doctor): bool
+    {
+        return $doctor->schedules()->where('is_active', true)->exists();
+    }
+
+    /**
      * The specialities there are doctors for, for the filter chips.
      *
      * @return list<string>

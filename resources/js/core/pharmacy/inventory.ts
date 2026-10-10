@@ -3,6 +3,7 @@ import { createResourceApi, type Page } from '@/shared/api/resource';
 import { createResourceHooks, resourceKey } from '@/shared/hooks/useResource';
 import { http } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
+import { newIdempotencyKey } from '@/shared/utils/idempotency';
 import type { ApiResponse, Timestamps } from '@/shared/types/api';
 
 /*
@@ -202,22 +203,8 @@ export const REASON_LABELS: Record<string, string> = {
 |--------------------------------------------------------------------------
 */
 
-/**
- * A key for one attempt at a stock-changing action.
- *
- * Kept for as long as the form is open, so a double-tap or a retry sends the
- * same key and the server answers with the first result instead of moving
- * stock twice. `crypto.randomUUID` exists only on secure origins — a phone
- * on the clinic's LAN over plain http has no such thing — so there is a
- * fallback that is unique enough for one organization's requests.
- */
-export function newIdempotencyKey(): string {
-    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-        return crypto.randomUUID();
-    }
-
-    return [Date.now().toString(36), Math.random().toString(36).slice(2), Math.random().toString(36).slice(2)].join('-');
-}
+/** One key per attempt at a stock-changing action — shared with billing's payments. */
+export { newIdempotencyKey };
 
 const keyed = (key: string) => ({ headers: { 'Idempotency-Key': key }, silent: true });
 

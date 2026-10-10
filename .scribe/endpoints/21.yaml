@@ -76,7 +76,7 @@ endpoints:
         name: round_off_enabled
         description: ''
         required: false
-        example: true
+        example: false
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -100,7 +100,7 @@ endpoints:
         name: prices_include_tax
         description: ''
         required: false
-        example: false
+        example: true
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -144,7 +144,7 @@ endpoints:
         name: require_prescription
         description: ''
         required: false
-        example: false
+        example: true
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -155,7 +155,7 @@ endpoints:
         name: default_payment_method
         description: ''
         required: false
-        example: credit
+        example: bank_transfer
         type: string
         enumValues:
           - cash
@@ -169,14 +169,14 @@ endpoints:
         deprecated: false
     cleanBodyParameters:
       invoice_prefix: bngz
-      round_off_enabled: true
+      round_off_enabled: false
       price_basis: selling
-      prices_include_tax: false
+      prices_include_tax: true
       expiry_warning_days: 17
       allow_walk_in: false
       credit_sales_enabled: true
-      require_prescription: false
-      default_payment_method: credit
+      require_prescription: true
+      default_payment_method: bank_transfer
     fileParameters: []
     responses: []
     responseFields: []
@@ -287,7 +287,7 @@ endpoints:
         name: store_type
         description: ''
         required: true
-        example: ipd_pharmacy
+        example: central
         type: string
         enumValues:
           - hospital_pharmacy
@@ -304,7 +304,7 @@ endpoints:
         name: is_default
         description: ''
         required: false
-        example: true
+        example: false
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -370,7 +370,7 @@ endpoints:
         name: drug_license_expiry_date
         description: 'This field is required when <code>drug_license_no</code> is present. Must be a valid date.'
         required: false
-        example: '2026-10-10T12:36:50'
+        example: '2026-10-10T12:46:26'
         type: string
         enumValues: []
         exampleWasSpecified: false
@@ -380,14 +380,14 @@ endpoints:
       location_id: 16
       name: 'n'
       code: g
-      store_type: ipd_pharmacy
-      is_default: true
+      store_type: central
+      is_default: false
       is_active: false
       pharmacist_user_id: 16
       address: 'n'
       phone: gzmiyvdljnikhway
       drug_license_no: k
-      drug_license_expiry_date: '2026-10-10T12:36:50'
+      drug_license_expiry_date: '2026-10-10T12:46:26'
     fileParameters: []
     responses: []
     responseFields: []
@@ -472,7 +472,7 @@ endpoints:
         name: store_type
         description: ''
         required: true
-        example: ipd_pharmacy
+        example: emergency
         type: string
         enumValues:
           - hospital_pharmacy
@@ -489,7 +489,7 @@ endpoints:
         name: is_default
         description: ''
         required: false
-        example: false
+        example: true
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -500,7 +500,7 @@ endpoints:
         name: is_active
         description: ''
         required: false
-        example: false
+        example: true
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -555,7 +555,7 @@ endpoints:
         name: drug_license_expiry_date
         description: 'This field is required when <code>drug_license_no</code> is present. Must be a valid date.'
         required: false
-        example: '2026-10-10T12:36:50'
+        example: '2026-10-10T12:46:26'
         type: string
         enumValues: []
         exampleWasSpecified: false
@@ -565,14 +565,14 @@ endpoints:
       location_id: 16
       name: 'n'
       code: g
-      store_type: ipd_pharmacy
-      is_default: false
-      is_active: false
+      store_type: emergency
+      is_default: true
+      is_active: true
       pharmacist_user_id: 16
       address: 'n'
       phone: gzmiyvdljnikhway
       drug_license_no: k
-      drug_license_expiry_date: '2026-10-10T12:36:50'
+      drug_license_expiry_date: '2026-10-10T12:46:26'
     fileParameters: []
     responses: []
     responseFields: []
@@ -1331,7 +1331,7 @@ endpoints:
         name: 'payments[].method'
         description: ''
         required: true
-        example: online
+        example: cheque
         type: string
         enumValues:
           - cash
@@ -1384,7 +1384,7 @@ endpoints:
           discount_percent: 16
       payments:
         -
-          method: online
+          method: cheque
           amount: 17
           reference: i
     fileParameters: []

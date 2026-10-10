@@ -99,6 +99,13 @@ export interface PharmacySettings {
 
     default_payment_method: string;
 
+    /**
+     * What this counter may take — the organisation's list from Billing
+     * settings, one list for every counter. Credit is never in it: leaving a
+     * bill owing is `credit_sales_enabled`, not a way to pay.
+     */
+    accepted_payment_methods?: string[];
+
     updated_at: string | null;
     updated_by_name?: string | null;
 }
@@ -108,6 +115,8 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
     card: 'Card',
     upi: 'UPI',
     bank_transfer: 'Bank transfer',
+    online: 'Online',
+    cheque: 'Cheque',
     credit: 'Credit',
     other: 'Other',
     /* Not a tender: a bill settled by more than one, which no single method

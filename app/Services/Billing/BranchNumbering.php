@@ -6,6 +6,8 @@ use App\Models\Tenant\Invoice;
 use App\Models\Tenant\InvoicePayment;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\NumberSeries;
+use App\Models\Tenant\PharmacySale;
+use App\Models\Tenant\PharmacySaleReturn;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -201,7 +203,7 @@ class BranchNumbering
 
         $payments = InvoicePayment::query()->where('receipt_number', 'like', $like);
 
-        if ($type !== NumberSeries::INVOICE) {
+        if (in_array($type, [NumberSeries::RECEIPT, NumberSeries::REFUND], true)) {
             // Everything except this very series: the other direction of
             // money at this branch, or anything at another branch.
             $payments->where(fn ($query) => $query
@@ -209,6 +211,23 @@ class BranchNumbering
                 ->orWhereHas('invoice', fn ($invoice) => $invoice->where('location_id', '!=', $locationId)));
         }
 
-        return $payments->exists();
+        if ($payments->exists()) {
+            return true;
+        }
+
+        // The pharmacy's documents share the same space of numbers.
+        $sales = PharmacySale::query()
+            ->where('sale_number', 'like', $like)
+            ->when($type === NumberSeries::PHARMACY_SALE, fn ($query) => $query->where('location_id', '!=', $locationId))
+            ->exists();
+
+        if ($sales) {
+            return true;
+        }
+
+        return PharmacySaleReturn::query()
+            ->where('return_number', 'like', $like)
+            ->when($type === NumberSeries::PHARMACY_RETURN, fn ($query) => $query->where('location_id', '!=', $locationId))
+            ->exists();
     }
 }

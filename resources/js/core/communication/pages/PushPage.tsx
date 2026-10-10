@@ -254,7 +254,7 @@ export default function PushPage() {
                         <PushDevicesTable compact days={days} canManage={manage} />
 
                         {manage ? (
-                            <PushSendForm on={on} />
+                            <PushSendForm on={on} templates={data.templates} />
                         ) : (
                             <Card className="ph-card" title="Send test notification" icon="ti ti-send-2">
                                 <p className="ph-empty mb-0">Sending needs the Communication manage permission.</p>
@@ -335,7 +335,7 @@ export default function PushPage() {
             {view === 'send' && (
                 <div className="ph-split">
                     {campaignsTable}
-                    {manage && <PushSendForm on={on} />}
+                    {manage && <PushSendForm on={on} templates={data.templates} />}
                 </div>
             )}
 
@@ -354,6 +354,9 @@ export default function PushPage() {
                         rulesOn={data.rules.filter((rule) => rule.is_enabled).length}
                         rulesTotal={data.rules.length}
                         testing={sendTest.isPending}
+                        templates={data.templates}
+                        templateId={selected?.id ?? null}
+                        onTemplateChange={(id) => setSelected(data.templates.find((template) => template.id === id) ?? null)}
                         // The switch itself is in the header, on every tab; a
                         // second one here would be two controls for one fact.
                         onTest={manage ? test : undefined}
@@ -370,6 +373,11 @@ export default function PushPage() {
                         onEdit={manage ? setEditingRule : undefined}
                         description="Notify patients on their phone when something happens at the clinic"
                     />
+
+                    {/* So testing a template and seeing what it actually did
+                        are the same screen — no tab switch to check a send
+                        just made landed, or why it didn't. */}
+                    <RecentMessages messages={data.recent} typeLabel="Notification" onView={setViewing} />
                 </>
             )}
 

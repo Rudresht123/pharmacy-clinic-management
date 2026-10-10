@@ -534,7 +534,7 @@ endpoints:
         name: webhook_configured
         description: ''
         required: false
-        example: false
+        example: true
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -557,7 +557,7 @@ endpoints:
       provider: g
       is_connected: false
       is_verified: true
-      webhook_configured: false
+      webhook_configured: true
     fileParameters: []
     responses: []
     responseFields: []
@@ -881,7 +881,7 @@ endpoints:
         name: is_enabled
         description: ''
         required: false
-        example: false
+        example: true
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -932,7 +932,7 @@ endpoints:
         nullable: true
         deprecated: false
     cleanBodyParameters:
-      is_enabled: false
+      is_enabled: true
       title: b
       description: 'Et animi quos velit et fugiat.'
       lead_minutes: 1

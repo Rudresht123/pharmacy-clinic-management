@@ -5,10 +5,16 @@ namespace Tests\Feature\Api\V1\Tenant;
 use App\Models\Platform\Module;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
+use App\Models\Tenant\Consultation;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\DoctorSchedule;
+use App\Models\Tenant\DoctorScheduleException;
+use App\Models\Tenant\LabOrder;
+use App\Models\Tenant\LabOrderItem;
 use App\Models\Tenant\Location;
+use App\Models\Tenant\Prescription;
+use App\Models\Tenant\PrescriptionItem;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User as TenantUser;
 use App\Services\Portal\Otp\OtpSender;
@@ -300,6 +306,62 @@ class PatientPortalTest extends TenantTestCase
             ->assertJsonPath('data.upcoming_count', 1);
     }
 
+    /**
+     * Regression test: a doctor with no weekly schedule, only a one-off
+     * extra session (added for the desk, not for patients), used to be
+     * invisible in the list yet still reachable — and bookable — by id.
+     */
+    public function test_a_doctor_with_no_weekly_schedule_is_not_shown_or_bookable_even_with_an_extra_session(): void
+    {
+        [$organization, , $branchId] = $this->clinic();
+
+        $looseDoctorId = $this->onTenant($organization, function () use ($branchId) {
+            $doctor = Doctor::on('organization')->create([
+                'name' => 'Dr. No Schedule',
+                'specialisation' => 'General Physician',
+                'default_consultation_fee' => 500,
+                'is_active' => true,
+            ]);
+
+            DoctorScheduleException::on('organization')->create([
+                'doctor_id' => $doctor->id,
+                'location_id' => $branchId,
+                'date' => self::MONDAY,
+                'type' => DoctorScheduleException::EXTRA_SESSION,
+                'starts_at' => '14:00',
+                'ends_at' => '15:00',
+                'slot_minutes' => 30,
+                'reason' => 'Covering for a colleague',
+            ]);
+
+            return $doctor->id;
+        });
+
+        $token = $this->signInPatient($organization);
+
+        $this->asPatient($organization, $token)
+            ->getJson('/api/v1/tenant/portal/doctors')
+            ->assertOk()
+            ->assertJsonMissing(['name' => 'Dr. No Schedule']);
+
+        $this->asPatient($organization, $token)
+            ->getJson("/api/v1/tenant/portal/doctors/{$looseDoctorId}")
+            ->assertNotFound();
+
+        $this->asPatient($organization, $token)
+            ->getJson("/api/v1/tenant/portal/doctors/{$looseDoctorId}/slots?date=".self::MONDAY)
+            ->assertNotFound();
+
+        $this->asPatient($organization, $token)
+            ->postJson('/api/v1/tenant/portal/appointments', [
+                'doctor_id' => $looseDoctorId,
+                'location_id' => $branchId,
+                'appointment_date' => self::MONDAY,
+                'slot_at' => '14:00',
+            ])
+            ->assertStatus(422);
+    }
+
     public function test_a_time_that_has_already_passed_today_is_not_offered_or_bookable(): void
     {
         [$organization, $doctorId, $branchId] = $this->clinic();
@@ -438,6 +500,248 @@ class PatientPortalTest extends TenantTestCase
             ->getJson('/api/v1/tenant/portal/appointments')
             ->assertOk()
             ->assertJsonCount(0, 'data');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Prescriptions
+    |--------------------------------------------------------------------------
+    */
+
+    /** @return array{0: Organization, 1: int} org, customer */
+    private function clinicWithPrescriptions(): array
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+
+        $organization->moduleEntitlements()->create([
+            'module_id' => Module::where('key', 'prescriptions')->value('id'),
+            'is_enabled' => true,
+        ]);
+
+        $customerId = $this->onTenant($organization, fn () => Customer::on('organization')->create([
+            'name' => 'Rahul Tiwari',
+            'phone' => '9876500011',
+            'is_active' => true,
+        ])->id);
+
+        $this->onTenant($organization, function () use ($doctorId, $branchId, $customerId) {
+            $appointment = Appointment::on('organization')->create([
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'location_id' => $branchId,
+                'appointment_date' => self::MONDAY,
+                'type' => Appointment::BOOKED,
+                'status' => Appointment::STATUS_BOOKED,
+                'slot_at' => '10:00',
+            ]);
+
+            $consultation = Consultation::on('organization')->create([
+                'appointment_id' => $appointment->id,
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'diagnoses' => ['Seasonal allergy'],
+            ]);
+
+            $issued = Prescription::on('organization')->create([
+                'appointment_id' => $appointment->id,
+                'location_id' => $branchId,
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'consultation_id' => $consultation->id,
+                'prescription_date' => self::MONDAY,
+                'clinical_notes' => 'Drink plenty of water.',
+            ]);
+            $issued->forceFill(['status' => Prescription::ISSUED, 'issued_at' => now()])->save();
+
+            PrescriptionItem::on('organization')->create([
+                'prescription_id' => $issued->id,
+                'medicine_name_snapshot' => 'Cetirizine 10mg',
+                'dose_amount' => 1,
+                'dose_unit' => 'tablet',
+                'frequency' => 'od',
+                'duration' => 5,
+                'duration_unit' => 'days',
+                'prescribed_quantity' => 5,
+            ]);
+
+            // Still being written — not this patient's to see yet.
+            $second = Appointment::on('organization')->create([
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'location_id' => $branchId,
+                'appointment_date' => self::MONDAY,
+                'type' => Appointment::BOOKED,
+                'status' => Appointment::STATUS_BOOKED,
+                'slot_at' => '10:30',
+            ]);
+
+            Prescription::on('organization')->create([
+                'appointment_id' => $second->id,
+                'location_id' => $branchId,
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'prescription_date' => self::MONDAY,
+            ]);
+        });
+
+        return [$organization, $customerId];
+    }
+
+    /** The regression test for a resource that used to show every patient the same fabricated diagnosis and medicines. */
+    public function test_a_patient_sees_their_own_prescription_not_fabricated_data(): void
+    {
+        [$organization] = $this->clinicWithPrescriptions();
+        $token = $this->signInPatient($organization);
+
+        $list = $this->asPatient($organization, $token)
+            ->getJson('/api/v1/tenant/portal/prescriptions')
+            ->assertOk()
+            // The draft is excluded: only the issued one is this patient's to see.
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.doctor_name', 'Dr. Priya Sharma')
+            ->assertJsonPath('data.0.specialty', 'General Physician')
+            ->assertJsonPath('data.0.clinic_name', 'Gurgaon')
+            ->assertJsonPath('data.0.diagnosis', 'Seasonal allergy')
+            ->assertJsonPath('data.0.status', 'Active')
+            ->assertJsonPath('data.0.is_active', true)
+            ->assertJsonPath('data.0.medicines.0.name', 'Cetirizine 10mg')
+            ->assertJsonPath('data.0.instructions.0', 'Drink plenty of water.');
+
+        $id = $list->json('data.0.id');
+
+        $this->asPatient($organization, $token)
+            ->getJson("/api/v1/tenant/portal/prescriptions/{$id}")
+            ->assertOk()
+            ->assertJsonPath('data.diagnosis', 'Seasonal allergy');
+    }
+
+    /** A missing or foreign prescription is refused, not answered with made-up data. */
+    public function test_a_patient_cannot_see_someone_elses_prescription(): void
+    {
+        [$organization] = $this->clinicWithPrescriptions();
+        $token = $this->signInPatient($organization);
+
+        $this->asPatient($organization, $token)
+            ->getJson('/api/v1/tenant/portal/prescriptions/999999')
+            ->assertNotFound();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Lab reports
+    |--------------------------------------------------------------------------
+    */
+
+    /** @return array{0: Organization, 1: int} org, customer */
+    private function clinicWithLabReports(): array
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+
+        $organization->moduleEntitlements()->create([
+            'module_id' => Module::where('key', 'laboratory')->value('id'),
+            'is_enabled' => true,
+        ]);
+
+        $customerId = $this->onTenant($organization, fn () => Customer::on('organization')->create([
+            'name' => 'Rahul Tiwari',
+            'phone' => '9876500011',
+            'is_active' => true,
+        ])->id);
+
+        $this->onTenant($organization, function () use ($doctorId, $branchId, $customerId) {
+            $appointment = Appointment::on('organization')->create([
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'location_id' => $branchId,
+                'appointment_date' => self::MONDAY,
+                'type' => Appointment::BOOKED,
+                'status' => Appointment::STATUS_BOOKED,
+                'slot_at' => '10:00',
+            ]);
+
+            $completed = LabOrder::on('organization')->create([
+                'appointment_id' => $appointment->id,
+                'location_id' => $branchId,
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'order_date' => self::MONDAY,
+            ]);
+            $completed->forceFill([
+                'status' => LabOrder::COMPLETED,
+                'started_at' => now(),
+                'completed_at' => now(),
+            ])->save();
+
+            LabOrderItem::on('organization')->create([
+                'lab_order_id' => $completed->id,
+                'test_name' => 'Hemoglobin',
+                'specimen' => 'blood',
+            ])->forceFill([
+                'status' => LabOrderItem::COMPLETED,
+                'result_value' => '14.2',
+                'result_unit' => 'g/dL',
+                'reference_range' => '13.0-17.0',
+                'is_abnormal' => false,
+                'completed_at' => now(),
+            ])->save();
+
+            // Still out at the lab — not cancelled, not somebody else's.
+            $second = Appointment::on('organization')->create([
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'location_id' => $branchId,
+                'appointment_date' => self::MONDAY,
+                'type' => Appointment::BOOKED,
+                'status' => Appointment::STATUS_BOOKED,
+                'slot_at' => '10:30',
+            ]);
+
+            LabOrder::on('organization')->create([
+                'appointment_id' => $second->id,
+                'location_id' => $branchId,
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'order_date' => self::MONDAY,
+            ]);
+        });
+
+        return [$organization, $customerId];
+    }
+
+    public function test_a_patient_sees_their_own_lab_reports_not_fabricated_data(): void
+    {
+        [$organization] = $this->clinicWithLabReports();
+        $token = $this->signInPatient($organization);
+
+        $list = $this->asPatient($organization, $token)
+            ->getJson('/api/v1/tenant/portal/lab-reports')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $completed = collect($list->json('data'))->firstWhere('status', 'Completed');
+
+        $this->assertNotNull($completed);
+        $this->assertSame('Dr. Priya Sharma', $completed['doctor_name']);
+        $this->assertSame('Gurgaon', $completed['clinic_name']);
+        $this->assertTrue($completed['is_complete']);
+        $this->assertFalse($completed['has_abnormal']);
+        $this->assertSame('Hemoglobin', $completed['tests_summary']);
+
+        $this->asPatient($organization, $token)
+            ->getJson("/api/v1/tenant/portal/lab-reports/{$completed['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.tests.0.name', 'Hemoglobin')
+            ->assertJsonPath('data.tests.0.result_text', '14.2 g/dL (13.0-17.0)');
+    }
+
+    public function test_a_patient_cannot_see_someone_elses_lab_report(): void
+    {
+        [$organization] = $this->clinicWithLabReports();
+        $token = $this->signInPatient($organization);
+
+        $this->asPatient($organization, $token)
+            ->getJson('/api/v1/tenant/portal/lab-reports/999999')
+            ->assertNotFound();
     }
 
     /*

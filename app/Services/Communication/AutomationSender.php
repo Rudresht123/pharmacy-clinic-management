@@ -8,6 +8,7 @@ use App\Models\Tenant\AutomationRule;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Invoice;
 use App\Models\Tenant\InvoicePayment;
+use App\Models\Tenant\LabOrder;
 use App\Services\Clinic\ClinicEvent;
 use App\Support\Clinic\ClinicEvents;
 
@@ -53,6 +54,8 @@ class AutomationSender
         ClinicEvents::APPOINTMENT_BOOKED => AutomationRule::APPOINTMENT_CONFIRMED,
         ClinicEvents::APPOINTMENT_CANCELLED => AutomationRule::APPOINTMENT_CANCELLED,
         ClinicEvents::PAYMENT_RECEIVED => AutomationRule::PAYMENT_RECEIVED,
+        ClinicEvents::LAB_REPORT_READY => AutomationRule::LAB_REPORT_READY,
+        ClinicEvents::PATIENT_REGISTERED => AutomationRule::PATIENT_REGISTERED,
     ];
 
     public function __construct(
@@ -82,6 +85,8 @@ class AutomationSender
             ClinicEvents::APPOINTMENT_BOOKED,
             ClinicEvents::APPOINTMENT_CANCELLED => $this->appointment($event, $organization),
             ClinicEvents::PAYMENT_RECEIVED => $this->payment($event, $organization),
+            ClinicEvents::LAB_REPORT_READY => $this->labReport($event, $organization),
+            ClinicEvents::PATIENT_REGISTERED => $this->registration($event, $organization),
             default => null,
         };
 
@@ -249,6 +254,67 @@ class AutomationSender
                 'date' => $payment->paid_at?->format('d M Y'),
                 'clinic_name' => $organization->organization_name,
                 'branch_name' => $invoice->location?->name,
+            ],
+        ];
+    }
+
+    /**
+     * A finished lab order, as a template's variables.
+     *
+     * @return array{customer: Customer, variables: array<string, string|int|float|null>}|null
+     */
+    private function labReport(ClinicEvent $event, Organization $organization): ?array
+    {
+        if ($event->subjectType !== (new LabOrder)->getMorphClass()) {
+            return null;
+        }
+
+        $order = LabOrder::query()->with(['customer', 'doctor', 'location'])->find($event->subjectId);
+
+        if ($order?->customer === null) {
+            return null;
+        }
+
+        return [
+            'customer' => $order->customer,
+            'variables' => [
+                'patient_name' => $order->customer->name,
+                'phone' => $order->customer->phone,
+                'doctor_name' => $order->doctor?->name,
+                'date' => $order->order_date?->format('d M Y'),
+                'clinic_name' => $organization->organization_name,
+                'branch_name' => $order->location?->name,
+            ],
+        ];
+    }
+
+    /**
+     * A new patient's record, as a template's variables.
+     *
+     * The one event whose subject IS the customer rather than something that
+     * belongs to one — everywhere else here reads `$record->customer`; this
+     * reads the record itself.
+     *
+     * @return array{customer: Customer, variables: array<string, string|int|float|null>}|null
+     */
+    private function registration(ClinicEvent $event, Organization $organization): ?array
+    {
+        if ($event->subjectType !== (new Customer)->getMorphClass()) {
+            return null;
+        }
+
+        $patient = Customer::query()->find($event->subjectId);
+
+        if ($patient === null) {
+            return null;
+        }
+
+        return [
+            'customer' => $patient,
+            'variables' => [
+                'patient_name' => $patient->name,
+                'phone' => $patient->phone,
+                'clinic_name' => $organization->organization_name,
             ],
         ];
     }

@@ -386,7 +386,7 @@ endpoints:
         name: inward_type
         description: ''
         required: true
-        example: return_from_patient
+        example: opening_balance
         type: string
         enumValues:
           - purchase
@@ -574,7 +574,7 @@ endpoints:
         deprecated: false
     cleanBodyParameters:
       idempotency_key: b
-      inward_type: return_from_patient
+      inward_type: opening_balance
       supplier_id: 16
       supplier_invoice_no: 'n'
       supplier_invoice_date: '2022-11-04'
@@ -724,7 +724,7 @@ endpoints:
         name: direction
         description: ''
         required: true
-        example: increase
+        example: decrease
         type: string
         enumValues:
           - increase
@@ -748,7 +748,7 @@ endpoints:
         name: reason_code
         description: ''
         required: true
-        example: loss
+        example: expiry_writeoff
         type: string
         enumValues:
           - damage
@@ -773,9 +773,9 @@ endpoints:
     cleanBodyParameters:
       idempotency_key: b
       medicine_batch_id: 16
-      direction: increase
+      direction: decrease
       quantity: 22
-      reason_code: loss
+      reason_code: expiry_writeoff
       reason: g
     fileParameters: []
     responses: []

@@ -86,7 +86,7 @@ class PharmacySaleController extends BaseApiController
         $this->authorizeTenant('view', $sale->store);
 
         return $this->ok(PharmacySaleResource::make(
-            $sale->load(['items.medicine', 'payments', 'customer', 'store', 'returns.items']),
+            $sale->load(['items.medicine', 'payments', 'customer', 'doctor', 'store', 'returns.items']),
         ));
     }
 

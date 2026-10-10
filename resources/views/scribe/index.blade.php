@@ -915,6 +915,12 @@ not just the page on screen.</a>
                                                                                 <li class="tocify-item level-2" data-unique="tenant-billing-POSTapi-v1-tenant-invoices--invoice_id--payments--payment_id--refund">
                                 <a href="#tenant-billing-POSTapi-v1-tenant-invoices--invoice_id--payments--payment_id--refund">Refund an already-recorded payment.</a>
                             </li>
+                                                                                <li class="tocify-item level-2" data-unique="tenant-billing-GETapi-v1-tenant-finance-summary">
+                                <a href="#tenant-billing-GETapi-v1-tenant-finance-summary">GET api/v1/tenant/finance/summary</a>
+                            </li>
+                                                                                <li class="tocify-item level-2" data-unique="tenant-billing-GETapi-v1-tenant-finance-documents">
+                                <a href="#tenant-billing-GETapi-v1-tenant-finance-documents">Every bill from every department, one list.</a>
+                            </li>
                                                                                 <li class="tocify-item level-2" data-unique="tenant-billing-PUTapi-v1-tenant-billing-settings">
                                 <a href="#tenant-billing-PUTapi-v1-tenant-billing-settings">PUT api/v1/tenant/billing/settings</a>
                             </li>
@@ -2863,8 +2869,8 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --form "password=|]|{+-"\
     --form "phone_number=1374491716806"\
     --form "address=z"\
-    --form "is_active=1"\
-    --form "profile_image=@C:\Users\ruder\AppData\Local\Temp\phpDF45.tmp" </code></pre></div>
+    --form "is_active="\
+    --form "profile_image=@C:\Users\ruder\AppData\Local\Temp\phpAB39.tmp" </code></pre></div>
 
 
 <div class="javascript-example">
@@ -2888,7 +2894,7 @@ body.append('email', 'rowan.gulgowski@example.com');
 body.append('password', '|]|{+-');
 body.append('phone_number', '1374491716806');
 body.append('address', 'z');
-body.append('is_active', '1');
+body.append('is_active', '');
 body.append('profile_image', document.querySelector('input[name="profile_image"]').files[0]);
 
 fetch(url, {
@@ -3103,7 +3109,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
                value=""
                data-component="body">
     <br>
-<p>Must be an image. Must not be greater than 2048 kilobytes. Example: <code>C:\Users\ruder\AppData\Local\Temp\phpDF45.tmp</code></p>
+<p>Must be an image. Must not be greater than 2048 kilobytes. Example: <code>C:\Users\ruder\AppData\Local\Temp\phpAB39.tmp</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>is_active</code></b>&nbsp;&nbsp;
@@ -3125,7 +3131,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>true</code></p>
+<p>Example: <code>false</code></p>
         </div>
         </form>
 
@@ -3294,7 +3300,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --form "email=rowan.gulgowski@example.com"\
     --form "phone_number=1374491716806"\
     --form "address=z"\
-    --form "is_active=1"\
+    --form "is_active="\
     --form "legal_name=m"\
     --form "gstin=iyvdljnikhwaykcm"\
     --form "drug_license_no=y"\
@@ -3302,7 +3308,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --form "currency=wpw"\
     --form "country=lv"\
     --form "notes=q"\
-    --form "profile_image=@C:\Users\ruder\AppData\Local\Temp\phpDF56.tmp" </code></pre></div>
+    --form "profile_image=@C:\Users\ruder\AppData\Local\Temp\phpAB4A.tmp" </code></pre></div>
 
 
 <div class="javascript-example">
@@ -3325,7 +3331,7 @@ body.append('contact_person_name', 'g');
 body.append('email', 'rowan.gulgowski@example.com');
 body.append('phone_number', '1374491716806');
 body.append('address', 'z');
-body.append('is_active', '1');
+body.append('is_active', '');
 body.append('legal_name', 'm');
 body.append('gstin', 'iyvdljnikhwaykcm');
 body.append('drug_license_no', 'y');
@@ -3552,7 +3558,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
                value=""
                data-component="body">
     <br>
-<p>Must be an image. Must not be greater than 2048 kilobytes. Example: <code>C:\Users\ruder\AppData\Local\Temp\phpDF56.tmp</code></p>
+<p>Must be an image. Must not be greater than 2048 kilobytes. Example: <code>C:\Users\ruder\AppData\Local\Temp\phpAB4A.tmp</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>is_active</code></b>&nbsp;&nbsp;
@@ -3574,7 +3580,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>true</code></p>
+<p>Example: <code>false</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>legal_name</code></b>&nbsp;&nbsp;
@@ -4106,8 +4112,8 @@ You can check the Dev Tools console for debugging information.</code></pre>
     \"modules\": [
         {
             \"key\": \"architecto\",
-            \"is_enabled\": true,
-            \"starts_at\": \"2026-10-10T12:36:50\",
+            \"is_enabled\": false,
+            \"starts_at\": \"2026-10-10T12:46:26\",
             \"expires_at\": \"2052-11-02\",
             \"note\": \"n\"
         }
@@ -4131,8 +4137,8 @@ let body = {
     "modules": [
         {
             "key": "architecto",
-            "is_enabled": true,
-            "starts_at": "2026-10-10T12:36:50",
+            "is_enabled": false,
+            "starts_at": "2026-10-10T12:46:26",
             "expires_at": "2052-11-02",
             "note": "n"
         }
@@ -4288,7 +4294,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>true</code></p>
+<p>Example: <code>false</code></p>
                     </div>
                                                                 <div style="margin-left: 14px; clear: unset;">
                         <b style="line-height: 2;"><code>starts_at</code></b>&nbsp;&nbsp;
@@ -4297,10 +4303,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="modules.0.starts_at"                data-endpoint="PUTapi-v1-admin-organizations--organization_uuid--modules"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:26"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:26</code></p>
                     </div>
                                                                 <div style="margin-left: 14px; clear: unset;">
                         <b style="line-height: 2;"><code>expires_at</code></b>&nbsp;&nbsp;
@@ -4801,7 +4807,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --data "{
     \"name\": \"b\",
     \"slug\": \"n\",
-    \"is_active\": true
+    \"is_active\": false
 }"
 </code></pre></div>
 
@@ -4820,7 +4826,7 @@ const headers = {
 let body = {
     "name": "b",
     "slug": "n",
-    "is_active": true
+    "is_active": false
 };
 
 fetch(url, {
@@ -4978,7 +4984,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>true</code></p>
+<p>Example: <code>false</code></p>
         </div>
         </form>
 
@@ -7808,7 +7814,7 @@ and a letterhead needs no vectors.</p>
     --header "Authorization: Bearer {YOUR_SANCTUM_TOKEN}" \
     --header "Content-Type: multipart/form-data" \
     --header "Accept: application/json" \
-    --form "logo=@C:\Users\ruder\AppData\Local\Temp\phpE4AB.tmp" </code></pre></div>
+    --form "logo=@C:\Users\ruder\AppData\Local\Temp\phpB17B.tmp" </code></pre></div>
 
 
 <div class="javascript-example">
@@ -7929,7 +7935,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
                value=""
                data-component="body">
     <br>
-<p>Must be an image. Must not be greater than 4096 kilobytes. Example: <code>C:\Users\ruder\AppData\Local\Temp\phpE4AB.tmp</code></p>
+<p>Must be an image. Must not be greater than 4096 kilobytes. Example: <code>C:\Users\ruder\AppData\Local\Temp\phpB17B.tmp</code></p>
         </div>
         </form>
 
@@ -9015,7 +9021,7 @@ for a portrait.</p>
     --header "Authorization: Bearer {YOUR_SANCTUM_TOKEN}" \
     --header "Content-Type: multipart/form-data" \
     --header "Accept: application/json" \
-    --form "logo=@C:\Users\ruder\AppData\Local\Temp\phpE3DE.tmp" </code></pre></div>
+    --form "logo=@C:\Users\ruder\AppData\Local\Temp\phpB06F.tmp" </code></pre></div>
 
 
 <div class="javascript-example">
@@ -9149,7 +9155,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
                value=""
                data-component="body">
     <br>
-<p>Must be an image. Must not be greater than 4096 kilobytes. Example: <code>C:\Users\ruder\AppData\Local\Temp\phpE3DE.tmp</code></p>
+<p>Must be an image. Must not be greater than 4096 kilobytes. Example: <code>C:\Users\ruder\AppData\Local\Temp\phpB06F.tmp</code></p>
         </div>
         </form>
 
@@ -11650,7 +11656,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     \"name\": \"b\",
     \"scope\": \"branch\",
     \"description\": \"Et animi quos velit et fugiat.\",
-    \"icon\": \"ti ti-shield-lock\",
+    \"icon\": \"ti ti-nurse\",
     \"capabilities\": [
         \"d\"
     ],
@@ -11676,7 +11682,7 @@ let body = {
     "name": "b",
     "scope": "branch",
     "description": "Et animi quos velit et fugiat.",
-    "icon": "ti ti-shield-lock",
+    "icon": "ti ti-nurse",
     "capabilities": [
         "d"
     ],
@@ -11824,10 +11830,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="icon"                data-endpoint="POSTapi-v1-tenant-roles"
-               value="ti ti-shield-lock"
+               value="ti ti-nurse"
                data-component="body">
     <br>
-<p>Example: <code>ti ti-shield-lock</code></p>
+<p>Example: <code>ti ti-nurse</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>ti ti-shield-lock</code></li> <li><code>ti ti-users</code></li> <li><code>ti ti-headset</code></li> <li><code>ti ti-stethoscope</code></li> <li><code>ti ti-nurse</code></li> <li><code>ti ti-pill</code></li> <li><code>ti ti-briefcase</code></li> <li><code>ti ti-receipt</code></li> <li><code>ti ti-cash</code></li> <li><code>ti ti-clipboard-list</code></li> <li><code>ti ti-microscope</code></li> <li><code>ti ti-eye</code></li></ul>
         </div>
@@ -11881,9 +11887,9 @@ Must be one of:
     --header "Accept: application/json" \
     --data "{
     \"name\": \"b\",
-    \"scope\": \"organization\",
+    \"scope\": \"branch\",
     \"description\": \"Et animi quos velit et fugiat.\",
-    \"icon\": \"ti ti-headset\",
+    \"icon\": \"ti ti-pill\",
     \"capabilities\": [
         \"d\"
     ],
@@ -11907,9 +11913,9 @@ const headers = {
 
 let body = {
     "name": "b",
-    "scope": "organization",
+    "scope": "branch",
     "description": "Et animi quos velit et fugiat.",
-    "icon": "ti ti-headset",
+    "icon": "ti ti-pill",
     "capabilities": [
         "d"
     ],
@@ -12048,10 +12054,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="scope"                data-endpoint="PUTapi-v1-tenant-roles--id-"
-               value="organization"
+               value="branch"
                data-component="body">
     <br>
-<p>Example: <code>organization</code></p>
+<p>Example: <code>branch</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>organization</code></li> <li><code>branch</code></li></ul>
         </div>
@@ -12074,10 +12080,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="icon"                data-endpoint="PUTapi-v1-tenant-roles--id-"
-               value="ti ti-headset"
+               value="ti ti-pill"
                data-component="body">
     <br>
-<p>Example: <code>ti ti-headset</code></p>
+<p>Example: <code>ti ti-pill</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>ti ti-shield-lock</code></li> <li><code>ti ti-users</code></li> <li><code>ti ti-headset</code></li> <li><code>ti ti-stethoscope</code></li> <li><code>ti ti-nurse</code></li> <li><code>ti ti-pill</code></li> <li><code>ti ti-briefcase</code></li> <li><code>ti ti-receipt</code></li> <li><code>ti ti-cash</code></li> <li><code>ti ti-clipboard-list</code></li> <li><code>ti ti-microscope</code></li> <li><code>ti ti-eye</code></li></ul>
         </div>
@@ -13153,7 +13159,7 @@ never heard of by leaving it out.</p>
     --header "Accept: application/json" \
     --data "{
     \"modules\": [
-        false
+        true
     ]
 }"
 </code></pre></div>
@@ -13172,7 +13178,7 @@ const headers = {
 
 let body = {
     "modules": [
-        false
+        true
     ]
 };
 
@@ -13580,14 +13586,14 @@ You can check the Dev Tools console for debugging information.</code></pre>
             \"label\": \"z\",
             \"placeholder\": \"m\",
             \"is_custom\": true,
-            \"data_type\": \"text\",
+            \"data_type\": \"date\",
             \"options\": [
                 {
                     \"value\": \"i\",
                     \"label\": \"y\"
                 }
             ],
-            \"is_required\": true,
+            \"is_required\": false,
             \"show_in_form\": true,
             \"show_in_table\": true,
             \"sort_order\": 1
@@ -13619,14 +13625,14 @@ let body = {
             "label": "z",
             "placeholder": "m",
             "is_custom": true,
-            "data_type": "text",
+            "data_type": "date",
             "options": [
                 {
                     "value": "i",
                     "label": "y"
                 }
             ],
-            "is_required": true,
+            "is_required": false,
             "show_in_form": true,
             "show_in_table": true,
             "sort_order": 1
@@ -13820,10 +13826,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="fields.0.data_type"                data-endpoint="PUTapi-v1-tenant-settings-fields--entity-"
-               value="text"
+               value="date"
                data-component="body">
     <br>
-<p>Example: <code>text</code></p>
+<p>Example: <code>date</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>text</code></li> <li><code>textarea</code></li> <li><code>number</code></li> <li><code>date</code></li> <li><code>boolean</code></li> <li><code>select</code></li></ul>
                     </div>
@@ -13883,7 +13889,7 @@ Must be one of:
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>true</code></p>
+<p>Example: <code>false</code></p>
                     </div>
                                                                 <div style="margin-left: 14px; clear: unset;">
                         <b style="line-height: 2;"><code>show_in_form</code></b>&nbsp;&nbsp;
@@ -15343,7 +15349,7 @@ whether the person sending it works there.</p>
     --header "Content-Type: application/json" \
     --header "Accept: application/json" \
     --data "{
-    \"date\": \"2026-10-10T12:36:50\",
+    \"date\": \"2026-10-10T12:46:27\",
     \"location_id\": 16
 }"
 </code></pre></div>
@@ -15361,7 +15367,7 @@ const headers = {
 };
 
 let body = {
-    "date": "2026-10-10T12:36:50",
+    "date": "2026-10-10T12:46:27",
     "location_id": 16
 };
 
@@ -15466,10 +15472,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="date"                data-endpoint="GETapi-v1-tenant-availability-day"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>location_id</code></b>&nbsp;&nbsp;
@@ -15506,7 +15512,7 @@ works there.</p>
     --header "Content-Type: application/json" \
     --header "Accept: application/json" \
     --data "{
-    \"from\": \"2026-10-10T12:36:50\",
+    \"from\": \"2026-10-10T12:46:27\",
     \"location_id\": 16
 }"
 </code></pre></div>
@@ -15524,7 +15530,7 @@ const headers = {
 };
 
 let body = {
-    "from": "2026-10-10T12:36:50",
+    "from": "2026-10-10T12:46:27",
     "location_id": 16
 };
 
@@ -15629,10 +15635,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="from"                data-endpoint="GETapi-v1-tenant-availability-week"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>location_id</code></b>&nbsp;&nbsp;
@@ -15668,7 +15674,7 @@ the weekly pattern.</h2>
     --header "Content-Type: application/json" \
     --header "Accept: application/json" \
     --data "{
-    \"from\": \"2026-10-10T12:36:50\",
+    \"from\": \"2026-10-10T12:46:27\",
     \"to\": \"2052-11-02\",
     \"doctor_id\": 16,
     \"location_id\": 16
@@ -15688,7 +15694,7 @@ const headers = {
 };
 
 let body = {
-    "from": "2026-10-10T12:36:50",
+    "from": "2026-10-10T12:46:27",
     "to": "2052-11-02",
     "doctor_id": 16,
     "location_id": 16
@@ -15795,10 +15801,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="from"                data-endpoint="GETapi-v1-tenant-availability-exceptions"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>to</code></b>&nbsp;&nbsp;
@@ -15857,7 +15863,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --header "Content-Type: application/json" \
     --header "Accept: application/json" \
     --data "{
-    \"date\": \"2026-10-10T12:36:50\",
+    \"date\": \"2026-10-10T12:46:27\",
     \"location_id\": 16
 }"
 </code></pre></div>
@@ -15875,7 +15881,7 @@ const headers = {
 };
 
 let body = {
-    "date": "2026-10-10T12:36:50",
+    "date": "2026-10-10T12:46:27",
     "location_id": 16
 };
 
@@ -15993,10 +15999,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="date"                data-endpoint="GETapi-v1-tenant-availability-doctors--doctor_id-"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>location_id</code></b>&nbsp;&nbsp;
@@ -16161,7 +16167,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --header "Accept: application/json" \
     --data "{
     \"location_id\": 16,
-    \"date\": \"2026-10-10T12:36:50\"
+    \"date\": \"2026-10-10T12:46:27\"
 }"
 </code></pre></div>
 
@@ -16179,7 +16185,7 @@ const headers = {
 
 let body = {
     "location_id": 16,
-    "date": "2026-10-10T12:36:50"
+    "date": "2026-10-10T12:46:27"
 };
 
 fetch(url, {
@@ -16295,10 +16301,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="date"                data-endpoint="GETapi-v1-tenant-opd-today"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
         </form>
 
@@ -16322,7 +16328,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --header "Accept: application/json" \
     --data "{
     \"location_id\": 16,
-    \"date\": \"2026-10-10T12:36:50\"
+    \"date\": \"2026-10-10T12:46:27\"
 }"
 </code></pre></div>
 
@@ -16340,7 +16346,7 @@ const headers = {
 
 let body = {
     "location_id": 16,
-    "date": "2026-10-10T12:36:50"
+    "date": "2026-10-10T12:46:27"
 };
 
 fetch(url, {
@@ -16456,10 +16462,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="date"                data-endpoint="GETapi-v1-tenant-opd-my-day"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
         </form>
 
@@ -16484,7 +16490,7 @@ another's rota under a capability meant for their own.</p>
     --header "Content-Type: application/json" \
     --header "Accept: application/json" \
     --data "{
-    \"from\": \"2026-10-10T12:36:50\",
+    \"from\": \"2026-10-10T12:46:27\",
     \"location_id\": 16
 }"
 </code></pre></div>
@@ -16502,7 +16508,7 @@ const headers = {
 };
 
 let body = {
-    "from": "2026-10-10T12:36:50",
+    "from": "2026-10-10T12:46:27",
     "location_id": 16
 };
 
@@ -16607,10 +16613,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="from"                data-endpoint="GETapi-v1-tenant-opd-my-month"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>location_id</code></b>&nbsp;&nbsp;
@@ -16649,7 +16655,7 @@ to keep the doctor check and the date window in step.</p>
     --header "Accept: application/json" \
     --data "{
     \"view\": \"appointments\",
-    \"from\": \"2026-10-10T12:36:50\",
+    \"from\": \"2026-10-10T12:46:27\",
     \"to\": \"2052-11-02\",
     \"status\": \"architecto\",
     \"q\": \"n\"
@@ -16670,7 +16676,7 @@ const headers = {
 
 let body = {
     "view": "appointments",
-    "from": "2026-10-10T12:36:50",
+    "from": "2026-10-10T12:46:27",
     "to": "2052-11-02",
     "status": "architecto",
     "q": "n"
@@ -16791,10 +16797,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="from"                data-endpoint="GETapi-v1-tenant-opd-my-records"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>to</code></b>&nbsp;&nbsp;
@@ -17811,7 +17817,7 @@ decision rather than a rule applied behind their back.</p>
     --data "{
     \"doctor_id\": 16,
     \"location_id\": 16,
-    \"date\": \"2026-10-10T12:36:50\"
+    \"date\": \"2026-10-10T12:46:27\"
 }"
 </code></pre></div>
 
@@ -17830,7 +17836,7 @@ const headers = {
 let body = {
     "doctor_id": 16,
     "location_id": 16,
-    "date": "2026-10-10T12:36:50"
+    "date": "2026-10-10T12:46:27"
 };
 
 fetch(url, {
@@ -17958,10 +17964,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="date"                data-endpoint="GETapi-v1-tenant-appointments"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
         </form>
 
@@ -17984,7 +17990,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --header "Content-Type: application/json" \
     --header "Accept: application/json" \
     --data "{
-    \"date\": \"2026-10-10T12:36:50\",
+    \"date\": \"2026-10-10T12:46:27\",
     \"location_id\": 16
 }"
 </code></pre></div>
@@ -18002,7 +18008,7 @@ const headers = {
 };
 
 let body = {
-    "date": "2026-10-10T12:36:50",
+    "date": "2026-10-10T12:46:27",
     "location_id": 16
 };
 
@@ -18120,10 +18126,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="date"                data-endpoint="GETapi-v1-tenant-appointments-slots--doctor_id-"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>location_id</code></b>&nbsp;&nbsp;
@@ -18161,9 +18167,9 @@ You can check the Dev Tools console for debugging information.</code></pre>
     \"customer_id\": 16,
     \"doctor_id\": 16,
     \"location_id\": 16,
-    \"appointment_date\": \"2026-10-10T12:36:50\",
-    \"type\": \"booked\",
-    \"slot_at\": \"12:36\",
+    \"appointment_date\": \"2026-10-10T12:46:27\",
+    \"type\": \"walk_in\",
+    \"slot_at\": \"12:46\",
     \"notes\": \"n\"
 }"
 </code></pre></div>
@@ -18184,9 +18190,9 @@ let body = {
     "customer_id": 16,
     "doctor_id": 16,
     "location_id": 16,
-    "appointment_date": "2026-10-10T12:36:50",
-    "type": "booked",
-    "slot_at": "12:36",
+    "appointment_date": "2026-10-10T12:46:27",
+    "type": "walk_in",
+    "slot_at": "12:46",
     "notes": "n"
 };
 
@@ -18327,10 +18333,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="appointment_date"                data-endpoint="POSTapi-v1-tenant-appointments"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>type</code></b>&nbsp;&nbsp;
@@ -18339,10 +18345,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="type"                data-endpoint="POSTapi-v1-tenant-appointments"
-               value="booked"
+               value="walk_in"
                data-component="body">
     <br>
-<p>Example: <code>booked</code></p>
+<p>Example: <code>walk_in</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>booked</code></li> <li><code>walk_in</code></li></ul>
         </div>
@@ -18353,10 +18359,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="slot_at"                data-endpoint="POSTapi-v1-tenant-appointments"
-               value="12:36"
+               value="12:46"
                data-component="body">
     <br>
-<p>Must be a valid date in the format <code>H:i</code>. Example: <code>12:36</code></p>
+<p>Must be a valid date in the format <code>H:i</code>. Example: <code>12:46</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>notes</code></b>&nbsp;&nbsp;
@@ -19112,7 +19118,7 @@ upload the same image again.</p>
     --header "Authorization: Bearer {YOUR_SANCTUM_TOKEN}" \
     --header "Content-Type: multipart/form-data" \
     --header "Accept: application/json" \
-    --form "photo=@C:\Users\ruder\AppData\Local\Temp\phpE35F.tmp" </code></pre></div>
+    --form "photo=@C:\Users\ruder\AppData\Local\Temp\phpAFD1.tmp" </code></pre></div>
 
 
 <div class="javascript-example">
@@ -19246,7 +19252,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
                value=""
                data-component="body">
     <br>
-<p>Must be an image. Must not be greater than 4096 kilobytes. Example: <code>C:\Users\ruder\AppData\Local\Temp\phpE35F.tmp</code></p>
+<p>Must be an image. Must not be greater than 4096 kilobytes. Example: <code>C:\Users\ruder\AppData\Local\Temp\phpAFD1.tmp</code></p>
         </div>
         </form>
 
@@ -19412,8 +19418,8 @@ You can check the Dev Tools console for debugging information.</code></pre>
         {
             \"location_id\": 16,
             \"name\": \"n\",
-            \"weekday\": 3,
-            \"starts_at\": \"12:36\",
+            \"weekday\": 4,
+            \"starts_at\": \"12:46\",
             \"ends_at\": \"2052-11-02\",
             \"slot_minutes\": 22,
             \"max_walkins\": 7,
@@ -19441,8 +19447,8 @@ let body = {
         {
             "location_id": 16,
             "name": "n",
-            "weekday": 3,
-            "starts_at": "12:36",
+            "weekday": 4,
+            "starts_at": "12:46",
             "ends_at": "2052-11-02",
             "slot_minutes": 22,
             "max_walkins": 7,
@@ -19600,10 +19606,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="number" style="display: none"
                step="any"               name="schedules.0.weekday"                data-endpoint="PUTapi-v1-tenant-doctors--doctor_id--schedules"
-               value="3"
+               value="4"
                data-component="body">
     <br>
-<p>Example: <code>3</code></p>
+<p>Example: <code>4</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>0</code></li> <li><code>1</code></li> <li><code>2</code></li> <li><code>3</code></li> <li><code>4</code></li> <li><code>5</code></li> <li><code>6</code></li></ul>
                     </div>
@@ -19614,10 +19620,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="schedules.0.starts_at"                data-endpoint="PUTapi-v1-tenant-doctors--doctor_id--schedules"
-               value="12:36"
+               value="12:46"
                data-component="body">
     <br>
-<p>Must be a valid date in the format <code>H:i</code>. Example: <code>12:36</code></p>
+<p>Must be a valid date in the format <code>H:i</code>. Example: <code>12:46</code></p>
                     </div>
                                                                 <div style="margin-left: 14px; clear: unset;">
                         <b style="line-height: 2;"><code>ends_at</code></b>&nbsp;&nbsp;
@@ -19713,11 +19719,11 @@ Must be one of:
     --header "Accept: application/json" \
     --data "{
     \"doctor_id\": 16,
-    \"date\": \"2026-10-10T12:36:51\",
-    \"type\": \"extra_session\",
+    \"date\": \"2026-10-10T12:46:27\",
+    \"type\": \"unavailable\",
     \"doctor_schedule_id\": 16,
     \"location_id\": 16,
-    \"starts_at\": \"12:36\",
+    \"starts_at\": \"12:46\",
     \"ends_at\": \"2052-11-02\",
     \"slot_minutes\": 22,
     \"max_walkins\": 7,
@@ -19739,11 +19745,11 @@ const headers = {
 
 let body = {
     "doctor_id": 16,
-    "date": "2026-10-10T12:36:51",
-    "type": "extra_session",
+    "date": "2026-10-10T12:46:27",
+    "type": "unavailable",
     "doctor_schedule_id": 16,
     "location_id": 16,
-    "starts_at": "12:36",
+    "starts_at": "12:46",
     "ends_at": "2052-11-02",
     "slot_minutes": 22,
     "max_walkins": 7,
@@ -19863,10 +19869,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="date"                data-endpoint="POSTapi-v1-tenant-availability-exceptions"
-               value="2026-10-10T12:36:51"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:51</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>type</code></b>&nbsp;&nbsp;
@@ -19875,10 +19881,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="type"                data-endpoint="POSTapi-v1-tenant-availability-exceptions"
-               value="extra_session"
+               value="unavailable"
                data-component="body">
     <br>
-<p>Example: <code>extra_session</code></p>
+<p>Example: <code>unavailable</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>unavailable</code></li> <li><code>changed_hours</code></li> <li><code>extra_session</code></li></ul>
         </div>
@@ -19913,10 +19919,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="starts_at"                data-endpoint="POSTapi-v1-tenant-availability-exceptions"
-               value="12:36"
+               value="12:46"
                data-component="body">
     <br>
-<p>Must be a valid date in the format <code>H:i</code>. Example: <code>12:36</code></p>
+<p>Must be a valid date in the format <code>H:i</code>. Example: <code>12:46</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>ends_at</code></b>&nbsp;&nbsp;
@@ -21302,11 +21308,11 @@ You can check the Dev Tools console for debugging information.</code></pre>
             \"afternoon\": 24,
             \"evening\": 8,
             \"night\": 6,
-            \"frequency\": \"od\",
+            \"frequency\": \"custom\",
             \"food_timing\": \"after_food\",
             \"duration\": 25,
             \"duration_unit\": \"continuous\",
-            \"route\": \"oral\",
+            \"route\": \"ophthalmic\",
             \"prescribed_quantity\": 25,
             \"instructions\": \"w\"
         }
@@ -21341,11 +21347,11 @@ let body = {
             "afternoon": 24,
             "evening": 8,
             "night": 6,
-            "frequency": "od",
+            "frequency": "custom",
             "food_timing": "after_food",
             "duration": 25,
             "duration_unit": "continuous",
-            "route": "oral",
+            "route": "ophthalmic",
             "prescribed_quantity": 25,
             "instructions": "w"
         }
@@ -21595,10 +21601,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="items.0.frequency"                data-endpoint="POSTapi-v1-tenant-prescriptions"
-               value="od"
+               value="custom"
                data-component="body">
     <br>
-<p>Example: <code>od</code></p>
+<p>Example: <code>custom</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>od</code></li> <li><code>bd</code></li> <li><code>tds</code></li> <li><code>qid</code></li> <li><code>hs</code></li> <li><code>sos</code></li> <li><code>stat</code></li> <li><code>weekly</code></li> <li><code>custom</code></li></ul>
                     </div>
@@ -21649,10 +21655,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="items.0.route"                data-endpoint="POSTapi-v1-tenant-prescriptions"
-               value="oral"
+               value="ophthalmic"
                data-component="body">
     <br>
-<p>Example: <code>oral</code></p>
+<p>Example: <code>ophthalmic</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>oral</code></li> <li><code>iv</code></li> <li><code>im</code></li> <li><code>sc</code></li> <li><code>topical</code></li> <li><code>inhalation</code></li> <li><code>ophthalmic</code></li> <li><code>otic</code></li> <li><code>nasal</code></li> <li><code>rectal</code></li> <li><code>vaginal</code></li> <li><code>sublingual</code></li> <li><code>other</code></li></ul>
                     </div>
@@ -21728,11 +21734,11 @@ Must be one of:
             \"afternoon\": 24,
             \"evening\": 8,
             \"night\": 6,
-            \"frequency\": \"od\",
-            \"food_timing\": \"with_food\",
+            \"frequency\": \"custom\",
+            \"food_timing\": \"after_food\",
             \"duration\": 25,
             \"duration_unit\": \"months\",
-            \"route\": \"iv\",
+            \"route\": \"other\",
             \"prescribed_quantity\": 25,
             \"instructions\": \"w\"
         }
@@ -21766,11 +21772,11 @@ let body = {
             "afternoon": 24,
             "evening": 8,
             "night": 6,
-            "frequency": "od",
-            "food_timing": "with_food",
+            "frequency": "custom",
+            "food_timing": "after_food",
             "duration": 25,
             "duration_unit": "months",
-            "route": "iv",
+            "route": "other",
             "prescribed_quantity": 25,
             "instructions": "w"
         }
@@ -22033,10 +22039,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="items.0.frequency"                data-endpoint="PUTapi-v1-tenant-prescriptions--id-"
-               value="od"
+               value="custom"
                data-component="body">
     <br>
-<p>Example: <code>od</code></p>
+<p>Example: <code>custom</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>od</code></li> <li><code>bd</code></li> <li><code>tds</code></li> <li><code>qid</code></li> <li><code>hs</code></li> <li><code>sos</code></li> <li><code>stat</code></li> <li><code>weekly</code></li> <li><code>custom</code></li></ul>
                     </div>
@@ -22047,10 +22053,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="items.0.food_timing"                data-endpoint="PUTapi-v1-tenant-prescriptions--id-"
-               value="with_food"
+               value="after_food"
                data-component="body">
     <br>
-<p>Example: <code>with_food</code></p>
+<p>Example: <code>after_food</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>before_food</code></li> <li><code>after_food</code></li> <li><code>with_food</code></li> <li><code>empty_stomach</code></li> <li><code>any</code></li></ul>
                     </div>
@@ -22087,10 +22093,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="items.0.route"                data-endpoint="PUTapi-v1-tenant-prescriptions--id-"
-               value="iv"
+               value="other"
                data-component="body">
     <br>
-<p>Example: <code>iv</code></p>
+<p>Example: <code>other</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>oral</code></li> <li><code>iv</code></li> <li><code>im</code></li> <li><code>sc</code></li> <li><code>topical</code></li> <li><code>inhalation</code></li> <li><code>ophthalmic</code></li> <li><code>otic</code></li> <li><code>nasal</code></li> <li><code>rectal</code></li> <li><code>vaginal</code></li> <li><code>sublingual</code></li> <li><code>other</code></li></ul>
                     </div>
@@ -23571,7 +23577,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
             \"id\": 16,
             \"test_name\": \"n\",
             \"test_code\": \"g\",
-            \"specimen\": \"stool\",
+            \"specimen\": \"swab\",
             \"lab_test_catalog_id\": 16
         }
     ]
@@ -23598,7 +23604,7 @@ let body = {
             "id": 16,
             "test_name": "n",
             "test_code": "g",
-            "specimen": "stool",
+            "specimen": "swab",
             "lab_test_catalog_id": 16
         }
     ]
@@ -23775,10 +23781,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="items.0.specimen"                data-endpoint="POSTapi-v1-tenant-lab-orders"
-               value="stool"
+               value="swab"
                data-component="body">
     <br>
-<p>Example: <code>stool</code></p>
+<p>Example: <code>swab</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>blood</code></li> <li><code>urine</code></li> <li><code>stool</code></li> <li><code>swab</code></li> <li><code>tissue</code></li> <li><code>imaging</code></li> <li><code>other</code></li></ul>
                     </div>
@@ -23824,7 +23830,7 @@ Must be one of:
             \"id\": 16,
             \"test_name\": \"n\",
             \"test_code\": \"g\",
-            \"specimen\": \"imaging\",
+            \"specimen\": \"urine\",
             \"lab_test_catalog_id\": 16
         }
     ]
@@ -23851,7 +23857,7 @@ let body = {
             "id": 16,
             "test_name": "n",
             "test_code": "g",
-            "specimen": "imaging",
+            "specimen": "urine",
             "lab_test_catalog_id": 16
         }
     ]
@@ -24041,10 +24047,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="items.0.specimen"                data-endpoint="PUTapi-v1-tenant-lab-orders--order_id-"
-               value="imaging"
+               value="urine"
                data-component="body">
     <br>
-<p>Example: <code>imaging</code></p>
+<p>Example: <code>urine</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>blood</code></li> <li><code>urine</code></li> <li><code>stool</code></li> <li><code>swab</code></li> <li><code>tissue</code></li> <li><code>imaging</code></li> <li><code>other</code></li></ul>
                     </div>
@@ -28111,14 +28117,14 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --header "Accept: application/json" \
     --data "{
     \"invoice_prefix\": \"bngz\",
-    \"round_off_enabled\": true,
+    \"round_off_enabled\": false,
     \"price_basis\": \"selling\",
-    \"prices_include_tax\": false,
+    \"prices_include_tax\": true,
     \"expiry_warning_days\": 17,
     \"allow_walk_in\": false,
     \"credit_sales_enabled\": true,
-    \"require_prescription\": false,
-    \"default_payment_method\": \"credit\"
+    \"require_prescription\": true,
+    \"default_payment_method\": \"bank_transfer\"
 }"
 </code></pre></div>
 
@@ -28136,14 +28142,14 @@ const headers = {
 
 let body = {
     "invoice_prefix": "bngz",
-    "round_off_enabled": true,
+    "round_off_enabled": false,
     "price_basis": "selling",
-    "prices_include_tax": false,
+    "prices_include_tax": true,
     "expiry_warning_days": 17,
     "allow_walk_in": false,
     "credit_sales_enabled": true,
-    "require_prescription": false,
-    "default_payment_method": "credit"
+    "require_prescription": true,
+    "default_payment_method": "bank_transfer"
 };
 
 fetch(url, {
@@ -28272,7 +28278,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>true</code></p>
+<p>Example: <code>false</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>price_basis</code></b>&nbsp;&nbsp;
@@ -28308,7 +28314,7 @@ Must be one of:
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>false</code></p>
+<p>Example: <code>true</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>expiry_warning_days</code></b>&nbsp;&nbsp;
@@ -28386,7 +28392,7 @@ Must be one of:
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>false</code></p>
+<p>Example: <code>true</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>default_payment_method</code></b>&nbsp;&nbsp;
@@ -28395,10 +28401,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="default_payment_method"                data-endpoint="PUTapi-v1-tenant-pharmacy-settings"
-               value="credit"
+               value="bank_transfer"
                data-component="body">
     <br>
-<p>Example: <code>credit</code></p>
+<p>Example: <code>bank_transfer</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>cash</code></li> <li><code>card</code></li> <li><code>upi</code></li> <li><code>bank_transfer</code></li> <li><code>credit</code></li> <li><code>other</code></li></ul>
         </div>
@@ -28554,14 +28560,14 @@ You can check the Dev Tools console for debugging information.</code></pre>
     \"location_id\": 16,
     \"name\": \"n\",
     \"code\": \"g\",
-    \"store_type\": \"ipd_pharmacy\",
-    \"is_default\": true,
+    \"store_type\": \"central\",
+    \"is_default\": false,
     \"is_active\": false,
     \"pharmacist_user_id\": 16,
     \"address\": \"n\",
     \"phone\": \"gzmiyvdljnikhway\",
     \"drug_license_no\": \"k\",
-    \"drug_license_expiry_date\": \"2026-10-10T12:36:50\"
+    \"drug_license_expiry_date\": \"2026-10-10T12:46:26\"
 }"
 </code></pre></div>
 
@@ -28581,14 +28587,14 @@ let body = {
     "location_id": 16,
     "name": "n",
     "code": "g",
-    "store_type": "ipd_pharmacy",
-    "is_default": true,
+    "store_type": "central",
+    "is_default": false,
     "is_active": false,
     "pharmacist_user_id": 16,
     "address": "n",
     "phone": "gzmiyvdljnikhway",
     "drug_license_no": "k",
-    "drug_license_expiry_date": "2026-10-10T12:36:50"
+    "drug_license_expiry_date": "2026-10-10T12:46:26"
 };
 
 fetch(url, {
@@ -28728,10 +28734,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="store_type"                data-endpoint="POSTapi-v1-tenant-pharmacy-stores"
-               value="ipd_pharmacy"
+               value="central"
                data-component="body">
     <br>
-<p>Example: <code>ipd_pharmacy</code></p>
+<p>Example: <code>central</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>hospital_pharmacy</code></li> <li><code>opd_counter</code></li> <li><code>ipd_pharmacy</code></li> <li><code>emergency</code></li> <li><code>retail</code></li> <li><code>central</code></li></ul>
         </div>
@@ -28755,7 +28761,7 @@ Must be one of:
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>true</code></p>
+<p>Example: <code>false</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>is_active</code></b>&nbsp;&nbsp;
@@ -28834,10 +28840,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="drug_license_expiry_date"                data-endpoint="POSTapi-v1-tenant-pharmacy-stores"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:26"
                data-component="body">
     <br>
-<p>This field is required when <code>drug_license_no</code> is present. Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>This field is required when <code>drug_license_no</code> is present. Must be a valid date. Example: <code>2026-10-10T12:46:26</code></p>
         </div>
         </form>
 
@@ -28863,14 +28869,14 @@ Must be one of:
     \"location_id\": 16,
     \"name\": \"n\",
     \"code\": \"g\",
-    \"store_type\": \"ipd_pharmacy\",
-    \"is_default\": false,
-    \"is_active\": false,
+    \"store_type\": \"emergency\",
+    \"is_default\": true,
+    \"is_active\": true,
     \"pharmacist_user_id\": 16,
     \"address\": \"n\",
     \"phone\": \"gzmiyvdljnikhway\",
     \"drug_license_no\": \"k\",
-    \"drug_license_expiry_date\": \"2026-10-10T12:36:50\"
+    \"drug_license_expiry_date\": \"2026-10-10T12:46:26\"
 }"
 </code></pre></div>
 
@@ -28890,14 +28896,14 @@ let body = {
     "location_id": 16,
     "name": "n",
     "code": "g",
-    "store_type": "ipd_pharmacy",
-    "is_default": false,
-    "is_active": false,
+    "store_type": "emergency",
+    "is_default": true,
+    "is_active": true,
     "pharmacist_user_id": 16,
     "address": "n",
     "phone": "gzmiyvdljnikhway",
     "drug_license_no": "k",
-    "drug_license_expiry_date": "2026-10-10T12:36:50"
+    "drug_license_expiry_date": "2026-10-10T12:46:26"
 };
 
 fetch(url, {
@@ -29050,10 +29056,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="store_type"                data-endpoint="PUTapi-v1-tenant-pharmacy-stores--store_id-"
-               value="ipd_pharmacy"
+               value="emergency"
                data-component="body">
     <br>
-<p>Example: <code>ipd_pharmacy</code></p>
+<p>Example: <code>emergency</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>hospital_pharmacy</code></li> <li><code>opd_counter</code></li> <li><code>ipd_pharmacy</code></li> <li><code>emergency</code></li> <li><code>retail</code></li> <li><code>central</code></li></ul>
         </div>
@@ -29077,7 +29083,7 @@ Must be one of:
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>false</code></p>
+<p>Example: <code>true</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>is_active</code></b>&nbsp;&nbsp;
@@ -29099,7 +29105,7 @@ Must be one of:
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>false</code></p>
+<p>Example: <code>true</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>pharmacist_user_id</code></b>&nbsp;&nbsp;
@@ -29156,10 +29162,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="drug_license_expiry_date"                data-endpoint="PUTapi-v1-tenant-pharmacy-stores--store_id-"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:26"
                data-component="body">
     <br>
-<p>This field is required when <code>drug_license_no</code> is present. Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>This field is required when <code>drug_license_no</code> is present. Must be a valid date. Example: <code>2026-10-10T12:46:26</code></p>
         </div>
         </form>
 
@@ -30770,7 +30776,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     ],
     \"payments\": [
         {
-            \"method\": \"online\",
+            \"method\": \"cheque\",
             \"amount\": 17,
             \"reference\": \"i\"
         }
@@ -30810,7 +30816,7 @@ let body = {
     ],
     "payments": [
         {
-            "method": "online",
+            "method": "cheque",
             "amount": 17,
             "reference": "i"
         }
@@ -31109,10 +31115,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="payments.0.method"                data-endpoint="POSTapi-v1-tenant-pharmacy-stores--store_id--sales"
-               value="online"
+               value="cheque"
                data-component="body">
     <br>
-<p>Example: <code>online</code></p>
+<p>Example: <code>cheque</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>cash</code></li> <li><code>card</code></li> <li><code>upi</code></li> <li><code>bank_transfer</code></li> <li><code>online</code></li> <li><code>cheque</code></li> <li><code>other</code></li></ul>
                     </div>
@@ -32778,7 +32784,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --header "Accept: application/json" \
     --data "{
     \"idempotency_key\": \"b\",
-    \"inward_type\": \"return_from_patient\",
+    \"inward_type\": \"opening_balance\",
     \"supplier_id\": 16,
     \"supplier_invoice_no\": \"n\",
     \"supplier_invoice_date\": \"2022-11-04\",
@@ -32815,7 +32821,7 @@ const headers = {
 
 let body = {
     "idempotency_key": "b",
-    "inward_type": "return_from_patient",
+    "inward_type": "opening_balance",
     "supplier_id": 16,
     "supplier_invoice_no": "n",
     "supplier_invoice_date": "2022-11-04",
@@ -32963,10 +32969,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="inward_type"                data-endpoint="POSTapi-v1-tenant-pharmacy-stores--store_id--inwards"
-               value="return_from_patient"
+               value="opening_balance"
                data-component="body">
     <br>
-<p>Example: <code>return_from_patient</code></p>
+<p>Example: <code>opening_balance</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>purchase</code></li> <li><code>opening_balance</code></li> <li><code>return_from_patient</code></li></ul>
         </div>
@@ -33355,9 +33361,9 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --data "{
     \"idempotency_key\": \"b\",
     \"medicine_batch_id\": 16,
-    \"direction\": \"increase\",
+    \"direction\": \"decrease\",
     \"quantity\": 22,
-    \"reason_code\": \"loss\",
+    \"reason_code\": \"expiry_writeoff\",
     \"reason\": \"g\"
 }"
 </code></pre></div>
@@ -33377,9 +33383,9 @@ const headers = {
 let body = {
     "idempotency_key": "b",
     "medicine_batch_id": 16,
-    "direction": "increase",
+    "direction": "decrease",
     "quantity": 22,
-    "reason_code": "loss",
+    "reason_code": "expiry_writeoff",
     "reason": "g"
 };
 
@@ -33521,10 +33527,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="direction"                data-endpoint="POSTapi-v1-tenant-pharmacy-stores--store_id--adjustments"
-               value="increase"
+               value="decrease"
                data-component="body">
     <br>
-<p>Example: <code>increase</code></p>
+<p>Example: <code>decrease</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>increase</code></li> <li><code>decrease</code></li></ul>
         </div>
@@ -33547,10 +33553,10 @@ Must be one of:
  &nbsp;
                 <input type="text" style="display: none"
                               name="reason_code"                data-endpoint="POSTapi-v1-tenant-pharmacy-stores--store_id--adjustments"
-               value="loss"
+               value="expiry_writeoff"
                data-component="body">
     <br>
-<p>Example: <code>loss</code></p>
+<p>Example: <code>expiry_writeoff</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>damage</code></li> <li><code>expiry_writeoff</code></li> <li><code>count_correction</code></li> <li><code>loss</code></li> <li><code>other</code></li></ul>
         </div>
@@ -34383,7 +34389,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     \"code\": \"n\",
     \"gstin\": \"gzmiyvdljnikhwa\",
     \"drug_license_no\": \"y\",
-    \"drug_license_expiry_date\": \"2026-10-10T12:36:50\",
+    \"drug_license_expiry_date\": \"2026-10-10T12:46:26\",
     \"contact_person\": \"k\",
     \"phone\": \"cmyuwpwlvqwrsitc\",
     \"email\": \"isidro.mclaughlin@example.org\",
@@ -34409,7 +34415,7 @@ let body = {
     "code": "n",
     "gstin": "gzmiyvdljnikhwa",
     "drug_license_no": "y",
-    "drug_license_expiry_date": "2026-10-10T12:36:50",
+    "drug_license_expiry_date": "2026-10-10T12:46:26",
     "contact_person": "k",
     "phone": "cmyuwpwlvqwrsitc",
     "email": "isidro.mclaughlin@example.org",
@@ -34566,10 +34572,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="drug_license_expiry_date"                data-endpoint="POSTapi-v1-tenant-suppliers"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:26"
                data-component="body">
     <br>
-<p>This field is required when <code>drug_license_no</code> is present. Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>This field is required when <code>drug_license_no</code> is present. Must be a valid date. Example: <code>2026-10-10T12:46:26</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>contact_person</code></b>&nbsp;&nbsp;
@@ -34666,12 +34672,12 @@ You can check the Dev Tools console for debugging information.</code></pre>
     \"code\": \"n\",
     \"gstin\": \"gzmiyvdljnikhwa\",
     \"drug_license_no\": \"y\",
-    \"drug_license_expiry_date\": \"2026-10-10T12:36:50\",
+    \"drug_license_expiry_date\": \"2026-10-10T12:46:26\",
     \"contact_person\": \"k\",
     \"phone\": \"cmyuwpwlvqwrsitc\",
     \"email\": \"isidro.mclaughlin@example.org\",
     \"address\": \"d\",
-    \"is_active\": false
+    \"is_active\": true
 }"
 </code></pre></div>
 
@@ -34692,12 +34698,12 @@ let body = {
     "code": "n",
     "gstin": "gzmiyvdljnikhwa",
     "drug_license_no": "y",
-    "drug_license_expiry_date": "2026-10-10T12:36:50",
+    "drug_license_expiry_date": "2026-10-10T12:46:26",
     "contact_person": "k",
     "phone": "cmyuwpwlvqwrsitc",
     "email": "isidro.mclaughlin@example.org",
     "address": "d",
-    "is_active": false
+    "is_active": true
 };
 
 fetch(url, {
@@ -34862,10 +34868,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="drug_license_expiry_date"                data-endpoint="PUTapi-v1-tenant-suppliers--id-"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:26"
                data-component="body">
     <br>
-<p>This field is required when <code>drug_license_no</code> is present. Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>This field is required when <code>drug_license_no</code> is present. Must be a valid date. Example: <code>2026-10-10T12:46:26</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>contact_person</code></b>&nbsp;&nbsp;
@@ -34935,7 +34941,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>false</code></p>
+<p>Example: <code>true</code></p>
         </div>
         </form>
 
@@ -35511,7 +35517,7 @@ screen's own filter actually narrows them.</p>
     --header "Content-Type: application/json" \
     --header "Accept: application/json" \
     --data "{
-    \"from\": \"2026-10-10T12:36:50\",
+    \"from\": \"2026-10-10T12:46:27\",
     \"to\": \"2052-11-02\"
 }"
 </code></pre></div>
@@ -35529,7 +35535,7 @@ const headers = {
 };
 
 let body = {
-    "from": "2026-10-10T12:36:50",
+    "from": "2026-10-10T12:46:27",
     "to": "2052-11-02"
 };
 
@@ -35634,10 +35640,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="from"                data-endpoint="GETapi-v1-tenant-billing-overview-outstanding-summary"
-               value="2026-10-10T12:36:50"
+               value="2026-10-10T12:46:27"
                data-component="body">
     <br>
-<p>Must be a valid date. Example: <code>2026-10-10T12:36:50</code></p>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>to</code></b>&nbsp;&nbsp;
@@ -36989,7 +36995,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     \"notes\": \"n\",
     \"items\": [
         {
-            \"source_type\": \"service\",
+            \"source_type\": \"custom\",
             \"source_id\": 16,
             \"billable_service_id\": 16,
             \"description\": \"Et animi quos velit et fugiat.\",
@@ -37026,7 +37032,7 @@ let body = {
     "notes": "n",
     "items": [
         {
-            "source_type": "service",
+            "source_type": "custom",
             "source_id": 16,
             "billable_service_id": 16,
             "description": "Et animi quos velit et fugiat.",
@@ -37246,10 +37252,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="items.0.source_type"                data-endpoint="POSTapi-v1-tenant-invoices"
-               value="service"
+               value="custom"
                data-component="body">
     <br>
-<p>Example: <code>service</code></p>
+<p>Example: <code>custom</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>procedure</code></li> <li><code>service</code></li> <li><code>custom</code></li></ul>
                     </div>
@@ -37672,7 +37678,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     \"notes\": \"n\",
     \"items\": [
         {
-            \"source_type\": \"consultation\",
+            \"source_type\": \"pharmacy_sale_item\",
             \"source_id\": 16,
             \"billable_service_id\": 16,
             \"description\": \"Et animi quos velit et fugiat.\",
@@ -37709,7 +37715,7 @@ let body = {
     "notes": "n",
     "items": [
         {
-            "source_type": "consultation",
+            "source_type": "pharmacy_sale_item",
             "source_id": 16,
             "billable_service_id": 16,
             "description": "Et animi quos velit et fugiat.",
@@ -37942,10 +37948,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="items.0.source_type"                data-endpoint="PUTapi-v1-tenant-invoices--id-"
-               value="consultation"
+               value="pharmacy_sale_item"
                data-component="body">
     <br>
-<p>Example: <code>consultation</code></p>
+<p>Example: <code>pharmacy_sale_item</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>consultation</code></li> <li><code>pharmacy_sale_item</code></li> <li><code>lab_test</code></li> <li><code>procedure</code></li> <li><code>service</code></li> <li><code>custom</code></li></ul>
                     </div>
@@ -38684,6 +38690,371 @@ You can check the Dev Tools console for debugging information.</code></pre>
                data-component="body">
     <br>
 <p>Must not be greater than 500 characters. Example: <code>g</code></p>
+        </div>
+        </form>
+
+                    <h2 id="tenant-billing-GETapi-v1-tenant-finance-summary">GET api/v1/tenant/finance/summary</h2>
+
+<p>
+<small class="badge badge-darkred">requires authentication</small>
+</p>
+
+
+
+<span id="example-requests-GETapi-v1-tenant-finance-summary">
+<blockquote>Example request:</blockquote>
+
+
+<div class="bash-example">
+    <pre><code class="language-bash">curl --request GET \
+    --get "http://localhost:8000/api/v1/tenant/finance/summary" \
+    --header "Authorization: Bearer {YOUR_SANCTUM_TOKEN}" \
+    --header "Content-Type: application/json" \
+    --header "Accept: application/json"</code></pre></div>
+
+
+<div class="javascript-example">
+    <pre><code class="language-javascript">const url = new URL(
+    "http://localhost:8000/api/v1/tenant/finance/summary"
+);
+
+const headers = {
+    "Authorization": "Bearer {YOUR_SANCTUM_TOKEN}",
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+};
+
+
+fetch(url, {
+    method: "GET",
+    headers,
+}).then(response =&gt; response.json());</code></pre></div>
+
+</span>
+
+<span id="example-responses-GETapi-v1-tenant-finance-summary">
+    </span>
+<span id="execution-results-GETapi-v1-tenant-finance-summary" hidden>
+    <blockquote>Received response<span
+                id="execution-response-status-GETapi-v1-tenant-finance-summary"></span>:
+    </blockquote>
+    <pre class="json"><code id="execution-response-content-GETapi-v1-tenant-finance-summary"
+      data-empty-response-text="<Empty response>" style="max-height: 400px;"></code></pre>
+</span>
+<span id="execution-error-GETapi-v1-tenant-finance-summary" hidden>
+    <blockquote>Request failed with error:</blockquote>
+    <pre><code id="execution-error-message-GETapi-v1-tenant-finance-summary">
+
+Tip: Check that you&#039;re properly connected to the network.
+If you&#039;re a maintainer of ths API, verify that your API is running and you&#039;ve enabled CORS.
+You can check the Dev Tools console for debugging information.</code></pre>
+</span>
+<form id="form-GETapi-v1-tenant-finance-summary" data-method="GET"
+      data-path="api/v1/tenant/finance/summary"
+      data-authed="1"
+      data-hasfiles="0"
+      data-isarraybody="0"
+      autocomplete="off"
+      onsubmit="event.preventDefault(); executeTryOut('GETapi-v1-tenant-finance-summary', this);">
+    <h3>
+        Request&nbsp;&nbsp;&nbsp;
+                    <button type="button"
+                    style="background-color: #8fbcd4; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-tryout-GETapi-v1-tenant-finance-summary"
+                    onclick="tryItOut('GETapi-v1-tenant-finance-summary');">Try it out ⚡
+            </button>
+            <button type="button"
+                    style="background-color: #c97a7e; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-canceltryout-GETapi-v1-tenant-finance-summary"
+                    onclick="cancelTryOut('GETapi-v1-tenant-finance-summary');" hidden>Cancel 🛑
+            </button>&nbsp;&nbsp;
+            <button type="submit"
+                    style="background-color: #6ac174; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-executetryout-GETapi-v1-tenant-finance-summary"
+                    data-initial-text="Send Request 💥"
+                    data-loading-text="⏱ Sending..."
+                    hidden>Send Request 💥
+            </button>
+            </h3>
+            <p>
+            <small class="badge badge-green">GET</small>
+            <b><code>api/v1/tenant/finance/summary</code></b>
+        </p>
+                <h4 class="fancy-heading-panel"><b>Headers</b></h4>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Authorization</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Authorization" class="auth-value"               data-endpoint="GETapi-v1-tenant-finance-summary"
+               value="Bearer {YOUR_SANCTUM_TOKEN}"
+               data-component="header">
+    <br>
+<p>Example: <code>Bearer {YOUR_SANCTUM_TOKEN}</code></p>
+            </div>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Content-Type</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Content-Type"                data-endpoint="GETapi-v1-tenant-finance-summary"
+               value="application/json"
+               data-component="header">
+    <br>
+<p>Example: <code>application/json</code></p>
+            </div>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Accept</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Accept"                data-endpoint="GETapi-v1-tenant-finance-summary"
+               value="application/json"
+               data-component="header">
+    <br>
+<p>Example: <code>application/json</code></p>
+            </div>
+                        </form>
+
+                    <h2 id="tenant-billing-GETapi-v1-tenant-finance-documents">Every bill from every department, one list.</h2>
+
+<p>
+<small class="badge badge-darkred">requires authentication</small>
+</p>
+
+
+
+<span id="example-requests-GETapi-v1-tenant-finance-documents">
+<blockquote>Example request:</blockquote>
+
+
+<div class="bash-example">
+    <pre><code class="language-bash">curl --request GET \
+    --get "http://localhost:8000/api/v1/tenant/finance/documents" \
+    --header "Authorization: Bearer {YOUR_SANCTUM_TOKEN}" \
+    --header "Content-Type: application/json" \
+    --header "Accept: application/json" \
+    --data "{
+    \"from\": \"2026-10-10T12:46:27\",
+    \"to\": \"2026-10-10T12:46:27\",
+    \"outstanding_only\": false,
+    \"search\": \"b\",
+    \"location_id\": 16,
+    \"per_page\": 22
+}"
+</code></pre></div>
+
+
+<div class="javascript-example">
+    <pre><code class="language-javascript">const url = new URL(
+    "http://localhost:8000/api/v1/tenant/finance/documents"
+);
+
+const headers = {
+    "Authorization": "Bearer {YOUR_SANCTUM_TOKEN}",
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+};
+
+let body = {
+    "from": "2026-10-10T12:46:27",
+    "to": "2026-10-10T12:46:27",
+    "outstanding_only": false,
+    "search": "b",
+    "location_id": 16,
+    "per_page": 22
+};
+
+fetch(url, {
+    method: "GET",
+    headers,
+    body: JSON.stringify(body),
+}).then(response =&gt; response.json());</code></pre></div>
+
+</span>
+
+<span id="example-responses-GETapi-v1-tenant-finance-documents">
+    </span>
+<span id="execution-results-GETapi-v1-tenant-finance-documents" hidden>
+    <blockquote>Received response<span
+                id="execution-response-status-GETapi-v1-tenant-finance-documents"></span>:
+    </blockquote>
+    <pre class="json"><code id="execution-response-content-GETapi-v1-tenant-finance-documents"
+      data-empty-response-text="<Empty response>" style="max-height: 400px;"></code></pre>
+</span>
+<span id="execution-error-GETapi-v1-tenant-finance-documents" hidden>
+    <blockquote>Request failed with error:</blockquote>
+    <pre><code id="execution-error-message-GETapi-v1-tenant-finance-documents">
+
+Tip: Check that you&#039;re properly connected to the network.
+If you&#039;re a maintainer of ths API, verify that your API is running and you&#039;ve enabled CORS.
+You can check the Dev Tools console for debugging information.</code></pre>
+</span>
+<form id="form-GETapi-v1-tenant-finance-documents" data-method="GET"
+      data-path="api/v1/tenant/finance/documents"
+      data-authed="1"
+      data-hasfiles="0"
+      data-isarraybody="0"
+      autocomplete="off"
+      onsubmit="event.preventDefault(); executeTryOut('GETapi-v1-tenant-finance-documents', this);">
+    <h3>
+        Request&nbsp;&nbsp;&nbsp;
+                    <button type="button"
+                    style="background-color: #8fbcd4; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-tryout-GETapi-v1-tenant-finance-documents"
+                    onclick="tryItOut('GETapi-v1-tenant-finance-documents');">Try it out ⚡
+            </button>
+            <button type="button"
+                    style="background-color: #c97a7e; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-canceltryout-GETapi-v1-tenant-finance-documents"
+                    onclick="cancelTryOut('GETapi-v1-tenant-finance-documents');" hidden>Cancel 🛑
+            </button>&nbsp;&nbsp;
+            <button type="submit"
+                    style="background-color: #6ac174; padding: 5px 10px; border-radius: 5px; border-width: thin;"
+                    id="btn-executetryout-GETapi-v1-tenant-finance-documents"
+                    data-initial-text="Send Request 💥"
+                    data-loading-text="⏱ Sending..."
+                    hidden>Send Request 💥
+            </button>
+            </h3>
+            <p>
+            <small class="badge badge-green">GET</small>
+            <b><code>api/v1/tenant/finance/documents</code></b>
+        </p>
+                <h4 class="fancy-heading-panel"><b>Headers</b></h4>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Authorization</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Authorization" class="auth-value"               data-endpoint="GETapi-v1-tenant-finance-documents"
+               value="Bearer {YOUR_SANCTUM_TOKEN}"
+               data-component="header">
+    <br>
+<p>Example: <code>Bearer {YOUR_SANCTUM_TOKEN}</code></p>
+            </div>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Content-Type</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Content-Type"                data-endpoint="GETapi-v1-tenant-finance-documents"
+               value="application/json"
+               data-component="header">
+    <br>
+<p>Example: <code>application/json</code></p>
+            </div>
+                                <div style="padding-left: 28px; clear: unset;">
+                <b style="line-height: 2;"><code>Accept</code></b>&nbsp;&nbsp;
+&nbsp;
+ &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="Accept"                data-endpoint="GETapi-v1-tenant-finance-documents"
+               value="application/json"
+               data-component="header">
+    <br>
+<p>Example: <code>application/json</code></p>
+            </div>
+                                <h4 class="fancy-heading-panel"><b>Body Parameters</b></h4>
+        <div style=" padding-left: 28px;  clear: unset;">
+            <b style="line-height: 2;"><code>module</code></b>&nbsp;&nbsp;
+<small>string</small>&nbsp;
+<i>optional</i> &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="module"                data-endpoint="GETapi-v1-tenant-finance-documents"
+               value=""
+               data-component="body">
+    <br>
+
+        </div>
+                <div style=" padding-left: 28px;  clear: unset;">
+            <b style="line-height: 2;"><code>from</code></b>&nbsp;&nbsp;
+<small>string</small>&nbsp;
+<i>optional</i> &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="from"                data-endpoint="GETapi-v1-tenant-finance-documents"
+               value="2026-10-10T12:46:27"
+               data-component="body">
+    <br>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
+        </div>
+                <div style=" padding-left: 28px;  clear: unset;">
+            <b style="line-height: 2;"><code>to</code></b>&nbsp;&nbsp;
+<small>string</small>&nbsp;
+<i>optional</i> &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="to"                data-endpoint="GETapi-v1-tenant-finance-documents"
+               value="2026-10-10T12:46:27"
+               data-component="body">
+    <br>
+<p>Must be a valid date. Example: <code>2026-10-10T12:46:27</code></p>
+        </div>
+                <div style=" padding-left: 28px;  clear: unset;">
+            <b style="line-height: 2;"><code>outstanding_only</code></b>&nbsp;&nbsp;
+<small>boolean</small>&nbsp;
+<i>optional</i> &nbsp;
+ &nbsp;
+                <label data-endpoint="GETapi-v1-tenant-finance-documents" style="display: none">
+            <input type="radio" name="outstanding_only"
+                   value="true"
+                   data-endpoint="GETapi-v1-tenant-finance-documents"
+                   data-component="body"             >
+            <code>true</code>
+        </label>
+        <label data-endpoint="GETapi-v1-tenant-finance-documents" style="display: none">
+            <input type="radio" name="outstanding_only"
+                   value="false"
+                   data-endpoint="GETapi-v1-tenant-finance-documents"
+                   data-component="body"             >
+            <code>false</code>
+        </label>
+    <br>
+<p>Example: <code>false</code></p>
+        </div>
+                <div style=" padding-left: 28px;  clear: unset;">
+            <b style="line-height: 2;"><code>search</code></b>&nbsp;&nbsp;
+<small>string</small>&nbsp;
+<i>optional</i> &nbsp;
+ &nbsp;
+                <input type="text" style="display: none"
+                              name="search"                data-endpoint="GETapi-v1-tenant-finance-documents"
+               value="b"
+               data-component="body">
+    <br>
+<p>Must not be greater than 100 characters. Example: <code>b</code></p>
+        </div>
+                <div style=" padding-left: 28px;  clear: unset;">
+            <b style="line-height: 2;"><code>location_id</code></b>&nbsp;&nbsp;
+<small>integer</small>&nbsp;
+<i>optional</i> &nbsp;
+ &nbsp;
+                <input type="number" style="display: none"
+               step="any"               name="location_id"                data-endpoint="GETapi-v1-tenant-finance-documents"
+               value="16"
+               data-component="body">
+    <br>
+<p>Example: <code>16</code></p>
+        </div>
+                <div style=" padding-left: 28px;  clear: unset;">
+            <b style="line-height: 2;"><code>per_page</code></b>&nbsp;&nbsp;
+<small>integer</small>&nbsp;
+<i>optional</i> &nbsp;
+ &nbsp;
+                <input type="number" style="display: none"
+               step="any"               name="per_page"                data-endpoint="GETapi-v1-tenant-finance-documents"
+               value="22"
+               data-component="body">
+    <br>
+<p>Must be at least 1. Must not be greater than 100. Example: <code>22</code></p>
         </div>
         </form>
 
@@ -40187,10 +40558,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --header "Authorization: Bearer {YOUR_SANCTUM_TOKEN}" \
     --header "Content-Type: multipart/form-data" \
     --header "Accept: application/json" \
-    --form "category=invoice"\
+    --form "category=imaging"\
     --form "title=b"\
     --form "notes=n"\
-    --form "file=@C:\Users\ruder\AppData\Local\Temp\phpE273.tmp" </code></pre></div>
+    --form "file=@C:\Users\ruder\AppData\Local\Temp\phpAF04.tmp" </code></pre></div>
 
 
 <div class="javascript-example">
@@ -40205,7 +40576,7 @@ const headers = {
 };
 
 const body = new FormData();
-body.append('category', 'invoice');
+body.append('category', 'imaging');
 body.append('title', 'b');
 body.append('notes', 'n');
 body.append('file', document.querySelector('input[name="file"]').files[0]);
@@ -40327,7 +40698,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
                value=""
                data-component="body">
     <br>
-<p>Must be a file. Must not be greater than 20480 kilobytes. Example: <code>C:\Users\ruder\AppData\Local\Temp\phpE273.tmp</code></p>
+<p>Must be a file. Must not be greater than 20480 kilobytes. Example: <code>C:\Users\ruder\AppData\Local\Temp\phpAF04.tmp</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>category</code></b>&nbsp;&nbsp;
@@ -40336,10 +40707,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="category"                data-endpoint="POSTapi-v1-tenant-customers--customer_id--documents"
-               value="invoice"
+               value="imaging"
                data-component="body">
     <br>
-<p>Example: <code>invoice</code></p>
+<p>Example: <code>imaging</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>lab_report</code></li> <li><code>imaging</code></li> <li><code>prescription</code></li> <li><code>discharge_summary</code></li> <li><code>referral_letter</code></li> <li><code>clinical_note</code></li> <li><code>registration</code></li> <li><code>id_proof</code></li> <li><code>insurance</code></li> <li><code>consent_form</code></li> <li><code>invoice</code></li> <li><code>other</code></li></ul>
         </div>
@@ -41088,7 +41459,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --data "{
     \"name\": \"b\",
     \"description\": \"Et animi quos velit et fugiat.\",
-    \"document_type\": \"patient_registration\",
+    \"document_type\": \"clinic_invoice\",
     \"location_id\": 16,
     \"config\": []
 }"
@@ -41109,7 +41480,7 @@ const headers = {
 let body = {
     "name": "b",
     "description": "Et animi quos velit et fugiat.",
-    "document_type": "patient_registration",
+    "document_type": "clinic_invoice",
     "location_id": 16,
     "config": []
 };
@@ -41239,10 +41610,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="document_type"                data-endpoint="POSTapi-v1-tenant-document-templates"
-               value="patient_registration"
+               value="clinic_invoice"
                data-component="body">
     <br>
-<p>Example: <code>patient_registration</code></p>
+<p>Example: <code>clinic_invoice</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>patient_registration</code></li> <li><code>prescription</code></li> <li><code>consultation_summary</code></li> <li><code>clinic_invoice</code></li> <li><code>clinic_receipt</code></li> <li><code>clinic_refund</code></li> <li><code>pharmacy_invoice</code></li> <li><code>payment_receipt</code></li> <li><code>document_cover</code></li></ul>
         </div>
@@ -41295,7 +41666,7 @@ printed document was made from.</p>
     --data "{
     \"name\": \"b\",
     \"description\": \"Et animi quos velit et fugiat.\",
-    \"document_type\": \"payment_receipt\",
+    \"document_type\": \"clinic_receipt\",
     \"location_id\": 16,
     \"config\": []
 }"
@@ -41316,7 +41687,7 @@ const headers = {
 let body = {
     "name": "b",
     "description": "Et animi quos velit et fugiat.",
-    "document_type": "payment_receipt",
+    "document_type": "clinic_receipt",
     "location_id": 16,
     "config": []
 };
@@ -41459,10 +41830,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="document_type"                data-endpoint="PUTapi-v1-tenant-document-templates--id-"
-               value="payment_receipt"
+               value="clinic_receipt"
                data-component="body">
     <br>
-<p>Example: <code>payment_receipt</code></p>
+<p>Example: <code>clinic_receipt</code></p>
 Must be one of:
 <ul style="list-style-type: square;"><li><code>patient_registration</code></li> <li><code>prescription</code></li> <li><code>consultation_summary</code></li> <li><code>clinic_invoice</code></li> <li><code>clinic_receipt</code></li> <li><code>clinic_refund</code></li> <li><code>pharmacy_invoice</code></li> <li><code>payment_receipt</code></li> <li><code>document_cover</code></li></ul>
         </div>
@@ -43937,7 +44308,7 @@ messages from is an organisation decision, not a branch one.</p>
     \"provider\": \"g\",
     \"is_connected\": false,
     \"is_verified\": true,
-    \"webhook_configured\": false
+    \"webhook_configured\": true
 }"
 </code></pre></div>
 
@@ -43959,7 +44330,7 @@ let body = {
     "provider": "g",
     "is_connected": false,
     "is_verified": true,
-    "webhook_configured": false
+    "webhook_configured": true
 };
 
 fetch(url, {
@@ -44169,7 +44540,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>false</code></p>
+<p>Example: <code>true</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>settings</code></b>&nbsp;&nbsp;
@@ -44942,7 +45313,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     --header "Content-Type: application/json" \
     --header "Accept: application/json" \
     --data "{
-    \"is_enabled\": false,
+    \"is_enabled\": true,
     \"title\": \"b\",
     \"description\": \"Et animi quos velit et fugiat.\",
     \"lead_minutes\": 1
@@ -44962,7 +45333,7 @@ const headers = {
 };
 
 let body = {
-    "is_enabled": false,
+    "is_enabled": true,
     "title": "b",
     "description": "Et animi quos velit et fugiat.",
     "lead_minutes": 1
@@ -45095,7 +45466,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
             <code>false</code>
         </label>
     <br>
-<p>Example: <code>false</code></p>
+<p>Example: <code>true</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>title</code></b>&nbsp;&nbsp;
@@ -49384,7 +49755,7 @@ You can check the Dev Tools console for debugging information.</code></pre>
     \"doctor_id\": 16,
     \"location_id\": 16,
     \"appointment_date\": \"2022-11-04\",
-    \"slot_at\": \"12:36\",
+    \"slot_at\": \"12:46\",
     \"notes\": \"n\"
 }"
 </code></pre></div>
@@ -49405,7 +49776,7 @@ let body = {
     "doctor_id": 16,
     "location_id": 16,
     "appointment_date": "2022-11-04",
-    "slot_at": "12:36",
+    "slot_at": "12:46",
     "notes": "n"
 };
 
@@ -49546,10 +49917,10 @@ You can check the Dev Tools console for debugging information.</code></pre>
  &nbsp;
                 <input type="text" style="display: none"
                               name="slot_at"                data-endpoint="POSTapi-v1-tenant-portal-appointments"
-               value="12:36"
+               value="12:46"
                data-component="body">
     <br>
-<p>Must be a valid date in the format <code>H:i</code>. Example: <code>12:36</code></p>
+<p>Must be a valid date in the format <code>H:i</code>. Example: <code>12:46</code></p>
         </div>
                 <div style=" padding-left: 28px;  clear: unset;">
             <b style="line-height: 2;"><code>notes</code></b>&nbsp;&nbsp;

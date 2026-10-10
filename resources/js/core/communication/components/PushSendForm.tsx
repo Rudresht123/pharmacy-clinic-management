@@ -5,6 +5,8 @@ import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { usePushRecipients, useSendPush } from '../api';
+import { fillPlaceholders } from '../placeholders';
+import type { MessageTemplate } from '../types';
 
 /**
  * One notification, typed here, to one person's phones.
@@ -14,15 +16,33 @@ import { usePushRecipients, useSendPush } from '../api';
  * own phone, which is how somebody checks it works before switching it on;
  * the server holds that line, this only says so up front.
  */
-export function PushSendForm({ on }: { on: boolean }) {
+export function PushSendForm({ on, templates = [] }: { on: boolean; templates?: MessageTemplate[] }) {
     const { organization } = useTenantAuth();
     const { data: people = [], isLoading } = usePushRecipients();
     const send = useSendPush();
 
     const [userId, setUserId] = useState<number | ''>('');
+    const [templateId, setTemplateId] = useState<number | ''>('');
     const [title, setTitle] = useState('Test notification');
     const [body, setBody] = useState('');
     const [errors, setErrors] = useState<Record<string, string[]>>({});
+
+    /**
+     * Fills Title and Message from the chosen template, with sample values —
+     * the same ones its own preview uses — standing in for a real patient's
+     * details. Still plain fields afterwards: picking one is a starting
+     * point, not a lock, so the wording can be trimmed before it sends.
+     */
+    function applyTemplate(id: number | '') {
+        setTemplateId(id);
+
+        const template = templates.find((item) => item.id === id);
+
+        if (template) {
+            setTitle(fillPlaceholders(template.subject ?? template.name));
+            setBody(fillPlaceholders(template.content));
+        }
+    }
 
     useEffect(() => {
         setBody((current) => current || `This is a test notification from ${organization?.name ?? 'your clinic'}.`);
@@ -63,6 +83,29 @@ export function PushSendForm({ on }: { on: boolean }) {
             description="Send a test push notification to a specific user or device"
         >
             <form className="ph-form" onSubmit={(event) => void submit(event)} noValidate>
+                {templates.length > 0 && (
+                    <div className="ph-field">
+                        <label className="form-label" htmlFor="ph-send-template">
+                            Use a template
+                        </label>
+                        <select
+                            id="ph-send-template"
+                            className="form-select"
+                            value={templateId}
+                            onChange={(event) =>
+                                applyTemplate(event.target.value === '' ? '' : Number(event.target.value))
+                            }
+                        >
+                            <option value="">Write it myself</option>
+                            {templates.map((template) => (
+                                <option key={template.id} value={template.id}>
+                                    {template.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+
                 <div className="ph-form-row">
                     <div className="ph-field is-grow">
                         <label className="form-label" htmlFor="ph-send-to">

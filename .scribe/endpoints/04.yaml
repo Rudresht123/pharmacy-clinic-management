@@ -175,7 +175,7 @@ endpoints:
         name: is_active
         description: ''
         required: false
-        example: true
+        example: false
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -191,7 +191,7 @@ endpoints:
       password: '|]|{+-'
       phone_number: '1374491716806'
       address: z
-      is_active: true
+      is_active: false
     fileParameters:
       profile_image: null
     responses: []
@@ -391,7 +391,7 @@ endpoints:
         name: is_active
         description: ''
         required: false
-        example: true
+        example: false
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -483,7 +483,7 @@ endpoints:
       email: rowan.gulgowski@example.com
       phone_number: '1374491716806'
       address: z
-      is_active: true
+      is_active: false
       legal_name: m
       gstin: iyvdljnikhwaykcm
       drug_license_no: 'y'
@@ -714,7 +714,7 @@ endpoints:
         name: 'modules[].is_enabled'
         description: ''
         required: true
-        example: true
+        example: false
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -725,7 +725,7 @@ endpoints:
         name: 'modules[].starts_at'
         description: 'Must be a valid date.'
         required: false
-        example: '2026-10-10T12:36:50'
+        example: '2026-10-10T12:46:26'
         type: string
         enumValues: []
         exampleWasSpecified: false
@@ -757,8 +757,8 @@ endpoints:
       modules:
         -
           key: architecto
-          is_enabled: true
-          starts_at: '2026-10-10T12:36:50'
+          is_enabled: false
+          starts_at: '2026-10-10T12:46:26'
           expires_at: '2052-11-02'
           note: 'n'
     fileParameters: []
@@ -988,7 +988,7 @@ endpoints:
         name: is_active
         description: ''
         required: false
-        example: true
+        example: false
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -997,7 +997,7 @@ endpoints:
     cleanBodyParameters:
       name: b
       slug: 'n'
-      is_active: true
+      is_active: false
     fileParameters: []
     responses: []
     responseFields: []

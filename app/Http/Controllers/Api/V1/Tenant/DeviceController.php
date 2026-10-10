@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api\V1\Tenant;
 
 use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Models\Platform\FirebaseDevice;
+use App\Models\Platform\Organization;
 use App\Models\Tenant\PersonalAccessToken;
 use App\Models\Tenant\User;
 use App\Services\Push\DeviceRegistry;
+use App\Services\Push\PushManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,6 +31,7 @@ class DeviceController extends BaseApiController
 {
     public function __construct(
         private readonly DeviceRegistry $devices,
+        private readonly PushManager $push,
     ) {}
 
     public function store(Request $request): JsonResponse
@@ -76,6 +79,48 @@ class DeviceController extends BaseApiController
         // The same answer whether or not there was a device by that id: it is
         // not a question anybody needs answered about someone else's phone.
         return $this->noContent('Device removed.');
+    }
+
+    /**
+     * One canned push to whoever is signed in, on their own registered
+     * phones — nothing to type, nothing to pick. Hitting this is how a
+     * person checks the whole chain actually reaches their phone: the
+     * server is on the real driver, their device is registered, and
+     * Firebase delivers to it. Self-targeted, so it needs no permission
+     * beyond being signed in, the same as registering the device did.
+     */
+    public function testPush(Request $request): JsonResponse
+    {
+        $organization = $request->attributes->get('tenant.organization');
+        $user = $this->actor();
+
+        if (! $organization instanceof Organization || $user === null) {
+            return $this->fail('Unauthenticated.', 401);
+        }
+
+        if ($this->devices->tokensFor($organization, [(int) $user->getKey()]) === []) {
+            return $this->fail(
+                'No phone is registered for app notifications on this account yet. Open the app, sign in, and allow notifications first.',
+                422,
+            );
+        }
+
+        $this->push->queueToUsers(
+            $organization,
+            [(int) $user->getKey()],
+            (string) $user->name,
+            'Test notification',
+            'If you can see this, push notifications are working end to end.',
+            ['type' => 'test'],
+            [
+                'template_name' => 'Test notification',
+                'is_test' => true,
+                'recipient_name' => $user->name,
+                'created_by' => $user->getKey(),
+            ],
+        );
+
+        return $this->ok(['recipient' => $user->name], 'Test push sent to your own phone.');
     }
 
     /**

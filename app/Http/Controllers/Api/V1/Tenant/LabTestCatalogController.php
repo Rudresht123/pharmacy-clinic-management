@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Tenant;
 
 use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Models\Tenant\LabTestCatalog;
+use App\Models\Tenant\Location;
 use App\Services\Tenancy\TenantBranchAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -87,7 +88,8 @@ class LabTestCatalogController extends BaseApiController
     private function validated(Request $request): array
     {
         $data = $request->validate([
-            'location_id' => ['nullable', 'integer', 'exists:locations,id'],
+            // Through the model: a branch lives in the tenant's database, not the master's.
+            'location_id' => ['nullable', 'integer', Rule::exists(Location::class, 'id')],
             'name' => ['required', 'string', 'max:120'],
             'code' => ['nullable', 'string', 'max:24'],
             'specimen' => ['nullable', Rule::in(\App\Models\Tenant\LabOrderItem::SPECIMENS)],

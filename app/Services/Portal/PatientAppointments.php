@@ -92,6 +92,14 @@ class PatientAppointments
         $date = Carbon::parse($data['appointment_date']);
         $locationId = (int) $data['location_id'];
 
+        // The same rule the list was filtered by — a doctor with no weekly
+        // schedule is not one a patient was ever shown, even if a one-off
+        // extra session (added for the desk) would otherwise let this slot
+        // through.
+        if (! $this->doctors->hasSchedule($doctor)) {
+            throw new RuntimeException('That doctor is not taking bookings.');
+        }
+
         if (! $this->doctors->offers($organization, $doctor, $date, $locationId, $data['slot_at'])) {
             throw new RuntimeException('That time was just taken or is no longer available. Please pick another.');
         }

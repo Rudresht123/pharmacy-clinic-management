@@ -53,19 +53,25 @@ export interface Invoice {
     doctor_id: number | null;
     doctor_name: string | null;
 
-    status: 'draft' | 'pending' | 'partially_paid' | 'paid' | 'cancelled' | 'refunded';
+    status: 'draft' | 'pending' | 'partially_paid' | 'paid' | 'cancelled' | 'refunded' | 'partially_refunded';
     payment_status: 'unpaid' | 'partial' | 'paid';
     trigger: string;
 
     /**
-     * What kind of bill this is.
+     * What kind of bill this is — and so which department's book it is in.
      *
-     * `visit` is the consolidated one — consultation, lab, procedures and
-     * medicines for a single attendance, on one document. `registration` is
+     * `visit` is the OPD's bill for a visit (the doctor's fee and per-visit
+     * charges); `lab` is the lab's bill for one order; `registration` is
      * taken at the desk before there is a visit; `manual` is the exception
-     * hatch for charges the workflow did not produce.
+     * hatch for charges the workflow did not produce. The pharmacy's bills
+     * are its sales, not invoices.
      */
-    kind: 'visit' | 'registration' | 'manual';
+    kind: 'visit' | 'registration' | 'manual' | 'lab';
+    lab_order_id?: number | null;
+
+    /** What it was priced under, as it was drawn — never today's settings. */
+    currency_code?: string | null;
+    prices_include_tax?: boolean | null;
 
     /** Still collecting charges — cannot be paid until finalized. */
     is_draft: boolean;
@@ -77,7 +83,11 @@ export interface Invoice {
     round_off: number;
     total_amount: number;
     paid_amount: number;
+    /** Money handed back. It credits the bill, so it is never owed again. */
+    refunded_amount?: number;
     outstanding: number;
+    /** Whether staff may still correct the lines — loaded with payments. */
+    editable?: boolean;
 
     notes: string | null;
     terms: string | null;
@@ -99,6 +109,15 @@ export const INVOICE_STATUS_LABELS: Record<string, string> = {
     paid: 'Paid',
     cancelled: 'Cancelled',
     refunded: 'Refunded',
+    partially_refunded: 'Part refunded',
+};
+
+/** Which department's book a bill is in. */
+export const INVOICE_KIND_LABELS: Record<Invoice['kind'], string> = {
+    visit: 'OPD',
+    registration: 'Registration',
+    manual: 'Manual',
+    lab: 'Laboratory',
 };
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
@@ -266,11 +285,12 @@ export function useCancelInvoice() {
 }
 
 /**
- * Gather a visit's charges and close the bill in one step.
+ * The OPD's bill for a visit, drawn now at the desk.
  *
- * For a `manual`-trigger clinic, and for the visit whose automatic trigger
- * never fired. The server collects consultation, lab and pharmacy lines
- * itself — the client never assembles them.
+ * For a `manual`-timing clinic, and for the visit whose timing passed with
+ * nothing priced. OPD charges only — the doctor's fee and per-visit charges;
+ * the lab and the pharmacy bill their own work. The server works the lines
+ * out itself, and answers with the visit's bill if it already has one.
  */
 export function useBillVisit() {
     const queryClient = useQueryClient();
@@ -294,9 +314,8 @@ export function useBillVisit() {
 /**
  * Declare a draft complete — it may now be paid.
  *
- * Sweeps in anything that landed since the draft was last touched (a
- * dispensing while the patient walked to the counter) before fixing the
- * total.
+ * Visit bills are drawn ready to pay now; a draft is one left from before
+ * each department billed for itself, and this closes it.
  */
 export function useFinalizeInvoice() {
     const queryClient = useQueryClient();
@@ -318,22 +337,37 @@ export function useFinalizeInvoice() {
     });
 }
 
-export interface PaymentInput {
+/** One tender — a bill settled ₹300 cash and ₹200 UPI is two of these, one payment. */
+export interface TenderInput {
     method: string;
     amount: number;
     reference?: string | null;
-    notes?: string | null;
 }
 
+/**
+ * Take money against a bill — one tender or several, as one act.
+ *
+ * The key is the caller's, made when the dialog opens and kept until it
+ * closes: a double-tapped "Record payment" sends it twice and the server
+ * records the money once.
+ */
 export function useRecordPayment() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ invoiceId, payload }: { invoiceId: number; payload: PaymentInput }): Promise<Invoice> => {
+        mutationFn: async ({
+            invoiceId,
+            tenders,
+            key,
+        }: {
+            invoiceId: number;
+            tenders: TenderInput[];
+            key: string;
+        }): Promise<Invoice> => {
             const { data } = await http.post<ApiResponse<Invoice>>(
                 `/tenant/invoices/${invoiceId}/payments`,
-                payload,
-                { silent: true },
+                { tenders },
+                { headers: { 'Idempotency-Key': key }, silent: true },
             );
 
             return data.data;
@@ -341,6 +375,9 @@ export function useRecordPayment() {
         onSuccess: (invoice) => {
             queryClient.invalidateQueries({ queryKey: resourceKey('tenant/billing', 'invoice', invoice.id) });
             queryClient.invalidateQueries({ queryKey: resourceKey('tenant/billing', 'invoices') });
+            queryClient.invalidateQueries({ queryKey: resourceKey('tenant/billing', 'finance') });
+            // A lab bill paid at the lab counter: the order shows its bill.
+            queryClient.invalidateQueries({ queryKey: ['tenant/laboratory'] });
         },
     });
 }
@@ -354,16 +391,19 @@ export function useRefundPayment() {
             paymentId,
             amount,
             reason,
+            key,
         }: {
             invoiceId: number;
             paymentId: number;
             amount: number;
             reason?: string | null;
+            /** One per refund dialog, so a double-tap refunds once. */
+            key: string;
         }): Promise<Invoice> => {
             const { data } = await http.post<ApiResponse<Invoice>>(
                 `/tenant/invoices/${invoiceId}/payments/${paymentId}/refund`,
                 { amount, reason },
-                { silent: true },
+                { headers: { 'Idempotency-Key': key }, silent: true },
             );
 
             return data.data;
@@ -573,10 +613,111 @@ export function usePaymentsSummary(params?: { from?: string; to?: string; locati
     });
 }
 
+/* ---- Finance ------------------------------------------------------------- */
+
+/**
+ * The five figures, never one standing in for another: what bills were
+ * raised for, goods taken back, money taken, money handed back, and what is
+ * owed now. Money is counted from payment rows only, so once each.
+ */
+export interface FinanceFigures {
+    billed: number;
+    documents: number;
+    credit_notes: number;
+    collected: number;
+    refunded: number;
+    net_collected: number;
+    outstanding: number;
+}
+
+export type FinanceModule = 'opd' | 'laboratory' | 'pharmacy';
+
+export interface FinanceSummary {
+    from: string;
+    to: string;
+    totals: FinanceFigures;
+    modules: (FinanceFigures & { key: FinanceModule; label: string })[];
+    branches: (FinanceFigures & { location_id: number; name: string })[];
+    methods: { method: string; collected: number; refunded: number; net: number }[];
+    granularity: 'day' | 'month';
+    series: { key: string; label: string; billed: number; collected: number; refunded: number; net: number }[];
+    /** Which departments run now — figures are reported either way. */
+    departments: Record<FinanceModule, boolean>;
+}
+
+/** One bill from any department — an invoice or a pharmacy sale. */
+export interface FinanceDocument {
+    source: 'invoice' | 'pharmacy_sale';
+    id: number;
+    number: string;
+    date: string;
+    location_id: number;
+    module: FinanceModule;
+    party: string;
+    total: number;
+    paid: number;
+    /** Refunded on an invoice; goods returned on a pharmacy bill. */
+    credited: number;
+    outstanding: number;
+    status: string;
+}
+
+export interface FinanceDocumentPage {
+    data: FinanceDocument[];
+    meta: { current_page: number; last_page: number; per_page: number; total: number };
+}
+
+export function useFinanceSummary(params: { from: string; to: string; location_id?: number }) {
+    return useQuery({
+        queryKey: resourceKey('tenant/billing', 'finance', 'summary', params),
+        placeholderData: keepPreviousData,
+        queryFn: async (): Promise<FinanceSummary> => {
+            const { data } = await http.get<ApiResponse<FinanceSummary>>('/tenant/finance/summary', { params });
+
+            return data.data;
+        },
+    });
+}
+
+export function useFinanceDocuments(params: {
+    page: number;
+    per_page: number;
+    from?: string;
+    to?: string;
+    module?: FinanceModule;
+    outstanding_only?: 1;
+    search?: string;
+    location_id?: number;
+}) {
+    return useQuery({
+        queryKey: resourceKey('tenant/billing', 'finance', 'documents', params),
+        placeholderData: keepPreviousData,
+        queryFn: async (): Promise<FinanceDocumentPage> => {
+            const { data } = await http.get<ApiResponse<FinanceDocumentPage>>('/tenant/finance/documents', { params });
+
+            return data.data;
+        },
+    });
+}
+
 /* ---- Settings ------------------------------------------------------------ */
 
+/** The pharmacy's own billing options, read-only here — they live in Pharmacy settings. */
+export interface PharmacyBillingSummary {
+    credit_sales_enabled: boolean;
+    allow_walk_in: boolean;
+    prices_include_tax: boolean;
+    price_basis: 'mrp' | 'selling';
+    round_off_enabled: boolean;
+}
+
 export interface BillingSettings {
+    /** When the OPD bills a visit, as applied: check-in, after the consultation, or by hand. */
     default_trigger: string;
+    /** What is actually stored — differs when an old visit-wide timing is read as the default. */
+    stored_default_trigger?: string;
+    /** When the lab bills an order: when ordered, after sign-off, or by hand. */
+    lab_trigger: string;
     payment_methods: string[];
     payment_behaviour: 'full' | 'partial' | 'credit';
     prices_include_tax: boolean;
@@ -588,10 +729,21 @@ export interface BillingSettings {
     terms: string | null;
     footer: string | null;
     triggers: string[];
+    lab_triggers: string[];
     payment_behaviours: string[];
+    available_payment_methods: string[];
+    /** Null where the pharmacy does not run. */
+    pharmacy: PharmacyBillingSummary | null;
 }
 
-export function useBillingSettings() {
+/** What the screen sends back — everything it may change, nothing it only reads. */
+export type BillingSettingsInput = Omit<
+    BillingSettings,
+    'triggers' | 'lab_triggers' | 'payment_behaviours' | 'available_payment_methods' | 'pharmacy' | 'stored_default_trigger'
+>;
+
+/** `enabled` lets a screen outside Billing ask only when the person may read billing. */
+export function useBillingSettings(enabled = true) {
     return useQuery({
         queryKey: resourceKey('tenant/billing', 'settings'),
         queryFn: async (): Promise<BillingSettings> => {
@@ -599,6 +751,7 @@ export function useBillingSettings() {
 
             return data.data;
         },
+        enabled,
     });
 }
 
@@ -606,7 +759,7 @@ export function useSaveBillingSettings() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (payload: Omit<BillingSettings, 'triggers' | 'payment_behaviours'>): Promise<void> => {
+        mutationFn: async (payload: BillingSettingsInput): Promise<void> => {
             await http.put('/tenant/billing/settings', payload, { silent: true });
         },
         onSuccess: () => {
@@ -617,7 +770,8 @@ export function useSaveBillingSettings() {
 
 /* ---- Numbering ----------------------------------------------------------- */
 
-export type NumberedDocument = 'invoice' | 'receipt' | 'refund';
+/** The clinic's invoices, receipts and refunds; the pharmacy's bills and returns. */
+export type NumberedDocument = 'invoice' | 'receipt' | 'refund' | 'pharmacy_sale' | 'pharmacy_return';
 
 export interface NumberSeries {
     prefix: string;
@@ -631,7 +785,8 @@ export interface BranchNumbering {
     location_id: number;
     name: string;
     code: string;
-    series: Record<NumberedDocument, NumberSeries>;
+    /** The pharmacy's two series appear once the server knows them. */
+    series: Partial<Record<NumberedDocument, NumberSeries>> & Record<'invoice' | 'receipt' | 'refund', NumberSeries>;
 }
 
 export interface BillingNumbering {
@@ -681,10 +836,12 @@ export interface BillableService {
      * When the charge lands.
      *
      * `registration` is billed once at the desk on its own invoice;
-     * `consultation` and `procedure` join every visit's bill automatically;
-     * `service` and `custom` are picked by hand on a manual bill.
+     * `consultation` and `procedure` join every visit's OPD bill
+     * automatically; `follow_up` replaces the doctor's fee on a visit inside
+     * the follow-up period the doctor set; `service` and `custom` are picked
+     * by hand on a manual bill.
      */
-    kind: 'registration' | 'consultation' | 'procedure' | 'service' | 'custom';
+    kind: 'registration' | 'consultation' | 'follow_up' | 'procedure' | 'service' | 'custom';
     default_price: number;
     tax_percent: number;
     active: boolean;

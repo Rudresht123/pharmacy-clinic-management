@@ -21,6 +21,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -453,7 +454,8 @@ class InvoiceController extends BaseApiController
     public function billVisit(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'appointment_id' => ['required', 'integer', 'exists:appointments,id'],
+            // Through the model, so it is asked of the tenant's database, not the master's.
+            'appointment_id' => ['required', 'integer', Rule::exists(Appointment::class, 'id')],
         ]);
 
         $appointment = Appointment::query()->findOrFail($validated['appointment_id']);

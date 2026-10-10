@@ -769,6 +769,13 @@ export function tenantNavigation(
                     match: '/billing/outstanding',
                 },
                 /*
+                 * Every department's money together — OPD, lab and pharmacy.
+                 * Its own capability: a management view, not a counter one.
+                 */
+                ...(can('billing.finance')
+                    ? [{ label: 'Finance', to: '/billing/finance', icon: 'ti ti-chart-pie', match: '/billing/finance' }]
+                    : []),
+                /*
                  * The price list is not a menu row either: it is set up once
                  * and then read by the software rather than by a person. It
                  * opens from Settings › Billing.

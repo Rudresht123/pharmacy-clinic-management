@@ -151,7 +151,7 @@ endpoints:
         name: from
         description: 'Must be a valid date.'
         required: false
-        example: '2026-10-10T12:36:50'
+        example: '2026-10-10T12:46:27'
         type: string
         enumValues: []
         exampleWasSpecified: false
@@ -169,7 +169,7 @@ endpoints:
         nullable: true
         deprecated: false
     cleanBodyParameters:
-      from: '2026-10-10T12:36:50'
+      from: '2026-10-10T12:46:27'
       to: '2052-11-02'
     fileParameters: []
     responses: []
@@ -697,7 +697,7 @@ endpoints:
         name: 'items[].source_type'
         description: ''
         required: true
-        example: service
+        example: custom
         type: string
         enumValues:
           - procedure
@@ -805,7 +805,7 @@ endpoints:
       notes: 'n'
       items:
         -
-          source_type: service
+          source_type: custom
           source_id: 16
           billable_service_id: 16
           description: 'Et animi quos velit et fugiat.'
@@ -1065,7 +1065,7 @@ endpoints:
         name: 'items[].source_type'
         description: ''
         required: true
-        example: consultation
+        example: pharmacy_sale_item
         type: string
         enumValues:
           - consultation
@@ -1176,7 +1176,7 @@ endpoints:
       notes: 'n'
       items:
         -
-          source_type: consultation
+          source_type: pharmacy_sale_item
           source_id: 16
           billable_service_id: 16
           description: 'Et animi quos velit et fugiat.'
@@ -1497,6 +1497,159 @@ endpoints:
       idempotency_key: b
       amount: 22
       reason: g
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/finance/summary
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/finance/documents
+    metadata:
+      custom: []
+      groupName: 'Tenant > Billing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Every bill from every department, one list.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      module:
+        custom: []
+        name: module
+        description: ''
+        required: false
+        example: null
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      from:
+        custom: []
+        name: from
+        description: 'Must be a valid date.'
+        required: false
+        example: '2026-10-10T12:46:27'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      to:
+        custom: []
+        name: to
+        description: 'Must be a valid date.'
+        required: false
+        example: '2026-10-10T12:46:27'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      outstanding_only:
+        custom: []
+        name: outstanding_only
+        description: ''
+        required: false
+        example: false
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      search:
+        custom: []
+        name: search
+        description: 'Must not be greater than 100 characters.'
+        required: false
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      location_id:
+        custom: []
+        name: location_id
+        description: ''
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      per_page:
+        custom: []
+        name: per_page
+        description: 'Must be at least 1. Must not be greater than 100.'
+        required: false
+        example: 22
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      from: '2026-10-10T12:46:27'
+      to: '2026-10-10T12:46:27'
+      outstanding_only: false
+      search: b
+      location_id: 16
+      per_page: 22
     fileParameters: []
     responses: []
     responseFields: []

@@ -64,6 +64,15 @@ final class PushDefaults
                 'icon' => 'ti ti-receipt-2',
                 'tone' => 'emerald',
             ],
+            [
+                'key' => 'registered',
+                'name' => 'Welcome — patient registered',
+                'category' => 'General',
+                'title' => 'Welcome to {{clinic_name}}',
+                'body' => 'Hi {{patient_name}}, your record has been created. We look forward to seeing you.',
+                'icon' => 'ti ti-user-plus',
+                'tone' => 'sky',
+            ],
         ];
     }
 
@@ -113,6 +122,14 @@ final class PushDefaults
                 'title' => 'Send payment receipt',
                 'description' => 'Confirm the amount once a payment goes through',
                 'icon' => 'ti ti-receipt-2',
+                'lead_minutes' => null,
+            ],
+            [
+                'event_key' => AutomationRule::PATIENT_REGISTERED,
+                'template' => 'registered',
+                'title' => 'Send welcome notification',
+                'description' => 'Welcome a patient on their phone once their record is created',
+                'icon' => 'ti ti-user-plus',
                 'lead_minutes' => null,
             ],
         ];

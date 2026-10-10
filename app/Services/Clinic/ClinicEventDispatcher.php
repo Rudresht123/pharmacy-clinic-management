@@ -3,6 +3,7 @@
 namespace App\Services\Clinic;
 
 use App\Services\Communication\AutomationSender;
+use App\Services\Communication\DoctorNotifier;
 use App\Services\Documents\DocumentAutomation;
 use App\Services\Realtime\RealtimeBroadcaster;
 use App\Services\Tenancy\TenantConnectionService;
@@ -42,6 +43,7 @@ class ClinicEventDispatcher
         private readonly DocumentAutomation $documents,
         private readonly RealtimeBroadcaster $realtime,
         private readonly AutomationSender $automation,
+        private readonly DoctorNotifier $doctorNotifier,
     ) {}
 
     public function dispatch(ClinicEvent $event): void
@@ -120,6 +122,23 @@ class ClinicEventDispatcher
             report($e);
 
             Log::error('clinic-event.automation-failed', $event->forLog() + [
+                'reason' => $e->getMessage(),
+            ]);
+        }
+
+        /*
+         * The doctor's own copy — a push to their app login, an email on
+         * file — unconditional on the clinic's communication switches, which
+         * are about the patient's wording, not the doctor's. Its own try:
+         * a doctor with no login and no email on file must not stop the
+         * patient's confirmation above.
+         */
+        try {
+            $this->doctorNotifier->handle($event);
+        } catch (Throwable $e) {
+            report($e);
+
+            Log::error('clinic-event.doctor-notify-failed', $event->forLog() + [
                 'reason' => $e->getMessage(),
             ]);
         }

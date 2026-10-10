@@ -662,7 +662,7 @@ endpoints:
         name: icon
         description: ''
         required: false
-        example: 'ti ti-shield-lock'
+        example: 'ti ti-nurse'
         type: string
         enumValues:
           - 'ti ti-shield-lock'
@@ -708,7 +708,7 @@ endpoints:
       name: b
       scope: branch
       description: 'Et animi quos velit et fugiat.'
-      icon: 'ti ti-shield-lock'
+      icon: 'ti ti-nurse'
       capabilities:
         - d
       locked:
@@ -776,7 +776,7 @@ endpoints:
         name: scope
         description: ''
         required: false
-        example: organization
+        example: branch
         type: string
         enumValues:
           - organization
@@ -800,7 +800,7 @@ endpoints:
         name: icon
         description: ''
         required: false
-        example: 'ti ti-headset'
+        example: 'ti ti-pill'
         type: string
         enumValues:
           - 'ti ti-shield-lock'
@@ -844,9 +844,9 @@ endpoints:
         deprecated: false
     cleanBodyParameters:
       name: b
-      scope: organization
+      scope: branch
       description: 'Et animi quos velit et fugiat.'
-      icon: 'ti ti-headset'
+      icon: 'ti ti-pill'
       capabilities:
         - d
       locked:

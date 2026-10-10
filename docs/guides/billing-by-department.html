@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Billing: Har Department ka Apna Bill</title>
+<meta name="description" content="OPD, Lab aur Pharmacy apna-apna bill kaise banate hain; Settings › Billing ke chaar hisse; payment ke niyam (poora, hissa, credit); refund aur return; bill kab theek ho sakta hai; Finance screen ke paanch numbers; permissions aur purane data ka kya hua.">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+    @page { margin: 16mm 14mm 18mm 14mm; }
+    body { font-family: 'DejaVu Sans', sans-serif; font-size: 9.5pt; color: #1e293b; line-height: 1.45; }
+    h1 { font-size: 19pt; color: #2e37a4; margin: 0 0 4px 0; }
+    h2 { font-size: 13pt; color: #2e37a4; margin: 20px 0 8px 0; padding-bottom: 4px; border-bottom: 1.2pt solid #c7cbf0; }
+    h3 { font-size: 10.5pt; color: #0f172a; margin: 14px 0 6px 0; }
+    p { margin: 0 0 7px 0; }
+    .sub { color: #64748b; font-size: 9pt; margin-bottom: 14px; }
+    .band { background-color: #eef0fb; border: 0.8pt solid #c7cbf0; padding: 10px 12px; margin: 10px 0 12px 0; }
+    .note { background-color: #fff8e6; border: 0.8pt solid #f1d9a0; padding: 8px 10px; margin: 8px 0; }
+    .ok { background-color: #e9f8ef; border: 0.8pt solid #a7dbbd; padding: 8px 10px; margin: 8px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 6px 0 10px 0; }
+    th { background-color: #2e37a4; color: #ffffff; text-align: left; font-size: 8.5pt; padding: 5px 6px; border: 0.6pt solid #2e37a4; }
+    td { border: 0.6pt solid #cbd5e1; padding: 5px 6px; vertical-align: top; font-size: 8.8pt; }
+    code, .mono { font-family: 'DejaVu Sans Mono', monospace; font-size: 8.3pt; color: #1e3a8a; }
+    .path { font-weight: bold; color: #0f172a; }
+    ol, ul { margin: 2px 0 8px 0; padding-left: 18px; }
+    li { margin-bottom: 3px; }
+    .small { font-size: 8.3pt; color: #475569; }
+    .keep { page-break-inside: avoid; }
+    tr { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    .files td.mono { font-size: 7.4pt; }
+</style>
+</head>
+<body>
+
+<h1>Billing: Har Department ka Apna Bill</h1>
+<p class="sub">HMS &middot; Billing, Lab, Pharmacy aur Finance &middot; ye kaise kaam karta hai &middot; October 2026</p>
+
+<div class="band">
+    Ek line mein: <b>OPD, Lab aur Pharmacy teeno apna-apna bill banate hain aur apne counter par paisa lete hain.</b>
+    Dawai ka paisa kabhi OPD ke bill mein nahi judta, aur test ka paisa kabhi doctor ki fees ke saath nahi.
+    Malik aur manager sab kuch ek jagah <span class="path">Billing &rsaquo; Finance</span> par dekhte hain, jahan har rupaya sirf ek baar gina jaata hai.
+</div>
+
+<h2>1. Kaun kya bill karta hai</h2>
+<table>
+    <thead><tr><th>Department</th><th>Bill mein kya hota hai</th><th>Bill kab banta hai</th><th>Paisa kahan liya jaata hai</th></tr></thead>
+    <tbody>
+        <tr><td><b>OPD</b></td><td>Doctor ki fees (ya follow-up fees), "Per visit" aur "Procedure" wali services</td><td>Settings ke hisaab se: check-in par, consultation ke baad, ya sirf jab desk banaye</td><td>Billing counter (Take payment)</td></tr>
+        <tr><td><b>Lab</b></td><td>Us order ke priced tests, order ke din ki keemat par</td><td>Test order hote hi, lab sign-off ke baad, ya sirf haath se</td><td>Billing &rsaquo; Invoices (Laboratory)</td></tr>
+        <tr><td><b>Pharmacy</b></td><td>Dawaiyan aur saamaan</td><td>Hamesha sale ke waqt, counter par</td><td>Pharmacy counter hi &mdash; Billing jaane ki zarurat nahi</td></tr>
+    </tbody>
+</table>
+<div class="ok">Ek visit mein teen bill ho sakte hain: OPD ka, har lab order ka ek, aur pharmacy ka. Teeno alag hain, isliye koi cheez do baar charge nahi hoti.</div>
+
+<h2>2. Settings &rsaquo; Billing ke chaar hisse</h2>
+<table>
+    <thead><tr><th>Hissa</th><th>Kya set hota hai</th></tr></thead>
+    <tbody>
+        <tr><td><b>Organisation defaults</b> (sabke liye)</td><td>Patient poora paise de ya hissa ya baad mein (credit); kaunse payment methods chalte hain; bill theek karne ki ijazat; currency aur tax; bill par chhapne wali terms aur footer</td></tr>
+        <tr><td><b>Per branch</b></td><td>Har branch ke bill, receipt, refund, pharmacy bill aur pharmacy return ke number prefix. Branch ki apni keemat <span class="path">Services &amp; prices</span> mein.</td></tr>
+        <tr><td><b>Billing by department</b></td><td>OPD kab bill banaye, Lab kab bill banaye. Pharmacy ka card sirf dikhata hai &mdash; uski settings <span class="path">Pharmacy &rsaquo; Settings</span> mein hain.</td></tr>
+        <tr><td><b>Finance</b></td><td>Upar "Finance" button &mdash; sabka paisa ek jagah (section 8)</td></tr>
+    </tbody>
+</table>
+<div class="note">Pehle ek hi "When is the bill made?" sabke liye tha, jismein "After medicines are given" aur "After lab tests" bhi the. Agar aapne inmein se koi chuna tha, to woh value database mein waise hi rakhi hai, badli nahi gayi; lekin ab OPD use "After the consultation" maanta hai, jab tak aap OPD card mein naya choice save nahi karte. Screen par iska note dikhta hai.</div>
+
+<h2>3. OPD billing</h2>
+<h3>Bill mein kya judta hai</h3>
+<ul>
+    <li><b>Doctor ki fees</b> &mdash; doctor ke profile ki "default consultation fee".</li>
+    <li><b>Follow-up fees</b> &mdash; agar patient usi doctor ke paas, pichhli visit mein doctor ke likhe follow-up dinon ke andar wapas aaya, aur price list mein "Follow-up fee" service hai, to doctor ki fees ki jagah yeh lagti hai. Isko 0 rakhein to follow-up free.</li>
+    <li><b>"Per visit" aur "Procedure" services</b> &mdash; har visit ke bill mein apne aap. Agar branch ki apni keemat hai to sirf wahi lagti hai, organisation wali saath mein nahi.</li>
+</ul>
+<h3>Kab banta hai</h3>
+<table>
+    <thead><tr><th>Setting</th><th>Kya hota hai</th></tr></thead>
+    <tbody>
+        <tr><td>When the patient checks in</td><td>Check-in hote hi bill. Fees pehle lene wali clinic ke liye.</td></tr>
+        <tr><td>After the consultation</td><td>Doctor "Complete" kare tab bill. Sabse aam.</td></tr>
+        <tr><td>Only when the desk bills it</td><td>Kuch apne aap nahi. <span class="path">OPD &rsaquo; Today</span> par khatam hui visit ke saamne <b>Bill visit</b> button aata hai (sirf jinke paas bill banane ki permission hai).</td></tr>
+    </tbody>
+</table>
+<p>Ek visit ka ek hi OPD bill. Consultation dobara khole aur complete kare, ya Bill visit do baar dabaye &mdash; wahi bill wapas milta hai. Bill bante hi "ready to pay" hota hai; ab koi bill draft mein atka nahi rehta.</p>
+
+<h2>4. Lab billing</h2>
+<p>Har lab order ka apna bill (Billing &rsaquo; Invoices mein "Laboratory" likha hota hai). Purani organisations ke liye default <b>"Only when the lab counter bills it"</b> hai &mdash; jab tak aap nahi chunte, kuch apne aap bill nahi hota.</p>
+<ul>
+    <li><b>When the tests are ordered</b> &mdash; order bante hi bill; sample se pehle paisa.</li>
+    <li><b>After the lab signs off</b> &mdash; result complete hone par bill.</li>
+    <li>Order mein test badle ya ek test cancel hua: jab tak paisa nahi liya, bill apne aap order ke saath badal jaata hai.</li>
+    <li>Poora order cancel: bina paise wala bill bhi cancel. Agar paisa le liya tha to bill khada rehta hai &mdash; paisa wapas dene ke liye refund karein, taaki record rahe.</li>
+    <li>Lab module band ho jaaye to naya lab bill nahi banta, lekin purane lab bill Billing aur Finance mein dikhte rehte hain.</li>
+</ul>
+
+<h2>5. Pharmacy counter</h2>
+<ul>
+    <li>Sale ke saath hi paisa counter par. OPD patient ki dawai bhi wahin &mdash; kabhi OPD bill mein nahi.</li>
+    <li><b>Payment methods</b> wahi jo Settings &rsaquo; Billing mein chalu hain. "Credit" koi method nahi hai.</li>
+    <li><b>Credit</b> (udhaar) pharmacy settings ka "credit sales" switch decide karta hai, aur sirf registered customer ke liye.</li>
+    <li><b>Baad mein paisa lena</b>: <span class="path">Pharmacy &rsaquo; Bills</span> &rarr; bill kholein &rarr; <b>Take payment</b>.</li>
+    <li><b>Return</b>: bill kholein &rarr; <b>Take a return</b> &rarr; kitna wapas aaya likhein. Stock usi batch mein wapas jaata hai. Paisa sirf utna wapas jitna naye total se zyada diya gaya tha; udhaar wale bill par baaki raqam kam ho jaati hai. Har return ka apna number, jaise <code>GGN/PHR/26-27/00001</code>.</li>
+    <li><b>Cancel</b>: stock wapas, aur liya hua paisa "refund" row ke roop mein record hota hai.</li>
+    <li>Naye pharmacy bill branch aur saal ke hisaab se: <code>GGN/PH/26-27/00001</code>. Purane bill apne purane number (jaise <code>INV-00042</code>) ke saath rehte hain.</li>
+</ul>
+
+<h2>6. Payment ke niyam</h2>
+<table>
+    <thead><tr><th>Setting</th><th>Counter par kya hota hai</th></tr></thead>
+    <tbody>
+        <tr><td><b>Pay in full</b> (default)</td><td>Ek baar mein poora bakaya lena padta hai. Patient do tarah se de (jaise ₹300 cash + ₹200 UPI) to Take payment mein <b>Split across another method</b> se dono ek saath daalein.</td></tr>
+        <tr><td><b>Part payment allowed</b></td><td>Kuch abhi, baaki baad mein. Visit tab tak "Payment pending" rehti hai.</td></tr>
+        <tr><td><b>Pay later (credit)</b></td><td>Registered patient bina poora paise diye ja sakta hai; visit band ho jaati hai aur raqam Outstanding mein dikhti hai. Walk-in ke liye credit nahi.</td></tr>
+    </tbody>
+</table>
+<div class="note">Dhyan dein: "Pay in full" pehle se default tha lekin lagu nahi hota tha. Ab lagu hota hai. Agar aapki clinic kishton mein paisa leti hai, to Settings &rsaquo; Billing mein "Part payment allowed" chunein.</div>
+<p><b>Double click se do baar paisa nahi kat-ta.</b> Payment, refund, pharmacy collection aur return &mdash; har window apni ek pehchaan (key) bhejti hai; dobara click par wahi pehli entry wapas milti hai.</p>
+
+<h2>7. Refund aur bill theek karna</h2>
+<p><b>Refund bill ko credit karta hai.</b> Matlab jo paisa wapas diya, woh dobara maanga nahi jaata. ₹500 ke bill par ₹500 liya aur ₹500 wapas diya: bill <b>Refunded</b>, bakaya 0. ₹200 wapas diya: <b>Part refunded</b>, bakaya 0.</p>
+<table>
+    <thead><tr><th>Bill ki haalat</th><th>Kya badal sakte hain</th></tr></thead>
+    <tbody>
+        <tr><td>Draft (purana, band nahi hua)</td><td>Lines theek ho sakti hain</td></tr>
+        <tr><td>Bana hua, koi paisa nahi liya</td><td>Sirf agar Settings mein "Let staff correct a bill until money is taken" chalu hai</td></tr>
+        <tr><td>Kuch bhi paisa liya gaya (refund ke baad bhi)</td><td>Kabhi nahi. Refund karein, ya cancel karke naya bill banayein &mdash; dono ka record rehta hai</td></tr>
+    </tbody>
+</table>
+<p>Haath se banaye bill mein sirf service, procedure ya likhi hui line ja sakti hai &mdash; koi "pharmacy" ya "consultation" line haath se nahi. Har badlaav (pehle aur baad ki lines) activity log mein jaata hai.</p>
+<p>Har bill par uski <b>currency aur tax ka tareeka</b> (tax shamil ya upar se) bante waqt likh diya jaata hai. Settings badalne se purana bill nahi badalta.</p>
+
+<h2>8. Finance screen</h2>
+<p><span class="path">Billing &rsaquo; Finance</span> (permission: "View finance across OPD, lab and pharmacy"). Paanch numbers, kabhi ek doosre ki jagah nahi:</p>
+<table>
+    <thead><tr><th>Number</th><th>Matlab</th></tr></thead>
+    <tbody>
+        <tr><td>Billed</td><td>Chune hue samay mein jitne ke bill bane (draft aur cancelled nahi)</td></tr>
+        <tr><td>Collected</td><td>Jitna paisa sach mein liya gaya, jis din liya gaya</td></tr>
+        <tr><td>Refunded</td><td>Jitna wapas diya gaya</td></tr>
+        <tr><td>Net collections</td><td>Collected minus Refunded</td></tr>
+        <tr><td>Outstanding</td><td>Aaj kitna baaki hai, bill kabhi bhi bana ho</td></tr>
+    </tbody>
+</table>
+<p>Department, branch, payment method aur din/mahine ke hisaab se bhi. Neeche sabhi departments ke bill ek list mein. Paisa sirf payment ki entries se gina jaata hai, isliye koi payment do baar nahi judti. Branch manager sirf apni branch dekhta hai.</p>
+
+<h2>9. Kisko kya dikhta hai</h2>
+<table>
+    <thead><tr><th>Kaam</th><th>Permission</th></tr></thead>
+    <tbody>
+        <tr><td>Billing settings badalna</td><td>Change billing settings (sirf organisation level)</td></tr>
+        <tr><td>OPD / lab / manual bill banana</td><td>Create invoices</td></tr>
+        <tr><td>Invoice par paisa lena</td><td>Record a payment</td></tr>
+        <tr><td>Refund</td><td>Refund a payment</td></tr>
+        <tr><td>Pharmacy par paisa lena</td><td>Sell at the counter, ya Dispense prescriptions</td></tr>
+        <tr><td>Pharmacy return / cancel</td><td>Cancel a bill or take goods back</td></tr>
+        <tr><td>Finance dekhna</td><td>View finance across OPD, lab and pharmacy (Branch manager, Accountant, Head office ke templates mein)</td></tr>
+    </tbody>
+</table>
+<p>Lab order par uska bill sirf unhe dikhta hai jo billing dekh sakte ya paisa le sakte hain. Doctor ko nahi.</p>
+
+<h2>10. Developers ke liye</h2>
+<table class="files">
+    <thead><tr><th>Kya</th><th>Kahan</th></tr></thead>
+    <tbody>
+        <tr><td>OPD aur lab kab bill karein</td><td class="mono">app/Services/Billing/BillingTriggerResolver.php</td></tr>
+        <tr><td>Bill, payment, refund, edit (niyam)</td><td class="mono">app/Services/Billing/BillingService.php</td></tr>
+        <tr><td>Finance report</td><td class="mono">app/Services/Billing/FinanceReports.php, FinanceController.php</td></tr>
+        <tr><td>Pharmacy sale, collect, return, cancel</td><td class="mono">app/Services/Pharmacy/Sales/SalesService.php</td></tr>
+        <tr><td>Migrations (sirf jodte hain, kuch delete nahi)</td><td class="mono">database/migrations/organization/2026_10_22_000000_separate_module_billing.php, 2026_10_22_000100_pharmacy_collections_returns_and_numbering.php</td></tr>
+        <tr><td>Tests</td><td class="mono">tests/Feature/Api/V1/Tenant/BillingRulesTest, ModuleBillingTest, PharmacyCollectionsTest, FinanceReportTest</td></tr>
+    </tbody>
+</table>
+<p class="small">Naya tenant migration aane par dev DB par <code>php artisan tenants:migrate</code> chalana hota hai.</p>
+
+</body>
+</html>

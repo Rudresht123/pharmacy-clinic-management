@@ -153,7 +153,7 @@ endpoints:
         description: ''
         required: true
         example:
-          - false
+          - true
         type: 'boolean[]'
         enumValues: []
         exampleWasSpecified: false
@@ -161,7 +161,7 @@ endpoints:
         deprecated: false
     cleanBodyParameters:
       modules:
-        - false
+        - true
     fileParameters: []
     responses: []
     responseFields: []

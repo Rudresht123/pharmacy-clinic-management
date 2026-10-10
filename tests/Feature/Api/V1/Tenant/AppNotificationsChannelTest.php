@@ -178,10 +178,12 @@ class AppNotificationsChannelTest extends TenantTestCase
             CommunicationChannel::forChannel(CommunicationChannel::PUSH),
         ]);
 
-        $this->assertCount(4, $templates);
+        // Confirmed, reminder, cancelled, payment, registered.
+        $this->assertCount(5, $templates);
         $this->assertTrue($templates->every(fn ($t) => $t->status === MessageTemplate::APPROVED && $t->is_active));
 
-        $this->assertCount(5, $rules);
+        // Confirmed, reminder day, reminder hour, cancelled, payment, registered.
+        $this->assertCount(6, $rules);
         $this->assertTrue($rules->every(fn ($r) => ! $r->is_enabled && $r->message_template_id !== null));
 
         $this->assertFalse($channel->is_connected);

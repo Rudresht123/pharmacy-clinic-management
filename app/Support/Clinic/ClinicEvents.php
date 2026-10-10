@@ -75,6 +75,16 @@ final class ClinicEvents
     /** A booking was called off — the clinic's "Send cancellation notice" rule. */
     public const APPOINTMENT_CANCELLED = 'appointment_cancelled';
 
+    /** A lab order was signed off — every item resulted, nothing still pending. */
+    public const LAB_REPORT_READY = 'lab_report_ready';
+
+    /**
+     * A patient's record was created — at the desk, or by themselves signing
+     * up in the app. One event for both: `CustomerRepository::create()` is
+     * the single place either path ends up.
+     */
+    public const PATIENT_REGISTERED = 'patient_registered';
+
     /**
      * Every event, with the module it belongs to and where it is dispatched.
      *
@@ -153,6 +163,18 @@ final class ClinicEvents
                 'label' => 'Appointment cancelled',
                 'module' => 'appointments',
                 'at' => 'BookingService::cancel()',
+                'documents' => [],
+            ],
+            self::LAB_REPORT_READY => [
+                'label' => 'Lab report ready',
+                'module' => 'laboratory',
+                'at' => 'LabOrders::complete()',
+                'documents' => [],
+            ],
+            self::PATIENT_REGISTERED => [
+                'label' => 'Patient registered',
+                'module' => 'customers',
+                'at' => 'CustomerRepository::create()',
                 'documents' => [],
             ],
         ];

@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/shared/api/http';
 import { resourceKey } from '@/shared/hooks/useResource';
 import type { Page } from '@/shared/api/resource';
@@ -18,6 +18,8 @@ export interface SaleItem {
     expiry_date: string;
 
     quantity: number;
+    /** How many came back — a return offers only what is left. */
+    returned_quantity?: number;
 
     mrp: number;
     unit_price: number;
@@ -32,13 +34,41 @@ export interface SaleItem {
     line_total: number;
 }
 
-/** Money taken against a bill — one row per tender. */
+/** Money taken against a bill — one row per tender — or handed back on it. */
 export interface SalePayment {
     id: number;
     method: string;
     amount: number;
+    /** Money going back: on a cancelled bill, or for goods returned. */
+    is_refund?: boolean;
     reference: string | null;
+    notes?: string | null;
     paid_at: string | null;
+}
+
+/** Goods brought back against a bill — a credit note. */
+export interface SaleReturn {
+    id: number;
+    /** GGN/PHR/26-27/00001 — the branch's own return series. */
+    return_number: string;
+    return_date: string | null;
+    reason: string;
+    total_amount: number;
+    /** Handed back — only what had been paid over the bill's new total. */
+    refund_amount: number;
+    created_by_name: string | null;
+    items: { pharmacy_sale_item_id: number; quantity: number; line_total: number }[];
+}
+
+export interface SaleCustomer {
+    id: number;
+    code: string | null;
+    name: string;
+    phone: string | null;
+    gender: string | null;
+    age: number | null;
+    city: string | null;
+    state: string | null;
 }
 
 /**
@@ -58,9 +88,12 @@ export interface Sale {
     customer_name: string;
     walk_in_phone: string | null;
     is_walk_in: boolean;
+    /** The patient behind a registered sale — on a single bill only. */
+    customer?: SaleCustomer | null;
 
     prescription_id: number | null;
     doctor_id: number | null;
+    doctor_name?: string | null;
 
     sale_date: string | null;
     status: 'completed' | 'cancelled';
@@ -74,14 +107,17 @@ export interface Sale {
     round_off: number;
     total_amount: number;
     paid_amount: number;
+    /** The value of goods brought back — what the bill is no longer for. */
+    returned_amount?: number;
     amount_due: number;
-    payment_status: 'paid' | 'partial' | 'unpaid';
+    payment_status: 'paid' | 'partial' | 'unpaid' | 'billed_via_invoice';
 
     notes: string | null;
 
     items_count?: number;
     items?: SaleItem[];
     payments?: SalePayment[];
+    returns?: SaleReturn[];
 
     created_by_name: string | null;
 
@@ -119,6 +155,8 @@ export const PAYMENT_STATUS_LABELS: Record<string, string> = {
     paid: 'Paid',
     partial: 'Part paid',
     unpaid: 'Unpaid',
+    // An older visit bill took this sale's money over.
+    billed_via_invoice: 'On visit bill',
 };
 
 type Params = object;
@@ -182,6 +220,76 @@ export function useCancelSale() {
 
             return data.data;
         },
+    });
+}
+
+/** Whatever shows this bill — its own view and every list it sits in — reads it again. */
+function refreshSale(client: ReturnType<typeof useQueryClient>, sale: Sale) {
+    client.invalidateQueries({ queryKey: resourceKey('tenant/pharmacy', 'sale', sale.id) });
+    client.invalidateQueries({ queryKey: resourceKey('tenant/pharmacy', 'sales') });
+}
+
+/**
+ * Take the rest of a bill left owing — at this counter, never at Billing.
+ *
+ * The key is the dialog's, made when it opens: a double-tap takes the money
+ * once.
+ */
+export function useCollectSalePayment() {
+    const client = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({
+            id,
+            tenders,
+            key,
+        }: {
+            id: number;
+            tenders: { method: string; amount: number; reference?: string | null }[];
+            key: string;
+        }): Promise<Sale> => {
+            const { data } = await http.post<ApiResponse<Sale>>(
+                `/tenant/sales/${id}/payments`,
+                { tenders },
+                { headers: { 'Idempotency-Key': key }, silent: true },
+            );
+
+            return data.data;
+        },
+        onSuccess: (sale) => refreshSale(client, sale),
+    });
+}
+
+/**
+ * Take goods back against a bill. The server values them as the bill did,
+ * puts them back on their batch, and hands back only what was overpaid.
+ */
+export function useReturnSaleItems() {
+    const client = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({
+            id,
+            items,
+            reason,
+            refundMethod,
+            key,
+        }: {
+            id: number;
+            items: { pharmacy_sale_item_id: number; quantity: number }[];
+            reason: string;
+            refundMethod?: string | null;
+            key: string;
+        }): Promise<Sale> => {
+            const { data } = await http.post<ApiResponse<Sale>>(
+                `/tenant/sales/${id}/returns`,
+                { items, reason, refund_method: refundMethod ?? null },
+                { headers: { 'Idempotency-Key': key }, silent: true },
+            );
+
+            return data.data;
+        },
+        onSuccess: (sale) => refreshSale(client, sale),
     });
 }
 

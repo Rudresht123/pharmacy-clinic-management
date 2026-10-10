@@ -20,8 +20,11 @@ class PrescriptionController extends PortalController
 
         $prescriptions = Prescription::on('organization')
             ->where('customer_id', $patient->id ?? 0)
-            ->with(['doctor', 'location', 'items'])
-            ->latest()
+            // A draft is still the doctor's own working copy — not yet
+            // signed off, and not this patient's to see.
+            ->where('status', '!=', Prescription::DRAFT)
+            ->with(['doctor', 'location', 'items', 'consultation'])
+            ->latest('prescription_date')
             ->get();
 
         return $this->ok(PortalPrescriptionResource::collection($prescriptions));
@@ -33,16 +36,9 @@ class PrescriptionController extends PortalController
 
         $prescription = Prescription::on('organization')
             ->where('customer_id', $patient->id ?? 0)
-            ->with(['doctor', 'location', 'items'])
-            ->find($id);
-
-        if (! $prescription) {
-            $prescription = new Prescription([
-                'id' => $id,
-                'diagnosis' => 'Hypertension (High Blood Pressure)',
-                'is_active' => true,
-            ]);
-        }
+            ->where('status', '!=', Prescription::DRAFT)
+            ->with(['doctor', 'location', 'items', 'consultation'])
+            ->findOrFail($id);
 
         return $this->ok(PortalPrescriptionResource::make($prescription));
     }

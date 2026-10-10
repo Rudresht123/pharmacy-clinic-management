@@ -58,6 +58,8 @@ class DocumentRulesTest extends TenantTestCase
         $this->artisan('modules:sync');
 
         $this->organization = $this->provisionOrganization('DR');
+        // These bills are paid in instalments; the default is in full.
+        $this->allowPartPayments($this->organization);
         $this->grantModule($this->organization, 'documents');
 
         $this->onTenant($this->organization, function () {

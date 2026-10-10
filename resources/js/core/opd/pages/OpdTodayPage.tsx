@@ -8,6 +8,9 @@ import { useEntityLabel } from '@/core/field-settings/api';
 import { BookDialog } from '@/core/appointments/components/BookDialog';
 import { useMoveAppointment } from '@/core/appointments/api';
 import type { AppointmentStatus } from '@/core/appointments/types';
+import { useBillVisit, useBillingSettings } from '@/core/billing/api';
+import { resolveErrorMessage } from '@/shared/api/http';
+import { notify } from '@/shared/utils/notify';
 import { useOpdToday } from '../api';
 import { useOpdContext, today as todayString } from '../useOpdContext';
 import { OpdToolbar } from '../components/OpdToolbar';
@@ -90,6 +93,9 @@ const LIVE: AppointmentStatus[] = [
     'awaiting_lab',
     'awaiting_payment',
 ];
+
+/** Visits the doctor has finished with — the ones the desk may bill by hand. */
+const FINISHED: AppointmentStatus[] = ['awaiting_pharmacy', 'awaiting_lab', 'awaiting_payment', 'completed'];
 
 /**
  * WHAT THE BOARD CAN DO from a row: check somebody in, and call them.
@@ -278,6 +284,25 @@ export default function OpdTodayPage() {
     const { data, isLoading, isFetching, isError, refetch } = useOpdToday(branchId, date);
 
     const move = useMoveAppointment();
+
+    /*
+     * Billing a finished visit by hand — for a clinic whose OPD bills only
+     * when the desk does. The server answers with the visit's bill if it
+     * already has one, so offering it on every finished visit is safe.
+     */
+    const canBill = can('billing.create') && can('billing.view');
+    const { data: billingSettings } = useBillingSettings(canBill);
+    const billsByHand = canBill && billingSettings?.default_trigger === 'manual';
+    const billVisit = useBillVisit();
+
+    async function bill(row: OpdQueueRow) {
+        try {
+            const invoice = await billVisit.mutateAsync(row.id);
+            navigate(`/billing/invoices/${invoice.id}`);
+        } catch (failure) {
+            notify.error(resolveErrorMessage(failure));
+        }
+    }
 
     // Closes on an outside click or Escape, like every other menu here.
     useEffect(() => {
@@ -821,6 +846,16 @@ export default function OpdTodayPage() {
                                                                             aria-hidden="true"
                                                                         />
                                                                         {MOVES[next].label}
+                                                                    </button>
+                                                                ) : billsByHand && FINISHED.includes(row.status) ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        className="opd-act"
+                                                                        disabled={billVisit.isPending}
+                                                                        onClick={() => void bill(row)}
+                                                                    >
+                                                                        <i className="ti ti-receipt" aria-hidden="true" />
+                                                                        Bill visit
                                                                     </button>
                                                                 ) : (
                                                                     <Link

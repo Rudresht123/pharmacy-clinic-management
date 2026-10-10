@@ -279,6 +279,27 @@ export default function PosPage() {
     const [error, setError] = useState<string | null>(null);
     const [bill, setBill] = useState<Sale | null>(null);
 
+    /*
+     * The ways this counter may be paid: the organisation's list from Billing
+     * settings, one list for every counter. Credit is never one of them — it
+     * is the absence of a payment, decided by the pharmacy's credit setting —
+     * and Split is not a tender either, but a bill settled by more than one.
+     */
+    const tenders = Object.entries(PAYMENT_METHOD_LABELS).filter(
+        ([value]) =>
+            value !== 'credit' &&
+            value !== 'split' &&
+            (!settings?.accepted_payment_methods || settings.accepted_payment_methods.includes(value)),
+    );
+
+    // The chosen method has to be one the counter may take.
+    useEffect(() => {
+        if (tenders.length > 0 && !tenders.some(([value]) => value === method)) {
+            setMethod(tenders[0][0]);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [settings?.accepted_payment_methods?.join(','), method]);
+
     const cartKey = useRef(newIdempotencyKey());
     const searchBox = useRef<HTMLInputElement>(null);
 
@@ -1225,15 +1246,7 @@ export default function PosPage() {
                         </div>
 
                         <div className="pos-methods" role="group" aria-label="Payment method">
-                            {Object.entries(PAYMENT_METHOD_LABELS)
-                                // Credit is not a way of paying at the counter;
-                                // it is the absence of one, and it needs a
-                                // registered customer the server checks for.
-                                // Split is not a tender either — it is a bill
-                                // settled by more than one, which this screen
-                                // cannot yet collect.
-                                .filter(([value]) => value !== 'credit' && value !== 'split')
-                                .map(([value, label]) => (
+                            {tenders.map(([value, label]) => (
                                     <button
                                         key={value}
                                         type="button"

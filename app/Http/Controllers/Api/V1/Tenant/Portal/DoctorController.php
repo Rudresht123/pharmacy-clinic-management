@@ -75,10 +75,19 @@ class DoctorController extends PortalController
         ]);
     }
 
-    /** A doctor who has left, or was never offered, is not there to a patient. */
+    /**
+     * A doctor who has left, or was never offered, is not there to a patient.
+     *
+     * The same rule `BookableDoctors::search()` filters the list by — an
+     * active sitting — applied here too. Without it, a doctor with no weekly
+     * schedule but a one-off extra session (added for the desk, not for
+     * patients) would be invisible in the list yet still reachable, and
+     * bookable, by anyone who already has their id — a stale card, a deep
+     * link, a favourite.
+     */
     private function assertBookable(Doctor $doctor): void
     {
-        if (! $doctor->is_active) {
+        if (! $doctor->is_active || ! $this->doctors->hasSchedule($doctor)) {
             abort(404, 'That doctor is not taking bookings.');
         }
     }

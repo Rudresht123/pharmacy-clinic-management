@@ -63,7 +63,7 @@ endpoints:
         name: slot_at
         description: 'Must be a valid date in the format <code>H:i</code>.'
         required: true
-        example: '12:36'
+        example: '12:46'
         type: string
         enumValues: []
         exampleWasSpecified: false
@@ -84,7 +84,7 @@ endpoints:
       doctor_id: 16
       location_id: 16
       appointment_date: '2022-11-04'
-      slot_at: '12:36'
+      slot_at: '12:46'
       notes: 'n'
     fileParameters: []
     responses: []

@@ -304,7 +304,7 @@ endpoints:
         name: 'items[].frequency'
         description: ''
         required: false
-        example: od
+        example: custom
         type: string
         enumValues:
           - od
@@ -366,7 +366,7 @@ endpoints:
         name: 'items[].route'
         description: ''
         required: false
-        example: oral
+        example: ophthalmic
         type: string
         enumValues:
           - oral
@@ -422,11 +422,11 @@ endpoints:
           afternoon: 24
           evening: 8
           night: 6
-          frequency: od
+          frequency: custom
           food_timing: after_food
           duration: 25
           duration_unit: continuous
-          route: oral
+          route: ophthalmic
           prescribed_quantity: 25
           instructions: w
     fileParameters: []
@@ -612,7 +612,7 @@ endpoints:
         name: 'items[].frequency'
         description: ''
         required: false
-        example: od
+        example: custom
         type: string
         enumValues:
           - od
@@ -632,7 +632,7 @@ endpoints:
         name: 'items[].food_timing'
         description: ''
         required: false
-        example: with_food
+        example: after_food
         type: string
         enumValues:
           - before_food
@@ -674,7 +674,7 @@ endpoints:
         name: 'items[].route'
         description: ''
         required: false
-        example: iv
+        example: other
         type: string
         enumValues:
           - oral
@@ -729,11 +729,11 @@ endpoints:
           afternoon: 24
           evening: 8
           night: 6
-          frequency: od
-          food_timing: with_food
+          frequency: custom
+          food_timing: after_food
           duration: 25
           duration_unit: months
-          route: iv
+          route: other
           prescribed_quantity: 25
           instructions: w
     fileParameters: []

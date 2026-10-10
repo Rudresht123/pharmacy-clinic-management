@@ -111,8 +111,8 @@ export default function PharmacySettingsPage() {
                                     label="Invoice prefix"
                                     register={register}
                                     errors={errors}
-                                    placeholder="INV"
-                                    hint="Bills are numbered INV-00001 upwards, and never repeat."
+                                    placeholder="PH"
+                                    hint="Each branch numbers its own bills per financial year — a prefix of BILL gives GGN/BILL/26-27/00001. It sets how a branch's first pharmacy bill starts; a series already running is changed under Settings › Billing › Bill numbers. Bills already issued keep their numbers."
                                 />
 
                                 <SelectField

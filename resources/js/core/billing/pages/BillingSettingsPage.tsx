@@ -16,28 +16,41 @@ import {
     useSaveBillingSettings,
     type BillingNumbering,
     type BillingSettings,
+    type BillingSettingsInput,
     type NumberedDocument,
+    type PharmacyBillingSummary,
 } from '../api';
 
 /**
- * How the organisation bills.
+ * How the organisation bills — in four layers, so a setting is only ever in
+ * one place:
+ *
+ *   1. ORGANISATION DEFAULTS, shared by every department: how much a patient
+ *      must pay and how, whether a bill may be corrected, currency and tax,
+ *      the printed wording.
+ *   2. PER BRANCH: each branch's bill, receipt and refund numbers (and the
+ *      pharmacy's), and — on the price list — its own prices.
+ *   3. BY DEPARTMENT: when the OPD bills a visit and when the lab bills an
+ *      order. The pharmacy bills at its counter at the moment of sale; its
+ *      own options are shown here and changed in Pharmacy settings.
+ *   4. FINANCE: where all of it is read together.
  *
  * Reading is `billing.view`; changing anything needs `billing.manage_settings`,
  * an organisation-scoped capability branch roles never hold — so a branch user
  * sees every section read-only.
  */
 
-type Section = 'timing' | 'payments' | 'tax' | 'numbers' | 'print';
+type Section = 'payments' | 'tax' | 'print' | 'numbers' | 'departments';
 
 const SECTION_LABELS: Record<Section, string> = {
-    timing: 'Bill timing',
     payments: 'Payments',
     tax: 'Tax & currency',
-    numbers: 'Bill numbers',
     print: 'Printed bill',
+    numbers: 'Bill numbers',
+    departments: 'Billing by department',
 };
 
-const SECTION_ORDER: Section[] = ['timing', 'payments', 'tax', 'numbers', 'print'];
+const SECTION_ORDER: Section[] = ['payments', 'tax', 'print', 'numbers', 'departments'];
 
 interface Choice {
     value: string;
@@ -48,12 +61,13 @@ interface Choice {
     tag?: string;
 }
 
-const TRIGGERS: Choice[] = [
+/** When the OPD bills a visit — the doctor's fee and the per-visit charges. */
+const OPD_TRIGGERS: Choice[] = [
     {
         value: 'checkin',
         icon: 'ti ti-door-enter',
         label: 'When the patient checks in',
-        description: 'Made as they arrive. Suits clinics that take payment upfront.',
+        description: 'Made as they arrive. Suits clinics that take the fee upfront.',
     },
     {
         value: 'consultation',
@@ -63,26 +77,44 @@ const TRIGGERS: Choice[] = [
         tag: 'Most common',
     },
     {
-        value: 'pharmacy',
-        icon: 'ti ti-pill',
-        label: 'After medicines are given',
-        description: 'One bill for the visit and the medicines dispensed with it.',
-        module: 'pharmacy',
+        value: 'manual',
+        icon: 'ti ti-hand-finger',
+        label: 'Only when the desk bills it',
+        description: 'Nothing automatic — the desk bills each visit by hand.',
+    },
+];
+
+/** When the lab bills an order — on its own bill, never the OPD's. */
+const LAB_TRIGGERS: Choice[] = [
+    {
+        value: 'lab_order',
+        icon: 'ti ti-clipboard-plus',
+        label: 'When the tests are ordered',
+        description: 'The patient pays before the sample is taken.',
+        module: 'laboratory',
     },
     {
         value: 'laboratory',
         icon: 'ti ti-flask',
-        label: 'After lab tests',
-        description: 'Made once the lab signs off the results.',
+        label: 'After the lab signs off',
+        description: 'Made once the results are complete.',
         module: 'laboratory',
     },
     {
         value: 'manual',
         icon: 'ti ti-hand-finger',
-        label: 'Only when staff make it',
-        description: 'Nothing automatic — the counter creates every bill by hand.',
+        label: 'Only when the lab counter bills it',
+        description: 'Nothing automatic — each order is billed by hand.',
+        tag: 'Default',
+        module: 'laboratory',
     },
 ];
+
+/** What a stored visit-wide timing from before each department billed for itself was called. */
+const RETIRED_TRIGGERS: Record<string, string> = {
+    pharmacy: 'After medicines are given',
+    laboratory: 'After lab tests',
+};
 
 const MODULE_NAMES: Record<string, string> = { pharmacy: 'Pharmacy', laboratory: 'Laboratory' };
 
@@ -103,7 +135,7 @@ const BEHAVIOURS: Choice[] = [
         value: 'credit',
         icon: 'ti ti-clock-dollar',
         label: 'Pay later (credit)',
-        description: 'Registered patients may leave unpaid; the amount shows under Outstanding.',
+        description: 'Registered patients may leave unpaid; the visit closes and the amount shows under Outstanding.',
     },
 ];
 
@@ -130,10 +162,12 @@ const CURRENCIES = [
 
 const QUICK_RATES = [0, 5, 12, 18];
 
-const NUMBERED: { type: NumberedDocument; label: string }[] = [
+const NUMBERED: { type: NumberedDocument; label: string; pharmacy?: boolean }[] = [
     { type: 'invoice', label: 'Bills' },
     { type: 'receipt', label: 'Receipts' },
     { type: 'refund', label: 'Refunds' },
+    { type: 'pharmacy_sale', label: 'Pharmacy bills', pharmacy: true },
+    { type: 'pharmacy_return', label: 'Pharmacy returns', pharmacy: true },
 ];
 
 // Mirrors the server rule in BillingNumberingController.
@@ -142,7 +176,7 @@ const PREFIX_PATTERN = /^[A-Z0-9](?:[A-Z0-9/-]*[A-Z0-9])?$/;
 const TERMS_MAX = 2000;
 const FOOTER_MAX = 500;
 
-type Draft = Omit<BillingSettings, 'triggers' | 'payment_behaviours' | 'default_tax_percent'> & {
+type Draft = Omit<BillingSettingsInput, 'default_tax_percent'> & {
     // Kept as typed so "12." can be entered on the way to "12.5".
     default_tax_percent: string;
 };
@@ -152,17 +186,34 @@ type SetDraft = <K extends keyof Draft>(key: K, value: Draft[K]) => void;
 const seriesKey = (locationId: number, type: NumberedDocument) => `${locationId}:${type}`;
 
 function toDraft(settings: BillingSettings): Draft {
-    const { triggers: _triggers, payment_behaviours: _behaviours, ...rest } = settings;
-    void _triggers;
-    void _behaviours;
+    return {
+        default_trigger: settings.default_trigger,
+        lab_trigger: settings.lab_trigger,
+        payment_methods: settings.payment_methods,
+        payment_behaviour: settings.payment_behaviour,
+        prices_include_tax: settings.prices_include_tax,
+        default_tax_percent: String(settings.default_tax_percent),
+        allow_edit_before_payment: settings.allow_edit_before_payment,
+        invoice_prefix: settings.invoice_prefix,
+        currency_code: settings.currency_code,
+        currency_symbol: settings.currency_symbol,
+        terms: settings.terms,
+        footer: settings.footer,
+    };
+}
 
-    return { ...rest, default_tax_percent: String(settings.default_tax_percent) };
+/** The series this screen shows — the pharmacy's only where it runs. */
+function numberedFor(withPharmacy: boolean) {
+    return NUMBERED.filter((series) => withPharmacy || !series.pharmacy);
 }
 
 function toPrefixes(numbering: BillingNumbering): Record<string, string> {
     return Object.fromEntries(
         numbering.branches.flatMap((branch) =>
-            NUMBERED.map(({ type }) => [seriesKey(branch.location_id, type), branch.series[type].prefix]),
+            NUMBERED.filter(({ type }) => branch.series[type]).map(({ type }) => [
+                seriesKey(branch.location_id, type),
+                branch.series[type]!.prefix,
+            ]),
         ),
     );
 }
@@ -225,24 +276,31 @@ export default function BillingSettingsPage() {
     const set: SetDraft = (key, value) =>
         setDraft((current) => (current ? { ...current, [key]: value } : current));
 
+    const runsPharmacy = modules.includes('pharmacy');
+    const runsLab = modules.includes('laboratory');
+    const shownSeries = numberedFor(runsPharmacy);
+
     const changedSeries = (numbering?.branches ?? []).flatMap((branch) =>
-        NUMBERED.filter(
-            ({ type }) => (prefixes[seriesKey(branch.location_id, type)] ?? '') !== branch.series[type].prefix,
-        ).map(({ type }) => ({
-            location_id: branch.location_id,
-            document_type: type,
-            prefix: prefixes[seriesKey(branch.location_id, type)] ?? '',
-        })),
+        shownSeries
+            .filter(
+                ({ type }) =>
+                    branch.series[type] !== undefined &&
+                    (prefixes[seriesKey(branch.location_id, type)] ?? '') !== branch.series[type]!.prefix,
+            )
+            .map(({ type }) => ({
+                location_id: branch.location_id,
+                document_type: type,
+                prefix: prefixes[seriesKey(branch.location_id, type)] ?? '',
+            })),
     );
 
     const taxRate = Number(draft.default_tax_percent);
 
     const dirtyBySection: Record<Section, boolean> = {
-        timing:
-            draft.default_trigger !== settings.default_trigger ||
-            draft.allow_edit_before_payment !== settings.allow_edit_before_payment,
+        departments: draft.default_trigger !== settings.default_trigger || draft.lab_trigger !== settings.lab_trigger,
         payments:
             draft.payment_behaviour !== settings.payment_behaviour ||
+            draft.allow_edit_before_payment !== settings.allow_edit_before_payment ||
             !sameSet(draft.payment_methods, settings.payment_methods),
         tax:
             draft.currency_code !== settings.currency_code ||
@@ -327,8 +385,6 @@ export default function BillingSettingsPage() {
         }
     }
 
-    const triggers = TRIGGERS.filter((choice) => !settings.triggers?.length || settings.triggers.includes(choice.value));
-
     const lockedReason = (choice: Choice) =>
         choice.module && !modules.includes(choice.module)
             ? `Needs the ${MODULE_NAMES[choice.module] ?? choice.module} module, which isn't on for your organisation.`
@@ -336,23 +392,41 @@ export default function BillingSettingsPage() {
 
     const accepted = METHODS.filter((method) => draft.payment_methods.includes(method.value));
 
+    // A visit-wide timing saved before each department billed for itself.
+    const retired =
+        settings.stored_default_trigger && settings.stored_default_trigger !== settings.default_trigger
+            ? RETIRED_TRIGGERS[settings.stored_default_trigger] ?? settings.stored_default_trigger
+            : null;
+
     return (
         <form onSubmit={submit} noValidate>
             <PageHeader
                 title="Billing settings"
-                subtitle="How your clinic makes bills and takes payment."
+                subtitle="How your clinic makes bills and takes payment, department by department."
                 icon="ti ti-adjustments"
                 tone="teal"
                 crumbs={[{ label: 'Settings' }, { label: 'Billing' }]}
                 actions={
-                    <Button
-                        type="button"
-                        variant="light"
-                        icon="ti ti-list-details"
-                        onClick={() => navigate('/billing/services')}
-                    >
-                        Services &amp; prices
-                    </Button>
+                    <div className="d-flex gap-2">
+                        {can('billing.finance') && (
+                            <Button
+                                type="button"
+                                variant="light"
+                                icon="ti ti-chart-pie"
+                                onClick={() => navigate('/billing/finance')}
+                            >
+                                Finance
+                            </Button>
+                        )}
+                        <Button
+                            type="button"
+                            variant="light"
+                            icon="ti ti-list-details"
+                            onClick={() => navigate('/billing/services')}
+                        >
+                            Services &amp; prices
+                        </Button>
+                    </div>
                 }
             />
 
@@ -369,34 +443,13 @@ export default function BillingSettingsPage() {
             {errorText && <div className="alert alert-danger py-2">{errorText}</div>}
 
             <fieldset disabled={!canManage} className="border-0 p-0 m-0">
-                <div id="bset-timing" className="bset-section">
-                    <Card
-                        title="When is the bill made?"
-                        icon="ti ti-receipt"
-                        description="Pick the moment in a visit that creates the patient's bill automatically."
-                    >
-                        <ChoiceGrid
-                            name="default_trigger"
-                            label="When is the bill made?"
-                            choices={triggers}
-                            value={draft.default_trigger}
-                            onChange={(value) => set('default_trigger', value)}
-                            lockedReason={lockedReason}
-                        />
+                <LayerHeading
+                    icon="ti ti-building"
+                    title="Organisation defaults"
+                    note="Shared by every department — the OPD, the lab and the pharmacy counter."
+                />
 
-                        <div className="bset-divider" />
-
-                        <Toggle
-                            id="allow_edit_before_payment"
-                            label="Let staff edit a bill until it is paid"
-                            hint="Lets the counter add a forgotten service or fix a price before the patient pays."
-                            checked={draft.allow_edit_before_payment}
-                            onChange={(checked) => set('allow_edit_before_payment', checked)}
-                        />
-                    </Card>
-                </div>
-
-                <div id="bset-payments" className="bset-section mt-3">
+                <div id="bset-payments" className="bset-section">
                     <Card
                         title="Payments"
                         icon="ti ti-wallet"
@@ -452,11 +505,21 @@ export default function BillingSettingsPage() {
                         <p className="bset-note">
                             <i className="ti ti-info-circle" />
                             <span>
-                                The counter will offer{' '}
-                                <b>{joinWords(accepted.map((method) => method.label)) || 'nothing yet'}</b> when
-                                taking a payment.
+                                Every counter — billing, lab and pharmacy — will offer{' '}
+                                <b>{joinWords(accepted.map((method) => method.label)) || 'nothing yet'}</b>. Credit is
+                                not a method: whether a bill may be left owing is the choice above.
                             </span>
                         </p>
+
+                        <div className="bset-divider" />
+
+                        <Toggle
+                            id="allow_edit_before_payment"
+                            label="Let staff correct a bill until money is taken"
+                            hint="Fix a price or add a forgotten service on an issued bill. Once anything is paid the bill stands — corrections are a refund or a cancelled bill, both on the record."
+                            checked={draft.allow_edit_before_payment}
+                            onChange={(checked) => set('allow_edit_before_payment', checked)}
+                        />
                     </Card>
                 </div>
 
@@ -464,12 +527,100 @@ export default function BillingSettingsPage() {
                     <TaxSection draft={draft} set={set} problem={problems.tax} />
                 </div>
 
-                <div id="bset-numbers" className="bset-section mt-3">
-                    <NumbersSection numbering={numbering} prefixes={prefixes} setPrefixes={setPrefixes} />
-                </div>
-
                 <div id="bset-print" className="bset-section mt-3">
                     <PrintSection draft={draft} set={set} />
+                </div>
+
+                <LayerHeading
+                    icon="ti ti-git-branch"
+                    title="Per branch"
+                    note="Each branch numbers its own documents. Branch prices live on the price list."
+                />
+
+                <div id="bset-numbers" className="bset-section">
+                    <NumbersSection
+                        numbering={numbering}
+                        prefixes={prefixes}
+                        setPrefixes={setPrefixes}
+                        series={shownSeries}
+                    />
+                </div>
+
+                <LayerHeading
+                    icon="ti ti-layout-grid"
+                    title="Billing by department"
+                    note="Each department bills for itself, on its own bill — a patient is never charged twice for one thing."
+                />
+
+                <div id="bset-departments" className="bset-section">
+                    <div className="row g-3">
+                        <div className="col-xl-6">
+                            <Card
+                                className="h-100"
+                                title="OPD"
+                                icon="ti ti-stethoscope"
+                                description="When the visit's bill is made — the doctor's fee and per-visit charges."
+                            >
+                                <ChoiceGrid
+                                    name="default_trigger"
+                                    label="When the OPD bills a visit"
+                                    choices={OPD_TRIGGERS}
+                                    value={draft.default_trigger}
+                                    onChange={(value) => set('default_trigger', value)}
+                                />
+
+                                {retired && (
+                                    <p className="bset-note">
+                                        <i className="ti ti-info-circle" />
+                                        <span>
+                                            Your saved choice, <b>{retired}</b>, was for one bill per visit. Each
+                                            department now bills for itself, so the OPD bills after the
+                                            consultation until you choose here.
+                                        </span>
+                                    </p>
+                                )}
+                            </Card>
+                        </div>
+
+                        <div className="col-xl-6">
+                            <Card
+                                className="h-100"
+                                title="Laboratory"
+                                icon="ti ti-flask"
+                                description="When an order's tests are billed — one bill per order, apart from the OPD's."
+                            >
+                                <ChoiceGrid
+                                    name="lab_trigger"
+                                    label="When the lab bills an order"
+                                    choices={LAB_TRIGGERS}
+                                    value={draft.lab_trigger}
+                                    onChange={(value) => set('lab_trigger', value)}
+                                    lockedReason={lockedReason}
+                                />
+                            </Card>
+                        </div>
+
+                        {runsPharmacy && (
+                            <div className="col-12">
+                                <PharmacyCard
+                                    summary={settings.pharmacy}
+                                    onOpen={() => navigate('/pharmacy/settings')}
+                                />
+                            </div>
+                        )}
+
+                        {!runsLab && (
+                            <div className="col-12">
+                                <p className="bset-note mt-0">
+                                    <i className="ti ti-lock" />
+                                    <span>
+                                        The laboratory isn&apos;t on for your organisation. Lab bills raised while
+                                        it was stay readable under Billing and Finance.
+                                    </span>
+                                </p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </fieldset>
 
@@ -504,6 +655,69 @@ export default function BillingSettingsPage() {
                 </div>
             )}
         </form>
+    );
+}
+
+/** The heading over one layer of settings — what it is, and whom it applies to. */
+function LayerHeading({ icon, title, note }: { icon: string; title: string; note: string }) {
+    return (
+        <div className="d-flex align-items-baseline gap-2 mt-4 mb-2">
+            <h5 className="mb-0 fw-semibold">
+                <i className={cn(icon, 'me-2')} aria-hidden="true" />
+                {title}
+            </h5>
+            <small className="text-muted">{note}</small>
+        </div>
+    );
+}
+
+/**
+ * The pharmacy's own billing, read-only here.
+ *
+ * It bills at its counter when the sale is made — there is no timing to pick
+ * — and its credit and walk-in rules belong to Pharmacy settings, so this
+ * says what they are and links there rather than holding a second copy.
+ */
+function PharmacyCard({ summary, onOpen }: { summary: PharmacyBillingSummary | null; onOpen: () => void }) {
+    const rows: [string, string][] = summary
+        ? [
+              ['When', 'At the counter, when the sale is made'],
+              ['Left owing', summary.credit_sales_enabled ? 'Allowed for registered customers' : 'Not allowed — paid in full'],
+              ['Walk-in customers', summary.allow_walk_in ? 'Allowed' : 'Must be registered'],
+              ['Prices', `${summary.price_basis === 'mrp' ? 'MRP' : 'Selling price'}, ${summary.prices_include_tax ? 'tax included' : 'tax added'}`],
+          ]
+        : [];
+
+    return (
+        <Card
+            title="Pharmacy"
+            icon="ti ti-pill"
+            description="Medicines are billed and paid at the pharmacy counter — never added to the OPD's bill."
+            actions={
+                <Button type="button" variant="light" size="sm" icon="ti ti-settings" onClick={onOpen}>
+                    Pharmacy settings
+                </Button>
+            }
+        >
+            <div className="dpt-frame">
+                <table className="bset-table">
+                    <tbody>
+                        {rows.map(([label, value]) => (
+                            <tr key={label}>
+                                <td className="text-muted">{label}</td>
+                                <td>
+                                    <b>{value}</b>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <p className="bset-note mb-0">
+                <i className="ti ti-info-circle" />
+                <span>Payment methods are the organisation&apos;s list above.</span>
+            </p>
+        </Card>
     );
 }
 
@@ -726,13 +940,19 @@ function NumbersSection({
     numbering,
     prefixes,
     setPrefixes,
+    series,
 }: {
     numbering: BillingNumbering | undefined;
     prefixes: Record<string, string>;
     setPrefixes: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+    series: { type: NumberedDocument; label: string }[];
 }) {
     return (
-        <Card title="Bill numbers" icon="ti ti-hash" description="Every branch numbers its own bills, receipts and refunds.">
+        <Card
+            title="Bill numbers"
+            icon="ti ti-hash"
+            description="Every branch numbers its own bills, receipts and refunds — and its pharmacy's bills and returns."
+        >
             {!numbering ? (
                 <LoadingBlock label="Loading numbering…" />
             ) : numbering.branches.length === 0 ? (
@@ -756,7 +976,7 @@ function NumbersSection({
                             <thead>
                                 <tr>
                                     <th>Branch</th>
-                                    {NUMBERED.map(({ type, label }) => (
+                                    {series.map(({ type, label }) => (
                                         <th key={type}>{label}</th>
                                     ))}
                                 </tr>
@@ -769,11 +989,16 @@ function NumbersSection({
                                             <span className="dr-sub d-block">{branch.code}</span>
                                         </td>
 
-                                        {NUMBERED.map(({ type, label }) => {
+                                        {series.map(({ type, label }) => {
+                                            const current = branch.series[type];
+
+                                            if (!current) {
+                                                return <td key={type}>—</td>;
+                                            }
+
                                             const key = seriesKey(branch.location_id, type);
                                             const prefix = prefixes[key] ?? '';
-                                            const problem =
-                                                prefix !== branch.series[type].prefix ? prefixProblem(prefix) : null;
+                                            const problem = prefix !== current.prefix ? prefixProblem(prefix) : null;
 
                                             return (
                                                 <td key={type}>
@@ -798,7 +1023,7 @@ function NumbersSection({
                                                     ) : (
                                                         <span className="bset-next">
                                                             Next: {prefix || '…'}/{numbering.financial_year}/
-                                                            {branch.series[type].next_sequence}
+                                                            {current.next_sequence}
                                                         </span>
                                                     )}
                                                 </td>

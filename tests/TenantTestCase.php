@@ -8,6 +8,7 @@ use App\Models\Platform\OrganizationModule;
 use App\Models\Platform\OrganizationType;
 use App\Models\Platform\PlatformRole;
 use App\Models\Platform\PlatformUser;
+use App\Models\Tenant\BillingSetting;
 use App\Models\Tenant\BranchMembership;
 use App\Models\Tenant\LocationModule;
 use App\Models\Tenant\Role;
@@ -345,6 +346,21 @@ abstract class TenantTestCase extends TestCase
         return (int) $this->onTenant($organization, fn () => Role::on(TenantConnectionService::CONNECTION)
             ->where('slug', Role::SEEDED_STAFF)
             ->value('id'));
+    }
+
+    /**
+     * Let the organisation take a bill in instalments.
+     *
+     * Billing settings default to "pay in full", and the counter enforces it.
+     * A test whose subject is what happens across several payments — their
+     * receipts, their numbers, their events — is about a clinic that allows
+     * part payment, and says so here rather than tripping over the default.
+     */
+    protected function allowPartPayments(Organization $organization): void
+    {
+        $this->onTenant($organization, fn () => BillingSetting::current()
+            ->forceFill(['payment_behaviour' => BillingSetting::PAYMENT_PARTIAL])
+            ->save());
     }
 
     /** Sell a module to the organization — level one. */

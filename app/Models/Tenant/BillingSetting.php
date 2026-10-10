@@ -119,7 +119,14 @@ class BillingSetting extends Model
      */
     public static function current(): self
     {
-        return static::query()->firstOrCreate([], []);
+        $settings = static::query()->firstOrCreate([], []);
+
+        /*
+         * A row just made holds only what was passed to it — nothing — so its
+         * payment methods, currency and policy would read null on this first
+         * call. Read the table's own defaults back before anybody bills by it.
+         */
+        return $settings->wasRecentlyCreated ? $settings->refresh() : $settings;
     }
 
     /**

@@ -6,7 +6,10 @@ use App\Models\Tenant\Customer;
 use App\Models\Tenant\Location;
 use App\Repositories\BaseRepository;
 use App\Repositories\Tenant\Contracts\CustomerRepositoryInterface;
+use App\Services\Clinic\ClinicEvent;
+use App\Services\Clinic\ClinicEventDispatcher;
 use App\Support\AgeBands;
+use App\Support\Clinic\ClinicEvents;
 use App\Support\Fields\CustomerFields;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
@@ -15,9 +18,21 @@ use RuntimeException;
 
 class CustomerRepository extends BaseRepository implements CustomerRepositoryInterface
 {
-    public function __construct(Customer $model)
-    {
+    public function __construct(
+        Customer $model,
+        /*
+         * Nullable for the same reason BookingService's is: a constructor-only
+         * dependency is left at its default — null — under Laravel 12 unless
+         * the service is bound, so it is resolved at the moment of use instead.
+         */
+        private readonly ?ClinicEventDispatcher $events = null,
+    ) {
         parent::__construct($model);
+    }
+
+    private function events(): ClinicEventDispatcher
+    {
+        return $this->events ?? app(ClinicEventDispatcher::class);
     }
 
     /**
@@ -32,12 +47,12 @@ class CustomerRepository extends BaseRepository implements CustomerRepositoryInt
     public function create(array $attributes): Customer
     {
         if (filled($attributes['code'] ?? null)) {
-            return parent::create($attributes);
+            return $this->createAndAnnounce($attributes);
         }
 
         for ($attempt = 0; $attempt < 5; $attempt++) {
             try {
-                return parent::create([...$attributes, 'code' => $this->nextCode()]);
+                return $this->createAndAnnounce([...$attributes, 'code' => $this->nextCode()]);
             } catch (QueryException $exception) {
                 if (! str_contains($exception->getMessage(), 'customers_code_unique')) {
                     throw $exception;
@@ -46,6 +61,21 @@ class CustomerRepository extends BaseRepository implements CustomerRepositoryInt
         }
 
         throw new RuntimeException('Could not allocate a patient number. Please try again.');
+    }
+
+    /**
+     * The one place a `Customer` row is first written — the front desk and
+     * the patient portal's own signup both end up here — so it is the one
+     * place `patient_registered` is raised, held until the surrounding
+     * transaction (the portal's OTP verify, say) actually commits.
+     */
+    private function createAndAnnounce(array $attributes): Customer
+    {
+        $customer = parent::create($attributes);
+
+        $this->events()->dispatch(ClinicEvent::for(ClinicEvents::PATIENT_REGISTERED, $customer));
+
+        return $customer;
     }
 
     /**

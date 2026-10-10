@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Validation\ValidationException;
 use App\Http\Middleware\AdoptTokenUser;
+use App\Http\Middleware\AuthFromQueryString;
 use App\Http\Middleware\EnsurePortalPatient;
 use App\Http\Middleware\EnsureTenantCan;
 use App\Http\Middleware\EnsureTenantHasModule;
@@ -104,6 +105,11 @@ return Application::configure(basePath: dirname(__DIR__))
              * doing is about the one patient record the login belongs to.
              */
             'portal.patient' => EnsurePortalPatient::class,
+
+            /*
+             * Only on the one-click test-push link — see the class docblock.
+             */
+            'query-auth' => AuthFromQueryString::class,
         ]);
 
         /*
@@ -140,6 +146,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(
             before: \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
             prepend: ResolveTenantFromHeader::class,
+        );
+
+        // Same reason again: whatever this lifts into the Authorization and
+        // X-Organization headers has to be there before ResolveTenantFromHeader
+        // reads the second and Authenticate reads the first.
+        $middleware->prependToPriorityList(
+            before: ResolveTenantFromHeader::class,
+            prepend: AuthFromQueryString::class,
         );
 
         /*

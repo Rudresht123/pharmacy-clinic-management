@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Route;
 |   sanctum  the CSRF cookie endpoint the SPA calls before logging in
 |   storage  Laravel's file serving route
 |   up       the health check
+|   docs     the API documentation (Swagger UI, below) and Scribe's own routes
 |
 | The lookahead is anchored to a whole segment — (/|$) — so only those exact
 | prefixes are excluded. A bare ^(?!api) would also have swallowed a future
@@ -28,6 +29,18 @@ use Illuminate\Support\Facades\Route;
 | that path matched no route at all, so the owner landed on a 404.
 |
 */
+
+/*
+| API documentation — plain Swagger UI reading the OpenAPI spec that Scribe
+| extracts from routes/api/v1.php (see config/scribe.php). Scribe's own
+| generated page — richer, with per-language code samples — stays reachable
+| at /docs/reference for anyone who wants it; this is the familiar UI people
+| ask for by name.
+*/
+Route::get('/docs', function () {
+    return view('swagger-ui', ['specUrl' => '/docs/reference.openapi']);
+})->name('docs.swagger-ui');
+
 Route::view('/{any?}', 'app')
-    ->where('any', '^(?!(api|sanctum|storage|up)(/|$)).*$')
+    ->where('any', '^(?!(api|sanctum|storage|up|docs)(/|$)).*$')
     ->name('spa');

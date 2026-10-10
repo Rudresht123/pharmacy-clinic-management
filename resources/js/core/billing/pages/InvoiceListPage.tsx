@@ -9,6 +9,7 @@ import { notify } from '@/shared/utils/notify';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { openDocument, useGenerateDocument } from '@/core/documents/api';
 import {
+    INVOICE_KIND_LABELS,
     exportInvoices,
     useFinalizeInvoice,
     useInvoiceSummary,
@@ -589,7 +590,7 @@ export default function InvoiceListPage() {
                                                     </Link>
                                                     {invoice.kind !== 'visit' && (
                                                         <span className="inv-kind">
-                                                            {invoice.kind === 'registration' ? 'Registration' : 'Manual'}
+                                                            {INVOICE_KIND_LABELS[invoice.kind] ?? invoice.kind}
                                                         </span>
                                                     )}
                                                 </td>

@@ -26,8 +26,21 @@ class PharmacySaleResource extends JsonResource
             'walk_in_phone' => $this->walk_in_phone,
             'is_walk_in' => $this->customer_id === null,
 
+            // Enough of the patient to be sure the bill is the right person's.
+            'customer' => $this->whenLoaded('customer', fn () => $this->customer ? [
+                'id' => $this->customer->id,
+                'code' => $this->customer->code,
+                'name' => $this->customer->name,
+                'phone' => $this->customer->phone,
+                'gender' => $this->customer->gender,
+                'age' => $this->customer->age(),
+                'city' => $this->customer->city,
+                'state' => $this->customer->state,
+            ] : null),
+
             'prescription_id' => $this->prescription_id,
             'doctor_id' => $this->doctor_id,
+            'doctor_name' => $this->whenLoaded('doctor', fn () => $this->doctor?->name),
 
             'sale_date' => $this->sale_date?->toIso8601String(),
             'status' => $this->status,

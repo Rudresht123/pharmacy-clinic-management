@@ -16,6 +16,8 @@ import { NoStores, StorePicker, useChosenStore } from '../components/StorePicker
 import { ReportSummaryView, ViewTabs, type PharmacyView } from '../components/ReportSummary';
 import { useReportSummary } from '../reports';
 import { PAYMENT_STATUS_LABELS, useCancelSale, useSale, useSales, type Sale } from '../sales';
+import { CollectSaleDialog, ReturnSaleDialog } from '../components/SaleMoneyDialogs';
+import { SaleBillView } from '../components/SaleBillView';
 
 const money = (value: number) => `₹${value.toFixed(2)}`;
 
@@ -32,6 +34,11 @@ export default function SalesListPage() {
     const { can } = useTenantAuth();
     const canSell = can('pharmacy.sell');
     const canCancel = can('pharmacy.sale_cancel');
+    // Whoever works the till may take the rest of a bill left owing.
+    const canCollect = canSell || can('pharmacy.dispense');
+
+    const [collecting, setCollecting] = useState<Sale>();
+    const [returning, setReturning] = useState<Sale>();
 
     const { stores, store, choose, isLoading: storesLoading } = useChosenStore();
 
@@ -232,102 +239,52 @@ export default function SalesListPage() {
                 </>
             )}
 
+            {/*
+             * Steps aside while one of its own dialogs is open — payment,
+             * return or cancellation — rather than sitting half-covered under
+             * it, and comes back afterwards showing the bill as it now stands.
+             */}
             <Modal
-                open={openId !== undefined}
+                open={openId !== undefined && !collecting && !returning && !cancelling}
                 onClose={() => setOpenId(undefined)}
                 title={open ? open.sale_number : 'Bill'}
-                size="lg"
-            >
-                {openLoading || !open ? (
-                    <LoadingBlock label="Loading…" />
-                ) : (
-                    <>
-                        <dl className="row mb-3 fs-13">
-                            <dt className="col-4">Sold</dt>
-                            <dd className="col-8">
-                                {formatDate(open.sale_date)} by {open.created_by_name ?? '—'}
-                            </dd>
-                            <dt className="col-4">Sold to</dt>
-                            <dd className="col-8">
-                                {open.customer_name}
-                                {open.walk_in_phone && ` · ${open.walk_in_phone}`}
-                            </dd>
-                            {open.status === 'cancelled' && (
-                                <>
-                                    <dt className="col-4">Cancelled</dt>
-                                    <dd className="col-8 text-danger">{open.cancellation_reason}</dd>
-                                </>
-                            )}
-                        </dl>
-
-                        <div className="pf-table-wrap">
-                            <table className="table table-sm mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Item</th>
-                                        <th>Batch</th>
-                                        <th className="text-end">Qty</th>
-                                        <th className="text-end">Price</th>
-                                        <th className="text-end">GST</th>
-                                        <th className="text-end">Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {(open.items ?? []).map((item) => (
-                                        <tr key={item.id}>
-                                            <td>
-                                                {item.item_name}
-                                                {item.hsn_code && <span className="dr-sub d-block">HSN {item.hsn_code}</span>}
-                                            </td>
-                                            <td>
-                                                {item.batch_number}
-                                                <span className="dr-sub d-block">{formatDate(item.expiry_date)}</span>
-                                            </td>
-                                            <td className="text-end tabular-nums">{item.quantity}</td>
-                                            <td className="text-end tabular-nums">{money(item.unit_price)}</td>
-                                            <td className="text-end tabular-nums">
-                                                {money(item.tax_amount)}
-                                                <span className="dr-sub d-block">{item.tax_rate}%</span>
-                                            </td>
-                                            <td className="text-end tabular-nums">{money(item.line_total)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <dl className="row mt-3 mb-0 fs-13">
-                            <dt className="col-8 text-end">Goods</dt>
-                            <dd className="col-4 text-end tabular-nums">{money(open.subtotal)}</dd>
-                            <dt className="col-8 text-end">GST</dt>
-                            <dd className="col-4 text-end tabular-nums">{money(open.tax_amount)}</dd>
-                            {open.round_off !== 0 && (
-                                <>
-                                    <dt className="col-8 text-end">Round off</dt>
-                                    <dd className="col-4 text-end tabular-nums">{money(open.round_off)}</dd>
-                                </>
-                            )}
-                            <dt className="col-8 text-end fw-bold">Total</dt>
-                            <dd className="col-4 text-end tabular-nums fw-bold">{money(open.total_amount)}</dd>
-                            <dt className="col-8 text-end">Paid</dt>
-                            <dd className="col-4 text-end tabular-nums">{money(open.paid_amount)}</dd>
-                        </dl>
-
-                        {canCancel && open.status === 'completed' && (
-                            <div className="mt-3 text-end">
-                                <Button variant="danger" size="sm" icon="ti ti-ban" onClick={() => setCancelling(open)}>
+                subtitle={open ? `Pharmacy bill · ${formatDate(open.sale_date)}` : undefined}
+                icon={<i className="ti ti-receipt" />}
+                size="xl"
+                footer={
+                    open && open.status === 'completed' ? (
+                        <div className="d-flex justify-content-end gap-2 flex-wrap w-100">
+                            {canCancel && (
+                                <Button variant="outline" icon="ti ti-ban" className="me-auto sb-cancel" onClick={() => setCancelling(open)}>
                                     Cancel this bill
                                 </Button>
-                            </div>
-                        )}
-                    </>
-                )}
+                            )}
+                            {canCancel &&
+                                open.payment_status !== 'billed_via_invoice' &&
+                                (open.items ?? []).some((item) => item.quantity > (item.returned_quantity ?? 0)) && (
+                                    <Button variant="outline" icon="ti ti-arrow-back-up" onClick={() => setReturning(open)}>
+                                        Take a return
+                                    </Button>
+                                )}
+                            {canCollect && open.amount_due > 0 && open.payment_status !== 'billed_via_invoice' && (
+                                <Button icon="ti ti-cash" onClick={() => setCollecting(open)}>
+                                    Take payment · {money(open.amount_due)}
+                                </Button>
+                            )}
+                        </div>
+                    ) : undefined
+                }
+            >
+                {openLoading || !open ? <LoadingBlock label="Loading…" /> : <SaleBillView sale={open} />}
             </Modal>
+
+            <CollectSaleDialog sale={collecting} onClose={() => setCollecting(undefined)} />
+            <ReturnSaleDialog sale={returning} onClose={() => setReturning(undefined)} />
 
             <ReasonDialog
                 open={cancelling !== undefined}
                 title={`Cancel ${cancelling?.sale_number ?? ''}`}
-                subtitle="Everything on it goes back on the shelf. The bill stays on the record, marked cancelled."
+                subtitle="Everything on it goes back on the shelf, and any money taken is recorded as handed back. The bill stays on the record, marked cancelled."
                 submitLabel="Cancel bill"
                 danger
                 submitting={cancel.isPending}

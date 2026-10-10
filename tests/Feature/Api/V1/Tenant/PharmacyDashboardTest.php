@@ -185,7 +185,7 @@ class PharmacyDashboardTest extends TenantTestCase
 
         $bill = $data['recent_bills'][0];
 
-        $this->assertStringStartsWith('INV-', $bill['sale_number']);
+        $this->assertMatchesRegularExpression('#^D-PBH/PH/\d{2}-\d{2}/\d{5}$#', $bill['sale_number']);
         $this->assertSame('cash', $bill['payment']);
         $this->assertSame(1, $bill['items_count']);
         $this->assertEqualsWithDelta(112, $bill['total_amount'], 0.01);

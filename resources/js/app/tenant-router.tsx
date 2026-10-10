@@ -54,6 +54,7 @@ const InvoicePage = lazy(() => import('@/core/billing/pages/InvoicePage'));
 const NewInvoicePage = lazy(() => import('@/core/billing/pages/NewInvoicePage'));
 const PaymentsPage = lazy(() => import('@/core/billing/pages/PaymentsPage'));
 const OutstandingPage = lazy(() => import('@/core/billing/pages/OutstandingPage'));
+const FinancePage = lazy(() => import('@/core/billing/pages/FinancePage'));
 const ServicesPage = lazy(() => import('@/core/billing/pages/ServicesPage'));
 const BillingSettingsPage = lazy(() => import('@/core/billing/pages/BillingSettingsPage'));
 const DocumentTemplatesPage = lazy(() => import('@/core/documents/pages/DocumentTemplatesPage'));
@@ -524,6 +525,11 @@ export function TenantAppRoutes() {
                                         path="/billing/invoices/new"
                                         element={<NewInvoicePage />}
                                     />
+                                </Route>
+
+                                {/* Every department's money together — its own capability. */}
+                                <Route element={<RequireCapability capability="billing.finance" />}>
+                                    <Route path="/billing/finance" element={<FinancePage />} />
                                 </Route>
 
                                 <Route element={<RequireCapability capability="billing.view" />}>

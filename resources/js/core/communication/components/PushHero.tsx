@@ -1,6 +1,6 @@
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
-import type { SetupStep } from '../types';
+import type { MessageTemplate, SetupStep } from '../types';
 
 /** One icon per checklist step, so the row reads without its labels. */
 const STEP_ICON: Record<string, string> = {
@@ -27,8 +27,11 @@ export function PushHero({
     rulesTotal,
     toggling,
     testing,
+    templates,
+    templateId,
     onToggle,
     onTest,
+    onTemplateChange,
 }: {
     on: boolean;
     steps: SetupStep[];
@@ -36,9 +39,14 @@ export function PushHero({
     rulesTotal: number;
     toggling?: boolean;
     testing?: boolean;
+    /** Every push template there is to pick from, for the test below. */
+    templates?: MessageTemplate[];
+    /** Which one the test will use — null for a plain "this works" push. */
+    templateId?: number | null;
     /** Absent for somebody who may look but not change it. */
     onToggle?: () => void;
     onTest?: () => void;
+    onTemplateChange?: (id: number | null) => void;
 }) {
     const done = steps.filter((step) => step.done).length;
     const ready = steps.length > 0 && done === steps.length;
@@ -68,16 +76,37 @@ export function PushHero({
 
                 <div className="ph-hero-actions">
                     {onTest && (
-                        <Button
-                            variant="light"
-                            icon="ti ti-device-mobile-message"
-                            onClick={onTest}
-                            loading={testing}
-                            disabled={!on}
-                            title={on ? 'Sends to your own phone, never a patient’s' : 'Switch the channel on first'}
-                        >
-                            Send a test to my phone
-                        </Button>
+                        <>
+                            {templates && templates.length > 0 && (
+                                <select
+                                    className="form-select ph-test-template"
+                                    aria-label="Template to test"
+                                    disabled={testing}
+                                    value={templateId ?? ''}
+                                    onChange={(event) =>
+                                        onTemplateChange?.(event.target.value === '' ? null : Number(event.target.value))
+                                    }
+                                >
+                                    <option value="">Plain test (no template)</option>
+                                    {templates.map((template) => (
+                                        <option key={template.id} value={template.id}>
+                                            {template.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+
+                            <Button
+                                variant="light"
+                                icon="ti ti-device-mobile-message"
+                                onClick={onTest}
+                                loading={testing}
+                                disabled={!on}
+                                title={on ? 'Sends to your own phone, never a patient’s' : 'Switch the channel on first'}
+                            >
+                                Send a test to my phone
+                            </Button>
+                        </>
                     )}
 
                     {onToggle ? (

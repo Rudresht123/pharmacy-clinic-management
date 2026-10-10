@@ -59,6 +59,8 @@ class ClinicEventTest extends TenantTestCase
         parent::setUp();
 
         $this->organization = $this->provisionOrganization('EV');
+        // These bills are paid in instalments; the default is in full.
+        $this->allowPartPayments($this->organization);
 
         $this->onTenant($this->organization, function () {
             $this->branch = Location::query()->value('id')

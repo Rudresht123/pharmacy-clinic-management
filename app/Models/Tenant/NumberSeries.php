@@ -10,7 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * What one branch's invoices, receipts or refunds are numbered with.
  *
  * THE NUMBERS THEMSELVES ARE NOT TAKEN HERE. A BEFORE INSERT trigger on
- * `invoices` and `invoice_payments` takes each one inside the INSERT, from
+ * `invoices`, `invoice_payments`, `pharmacy_sales` and `pharmacy_sale_returns`
+ * takes each one inside the INSERT, from
  * `hms_series_number()` — see the migration that created this table. A row
  * appears here the first time a branch issues that kind of document, carrying
  * the default prefix; all anybody does with this model is change the prefix,
@@ -24,7 +25,16 @@ class NumberSeries extends Model
 
     public const REFUND = 'refund';
 
-    public const TYPES = [self::INVOICE, self::RECEIPT, self::REFUND];
+    /** A pharmacy bill — GGN/PH/26-27/00001. */
+    public const PHARMACY_SALE = 'pharmacy_sale';
+
+    /** Goods taken back at the pharmacy — GGN/PHR/26-27/00001. */
+    public const PHARMACY_RETURN = 'pharmacy_return';
+
+    public const TYPES = [self::INVOICE, self::RECEIPT, self::REFUND, self::PHARMACY_SALE, self::PHARMACY_RETURN];
+
+    /** The pharmacy's own documents — shown only where the pharmacy runs. */
+    public const PHARMACY_TYPES = [self::PHARMACY_SALE, self::PHARMACY_RETURN];
 
     protected $connection = 'organization';
 

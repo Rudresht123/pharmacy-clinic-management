@@ -78,7 +78,10 @@ return [
 
         // URL path to use for the docs endpoint (if `add_routes` is true).
         // By default, `/docs` opens the HTML page, `/docs.postman` opens the Postman collection, and `/docs.openapi` the OpenAPI spec.
-        'docs_url' => '/docs',
+        //
+        // Moved off '/docs': that URL now serves a plain Swagger UI page (routes/web.php) built
+        // on the same openapi.yaml, so '/docs.openapi' below becomes '/docs/reference.openapi'.
+        'docs_url' => '/docs/reference',
 
         // Directory within `public` in which to store CSS and JS assets.
         // By default, assets are stored in `public/vendor/scribe`.

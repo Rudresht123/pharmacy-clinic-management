@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\V1\Tenant\DepartmentController;
 use App\Http\Controllers\Api\V1\Tenant\DoctorController;
 use App\Http\Controllers\Api\V1\Tenant\DoctorScheduleController;
 use App\Http\Controllers\Api\V1\Tenant\FieldSettingController;
+use App\Http\Controllers\Api\V1\Tenant\FinanceController;
 use App\Http\Controllers\Api\V1\Tenant\HistoryController;
 use App\Http\Controllers\Api\V1\Tenant\LocationController;
 use App\Http\Controllers\Api\V1\Tenant\BranchRolePermissionController;
@@ -300,6 +301,13 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         Route::delete('devices/{deviceId}', [DeviceController::class, 'destroy'])
             ->where('deviceId', '[A-Za-z0-9._:-]{1,191}')
             ->name('devices.destroy');
+
+        // One canned push to whoever hits this, on their own phone — how
+        // somebody checks push actually reaches them, end to end. Carries
+        // `query-auth` so the link works pasted straight into a browser.
+        Route::get('devices/test-push', [DeviceController::class, 'testPush'])
+            ->middleware('query-auth')
+            ->name('devices.test-push');
 
         /*
         | The workspace's first screen. Ungated here because anybody who may

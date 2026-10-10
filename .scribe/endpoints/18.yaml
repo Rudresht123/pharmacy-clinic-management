@@ -213,7 +213,7 @@ endpoints:
         name: 'fields[].data_type'
         description: ''
         required: false
-        example: text
+        example: date
         type: string
         enumValues:
           - text
@@ -263,7 +263,7 @@ endpoints:
         name: 'fields[].is_required'
         description: ''
         required: true
-        example: true
+        example: false
         type: boolean
         enumValues: []
         exampleWasSpecified: false
@@ -309,12 +309,12 @@ endpoints:
           label: z
           placeholder: m
           is_custom: true
-          data_type: text
+          data_type: date
           options:
             -
               value: i
               label: 'y'
-          is_required: true
+          is_required: false
           show_in_form: true
           show_in_table: true
           sort_order: 1

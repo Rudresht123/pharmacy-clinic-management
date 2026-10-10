@@ -26781,3 +26781,126 @@ fieldset:disabled .bset-method:not(.is-on):hover {
 [data-theme='dark'] .dt-live-frame {
     background: var(--surface-2);
 }
+
+/* =====================================================================
+   Pharmacy bill — opened from Pharmacy › Bills
+   ---------------------------------------------------------------------
+   Prefixed sb- (sale bill). Who it is for beside the bill's own facts;
+   the lines; then every rupee in and out beside the totals. Layout
+   tokens only, so dark mode follows; the status tints get a lighter
+   ink in dark mode below.
+   ===================================================================== */
+
+.sb{ display:grid; gap:16px; }
+
+.sb-top,
+.sb-bottom{ display:grid; grid-template-columns:minmax(0, 1.35fr) minmax(0, 1fr); gap:16px; align-items:start; }
+
+.sb-patient{
+    display:flex;
+    align-items:flex-start;
+    gap:16px;
+    height:100%;
+    padding:16px 18px;
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    border-radius:14px;
+}
+.sb-face{ width:64px; height:64px; flex:0 0 auto; border-radius:50%; }
+.sb-who{ flex:1; min-width:0; }
+.sb-name{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; font-size:17px; font-weight:800; letter-spacing:-.2px; color:var(--ink); }
+.sb-tag{ padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; font-style:normal; background:var(--surface-3); color:var(--muted); }
+.sb-facts{ gap:6px 18px; margin-top:10px; font-size:12.5px; }
+.sb-link{ display:inline-flex; align-items:center; gap:4px; margin-top:12px; font-size:12.5px; font-weight:700; color:rgb(var(--brand)); text-decoration:none; }
+.sb-link:hover{ text-decoration:underline; }
+.sb-note{ display:block; margin-top:10px; font-size:12.5px; color:var(--muted); }
+
+.sb-meta{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:14px 16px;
+    height:100%;
+    margin:0;
+    padding:16px 18px;
+    border:1px solid var(--line);
+    border-radius:14px;
+}
+.sb-meta dt{ font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); }
+.sb-meta dd{ margin:3px 0 0; font-size:13px; font-weight:600; color:var(--ink); word-break:break-word; }
+
+.sb-status{ display:inline-flex; align-items:center; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700; }
+.sb-status.is-paid{ background:rgba(16,185,129,.12); color:#047857; }
+.sb-status.is-part{ background:rgba(245,158,11,.14); color:#b45309; }
+.sb-status.is-unpaid{ background:rgba(244,63,94,.1); color:#be123c; }
+.sb-status.is-moved{ background:rgba(var(--brand), .08); color:rgb(var(--brand)); }
+.sb-status.is-cancelled{ background:var(--surface-3); color:var(--muted); }
+
+.sb-cancelled{ display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border-radius:12px; background:rgba(244,63,94,.08); font-size:13px; color:#be123c; }
+.sb-cancelled i{ font-size:18px; }
+
+.sb-items table{ font-size:13px; }
+.sb-items .table thead tr th{ background:var(--surface-2); font-size:11.5px; font-weight:600; letter-spacing:.3px; text-transform:uppercase; color:var(--muted); }
+.sb-items tbody td{ vertical-align:middle; }
+.sb-item{ font-weight:600; color:var(--ink); }
+.sb-back{ font-size:11.5px; font-weight:700; color:#b45309; }
+
+/* The one destructive action in the footer: red, but not a solid red block beside the payment button. */
+.btn.sb-cancel{ border-color:rgba(244,63,94,.45); color:#be123c; }
+.btn.sb-cancel:hover,
+.btn.sb-cancel:focus-visible{ border-color:#be123c; background:rgba(244,63,94,.08); color:#be123c; }
+
+.sb-heading{ margin:0 0 8px; font-size:11.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--muted); }
+
+.sb-ledger{ display:grid; margin:0; padding:0; list-style:none; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.sb-ledger li{ display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid var(--line); }
+.sb-ledger li:last-child{ border-bottom:0; }
+.sb-ledger i{ display:grid; place-items:center; width:32px; height:32px; flex:0 0 auto; border-radius:9px; font-size:16px; background:rgba(16,185,129,.12); color:#047857; }
+.sb-ledger li.is-refund i{ background:rgba(244,63,94,.1); color:#be123c; }
+.sb-ledger li.is-return i{ background:rgba(245,158,11,.14); color:#b45309; }
+.sb-ledger-what{ display:grid; flex:1; min-width:0; font-size:12px; color:var(--muted); }
+.sb-ledger-what b{ font-size:13px; color:var(--ink); }
+.sb-ledger-amount{ display:grid; justify-items:end; font-size:13.5px; font-weight:700; color:var(--ink); white-space:nowrap; }
+.sb-ledger li.is-refund .sb-ledger-amount{ color:#be123c; }
+.sb-ledger-amount small{ font-size:11.5px; font-weight:500; color:var(--muted); }
+
+.sb-totals{ display:grid; margin:0; padding:6px 18px; overflow:hidden; background:var(--surface-2); border:1px solid var(--line); border-radius:14px; }
+.sb-totals > div{ display:flex; justify-content:space-between; gap:12px; padding:7px 0; font-size:13px; }
+.sb-totals dt{ font-weight:500; color:var(--muted); }
+.sb-totals dd{ margin:0; font-weight:600; font-variant-numeric:tabular-nums; color:var(--ink); }
+.sb-totals .is-total{ margin-top:4px; padding-top:10px; border-top:1px dashed var(--line); }
+.sb-totals .is-total dt,
+.sb-totals .is-total dd{ font-size:15px; font-weight:800; color:var(--ink); }
+.sb-totals .is-owed,
+.sb-totals .is-settled{ margin:6px -18px -6px; padding:12px 18px; }
+.sb-totals .is-owed{ background:rgba(244,63,94,.08); }
+.sb-totals .is-owed dt,
+.sb-totals .is-owed dd{ font-size:15px; font-weight:800; color:#be123c; }
+.sb-totals .is-settled{ background:rgba(16,185,129,.1); }
+.sb-totals .is-settled dt,
+.sb-totals .is-settled dd{ font-weight:700; color:#047857; }
+
+[data-theme='dark'] .sb-status.is-paid,
+[data-theme='dark'] .sb-ledger i,
+[data-theme='dark'] .sb-totals .is-settled dt,
+[data-theme='dark'] .sb-totals .is-settled dd{ color:#34d399; }
+[data-theme='dark'] .sb-status.is-part,
+[data-theme='dark'] .sb-ledger li.is-return i,
+[data-theme='dark'] .sb-back{ color:#fbbf24; }
+[data-theme='dark'] .sb-status.is-unpaid,
+[data-theme='dark'] .sb-cancelled,
+[data-theme='dark'] .sb-ledger li.is-refund i,
+[data-theme='dark'] .sb-ledger li.is-refund .sb-ledger-amount,
+[data-theme='dark'] .sb-totals .is-owed dt,
+[data-theme='dark'] .sb-totals .is-owed dd,
+[data-theme='dark'] .btn.sb-cancel{ color:#fb7185; }
+[data-theme='dark'] .sb-link{ color:#a5b4fc; }
+
+@media (max-width: 991.98px){
+    .sb-top,
+    .sb-bottom{ grid-template-columns:minmax(0, 1fr); }
+}
+
+@media (max-width: 575.98px){
+    .sb-patient{ flex-direction:column; }
+    .sb-meta{ grid-template-columns:minmax(0, 1fr); }
+}

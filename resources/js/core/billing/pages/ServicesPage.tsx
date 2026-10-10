@@ -21,7 +21,10 @@ const money = (value: number) => `₹${value.toFixed(2)}`;
  *
  * The KIND is not decoration — it decides when the charge lands. Registration
  * is billed once at the desk; consultation and procedure join every visit's
- * bill automatically; service and custom are picked by hand on a manual bill.
+ * OPD bill automatically; a follow-up fee replaces the doctor's fee inside
+ * the follow-up period; service and custom are picked by hand on a manual
+ * bill. Tests are priced on the lab's own list and medicines at the
+ * pharmacy — neither belongs here.
  */
 const KINDS: { value: BillableService['kind']; label: string; hint: string }[] = [
     {
@@ -32,12 +35,17 @@ const KINDS: { value: BillableService['kind']; label: string; hint: string }[] =
     {
         value: 'consultation',
         label: 'Per visit',
-        hint: 'Added to every visit’s bill automatically, alongside the doctor’s fee.',
+        hint: 'Added to every visit’s OPD bill automatically, alongside the doctor’s fee.',
+    },
+    {
+        value: 'follow_up',
+        label: 'Follow-up fee',
+        hint: 'Charged instead of the doctor’s fee when the patient returns within the follow-up days the doctor set. Price it at 0 for free follow-ups.',
     },
     {
         value: 'procedure',
         label: 'Procedure',
-        hint: 'Added to every visit’s bill automatically, as a procedure line.',
+        hint: 'Added to every visit’s OPD bill automatically, as a procedure line.',
     },
     {
         value: 'service',
