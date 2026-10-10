@@ -66,6 +66,8 @@ export interface StockRow {
     /** The counter reads a name over a maker, not one long string. */
     generic_name: string | null;
     brand_name: string | null;
+    strength: string | null;
+    dosage_form: string | null;
     category: string | null;
 
     /**
@@ -76,6 +78,10 @@ export interface StockRow {
     price: number | null;
 
     base_unit: string | null;
+    /** Base units in one pack — the 10 in "Strip of 10". */
+    pack_size: number | null;
+    /** GST %, as the server will charge it on the bill. */
+    tax_rate: number | null;
     on_hand: number;
     /** What can actually be dispensed: active batches not past expiry. */
     usable: number;

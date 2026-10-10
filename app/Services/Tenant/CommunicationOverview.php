@@ -300,6 +300,22 @@ class CommunicationOverview
             ->whereIn('status', [MessageLog::SENT, ...MessageLog::ARRIVED])
             ->exists();
 
+        /*
+         * App notifications have no account or phone number of the clinic's
+         * own — the push service is the platform's — so its checklist asks
+         * what actually stands between it and a patient's phone.
+         */
+        if ($channel->channel === CommunicationChannel::PUSH) {
+            $platform = config('push.driver') === 'fcm' || ! app()->isProduction();
+
+            return [
+                $this->step('account', 'App notifications', $channel->is_connected, 'Switched on', 'Switched off'),
+                $this->step('handle', 'Push service', $platform, 'Ready', 'Not configured'),
+                $this->step('templates', 'Message templates', $approved, 'Approved', 'None approved'),
+                $this->step('test', 'Test notification', $hasSent, 'Sent', 'Pending'),
+            ];
+        }
+
         return [
             $this->step('account', 'Business account', $channel->is_connected, 'Connected', 'Not connected'),
             $this->step('handle', 'Phone number', $channel->is_verified, 'Verified', 'Unverified'),

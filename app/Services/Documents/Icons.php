@@ -75,6 +75,21 @@ class Icons
         'circle-check' => 'ea67',
         'clock' => 'ea70',
         'circle-x' => 'ea6a',
+
+        // panels, cards and the footer badges
+        'user-filled' => 'fd19',
+        'calendar' => 'ea53',
+        'info-circle' => 'eac5',
+        'heartbeat' => 'ef92',
+        'file-text' => 'eaa2',
+        'receipt-2' => 'edfa',
+        'wallet' => 'eb75',
+        'id' => 'eac3',
+        'heart-handshake' => 'f0f3',
+        'award' => 'ea2c',
+        'users' => 'ebf2',
+        'microscope' => 'ef64',
+        'shield-check-filled' => 'f761',
     ];
 
     public static function file(): string

@@ -5,17 +5,10 @@ namespace App\Services\Communication;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\AutomationRule;
-use App\Models\Tenant\CommunicationChannel;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Invoice;
 use App\Models\Tenant\InvoicePayment;
-use App\Models\Tenant\MessageTemplate;
 use App\Services\Clinic\ClinicEvent;
-use App\Services\Email\EmailManager;
-use App\Services\Email\EmailMessage;
-use App\Services\Modules\FeatureResolver;
-use App\Services\Permissions\Permission;
-use App\Services\WhatsApp\WhatsAppManager;
 use App\Support\Clinic\ClinicEvents;
 
 /**
@@ -32,16 +25,18 @@ use App\Support\Clinic\ClinicEvents;
  *
  *   1. the communication module runs at the event's branch   (FeatureResolver)
  *   2. that channel is connected — an SMTP account for email,
- *      a provider for WhatsApp                               (communication_channels)
+ *      a provider for WhatsApp, switched on for App
+ *      notifications                                         (communication_channels)
  *   3. the clinic's rule for this event on that channel is on (automation_rules)
  *   4. the rule names a template that is active AND approved  (message_templates)
- *   5. the patient has an address on that channel             (customers)
+ *   5. the patient has an address on that channel — an email,
+ *      a phone, an app login                                 (customers, users)
  *
  * Any one off and that channel stays silent; the others are unaffected.
  *
- * Delivery itself is the existing EmailManager / WhatsAppManager: the message
- * is queued through them, so it lands in the same delivery log, retries the
- * same way, and goes out from the clinic's own account.
+ * Steps 4 and 5 and the delivery itself are ChannelSender's — shared with
+ * campaigns, so a rule and a campaign can never disagree about what may be
+ * sent. That is also where a branch's own wording replaces the organisation's.
  *
  * SMS has rules on the screen but no provider in this codebase yet, so an SMS
  * rule is skipped rather than pretending to send.
@@ -60,14 +55,8 @@ class AutomationSender
         ClinicEvents::PAYMENT_RECEIVED => AutomationRule::PAYMENT_RECEIVED,
     ];
 
-    /** The channels something can actually be handed to today. */
-    private const DELIVERABLE = [CommunicationChannel::EMAIL, CommunicationChannel::WHATSAPP];
-
     public function __construct(
-        private readonly Permission $permission,
-        private readonly FeatureResolver $features,
-        private readonly EmailManager $email,
-        private readonly WhatsAppManager $whatsapp,
+        private readonly ChannelSender $channels,
     ) {}
 
     /**
@@ -107,6 +96,9 @@ class AutomationSender
      * Queue whatever this organization has switched on for one rule, to one
      * patient.
      *
+     * `$onlyChannel` narrows it to one channel's rule — a reminder, whose
+     * rules on different channels may each carry their own lead time.
+     *
      * @param  array<string, string|int|float|null>  $variables
      * @return list<string>
      */
@@ -116,11 +108,10 @@ class AutomationSender
         Customer $customer,
         ?int $locationId,
         array $variables,
+        ?string $onlyChannel = null,
     ): array {
         // 1 + 2: the module runs here, and which channels are connected.
-        $communication = $this->features->communicationFor(
-            $this->permission->modulesAt($organization, $locationId),
-        );
+        $communication = $this->channels->communication($organization, $locationId);
 
         if (! $communication['enabled']) {
             return [];
@@ -131,6 +122,7 @@ class AutomationSender
             ->with('template')
             ->where('event_key', $ruleKey)
             ->where('is_enabled', true)
+            ->when($onlyChannel !== null, fn ($query) => $query->where('channel', $onlyChannel))
             ->orderBy('sort_order')
             ->get();
 
@@ -139,49 +131,29 @@ class AutomationSender
         foreach ($rules as $rule) {
             $channel = (string) $rule->channel;
 
-            if (! in_array($channel, self::DELIVERABLE, true) || ! ($communication['channels'][$channel] ?? false)) {
+            if (! in_array($channel, ChannelSender::DELIVERABLE, true) || ! ($communication['channels'][$channel] ?? false)) {
                 continue;
             }
 
-            // 4: something approved to say, written for this channel.
-            $template = $rule->template;
-
-            if ($template === null
-                || ! $template->is_active
-                || $template->status !== MessageTemplate::APPROVED
-                || $template->channel !== $channel) {
+            // 4 + 5: an approved template for this channel, an address on it —
+            // and the branch's own wording where it has one.
+            if ($rule->template === null) {
                 continue;
             }
 
-            // 5: somewhere to say it.
-            $address = $channel === CommunicationChannel::EMAIL ? $customer->email : $customer->phone;
+            $log = $this->channels->queue(
+                $organization,
+                $channel,
+                $customer,
+                $rule->template,
+                $variables,
+                $locationId,
+                data: ['type' => $ruleKey],
+            );
 
-            if (blank($address)) {
-                continue;
+            if ($log !== null) {
+                $queued[] = $channel;
             }
-
-            if ($channel === CommunicationChannel::EMAIL) {
-                $this->email->forOrganization($organization)->queue(
-                    EmailMessage::make(
-                        to: (string) $address,
-                        subject: (string) ($template->subject ?: $template->name),
-                        body: (string) $template->content,
-                        template: $template->name,
-                        variables: $variables,
-                    ),
-                    $customer->id,
-                    ['message_template_id' => $template->id, 'recipient_name' => $customer->name],
-                );
-            } else {
-                $this->whatsapp->forOrganization($organization)->sendTemplate(
-                    phone: (string) $address,
-                    template: $template->name,
-                    variables: $variables,
-                    customerId: $customer->id,
-                );
-            }
-
-            $queued[] = $channel;
         }
 
         return $queued;
@@ -210,22 +182,36 @@ class AutomationSender
             return null;
         }
 
+        return [
+            'customer' => $visit->customer,
+            'variables' => $this->appointmentVariables($visit, $organization),
+        ];
+    }
+
+    /**
+     * An appointment as a template's variables — shared with the reminders,
+     * so a confirmation and a reminder can never spell the date differently.
+     *
+     * @return array<string, string|int|float|null>
+     */
+    public function appointmentVariables(Appointment $visit, Organization $organization): array
+    {
+        $visit->loadMissing(['customer', 'doctor', 'location']);
+
         $date = $visit->appointment_date?->format('d M Y');
         $time = $visit->slot_at ? date('g:i A', strtotime((string) $visit->slot_at)) : null;
 
         return [
-            'customer' => $visit->customer,
-            'variables' => [
-                'patient_name' => $visit->customer->name,
-                'doctor_name' => $visit->doctor?->name,
-                'date' => $date,
-                'time' => $time,
-                'appointment_date' => $date,
-                'appointment_time' => $time,
-                'token_no' => $visit->token_no,
-                'clinic_name' => $organization->organization_name,
-                'branch_name' => $visit->location?->name,
-            ],
+            'patient_name' => $visit->customer?->name,
+            'phone' => $visit->customer?->phone,
+            'doctor_name' => $visit->doctor?->name,
+            'date' => $date,
+            'time' => $time,
+            'appointment_date' => $date,
+            'appointment_time' => $time,
+            'token_no' => $visit->token_no,
+            'clinic_name' => $organization->organization_name,
+            'branch_name' => $visit->location?->name,
         ];
     }
 
@@ -255,6 +241,7 @@ class AutomationSender
             'customer' => $invoice->customer,
             'variables' => [
                 'patient_name' => $invoice->customer->name,
+                'phone' => $invoice->customer->phone,
                 'amount' => number_format((float) $payment->amount, 2),
                 'payment_method' => $payment->method,
                 'invoice_number' => $invoice->invoice_number,

@@ -70,7 +70,11 @@ class SendPushNotification implements ShouldQueue
         }
 
         $result = $sender->send(
-            new PushMessage($this->title, $this->body, $this->data + ['organization' => $organization->uuid]),
+            new PushMessage($this->title, $this->body, $this->data + [
+                'organization' => $organization->uuid,
+                // What the app compares with its own sign-in's clinic.
+                'workspace' => $organization->subdomain,
+            ]),
             $tokens,
         );
 

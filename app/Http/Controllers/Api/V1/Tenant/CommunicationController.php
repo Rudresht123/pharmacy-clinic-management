@@ -11,7 +11,9 @@ use App\Models\Tenant\CommunicationChannel;
 use App\Models\Tenant\MessageLog;
 use App\Models\Tenant\MessageTemplate;
 use App\Services\Email\EmailMessage;
+use App\Services\Push\PushManager;
 use App\Services\Tenant\CommunicationOverview;
+use App\Support\Communication\MessageVariables;
 use App\Services\WhatsApp\WhatsAppMessage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -70,7 +72,7 @@ class CommunicationController extends BaseApiController
             'analytics' => $this->overview->analytics($channel, $days),
 
             'templates' => MessageTemplateResource::collection(
-                MessageTemplate::query()->forChannel($channel)->get()
+                MessageTemplate::query()->forChannel($channel)->withCount('variants')->get()
             ),
 
             'rules' => AutomationRuleResource::collection(
@@ -169,6 +171,18 @@ class CommunicationController extends BaseApiController
                 return [$result->success, $result->message, $result->provider];
             })(),
 
+            /*
+             * App notifications ride the platform's Firebase project, not an
+             * account of the clinic's, so the test is whether the platform
+             * has one: FCM configured, or the log driver outside production.
+             */
+            CommunicationChannel::PUSH => match (true) {
+                config('push.driver') === 'fcm' && filled(config('push.fcm.credentials')) => [true, 'Firebase is configured. App notifications can be delivered.', 'fcm'],
+                config('push.driver') === 'fcm' => [false, 'Firebase is selected but its service account is missing.', 'fcm'],
+                app()->isProduction() => [false, 'App notifications are not set up on this platform yet.', 'log'],
+                default => [true, 'App notifications are written to the log here; nothing reaches a phone.', 'log'],
+            },
+
             default => [false, 'This channel has no provider to test yet.', $channel],
         };
 
@@ -200,6 +214,15 @@ class CommunicationController extends BaseApiController
     public function test(Request $request, string $channel): JsonResponse
     {
         abort_unless(in_array($channel, CommunicationChannel::CHANNELS, true), 404);
+
+        /*
+         * An App notification test goes to the person pressing the button —
+         * their own registered phones — never to an address typed in: a
+         * "test" that could buzz any patient's phone would not be a test.
+         */
+        if ($channel === CommunicationChannel::PUSH) {
+            return $this->testPush($request);
+        }
 
         $validated = $request->validate([
             'recipients' => ['required', 'array', 'min:1', 'max:10'],
@@ -309,5 +332,57 @@ class CommunicationController extends BaseApiController
                 ? 'Test message queued'
                 : "Test message queued for {$count} addresses",
         );
+    }
+
+    /**
+     * An App notification to the sender's own phones, in the template's
+     * wording with sample values — the same row in the delivery log, flagged
+     * as a test, so it counts towards setup and not towards delivery rates.
+     */
+    private function testPush(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'message_template_id' => [
+                'nullable',
+                Rule::exists(MessageTemplate::class, 'id')->where('channel', CommunicationChannel::PUSH)->whereNull('deleted_at'),
+            ],
+        ]);
+
+        $actor = Auth::guard('web')->user();
+        $organization = $request->attributes->get('tenant.organization');
+
+        if ($actor === null || $organization === null) {
+            return $this->fail('Unauthenticated.', 401);
+        }
+
+        $template = isset($validated['message_template_id'])
+            ? MessageTemplate::query()->find($validated['message_template_id'])
+            : null;
+
+        $samples = [
+            'patient_name' => $actor->name,
+            'doctor_name' => 'Dr. Sample',
+            'date' => Carbon::now()->format('d M Y'),
+            'time' => '10:30 AM',
+            'clinic_name' => $organization->organization_name,
+        ];
+
+        app(PushManager::class)->queueToUsers(
+            $organization,
+            [(int) $actor->getKey()],
+            (string) $actor->name,
+            MessageVariables::fill($template?->subject ?? 'Test notification', $samples),
+            MessageVariables::fill($template?->content ?? 'App notifications are working.', $samples),
+            ['type' => 'test'],
+            [
+                'message_template_id' => $template?->id,
+                'template_name' => $template?->name ?? 'Test notification',
+                'subject' => $template?->subject,
+                'is_test' => true,
+                'created_by' => $actor->getKey(),
+            ],
+        );
+
+        return $this->ok(null, 'Test notification sent to your own phone');
     }
 }

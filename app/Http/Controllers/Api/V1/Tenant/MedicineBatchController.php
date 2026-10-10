@@ -43,6 +43,7 @@ class MedicineBatchController extends BaseApiController
         $today = now()->toDateString();
         $term = trim((string) $request->query('search', ''));
         $category = trim((string) $request->query('category', ''));
+        $sort = (string) $request->query('sort', '');
 
         $page = MedicineBatch::query()
             ->where('pharmacy_store_id', $store->id)
@@ -61,6 +62,11 @@ class MedicineBatchController extends BaseApiController
                     fn (Builder $names) => $names
                         ->where('generic_name', 'ILIKE', "%{$term}%")
                         ->orWhere('brand_name', 'ILIKE', "%{$term}%")
+                        // What a scanner types is the whole barcode, so
+                        // that one is matched exactly.
+                        ->orWhere('barcode', $term)
+                        ->orWhere('sku', 'ILIKE', "%{$term}%")
+                        ->orWhere('medicine_code', 'ILIKE', "%{$term}%")
                 ),
             ))
             // The counter's category chips. Filtered here rather than in the
@@ -70,6 +76,18 @@ class MedicineBatchController extends BaseApiController
                 fn (Builder $medicine) => $medicine->withTrashed()->where('category', $category),
             ))
             ->groupBy('medicine_id')
+            /*
+             * The counter's "Recent" / "Name" / "Stock" choice. Recent is the
+             * newest goods received, which is what a shelf that just took a
+             * delivery is asked for first. Anything else keeps the old order.
+             */
+            ->when($sort === 'recent', fn (Builder $query) => $query->orderByRaw('max(medicine_batches.id) desc'))
+            ->when($sort === 'name', fn (Builder $query) => $query->orderBy(
+                Medicine::withTrashed()
+                    ->select('generic_name')
+                    ->whereColumn('medicines.id', 'medicine_batches.medicine_id'),
+            ))
+            ->when($sort === 'stock', fn (Builder $query) => $query->orderByDesc('usable'))
             ->orderBy('medicine_id')
             ->paginate($this->resolvePerPage($request))
             ->withQueryString();
@@ -117,9 +135,15 @@ class MedicineBatchController extends BaseApiController
                 // "Paracetamol 500mg" over "Crocin".
                 'generic_name' => $medicine?->generic_name,
                 'brand_name' => $medicine?->brand_name,
+                'strength' => $medicine?->strength,
+                'dosage_form' => $medicine?->dosage_form,
                 'category' => $medicine?->category,
 
                 'base_unit' => $medicine?->base_unit,
+                // "Strip of 10" under the price, which is per tablet.
+                'pack_size' => $medicine?->pack_size,
+                // So the bill can show its GST before the server prices it.
+                'tax_rate' => $medicine?->tax_rate === null ? null : (float) $medicine->tax_rate,
                 'price' => $prices->get($row->medicine_id),
                 'on_hand' => (int) $row->on_hand,
                 'usable' => $usable,

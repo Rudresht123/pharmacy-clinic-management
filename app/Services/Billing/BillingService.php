@@ -699,14 +699,21 @@ class BillingService
      */
     private function refreshVisit(Invoice $locked): void
     {
-        if (! $this->visits || ! $locked->appointment_id) {
+        if (! $locked->appointment_id) {
             return;
         }
 
         $appointment = Appointment::query()->find($locked->appointment_id);
 
+        /*
+         * Resolved here, not trusted to the constructor: Laravel 12 leaves an
+         * optional `?VisitWorkflow $visits = null` at its default unless it is
+         * bound, so the visit never heard it had been paid and stayed
+         * "awaiting payment". Resolving at the moment of use also sidesteps
+         * the construction cycle the parameter was made nullable for.
+         */
         if ($appointment) {
-            $this->visits->refresh($appointment);
+            ($this->visits ?? app(VisitWorkflow::class))->refresh($appointment);
         }
     }
 

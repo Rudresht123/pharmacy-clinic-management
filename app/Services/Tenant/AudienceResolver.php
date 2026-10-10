@@ -6,6 +6,7 @@ use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Campaign;
 use App\Models\Tenant\CommunicationChannel;
 use App\Models\Tenant\Customer;
+use App\Models\Tenant\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
@@ -47,11 +48,22 @@ class AudienceResolver
 
         // Somebody with no address on this channel cannot be reached on it,
         // and counting them would promise an audience that does not exist.
-        $query->when(
-            $channel === CommunicationChannel::EMAIL,
-            fn (Builder $q) => $q->whereNotNull('email')->where('email', '<>', ''),
-            fn (Builder $q) => $q->whereNotNull('phone')->where('phone', '<>', ''),
-        );
+        match ($channel) {
+            CommunicationChannel::EMAIL => $query->whereNotNull('email')->where('email', '<>', ''),
+
+            // App notifications reach a patient through their own app login.
+            // Whether a phone is registered behind it is the master registry's
+            // answer, found at send time; one with none is logged as failed.
+            CommunicationChannel::PUSH => $query->whereIn(
+                'id',
+                User::query()
+                    ->select('userable_id')
+                    ->where('userable_type', Customer::class)
+                    ->where('is_active', true),
+            ),
+
+            default => $query->whereNotNull('phone')->where('phone', '<>', ''),
+        };
 
         foreach ($filters as $filter) {
             $this->apply($query, $filter);
@@ -185,7 +197,12 @@ class AudienceResolver
     /** The address a campaign on this channel writes to. */
     public function addressFor(Customer $customer, string $channel): ?string
     {
-        return $channel === CommunicationChannel::EMAIL ? $customer->email : $customer->phone;
+        return match ($channel) {
+            CommunicationChannel::EMAIL => $customer->email,
+            // What the recipients list shows for an app: the patient's name.
+            CommunicationChannel::PUSH => $customer->name,
+            default => $customer->phone,
+        };
     }
 
     /** A campaign's own filters, falling back to its segment's. */

@@ -32,3 +32,11 @@ Schedule::command('prescriptions:expire')->dailyAt('00:15')->withoutOverlapping(
 | idempotent, so `withoutOverlapping` is belt as well as braces.
 */
 Schedule::command('campaigns:dispatch')->everyMinute()->withoutOverlapping();
+
+/*
+| Appointment reminders — the clinic's "24 hours before" and "1 hour before"
+| rules, on every channel they are switched on for. Every five minutes is
+| close enough for either, and the delivery table makes each reminder go
+| once however often this asks.
+*/
+Schedule::command('communication:send-reminders')->everyFiveMinutes()->withoutOverlapping();

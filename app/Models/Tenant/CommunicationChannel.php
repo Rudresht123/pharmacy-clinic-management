@@ -24,8 +24,18 @@ class CommunicationChannel extends Model
 
     public const SMS = 'sms';
 
+    /**
+     * App notifications — push to the patient app. "Connected" here is the
+     * clinic switching the channel on; the delivery itself (Firebase) is the
+     * platform's, configured once in config/push.php.
+     */
+    public const PUSH = 'push';
+
     /** Every value the database CHECK permits. */
-    public const CHANNELS = [self::WHATSAPP, self::EMAIL, self::SMS];
+    public const CHANNELS = [self::WHATSAPP, self::EMAIL, self::SMS, self::PUSH];
+
+    /** Channels whose templates a branch may reword (WhatsApp wording is provider-approved). */
+    public const REWORDABLE = [self::EMAIL, self::PUSH];
 
     protected $connection = 'organization';
 

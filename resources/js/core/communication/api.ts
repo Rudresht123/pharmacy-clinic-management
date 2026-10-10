@@ -10,6 +10,8 @@ import type {
     Channel,
     ChannelOverview,
     MessageTemplate,
+    PushDevicePage,
+    PushRecipient,
 } from './types';
 
 const ROOT = '/tenant/communication';
@@ -189,6 +191,76 @@ export function useRemoveTemplate() {
     });
 }
 
+/* --------------------------- App notification phones --------------------------- */
+
+export interface PushDeviceFilters {
+    audience?: 'patients' | 'staff';
+    platform?: 'android' | 'ios';
+    status?: 'active' | 'inactive';
+    search?: string;
+    page?: number;
+    per_page?: number;
+    days?: number;
+}
+
+/** A page of this clinic's registered phones, and the totals above them. */
+export function usePushDevices(filters: PushDeviceFilters) {
+    return useQuery({
+        queryKey: ['communication', 'push-devices', filters],
+        queryFn: async (): Promise<PushDevicePage> => {
+            const { data } = await http.get<PushDevicePage>(`${ROOT}/push/devices`, {
+                params: Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')),
+            });
+
+            return data;
+        },
+        placeholderData: (previous) => previous,
+    });
+}
+
+/** People with a live phone — what the "Send to" picker offers. */
+export function usePushRecipients(enabled = true) {
+    return useQuery({
+        queryKey: ['communication', 'push-recipients'],
+        queryFn: async (): Promise<PushRecipient[]> => {
+            const { data } = await http.get<ApiResponse<PushRecipient[]>>(`${ROOT}/push/recipients`);
+
+            return data.data;
+        },
+        enabled,
+    });
+}
+
+/** Stop sending to one phone. */
+export function useRemovePushDevice() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => http.delete<ApiResponse<null>>(`${ROOT}/push/devices/${id}`),
+        onSuccess: (response) => {
+            notify.success(response.data.message ?? 'That phone will no longer get notifications.');
+            void queryClient.invalidateQueries({ queryKey: ['communication'] });
+        },
+    });
+}
+
+/** A notification typed for one person. */
+export function useSendPush() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (body: { user_id: number; title: string; body: string }) => {
+            const { data } = await http.post<ApiResponse<{ recipient: string }>>(`${ROOT}/push/send`, body);
+
+            return data;
+        },
+        onSuccess: (data) => {
+            notify.success(data.message ?? 'Notification sent');
+            void queryClient.invalidateQueries({ queryKey: ['communication'] });
+        },
+    });
+}
+
 /* ------------------------------- Campaigns -------------------------------- */
 
 export function useCampaigns(channel: Channel, status?: string) {
@@ -344,6 +416,91 @@ export function useTestConnection(channel: Channel) {
         },
         onSettled: () => {
             void queryClient.invalidateQueries({ queryKey: ['communication', 'provider'] });
+        },
+    });
+}
+
+/*
+|------------------------------------------------------------------------------
+| A template's per-branch wording — Global → Organisation → Branch
+|------------------------------------------------------------------------------
+|
+| Email and App notifications only: WhatsApp wording is what the provider
+| approved, so the server answers `rewordable: false` for it.
+*/
+
+export interface BranchWording {
+    location_id: number;
+    name: string;
+    /** The branch's own wording, or null when it sends the organisation's. */
+    variant: { subject: string | null; content: string; is_active: boolean } | null;
+    /** Whether the signed-in person may change THIS branch's wording. */
+    can_edit: boolean;
+}
+
+export interface TemplateVariants {
+    template_id: number;
+    rewordable: boolean;
+    branches: BranchWording[];
+}
+
+export function useTemplateVariants(templateId: number | undefined) {
+    return useQuery({
+        queryKey: ['communication', 'variants', templateId],
+        queryFn: async (): Promise<TemplateVariants> => {
+            const { data } = await http.get<ApiResponse<TemplateVariants>>(
+                `${ROOT}/templates/${templateId}/variants`,
+            );
+
+            return data.data;
+        },
+        enabled: templateId !== undefined,
+    });
+}
+
+export function useSaveVariant() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({
+            templateId,
+            locationId,
+            ...body
+        }: {
+            templateId: number;
+            locationId: number;
+            subject: string | null;
+            content: string;
+            is_active: boolean;
+        }) => {
+            const { data } = await http.put<ApiResponse<TemplateVariants>>(
+                `${ROOT}/templates/${templateId}/variants/${locationId}`,
+                body,
+            );
+
+            return data.data;
+        },
+        onSuccess: (_, variables) => {
+            notify.success('Branch wording saved');
+            void queryClient.invalidateQueries({ queryKey: ['communication', 'variants', variables.templateId] });
+        },
+    });
+}
+
+export function useRemoveVariant() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ templateId, locationId }: { templateId: number; locationId: number }) => {
+            const { data } = await http.delete<ApiResponse<TemplateVariants>>(
+                `${ROOT}/templates/${templateId}/variants/${locationId}`,
+            );
+
+            return data.data;
+        },
+        onSuccess: (_, variables) => {
+            notify.success('Back to the organisation’s wording');
+            void queryClient.invalidateQueries({ queryKey: ['communication', 'variants', variables.templateId] });
         },
     });
 }

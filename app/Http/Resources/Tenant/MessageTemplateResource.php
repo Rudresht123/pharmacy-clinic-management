@@ -31,6 +31,13 @@ class MessageTemplateResource extends JsonResource
             'icon' => $this->icon,
             'tone' => $this->tone,
 
+            // The platform's default (seeded, nobody wrote it) or the clinic's
+            // own — the App notifications screen lists them apart.
+            'is_default' => $this->created_by === null,
+
+            // How many branches send their own wording, where it was counted.
+            'branch_wordings' => $this->whenCounted('variants'),
+
             'updated_at' => $this->updated_at?->toIso8601String(),
             'updated_by_name' => $this->whenLoaded('editor', fn () => $this->editor?->name),
         ];

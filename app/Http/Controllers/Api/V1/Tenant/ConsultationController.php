@@ -55,7 +55,7 @@ class ConsultationController extends BaseApiController
      */
     public function start(Request $request, Appointment $appointment): JsonResponse
     {
-        $this->assertTheirs($request, $appointment);
+        $this->assertMayStart($request, $appointment);
 
         return $this->transition(
             fn () => $this->workflow->startConsultation($appointment, $request->user()),
@@ -161,6 +161,26 @@ class ConsultationController extends BaseApiController
         }
 
         if ((int) $user->userable_id !== (int) $appointment->doctor_id) {
+            abort(403, 'That visit belongs to another doctor.');
+        }
+    }
+
+    /**
+     * Starting records nothing clinical — it just takes the patient in — so
+     * it is not limited to the doctor the way writing one up is. The route's
+     * own `appointments.consult_start` permission already says who may call
+     * a patient through at all, per role, from Roles & Permissions; this only
+     * adds the one check a permission can't: a doctor may start their own
+     * patients and nobody else's.
+     */
+    private function assertMayStart(Request $request, Appointment $appointment): void
+    {
+        $user = $request->user();
+
+        if (
+            $user?->userable_type === Doctor::class
+            && (int) $user->userable_id !== (int) $appointment->doctor_id
+        ) {
             abort(403, 'That visit belongs to another doctor.');
         }
     }

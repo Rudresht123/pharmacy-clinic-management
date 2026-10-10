@@ -51,6 +51,8 @@ class Placeholders
                 ['token' => 'patient_age', 'label' => 'Age', 'sample' => '34'],
                 ['token' => 'patient_gender', 'label' => 'Gender', 'sample' => 'Female'],
                 ['token' => 'patient_address', 'label' => 'Patient address', 'sample' => '22 Nehru Nagar, Noida'],
+                ['token' => 'patient_email', 'label' => 'Patient email', 'sample' => 'asha.verma@example.com'],
+                ['token' => 'patient_dob', 'label' => 'Date of birth', 'sample' => '14 Mar 1992'],
             ],
 
             'visit' => [

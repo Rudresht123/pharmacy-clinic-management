@@ -9,6 +9,8 @@ use App\Models\Tenant\Customer;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Medicine;
 use App\Models\Tenant\PharmacyStore;
+use App\Models\Tenant\Prescription;
+use App\Services\Pharmacy\OpdHandoff;
 use App\Support\Opd\Weekday;
 use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -308,6 +310,48 @@ class OpdPharmacyHandoffTest extends TenantTestCase
         $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->gurgaonStore}/opd-patients")
             ->assertOk()
             ->assertJsonCount(1, 'data.patients');
+    }
+
+    public function test_each_patient_carries_how_the_counter_tells_them_apart(): void
+    {
+        $this->consult();
+
+        $code = $this->onTenant(
+            $this->organization,
+            fn () => Customer::on('organization')->findOrFail($this->patient)->code,
+        );
+
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->gurgaonStore}/opd-patients")
+            ->assertOk()
+            ->assertJsonPath('data.patients.0.patient.code', $code)
+            ->assertJsonPath('data.patients.0.patient.phone', '9810000003')
+            ->assertJsonPath('data.patients.0.doctor.specialisation', null)
+            ->assertJsonPath('data.patients.0.pharmacy_state', OpdHandoff::STATE_PENDING);
+    }
+
+    /** The counter's three tabs, from the patient's prescriptions. */
+    public function test_where_a_patient_stands_follows_their_prescriptions(): void
+    {
+        $visit = $this->consult(prescribe: false);
+
+        $states = $this->onTenant($this->organization, function () use ($visit) {
+            $appointment = Appointment::on('organization')->findOrFail($visit);
+            $handoff = app(OpdHandoff::class);
+
+            return collect([
+                'nothing prescribed' => [],
+                'issued' => [Prescription::ISSUED],
+                'half handed over' => [Prescription::ISSUED, Prescription::PARTIALLY_DISPENSED],
+                'all handed over' => [Prescription::DISPENSED],
+            ])->map(fn (array $statuses) => $handoff->row($appointment, collect($statuses))['pharmacy_state'])->all();
+        });
+
+        $this->assertSame([
+            'nothing prescribed' => OpdHandoff::STATE_NONE,
+            'issued' => OpdHandoff::STATE_PENDING,
+            'half handed over' => OpdHandoff::STATE_IN_PROGRESS,
+            'all handed over' => OpdHandoff::STATE_COMPLETED,
+        ], $states);
     }
 
     public function test_another_branchs_counter_does_not_see_these_patients(): void

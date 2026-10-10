@@ -26,6 +26,8 @@ export const PLACEHOLDERS: Placeholder[] = [
     { token: '{{amount}}', label: 'Amount', sample: '500' },
     { token: '{{service}}', label: 'Service', sample: 'Consultation' },
     { token: '{{phone}}', label: 'Phone', sample: '+91 98765 43210' },
+    { token: '{{branch_name}}', label: 'Branch', sample: 'Gurgaon' },
+    { token: '{{token_no}}', label: 'Token', sample: '12' },
 ];
 
 /** Named placeholders, plus WhatsApp's numbered ones. */

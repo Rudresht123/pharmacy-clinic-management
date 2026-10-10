@@ -57,6 +57,10 @@ const TYPES: Record<Channel, { value: string; label: string }[]> = {
         { value: 'Transactional', label: 'Transactional' },
         { value: 'Marketing', label: 'Marketing' },
     ],
+    push: [
+        { value: 'Transactional', label: 'Transactional' },
+        { value: 'Marketing', label: 'Marketing' },
+    ],
 };
 
 const EMPTY: Omit<Values, 'template_type'> = {
@@ -112,7 +116,11 @@ export function TemplateFormModal({
      * limit, and enforcing WhatsApp's on it would silently truncate a letter
      * mid-sentence at the moment somebody pasted it in.
      */
-    const limit = channel === 'whatsapp' ? 1024 : 5000;
+    // A phone shows a notification in a few lines; the server refuses past 500.
+    const limit = channel === 'whatsapp' ? 1024 : channel === 'push' ? 500 : 5000;
+
+    // Email has a subject; an App notification has a title. WhatsApp has neither.
+    const titled = channel === 'email' || channel === 'push';
 
     const {
         register,
@@ -202,7 +210,7 @@ export function TemplateFormModal({
                 template_type: values.template_type.trim() || null,
                 // WhatsApp has no subject line, and storing a blank is not the
                 // same as storing nothing.
-                subject: channel === 'email' ? values.subject.trim() || null : null,
+                subject: titled ? values.subject.trim() || null : null,
                 content: values.content.trim(),
                 status: values.status,
                 icon: values.icon,
@@ -225,7 +233,9 @@ export function TemplateFormModal({
             subtitle={
                 channel === 'email'
                     ? 'Subject and body, as the patient will read them'
-                    : 'WhatsApp must approve a template before it can be sent'
+                    : channel === 'push'
+                      ? 'Title and message, as they appear on the patient’s phone'
+                      : 'WhatsApp must approve a template before it can be sent'
             }
             icon={<i className="ti ti-template" />}
             size="xl"
@@ -264,11 +274,11 @@ export function TemplateFormModal({
                         />
                     </div>
 
-                    {channel === 'email' && (
+                    {titled && (
                         <TextField
                             name="subject"
-                            label="Subject"
-                            placeholder="Your appointment is confirmed"
+                            label={channel === 'push' ? 'Title' : 'Subject'}
+                            placeholder={channel === 'push' ? 'Appointment confirmed' : 'Your appointment is confirmed'}
                             required
                             register={register}
                             errors={errors}

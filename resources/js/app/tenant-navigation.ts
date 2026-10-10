@@ -797,11 +797,11 @@ export function tenantNavigation(
                     match: '/communication/email',
                 },
                 {
-                    // Push and the in-app bell: Global → Organisation → Branch wording.
-                    label: 'App notifications',
-                    to: '/communication/notifications',
+                    // Push to the patient app — a channel like the two above.
+                    label: 'Push notifications',
+                    to: '/communication/push',
                     icon: 'ti ti-bell-ringing',
-                    match: '/communication/notifications',
+                    match: '/communication/push',
                 },
                 {
                     label: 'SMS',

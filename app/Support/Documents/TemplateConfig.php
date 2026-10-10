@@ -132,7 +132,7 @@ class TemplateConfig
                     default => 11,
                 },
                 'font_family' => 'sans-serif',
-                'accent' => '#2e37a4',
+                'accent' => '#0b5275',
             ],
         ];
     }

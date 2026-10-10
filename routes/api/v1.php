@@ -20,6 +20,8 @@ use App\Http\Controllers\Api\V1\Tenant\InvoicePaymentController;
 use App\Http\Controllers\Api\V1\Tenant\CampaignController;
 use App\Http\Controllers\Api\V1\Tenant\CommunicationController;
 use App\Http\Controllers\Api\V1\Tenant\MessageTemplateController;
+use App\Http\Controllers\Api\V1\Tenant\MessageTemplateVariantController;
+use App\Http\Controllers\Api\V1\Tenant\PushDeviceController;
 use App\Http\Controllers\Api\V1\Tenant\Auth\AuthController as TenantAuthController;
 use App\Http\Controllers\Api\V1\Tenant\AvailabilityController;
 use App\Http\Controllers\Api\V1\Tenant\BrandingController;
@@ -1475,6 +1477,27 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 // Everything one channel's screen needs, in one request.
                 Route::get('communication/{channel}/overview', [CommunicationController::class, 'show'])
                     ->name('communication.overview');
+
+                // A template's per-branch wordings — Global → Organisation → Branch.
+                Route::get('communication/templates/{template}/variants', [MessageTemplateVariantController::class, 'index'])
+                    ->name('communication.templates.variants.index');
+
+                // The phones that can receive this clinic's App notifications.
+                Route::get('communication/push/devices', [PushDeviceController::class, 'index'])
+                    ->name('communication.push.devices.index');
+            });
+
+            /*
+            | Rewording a template for one branch. Either key opens the door —
+            | head office's, which reaches every branch, or the branch's own —
+            | and the controller then checks the branch in the URL is one this
+            | person may word, which no route gate can know.
+            */
+            Route::middleware('permission:communication.manage,communication.branch_templates')->group(function () {
+                Route::put('communication/templates/{template}/variants/{location}', [MessageTemplateVariantController::class, 'update'])
+                    ->name('communication.templates.variants.update');
+                Route::delete('communication/templates/{template}/variants/{location}', [MessageTemplateVariantController::class, 'destroy'])
+                    ->name('communication.templates.variants.destroy');
             });
 
             Route::middleware('permission:communication.manage')->group(function () {
@@ -1486,6 +1509,15 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 // Proves the credentials without messaging a patient.
                 Route::post('communication/{channel}/test-connection', [CommunicationController::class, 'testConnection'])
                     ->name('communication.test-connection');
+
+                // One App notification to one person, and the phones behind it.
+                Route::get('communication/push/recipients', [PushDeviceController::class, 'recipients'])
+                    ->name('communication.push.recipients');
+                Route::post('communication/push/send', [PushDeviceController::class, 'send'])
+                    ->name('communication.push.send');
+                Route::delete('communication/push/devices/{device}', [PushDeviceController::class, 'destroy'])
+                    ->whereNumber('device')
+                    ->name('communication.push.devices.destroy');
 
 
                 Route::post('communication/templates', [MessageTemplateController::class, 'store'])

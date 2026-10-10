@@ -2,20 +2,26 @@
 
 namespace App\Services\Tenant;
 
+use App\Models\Platform\Organization;
 use App\Models\Tenant\Campaign;
 use App\Models\Tenant\CampaignRecipient;
+use App\Models\Tenant\CommunicationChannel;
 use App\Models\Tenant\Customer;
-use App\Models\Tenant\MessageLog;
+use App\Services\Communication\ChannelSender;
+use App\Services\Tenancy\CurrentTenant;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 
 /**
- * Sends a campaign: resolves who, writes their copies, queues the messages.
+ * Sends a campaign: resolves who, writes their copies, and hands each message
+ * to its channel.
  *
- * Deliberately stops at "queued". Handing a message to WhatsApp or to an SMTP
- * server is a provider's job and there is no provider wired up yet — but
- * everything up to that point is real, and the moment one exists it reads the
- * queue this writes rather than needing any of this changed.
+ * It used to stop at "queued" — a delivery-log row and nothing behind it —
+ * from before any provider existed. Each message now goes through
+ * ChannelSender, the same door the automation rules use, so a campaign is
+ * held to the same switches: the communication module running, the channel
+ * connected, the template active and approved, the patient reachable there.
+ * One of the first three off and the campaign FAILS, saying which, rather
+ * than quietly reaching nobody.
  *
  * Idempotent by construction. `campaign_recipients` is unique on
  * (campaign_id, customer_id), so a dispatcher that dies half way and runs
@@ -33,6 +39,7 @@ class CampaignDispatcher
 
     public function __construct(
         private readonly AudienceResolver $audience,
+        private readonly ChannelSender $channels,
     ) {}
 
     /**
@@ -70,7 +77,16 @@ class CampaignDispatcher
         ])->save();
 
         try {
-            $written = $this->resolveRecipients($campaign);
+            $organization = CurrentTenant::organization();
+            $problem = $this->cannotSend($campaign, $organization);
+
+            if ($problem !== null) {
+                $campaign->forceFill(['status' => Campaign::FAILED, 'failure_reason' => $problem])->save();
+
+                return 0;
+            }
+
+            $written = $this->resolveRecipients($campaign, $organization);
 
             $campaign->forceFill([
                 'status' => Campaign::COMPLETED,
@@ -93,36 +109,82 @@ class CampaignDispatcher
     }
 
     /**
-     * Write one row per patient, and one queued message each.
+     * Why this campaign cannot go out at all, or null when it can.
      *
-     * Chunked, and each chunk in its own transaction: a clinic-sized audience
-     * should not hold one transaction open for the whole send, and a chunk
-     * that fails should not undo the ones already written.
+     * Asked once, before anybody is written: the module, the connection and
+     * the template are the same for every patient, so a campaign failing on
+     * one fails cleanly with one sentence instead of a thousand empty rows.
      */
-    private function resolveRecipients(Campaign $campaign): int
+    private function cannotSend(Campaign $campaign, ?Organization $organization): ?string
+    {
+        if ($organization === null) {
+            return 'The organisation could not be found.';
+        }
+
+        if (! in_array($campaign->channel, ChannelSender::DELIVERABLE, true)) {
+            return 'This channel cannot send yet.';
+        }
+
+        $communication = $this->channels->communication($organization, null);
+
+        if (! $communication['enabled']) {
+            return 'Communication is switched off for the organisation.';
+        }
+
+        if (! ($communication['channels'][$campaign->channel] ?? false)) {
+            return 'This channel is not connected.';
+        }
+
+        if (! $this->ownWording($campaign) && ! ChannelSender::sendable($campaign->template, $campaign->channel)) {
+            return 'The campaign\'s template is not an approved, active template for this channel.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether the campaign carries its own words rather than a template's —
+     * allowed for email and App notifications, never WhatsApp, whose messages
+     * must be templates the provider approved.
+     */
+    private function ownWording(Campaign $campaign): bool
+    {
+        return in_array($campaign->channel, CommunicationChannel::REWORDABLE, true)
+            && filled($campaign->content);
+    }
+
+    /**
+     * Write one row per patient, and hand each message to its channel.
+     *
+     * Chunked so a clinic-sized audience is not loaded at once. NOT wrapped in
+     * a transaction: each message's delivery job is dispatched as its row is
+     * written, and a job a worker picks up before an enclosing transaction
+     * commits would find no row to send. The recipients' unique key is what
+     * makes a re-run safe instead.
+     */
+    private function resolveRecipients(Campaign $campaign, Organization $organization): int
     {
         $filters = $this->audience->filtersFor($campaign);
         $written = 0;
 
         $this->audience->query($campaign->channel, $filters)
-            ->chunkById(self::CHUNK, function ($customers) use ($campaign, &$written) {
-                DB::connection('organization')->transaction(function () use ($campaign, $customers, &$written) {
-                    foreach ($customers as $customer) {
-                        $written += $this->writeOne($campaign, $customer) ? 1 : 0;
-                    }
-                });
+            ->chunkById(self::CHUNK, function ($customers) use ($campaign, $organization, &$written) {
+                foreach ($customers as $customer) {
+                    $written += $this->writeOne($campaign, $customer, $organization) ? 1 : 0;
+                }
             });
 
         return $written;
     }
 
     /**
-     * One patient's copy, plus the message queued for them.
+     * One patient's copy, plus the message handed to its channel.
      *
      * Returns false when the row already existed — a re-run after a crash,
-     * which must not queue the message a second time.
+     * which must not send the message a second time — or when this patient
+     * turned out to be unreachable, who is recorded as skipped.
      */
-    private function writeOne(Campaign $campaign, Customer $customer): bool
+    private function writeOne(Campaign $campaign, Customer $customer, Organization $organization): bool
     {
         $address = $this->audience->addressFor($customer, $campaign->channel);
 
@@ -139,29 +201,59 @@ class CampaignDispatcher
             return false;
         }
 
+        $variables = $this->variables($customer, $organization);
+        $extra = ['campaign_id' => $campaign->id, 'message_template_id' => $campaign->message_template_id];
+        $data = ['type' => 'campaign', 'campaign_id' => $campaign->id];
+
+        $log = $this->ownWording($campaign)
+            ? $this->channels->queueWording(
+                $organization,
+                $campaign->channel,
+                $customer,
+                $campaign->subject ?: $campaign->template?->subject,
+                (string) $campaign->content,
+                $variables,
+                $campaign->name,
+                $extra,
+                $data,
+            )
+            : $this->channels->queue(
+                $organization,
+                $campaign->channel,
+                $customer,
+                $campaign->template,
+                $variables,
+                // The patient's own branch, so its wording is the one they get.
+                $customer->registered_location_id === null ? null : (int) $customer->registered_location_id,
+                $extra,
+                $data,
+                $campaign->subject,
+            );
+
         CampaignRecipient::query()->create([
             'campaign_id' => $campaign->id,
             'customer_id' => $customer->id,
             'recipient_name' => $customer->name,
             'recipient' => $address,
-            'status' => CampaignRecipient::PENDING,
+            // Handed to the channel; what happened next is on the log row.
+            'status' => $log !== null ? CampaignRecipient::SENT : CampaignRecipient::SKIPPED,
         ]);
 
-        // The delivery log is one table across triggered and bulk sending, so
-        // a campaign's messages appear in the same place as everything else.
-        MessageLog::query()->create([
-            'channel' => $campaign->channel,
-            'customer_id' => $customer->id,
-            'campaign_id' => $campaign->id,
-            'message_template_id' => $campaign->message_template_id,
-            'recipient_name' => $customer->name,
-            'recipient' => $address,
-            'template_name' => $campaign->name,
-            'subject' => $campaign->subject,
-            'status' => MessageLog::QUEUED,
-            'scheduled_for' => $campaign->scheduled_at ?? Carbon::now(),
-        ]);
+        return $log !== null;
+    }
 
-        return true;
+    /**
+     * What a campaign's template may say about each patient.
+     *
+     * @return array<string, scalar|null>
+     */
+    private function variables(Customer $customer, Organization $organization): array
+    {
+        return [
+            'patient_name' => $customer->name,
+            'phone' => $customer->phone,
+            'clinic_name' => $organization->organization_name,
+            'date' => Carbon::now()->format('d M Y'),
+        ];
     }
 }

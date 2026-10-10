@@ -138,6 +138,178 @@ class Gradient
         }
     }
 
+    /**
+     * The curved ribbon in the sheet's top-left corner: two overlapping
+     * sweeps on a transparent ground.
+     *
+     * @param  string  $front  the nearer sweep, `#rrggbb`
+     * @param  string  $back  the farther, paler sweep, `#rrggbb`
+     */
+    public function swoosh(string $front, string $back): ?string
+    {
+        return $this->cache["swoosh-{$front}-{$back}"] ??= $this->draw(600, 240, function (\GdImage $image, int $w, int $h) use ($front, $back): void {
+            foreach ([[$back, 0.70, 0.98], [$front, 0.52, 0.74]] as [$colour, $reach, $drop]) {
+                $points = [0, 0];
+
+                // A quadratic curve from the top edge round to the left edge.
+                for ($i = 0; $i <= 48; $i++) {
+                    $t = $i / 48;
+                    [$x0, $y0] = [$w * $reach, 0];
+                    [$cx, $cy] = [$w * $reach * 0.42, $h * $drop * 0.30];
+                    [$x2, $y2] = [0, $h * $drop];
+
+                    $points[] = (int) round((1 - $t) ** 2 * $x0 + 2 * (1 - $t) * $t * $cx + $t ** 2 * $x2);
+                    $points[] = (int) round((1 - $t) ** 2 * $y0 + 2 * (1 - $t) * $t * $cy + $t ** 2 * $y2);
+                }
+
+                imagefilledpolygon($image, $points, $this->allocate($image, $colour));
+            }
+        });
+    }
+
+    /**
+     * The footer band: a pale ground with a wave rising out of each bottom
+     * corner and a soft swell under the badge row.
+     */
+    public function footerWaves(string $base, string $swell, string $deep, string $fresh, string $light): ?string
+    {
+        return $this->cache["footer-{$base}-{$swell}-{$deep}-{$fresh}-{$light}"] ??= $this->draw(1200, 300, function (\GdImage $image, int $w, int $h) use ($base, $swell, $deep, $fresh, $light): void {
+            imagefill($image, 0, 0, $this->allocate($image, $base));
+
+            $baseline = $h * 0.46;
+
+            // The swell the badges sit on.
+            $points = [];
+            for ($x = 0; $x <= $w; $x += 10) {
+                $points[] = $x;
+                $points[] = (int) round($baseline + sin($x / $w * M_PI * 2.2 + 0.6) * $h * 0.035);
+            }
+            array_push($points, $w, $h, 0, $h);
+            imagefilledpolygon($image, $points, $this->allocate($image, $swell));
+
+            // [colour, height above the baseline, how far in, mirrored]
+            foreach ([
+                [$fresh, 0.50, 0.30, false],
+                [$deep, 0.42, 0.26, false],
+                [$light, 0.48, 0.29, true],
+                [$fresh, 0.36, 0.22, true],
+            ] as [$colour, $rise, $reach, $mirror]) {
+                $points = [];
+                $span = $w * $reach;
+
+                for ($i = 0; $i <= 48; $i++) {
+                    $u = $i / 48;
+                    $x = $span * $u;
+                    // Highest just inside the edge, easing down to the baseline.
+                    $y = $baseline - $h * $rise * (0.5 + 0.5 * cos(M_PI * $u)) * (0.72 + 0.28 * sin(M_PI * min(1, $u * 1.6)));
+
+                    $points[] = (int) round($mirror ? $w - $x : $x);
+                    $points[] = (int) round($y);
+                }
+
+                // Closed well below the baseline so no seam shows above the swell.
+                $floor = (int) round($baseline + $h * 0.04);
+                array_push($points, $mirror ? $w - (int) $span : (int) $span, $floor, $mirror ? $w : 0, $floor);
+                imagefilledpolygon($image, $points, $this->allocate($image, $colour));
+            }
+        }, false);
+    }
+
+    /**
+     * A stand-in mark for a clinic that has not uploaded a logo: a rounded
+     * cross with a leaf across its lower arm.
+     */
+    public function mark(string $cross, string $leaf): ?string
+    {
+        return $this->cache["mark-{$cross}-{$leaf}"] ??= $this->draw(300, 300, function (\GdImage $image, int $w, int $h) use ($cross, $leaf): void {
+            $ink = $this->allocate($image, $cross);
+            $arm = (int) round($w * 0.30);
+            $mid = (int) round($w / 2);
+            $r = (int) round($arm * 0.22);
+
+            foreach ([
+                [$mid - $arm / 2, $w * 0.08, $mid + $arm / 2, $w * 0.92],
+                [$w * 0.08, $mid - $arm / 2, $w * 0.92, $mid + $arm / 2],
+            ] as [$x1, $y1, $x2, $y2]) {
+                [$x1, $y1, $x2, $y2] = array_map(fn ($v) => (int) round($v), [$x1, $y1, $x2, $y2]);
+                imagefilledrectangle($image, $x1 + $r, $y1, $x2 - $r, $y2, $ink);
+                imagefilledrectangle($image, $x1, $y1 + $r, $x2, $y2 - $r, $ink);
+                foreach ([[$x1 + $r, $y1 + $r], [$x2 - $r, $y1 + $r], [$x1 + $r, $y2 - $r], [$x2 - $r, $y2 - $r]] as [$cx, $cy]) {
+                    imagefilledellipse($image, $cx, $cy, $r * 2, $r * 2, $ink);
+                }
+            }
+
+            // The leaf: two arcs meeting at a point, leaning across the
+            // lower-right of the cross.
+            $green = $this->allocate($image, $leaf);
+            $points = [];
+            [$ax, $ay, $bx, $by] = [$w * 0.40, $h * 0.92, $w * 0.86, $h * 0.40];
+            $len = hypot($bx - $ax, $by - $ay);
+            [$nx, $ny] = [($ay - $by) / $len, ($bx - $ax) / $len];
+
+            foreach ([1, -1] as $side) {
+                for ($i = 0; $i <= 32; $i++) {
+                    $t = $side === 1 ? $i / 32 : 1 - $i / 32;
+                    $bulge = sin(M_PI * $t) * $len * 0.24 * $side;
+                    $points[] = (int) round($ax + ($bx - $ax) * $t + $nx * $bulge);
+                    $points[] = (int) round($ay + ($by - $ay) * $t + $ny * $bulge);
+                }
+            }
+            imagefilledpolygon($image, $points, $green);
+            imagesetthickness($image, 5);
+            imageline($image, (int) $ax, (int) $ay, (int) ($ax + ($bx - $ax) * 0.82), (int) ($ay + ($by - $ay) * 0.82), $this->allocate($image, '#ffffff', 40));
+        });
+    }
+
+    /**
+     * Draws at three times the size and scales down — GD's polygons are not
+     * anti-aliased, and the curves would otherwise print as stair-steps.
+     *
+     * @param  \Closure(\GdImage, int, int): void  $paint
+     */
+    private function draw(int $width, int $height, \Closure $paint, bool $transparent = true): ?string
+    {
+        if (! function_exists('imagecreatetruecolor')) {
+            return null;
+        }
+
+        try {
+            $scale = 3;
+            $big = imagecreatetruecolor($width * $scale, $height * $scale);
+
+            if ($transparent) {
+                imagealphablending($big, false);
+                imagefill($big, 0, 0, imagecolorallocatealpha($big, 255, 255, 255, 127));
+                imagealphablending($big, true);
+            }
+
+            $paint($big, $width * $scale, $height * $scale);
+
+            $small = imagecreatetruecolor($width, $height);
+
+            if ($transparent) {
+                imagealphablending($small, false);
+                imagesavealpha($small, true);
+                imagefill($small, 0, 0, imagecolorallocatealpha($small, 255, 255, 255, 127));
+            }
+
+            imagecopyresampled($small, $big, 0, 0, 0, 0, $width, $height, $width * $scale, $height * $scale);
+
+            return $this->encode($small);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
+    private function allocate(\GdImage $image, string $hex, int $alpha = 0): int
+    {
+        [$r, $g, $b] = sscanf($hex, '#%02x%02x%02x');
+
+        return imagecolorallocatealpha($image, (int) $r, (int) $g, (int) $b, $alpha);
+    }
+
     private function encode(\GdImage $image): string
     {
         ob_start();

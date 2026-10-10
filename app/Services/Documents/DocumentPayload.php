@@ -141,6 +141,8 @@ class DocumentPayload
             'patient_age' => (string) ($patient->date_of_birth?->age ?? ''),
             'patient_gender' => (string) ($patient->gender ?? ''),
             'patient_address' => $address,
+            'patient_email' => (string) ($patient->email ?? ''),
+            'patient_dob' => (string) ($patient->date_of_birth?->format('d M Y') ?? ''),
         ];
     }
 

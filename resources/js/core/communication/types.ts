@@ -7,7 +7,7 @@
  * are the screen's business rather than the data's.
  */
 
-export type Channel = 'whatsapp' | 'email' | 'sms';
+export type Channel = 'whatsapp' | 'email' | 'sms' | 'push';
 
 export type TemplateStatus = 'draft' | 'pending' | 'approved' | 'rejected';
 
@@ -35,7 +35,63 @@ export interface MessageTemplate {
     /** Stored on the row, so a clinic's own template can look like itself. */
     icon: string | null;
     tone: string | null;
+    /** Seeded from the platform's defaults rather than written by the clinic. */
+    is_default?: boolean;
+    /** Branches sending their own wording; present where it was counted. */
+    branch_wordings?: number;
     updated_at: string | null;
+}
+
+/** Who a registered phone belongs to. */
+export interface PushPerson {
+    id: number;
+    name: string;
+    kind: 'patient' | 'staff';
+    /** The patient's code; null for staff. */
+    code: string | null;
+    role: string | null;
+}
+
+/** One phone that can receive this clinic's App notifications. */
+export interface PushDevice {
+    id: number;
+    device_id: string;
+    platform: 'android' | 'ios' | 'web';
+    app_version: string | null;
+    is_active: boolean;
+    last_seen_at: string | null;
+    registered_at: string | null;
+    /** The last few characters of the FCM token — never the token. */
+    token_hint: string;
+    user: PushPerson;
+}
+
+export interface PushDeviceSummary {
+    active: number;
+    total: number;
+    android: number;
+    ios: number;
+    /** % change in live phones over the period; null with nothing to compare. */
+    change: number | null;
+}
+
+export interface PushDevicePage {
+    data: PushDevice[];
+    meta: {
+        current_page: number;
+        last_page: number;
+        per_page: number;
+        total: number;
+        from: number | null;
+        to: number | null;
+        summary: PushDeviceSummary;
+    };
+}
+
+/** Somebody a notification can be sent to right now. */
+export interface PushRecipient extends PushPerson {
+    devices: number;
+    is_me: boolean;
 }
 
 export interface AutomationRule {

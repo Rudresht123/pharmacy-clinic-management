@@ -572,6 +572,16 @@ class ModuleRegistry
                 'capabilities' => [
                     ['key' => 'communication.view', 'name' => 'View communication logs and dashboards', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'communication.manage', 'name' => 'Manage communication settings and integrations', 'scope' => self::SCOPE_ORGANIZATION],
+
+                    /*
+                     * The branch level of Global → Organisation → Branch: a
+                     * branch rewording the organisation's email and App
+                     * notification templates for its own patients.
+                     * Branch-scoped, so a manager holding it at Gurgaon words
+                     * Gurgaon's and nobody else's; `communication.manage`
+                     * reaches every branch's.
+                     */
+                    ['key' => 'communication.branch_templates', 'name' => 'Reword templates for this branch', 'scope' => self::SCOPE_BRANCH],
                 ],
             ],
         ];

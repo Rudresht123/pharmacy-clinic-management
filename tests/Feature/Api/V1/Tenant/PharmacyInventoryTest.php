@@ -526,6 +526,56 @@ class PharmacyInventoryTest extends TenantTestCase
         $this->assertTrue($row['is_low']);
     }
 
+    /**
+     * The counter's shelf: found by what a scanner types, carrying what a
+     * product card shows under its price, in the order the cashier picked.
+     */
+    public function test_the_counter_finds_stock_by_barcode_and_orders_it(): void
+    {
+        $other = $this->onTenant($this->organization, function () {
+            Medicine::on('organization')->whereKey($this->medicine)->update([
+                'barcode' => '8901234567890',
+                'tax_rate' => 12,
+            ]);
+
+            return Medicine::on('organization')->create([
+                'generic_name' => 'Amoxicillin',
+                'brand_name' => 'Mox 500',
+                'strength' => '500 mg',
+                'dosage_form' => 'capsule',
+                'base_unit' => 'capsule',
+                'pack_size' => 10,
+            ])->id;
+        });
+
+        // Paracetamol first, 60 tablets; then Amoxicillin, 10 capsules.
+        $this->receive()->assertCreated();
+        $this->receive(line: [
+            'medicine_id' => $other, 'batch_number' => 'MX1', 'quantity' => 1, 'free_quantity' => 0,
+        ])->assertCreated();
+
+        $stock = "/api/v1/tenant/pharmacy-stores/{$this->stores['a']}/stock";
+
+        $this->getJson("{$stock}?search=8901234567890")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.medicine_id', $this->medicine)
+            ->assertJsonPath('data.0.strength', '650 mg')
+            ->assertJsonPath('data.0.pack_size', 10)
+            // A number, not the decimal column's "12.00" string; JSON drops the ".0".
+            ->assertJsonPath('data.0.tax_rate', 12);
+
+        // Part of a barcode is not a barcode.
+        $this->getJson("{$stock}?search=89012345")->assertOk()->assertJsonCount(0, 'data');
+
+        $first = fn (string $sort) => $this->getJson("{$stock}?sort={$sort}")->assertOk()->json('data.0.medicine_id');
+
+        $this->assertSame($other, $first('recent'), 'the newest goods received lead');
+        $this->assertSame($other, $first('name'), 'Amoxicillin before Paracetamol');
+        $this->assertSame($this->medicine, $first('stock'), 'sixty on the shelf before ten');
+        $this->assertSame($this->medicine, $first('anything-else'), 'unknown orders keep the old one');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Two counters, one batch

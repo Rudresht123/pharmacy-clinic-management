@@ -64,7 +64,7 @@ class PdfRenderer
          * document needs, the logo included, arrives as a data URI, so this
          * stays a single directory rather than the application root.
          */
-        $options->setChroot([dirname(Icons::file())]);
+        $options->setChroot([dirname(Icons::file()), Fonts::directory()]);
 
         $dompdf = new Dompdf($options);
 
@@ -73,6 +73,8 @@ class PdfRenderer
         if (! $this->registerIcons($dompdf)) {
             $html = Icons::strip($html);
         }
+
+        $this->registerFonts($dompdf);
 
         $paper = (string) Arr::get($layout, 'paper', DocumentTypes::PAPER_A4);
 
@@ -121,7 +123,27 @@ class PdfRenderer
     }
 
     /**
-     * "2 / 5" at the foot of every page.
+     * The document typefaces. A face that will not register is skipped: the
+     * stylesheet names DejaVu after it, so the page falls back rather than
+     * failing. Cached by dompdf after the first render, like the icons.
+     */
+    private function registerFonts(Dompdf $dompdf): void
+    {
+        foreach (Fonts::all() as $font) {
+            try {
+                $dompdf->getFontMetrics()->registerFont(
+                    ['family' => $font['family'], 'style' => $font['style'], 'weight' => $font['weight']],
+                    $font['file'],
+                );
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
+    }
+
+    /**
+     * "2 / 5" in the bottom-right corner of every page, on the footer band's
+     * provenance line rather than across its badges.
      *
      * Done here rather than in the markup because a page count is not
      * knowable until the document has been laid out — CSS counters would give
@@ -132,12 +154,12 @@ class PdfRenderer
         $canvas = $dompdf->getCanvas();
 
         $canvas->page_text(
-            $canvas->get_width() / 2 - 20,
-            $canvas->get_height() - 28,
+            $canvas->get_width() - 40,
+            $canvas->get_height() - 8,
             '{PAGE_NUM} / {PAGE_COUNT}',
             null,
-            8,
-            [0.35, 0.35, 0.35],
+            6,
+            [0.45, 0.5, 0.58],
         );
     }
 }

@@ -62,7 +62,7 @@ const GuidesPage = lazy(() => import('@/core/guides/pages/GuidesPage'));
 const GuidePage = lazy(() => import('@/core/guides/pages/GuidePage'));
 const WhatsAppPage = lazy(() => import('@/core/communication/pages/WhatsAppPage'));
 const EmailPage = lazy(() => import('@/core/communication/pages/EmailPage'));
-const NotificationTemplatesPage = lazy(() => import('@/core/communication/pages/NotificationTemplatesPage'));
+const PushPage = lazy(() => import('@/core/communication/pages/PushPage'));
 const CampaignWizardPage = lazy(() => import('@/core/communication/pages/CampaignWizardPage'));
 
 /**
@@ -563,7 +563,7 @@ export function TenantAppRoutes() {
                                 <Route element={<RequireCapability capability="communication.view" />}>
                                     <Route path="/communication/whatsapp" element={<WhatsAppPage />} />
                                     <Route path="/communication/email" element={<EmailPage />} />
-                                    <Route path="/communication/notifications" element={<NotificationTemplatesPage />} />
+                                    <Route path="/communication/push" element={<PushPage />} />
                                 </Route>
 
                                 {/* Building a campaign is a write, and the
@@ -578,6 +578,14 @@ export function TenantAppRoutes() {
                                     <Route
                                         path="/communication/email/campaigns/:id"
                                         element={<CampaignWizardPage channel="email" />}
+                                    />
+                                    <Route
+                                        path="/communication/push/campaigns/new"
+                                        element={<CampaignWizardPage key="push-new" channel="push" />}
+                                    />
+                                    <Route
+                                        path="/communication/push/campaigns/:id"
+                                        element={<CampaignWizardPage key="push-edit" channel="push" />}
                                     />
                                 </Route>
                             </Route>

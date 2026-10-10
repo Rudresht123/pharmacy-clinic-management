@@ -1,5 +1,6 @@
 import { fillPlaceholders } from '../placeholders';
 import type { Channel } from '../types';
+import { PushNotificationCard } from './PushPreview';
 
 /**
  * A template as the patient will receive it, in the shape of its channel.
@@ -36,6 +37,16 @@ export function TemplatePreview({
      * a phone for an email because the markup was inlined where only one
      * channel had been thought about.
      */
+    // An App notification is a lock-screen card: a title and a few lines.
+    if (channel === 'push') {
+        return (
+            <PushNotificationCard
+                title={fillPlaceholders(subject?.trim() || name?.trim() || 'Title')}
+                body={body}
+            />
+        );
+    }
+
     if (channel === 'email') {
         return (
             <>

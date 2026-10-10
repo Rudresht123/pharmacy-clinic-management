@@ -79,7 +79,7 @@ export function CampaignsTable({
     onRemove?: (campaign: Campaign) => void;
     busy?: boolean;
 }) {
-    const label = channel === 'email' ? 'Email' : 'WhatsApp';
+    const label = channel === 'email' ? 'Email' : channel === 'push' ? 'App notification' : 'WhatsApp';
     const actionable = Boolean(onEdit || onSchedule || onUnschedule || onSend || onRemove);
 
     return (

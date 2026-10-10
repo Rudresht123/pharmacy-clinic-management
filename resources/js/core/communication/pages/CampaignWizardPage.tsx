@@ -104,10 +104,21 @@ function toLocalInput(value: string | null): string {
  * wizard also mean "send to two thousand people" is how an irreversible action
  * gets taken by somebody who thought they were saving.
  */
+/** What each channel is called on screen. */
+const CHANNEL_LABEL: Record<Channel, string> = {
+    email: 'Email',
+    whatsapp: 'WhatsApp',
+    sms: 'SMS',
+    push: 'App notifications',
+};
+
 export default function CampaignWizardPage({ channel = 'email' }: { channel?: Channel }) {
     const navigate = useNavigate();
     const { id } = useParams<{ id?: string }>();
     const editingId = id ? Number(id) : null;
+
+    // Email has a subject line; an App notification has a title.
+    const titled = channel === 'email' || channel === 'push';
 
     const back = `/communication/${channel}?view=campaigns`;
 
@@ -195,8 +206,8 @@ export default function CampaignWizardPage({ channel = 'email' }: { channel?: Ch
                     return 'Choose a template, or write the message yourself.';
                 }
 
-                if (channel === 'email' && draft.subject.trim() === '' && !template?.subject) {
-                    return 'An email needs a subject line.';
+                if (titled && draft.subject.trim() === '' && !template?.subject) {
+                    return channel === 'push' ? 'An app notification needs a title.' : 'An email needs a subject line.';
                 }
 
                 return null;
@@ -276,7 +287,7 @@ export default function CampaignWizardPage({ channel = 'email' }: { channel?: Ch
                 icon="ti ti-send"
                 crumbs={[
                     { label: 'Communication', to: `/communication/${channel}` },
-                    { label: channel === 'email' ? 'Email' : 'WhatsApp', to: back },
+                    { label: CHANNEL_LABEL[channel], to: back },
                     { label: editingId ? 'Edit' : 'New' },
                 ]}
             />
@@ -427,10 +438,11 @@ export default function CampaignWizardPage({ channel = 'email' }: { channel?: Ch
                                         </small>
                                     </div>
 
-                                    {channel === 'email' && (
+                                    {titled && (
                                         <div className="cw-field">
                                             <label className="form-label" htmlFor="cw-subject">
-                                                Subject <span className="text-danger">*</span>
+                                                {channel === 'push' ? 'Title' : 'Subject'}{' '}
+                                                <span className="text-danger">*</span>
                                             </label>
 
                                             <input
@@ -536,7 +548,7 @@ export default function CampaignWizardPage({ channel = 'email' }: { channel?: Ch
 
                                     <div>
                                         <dt>Channel</dt>
-                                        <dd>{channel === 'email' ? 'Email' : 'WhatsApp'}</dd>
+                                        <dd>{CHANNEL_LABEL[channel]}</dd>
                                     </div>
 
                                     <div>
@@ -544,9 +556,9 @@ export default function CampaignWizardPage({ channel = 'email' }: { channel?: Ch
                                         <dd>{template?.name ?? 'Written by hand'}</dd>
                                     </div>
 
-                                    {channel === 'email' && (
+                                    {titled && (
                                         <div>
-                                            <dt>Subject</dt>
+                                            <dt>{channel === 'push' ? 'Title' : 'Subject'}</dt>
                                             <dd>{draft.subject || template?.subject || '—'}</dd>
                                         </div>
                                     )}

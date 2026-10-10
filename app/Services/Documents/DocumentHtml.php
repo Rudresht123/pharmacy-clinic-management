@@ -6,53 +6,39 @@ use App\Support\Documents\DocumentTypes;
 use Illuminate\Support\Arr;
 
 /**
- * A template's config plus a document's data, as one HTML page.
+ * A template's config plus a document's data, as one HTML page for dompdf.
  *
- * Deliberately separate from the PDF library. This class knows what a
- * prescription looks like; PdfRenderer knows how to turn HTML into a PDF and
- * nothing else. Swapping the library later is one file, and this one is
- * testable without rendering anything.
+ * Deliberately separate from the PDF library: this class knows what a bill
+ * looks like, PdfRenderer knows how to turn HTML into a PDF.
  *
- * TABLES, NOT FLEX. dompdf — the renderer behind this — supports a small, old
- * subset of CSS: no flexbox, no grid, limited positioning. Building the layout
- * from tables from the start is not nostalgia, it is the difference between a
- * letterhead that prints and one that looks right in a browser and collapses
- * in the PDF.
+ * TABLES, NOT FLEX. dompdf has no flexbox and no grid, so every layout here is
+ * a table, and anything that is not a solid colour — the corner swoosh, the
+ * footer waves, the stand-in logo — is a GD image from Gradient.
  *
- * WHAT IT IS SUPPOSED TO LOOK LIKE. A bill here is a stack of bordered,
- * rounded cards under a coloured title band, in the accent the branch chose:
+ * A sheet, top to bottom:
  *
- *     letterhead      who the clinic is, and how to reach them
- *     title band      what this document is — the one thing read first
- *     meta + stamp    its numbers, and whether it is settled
- *     cards           patient, the charges, how it was paid
- *     signatures      who took the money, who signs for the clinic
- *     footer band     the clinic's line, and the provenance stamp
+ *     letterhead     the clinic's mark and name; contacts on the right
+ *     title row      what the document is; its number and date in a box
+ *     people         the patient, and the doctor beside them
+ *     body           clinical notes, the items table
+ *     lower grid     summary and notes on the left; payment and QR on the right
+ *     signatures
+ *     footer band    fixed to the foot of every page
  *
- * Three primitives carry that, and each was chosen against dompdf rather than
- * against a browser: solid background colours with a `border-radius` (fine),
- * a background IMAGE for the gradient band because `linear-gradient()` renders
- * as nothing at all (see Gradient), and an icon FONT because the SVG parser is
- * a separate code path with its own gaps (see Icons).
+ * A till roll (80mm) has no room for any of that and gets its own single
+ * column — see receiptPage().
  *
- * Every value is escaped. A patient's name and a doctor's notes are free text
- * that ends up inside markup, and a document that renders somebody's typed
- * `<b>` as bold is the small version of the same bug that renders a script
- * tag.
+ * Every value is escaped: a patient's name and a doctor's notes are free text
+ * that ends up inside markup.
  */
 class DocumentHtml
 {
-    /**
-     * The icon in the title band, per document type.
-     *
-     * Falls back to a receipt, because everything this renders that is not
-     * named here is a bill of some kind.
-     */
+    /** The round badge beside the title, per document type. */
     private const TYPE_ICON = [
         'patient_registration' => 'user-plus',
         'prescription' => 'prescription',
         'consultation_summary' => 'clipboard-text',
-        'clinic_invoice' => 'clipboard-text',
+        'clinic_invoice' => 'receipt',
         'pharmacy_invoice' => 'pill',
         'payment_receipt' => 'cash',
         'clinic_receipt' => 'cash',
@@ -60,11 +46,22 @@ class DocumentHtml
         'document_cover' => 'file-stack',
     ];
 
+    /** Printed under the title when the template gives no subtitle of its own. */
+    private const SUBTITLE = [
+        'patient_registration' => 'Your health journey starts here',
+        'prescription' => 'Medicines and advice from your doctor',
+        'consultation_summary' => 'Findings, diagnosis and advice',
+        'clinic_invoice' => 'Consultation, tests, pharmacy & services',
+        'clinic_receipt' => 'Payment received with thanks',
+        'clinic_refund' => 'Amount returned to you',
+        'pharmacy_invoice' => 'Medicines for a healthier tomorrow',
+        'payment_receipt' => 'Payment received with thanks',
+        'document_cover' => 'Documents on this patient’s file',
+    ];
+
     /**
-     * Who handed the document over — the left-hand signature box.
-     *
-     * A pharmacy dispenses, a counter receives. Naming it correctly is the
-     * difference between a box somebody signs and a box somebody ignores.
+     * Who handed the document over — the left-hand signature. A pharmacy
+     * dispenses, a counter receives.
      */
     private const HANDOVER = [
         'pharmacy_invoice' => 'Dispensed by',
@@ -73,6 +70,42 @@ class DocumentHtml
         'clinic_receipt' => 'Received by',
         'clinic_refund' => 'Refunded by',
     ];
+
+    /** The three badges along the footer band, by kind of document. */
+    private const BADGES = [
+        'care' => [
+            ['shield-check', 'Trusted Care', 'For Every Family'],
+            ['stethoscope', 'Experienced Doctors', 'Quality Healthcare'],
+            ['building-hospital', 'Modern Facilities', 'Advanced Technology'],
+        ],
+        'pharmacy' => [
+            ['shield-check', 'Safe Medicines', 'Authentic & Quality'],
+            ['user', 'Qualified Pharmacists', 'Expert Guidance'],
+            ['heart-handshake', 'Better Health', 'Our Priority'],
+        ],
+        'billing' => [
+            ['award', 'Quality Care', 'Our Commitment'],
+            ['microscope', 'Advanced Technology', 'Better Diagnosis'],
+            ['users', 'Healthy Community', 'Stronger Together'],
+        ],
+    ];
+
+    /** The small picture against a charge, from the category it was billed under. */
+    private const ROW_ICON = [
+        'registration' => 'file-text',
+        'consultation' => 'stethoscope',
+        'laboratory' => 'flask',
+        'lab' => 'flask',
+        'pharmacy' => 'pill',
+        'procedure' => 'report-medical',
+    ];
+
+    /** Fixed companions to the accent, whatever accent a branch picks. */
+    private const FRESH = '#14a594';
+
+    private const MINT = '#dcf3ea';
+
+    private const MINT_INK = '#0f766e';
 
     public function __construct(
         private readonly QrCode $qr = new QrCode,
@@ -87,424 +120,382 @@ class DocumentHtml
     {
         $values = $payload['values'] ?? [];
         $tables = $payload['tables'] ?? [];
-
         $layout = Arr::get($config, 'layout', []);
-        $receipt = Arr::get($layout, 'paper') === DocumentTypes::PAPER_RECEIPT;
 
-        $sections = [
-            $this->header($documentType, $config, $values, $logoData, $receipt),
-            $this->body($documentType, $config, $values, $tables, $receipt),
-            $this->footer($config, $values),
-        ];
+        if (Arr::get($layout, 'paper') === DocumentTypes::PAPER_RECEIPT) {
+            return $this->receiptPage($documentType, $config, $values, $tables);
+        }
 
-        /*
-         * THE SHEET IS A CARD, and the footer band is the bottom of it.
-         *
-         * Printed as loose blocks down a page the layout had no edge: the
-         * letterhead started wherever the margin did and the footer floated
-         * above whatever paper was left, so a bill with three lines on it read
-         * as an unfinished draft. One frame around the lot is what makes it a
-         * document rather than a print-out, and it is what the footer's wave
-         * curls into at the foot.
-         *
-         * The provenance line sits OUTSIDE the frame. It is a note about the
-         * printing, not part of the bill, and inside the card it read as one
-         * more thing the clinic was telling the patient.
-         */
-        $sheet = '<div class="sheet">'.implode("\n", array_filter($sections)).'</div>';
+        $a4 = Arr::get($layout, 'paper', DocumentTypes::PAPER_A4) === DocumentTypes::PAPER_A4;
+        $accent = $this->colour(Arr::get($layout, 'accent', '#0b5275'));
 
-        return $this->page($layout, $sheet.$this->provenance($values), $receipt);
+        $content = implode("\n", array_filter([
+            $this->letterhead($config, $values, $logoData, $accent),
+            $this->titleRow($documentType, $config, $values),
+            $this->intro($config, $values),
+            $documentType === 'patient_registration'
+                ? $this->registration($config, $values)
+                : $this->people($documentType, $config, $values),
+            $this->clinical($config, $values),
+            $this->itemTables($documentType, $config, $tables),
+            $this->lowerGrid($documentType, $config, $values),
+            $this->smallPrint($config, $values),
+            $this->closing($documentType, $config, $values),
+        ]));
+
+        // The fixed band and the corner art come first: dompdf repeats a fixed
+        // element on every page from the one it is declared on.
+        $art = $this->footerBand($documentType, $config, $values, $accent, $a4)
+            .$this->corner($a4);
+
+        return $this->page($layout, $art.$content);
     }
 
+    /* ==================================================================
+       The page and its stylesheet
+       ================================================================== */
+
     /** @param array<string, mixed> $layout */
-    private function page(array $layout, string $content, bool $receipt): string
+    private function page(array $layout, string $content): string
     {
+        $paper = Arr::get($layout, 'paper', DocumentTypes::PAPER_A4);
+        $a4 = $paper === DocumentTypes::PAPER_A4;
         $margins = Arr::get($layout, 'margin_mm', []);
-        $accent = $this->colour(Arr::get($layout, 'accent', '#2e37a4'));
+        $accent = $this->colour(Arr::get($layout, 'accent', '#0b5275'));
         $size = (float) (Arr::get($layout, 'font_size', 11) ?: 11);
 
-        /*
-         * DejaVu, NOT the CSS generic families.
-         *
-         * `sans-serif` resolves to one of dompdf's built-in PDF core fonts,
-         * which are Latin-1 only — and the rupee sign is not in Latin-1. It
-         * printed as "?" on every bill, which on a money document is the one
-         * character that must never be wrong. DejaVu is bundled with dompdf
-         * and carries ₹ along with the Devanagari-adjacent punctuation these
-         * documents use, so it is named explicitly rather than hoped for.
-         *
-         * It is also why this design is not set in the geometric sans the
-         * mockups use: a webfont would have to be bundled, converted and
-         * proven to carry ₹ before a single bill could print through it. The
-         * hierarchy below — the scale, the weights, the colour — is doing the
-         * work a typeface would otherwise do.
-         */
-        $family = Arr::get($layout, 'font_family') === 'serif'
-            ? "'DejaVu Serif', serif"
-            : "'DejaVu Sans', sans-serif";
-
-        $margin = sprintf(
-            '%smm %smm %smm %smm',
-            (float) ($margins['top'] ?? 14),
-            (float) ($margins['right'] ?? 12),
-            (float) ($margins['bottom'] ?? 14),
-            (float) ($margins['left'] ?? 12),
-        );
+        // Half the paper of A4: the type steps down with it, or a
+        // prescription's second half runs onto a second slip.
+        if (! $a4) {
+            $size = round($size * 0.86, 2);
+        }
 
         /*
-         * A receipt is a continuous strip, not a paper size. 80mm wide and as
-         * long as it needs to be — a till roll has no page two, and giving it
-         * an A4 page height would print one line and eject a blank sheet.
+         * DejaVu, not the CSS generic families: `sans-serif` resolves to a
+         * Latin-1 core font, and the rupee sign is not in Latin-1.
          */
-        $page = $receipt
-            ? '@page { size: 80mm auto; margin: '.$margin.'; }'
-            : '@page { margin: '.$margin.'; }';
+        $serif = Arr::get($layout, 'font_family') === 'serif';
+        $family = $serif ? "'DejaVu Serif', serif" : Fonts::SANS.", 'DejaVu Sans', sans-serif";
+        $heavy = $serif ? $family : Fonts::SANS_HEAVY.", 'DejaVu Sans', sans-serif";
+        $medium = $serif ? $family : Fonts::SANS_MEDIUM.", 'DejaVu Sans', sans-serif";
+        $script = Fonts::SCRIPT.", 'DejaVu Serif', serif";
 
-        /*
-         * FOUR SHADES OF THE ACCENT, mixed in PHP rather than left to CSS.
-         *
-         * dompdf's support for colour functions is not something to rely on,
-         * and a card head whose background silently failed to render would
-         * print a heading on nothing. Mixing with white here means the value
-         * that reaches the renderer is a plain hex it cannot get wrong.
-         *
-         *   lite  the far end of the title band's ramp, and the tile on it
-         *   edge  a border that belongs to the accent without competing
-         *   tint  a wash a heading can sit on
-         *   pale  a wash a whole total row can sit on
-         */
-        $lite = $this->mix($accent, 0.42);
-        $edge = $this->mix($accent, 0.74);
+        $top = (float) ($margins['top'] ?? 14);
+        $left = (float) ($margins['left'] ?? 12);
+        $right = (float) ($margins['right'] ?? 12);
+        $band = $this->bandHeight($a4);
+        // The band sits in the bottom margin, so the margin is the band plus air.
+        $bottom = $band + ($a4 ? 3.5 : 2);
+
+        // Every shade is mixed here as plain hex; dompdf's colour functions
+        // are not something a printed bill should depend on.
+        $ink = $this->darken($accent, 0.58);
+        $deep = $this->darken($accent, 0.18);
+        $softInk = $this->mix($accent, 0.28);
+        $rule = $this->mix($accent, 0.80);
+        $soft = $this->mix($accent, 0.84);
         $tint = $this->mix($accent, 0.90);
-        $pale = $this->mix($accent, 0.95);
+        $pale = $this->mix($accent, 0.955);
+        $headLine = $this->mix($accent, 0.22);
+        $mint = self::MINT;
+        $mintInk = $this->darken(self::MINT_INK, 0.1);
 
-        /* The ramp across the title band, and the swell under the footer.
-           A solid background-color is set under each, so a machine with no GD
-           prints a flat band rather than a blank one. */
-        $stretch = ' background-repeat: repeat-y; background-size: 100% 100%;';
+        $fs = fn (float $factor) => round($size * $factor, 1).'pt';
 
-        $ramp = $this->gradient->dataUri($accent, $lite);
-        $band = 'background-color: '.$accent.';'
-            .($ramp !== null ? ' background-image: url('.$ramp.');'.$stretch : '');
+        $display = $fs($a4 ? 1.55 : 1.3);
+        $title = $fs($a4 ? 1.5 : 1.32);
+        $lead = $fs(1.28);
+        $body = $fs(1.0);
+        $small = $fs(0.9);
+        $micro = $fs(0.78);
+        $nano = $fs(0.68);
+        $thanks = $a4 ? '19pt' : '13pt';
+        $badgeT = $a4 ? '7.4pt' : '6.2pt';
+        $badgeS = $a4 ? '6.2pt' : '5.2pt';
+        $longTitle = $fs($a4 ? 1.35 : 1.2);
+        $numSize = $fs($a4 ? 1.12 : 1.02);
+        $nameSize = $fs(1.05);
+        $kvSize = $fs(0.84);
+        $grandSize = $fs(1.12);
+        $panelPad = $a4 ? '1.5mm 2.4mm' : '1.2mm 2mm';
+        $peoplePad = $a4 ? '1.8mm 0' : '1.4mm 0';
+        $overline = $a4 ? '6.3pt' : '5.6pt';
+        $tiny = $fs(0.6);
+        // The letterhead rises into the top margin, which the swoosh already dresses.
+        $lift = $a4 ? '-4mm' : '-3mm';
 
-        $swell = $this->gradient->wave($pale, $tint);
-        $foot = 'background-color: '.$pale.';'
-            .($swell !== null ? ' background-image: url('.$swell.');'.$stretch : '');
+        $gap = $a4 ? '2.4mm' : '1.9mm';
+        $thPad = $a4 ? '2mm 2.2mm' : '1.5mm 1.5mm';
+        $tdPad = $a4 ? '1.1mm 2.2mm' : '0.9mm 1.5mm';
 
         /*
-         * SPACING AND THE LARGEST TYPE FOLLOW THE SHEET.
-         *
-         * The padding that makes an A4 bill look considered cost a
-         * prescription its second half — at A4's measure a prescription on A5
-         * ran straight onto a second slip. A smaller page is not a smaller
-         * version of a bigger one; it gets the same type scale, tightened.
+         * A glyph in a circle, centred by padding rather than line-height:
+         * dompdf seats an icon glyph at the top or the bottom of a tall line
+         * box depending on what the line-height is, never in its middle.
          */
-        $roomy = Arr::get($layout, 'paper', DocumentTypes::PAPER_A4) === DocumentTypes::PAPER_A4;
+        $round = function (float $box, float $factor) use ($size): string {
+            $icon = round($size * $factor, 1);
+            $top = max(0, round(($box - $icon * 0.3528) / 2, 2));
 
-        /*
-         * A TYPE SCALE, not a pile of near-identical sizes.
-         *
-         * Six steps, each clearly apart from its neighbours, because nobody
-         * can see the difference between 0.85 and 0.88 of a base size — and a
-         * page where nothing is deliberately larger than anything else is what
-         * makes a document read as "generated" rather than designed.
-         */
-        $nano = $this->scale($size, 0.64);    // captions, the signatory line
-        $micro = $this->scale($size, 0.74);   // labels, table heads, contacts
-        $small = $this->scale($size, 0.86);   // values, table body
-        $lead = $this->scale($size, 1.22);    // the band title, the grand total
-        /*
-         * The clinic's name, and the ONE step that is paper-aware: at 1.68 of
-         * an 11pt base it wanted more than the half of an A5 sheet that the
-         * letterhead leaves it, so "CarePlus Healthcare" broke across two
-         * lines — on the line whose whole job is to say the name once.
-         */
-        $display = $this->scale($size, $roomy ? 1.68 : 1.45);
-        $mark = $this->scale($size, 3.60);    // the watermark glyph on the band
+            return "width: {$box}mm; height: ".round($box - $top, 2)."mm; padding-top: {$top}mm; "
+                ."line-height: 1; font-size: {$icon}pt;";
+        };
 
-        /* Uppercase needs air between the letters or it sets as a block. */
-        $track = $this->scale($size, 0.055).'pt';
+        $badgeBox = $round($a4 ? 8.5 : 7, 1.15);
+        $avatarBox = $round($a4 ? 7.5 : 6.2, 1.25);
+        $tileBox = $round($a4 ? 5.2 : 4.6, 0.82);
+        $secBox = $round(8, 1.05);
+        $footIcon = $a4 ? 9.0 : 7.0;
+        $footSide = $a4 ? 6.8 : 5.4;
+        $footTop = round(($footSide - $footIcon * 0.3528) / 2, 2);
+        $footBox = "width: {$footSide}mm; height: ".round($footSide - $footTop, 2)."mm; padding-top: {$footTop}mm; "
+            ."line-height: 1; font-size: {$footIcon}pt;";
+        $avCol = $a4 ? '10mm' : '8.2mm';
+        $signRoom = $a4 ? '5mm' : '3.5mm';
 
+        $width = $a4 ? 210 : 148;
         $iconFamily = Icons::FAMILY;
-
-        /*
-         * TIGHT, BECAUSE A SECOND SHEET IS THE ONE THING A COUNTER NOTICES.
-         *
-         * Every one of these was a third larger, and a real consolidated bill
-         * — a registration line, a consultation, a test and two pharmacy rows
-         * — ran its payment panel, its signatures and its footer onto a page
-         * two that was four-fifths white. A clinic printing a hundred bills a
-         * day pays for that in paper, in toner and in a stapler, and it is the
-         * first thing they ask to have taken away.
-         *
-         * Nothing here is smaller: the type scale is untouched and every card
-         * still has air inside it. What went is the slack BETWEEN things, which
-         * is the space a reader was not using anyway.
-         */
-        $leading = $roomy ? '1.32' : '1.22';
-        $gap = $roomy ? '5px' : '4px';
-        $padBand = $roomy ? '7px 10px' : '6px 8px';
-        $padHead = $roomy ? '4px 8px' : '3px 6px';
-        $padBody = $roomy ? '6px 9px' : '5px 7px';
-        $padTh = $roomy ? '4px 6px' : '3px 5px';
-        $padTd = $roomy ? '4px 6px' : '3px 5px';
-        /* The inset between the card's own border and what is printed on it.
-           The footer band reaches back out through it to the card's edge. */
-        $inset = $roomy ? '4mm' : '3mm';
-        /* The whole signature box, and the blank part of it above the rule.
-           13mm still takes a signature; 17mm took a signature and a hand. */
-        $signBox = $roomy ? '11mm' : '8mm';
-        $signRoom = $roomy ? '7mm' : '4mm';
 
         return <<<HTML
         <!DOCTYPE html>
         <html><head><meta charset="utf-8">
         <style>
-            {$page}
-            body { font-family: {$family}; font-size: {$size}pt; color: #1f2937; margin: 0;
-                   line-height: {$leading}; }
+            @page { margin: {$top}mm {$right}mm {$bottom}mm {$left}mm; }
+            body { font-family: {$family}; font-size: {$body}; color: #1e293b; margin: 0; line-height: 1.22; }
+            a { color: inherit; text-decoration: none; }
             table { width: 100%; border-collapse: collapse; }
-            td, th { vertical-align: top; }
-            .muted { color: #6b7280; font-size: {$small}pt; }
-            .accent { color: {$accent}; }
+            td, th { vertical-align: top; padding: 0; }
+            .ti { font-family: {$iconFamily}; font-style: normal; font-weight: normal; }
+            .muted { color: #64748b; }
+            .gap { margin-top: {$gap}; }
 
-            /* ---- the sheet ---------------------------------------------- */
-            /*
-             * The frame that makes the page a document. No padding at the
-             * foot: the footer band fills it, and its own wave runs into the
-             * card's bottom corners.
-             */
-            .sheet { border: 0.6pt solid #dfe5ee; border-radius: 10px;
-                     padding: {$inset} {$inset} 0; }
+            /* ---- art -------------------------------------------------- */
+            .corner { position: absolute; top: -{$top}mm; left: -{$left}mm; }
+            .fband { position: fixed; left: -{$left}mm; bottom: -{$bottom}mm; width: {$width}mm;
+                     height: {$band}mm; }
+            .fband td { vertical-align: middle; }
+            .thanks { font-family: {$script}; font-size: {$thanks}; color: {$ink}; text-align: center; }
+            .thanks .heart { font-family: 'DejaVu Sans', sans-serif; font-style: normal; color: #e11d48; }
+            .b-ic { {$footBox} border-radius: 50%; background-color: {$accent}; color: #ffffff; text-align: center; }
+            .b-t { font-family: {$medium}; font-size: {$badgeT}; color: {$accent}; padding-left: 1.8mm; line-height: 1.15; }
+            .b-s { font-size: {$badgeS}; color: #64748b; padding-left: 1.8mm; line-height: 1.15; }
 
-            /*
-             * The icon font. PdfRenderer strips every one of these spans when
-             * the font could not be registered — see Icons.
-             */
-            .ti { font-family: {$iconFamily}; font-style: normal; font-weight: normal;
-                  line-height: 1; }
+            /* ---- letterhead ------------------------------------------- */
+            .lh { margin-top: {$lift}; }
+            .lh td { vertical-align: middle; }
+            .org { font-family: {$heavy}; font-size: {$display}; color: {$ink}; line-height: 1.1; }
+            .tagline { font-size: {$nano}; color: #5b7487; margin-top: 0.3mm; }
+            .dept { font-family: {$medium}; font-size: {$nano}; color: {$accent}; margin-top: 0.2mm; }
+            .reg { font-size: {$nano}; color: #64748b; }
+            .contact td { padding: 0.25mm 0; font-size: {$nano}; color: #334155; vertical-align: middle; }
+            .contact .ic { width: 4mm; color: {$accent}; font-size: {$micro}; }
+            .rule { border-top: 0.8pt solid {$rule}; margin-top: 2mm; }
 
-            /* ---- letterhead -------------------------------------------- */
-            /*
-             * The clinic's name in ink, the branch in the accent beneath it.
-             *
-             * Both used to be the accent colour, which put two competing
-             * headings in the same corner and left neither looking like the
-             * more important one. One focal point: the name of the practice is
-             * the biggest thing on the page, and the accent is spent on what
-             * sits under it.
-             */
-            .org { font-size: {$display}pt; font-weight: bold; color: #0f172a;
-                   line-height: 1.15; }
-            .dept { font-size: {$small}pt; font-weight: bold; color: {$accent};
-                    line-height: 1.35; }
-            .tagline { font-size: {$nano}pt; color: #94a3b8; line-height: 1.5; }
-            .reg { font-size: {$nano}pt; color: #6b7280; line-height: 1.5; }
+            /* ---- title row -------------------------------------------- */
+            .title-row td { vertical-align: middle; }
+            .t-badge { {$badgeBox} border-radius: 50%; background-color: {$accent}; color: #ffffff; text-align: center; }
+            .doc-title { font-family: {$heavy}; font-size: {$title}; color: {$ink}; line-height: 1.15; }
+            .doc-title.long { font-size: {$longTitle}; }
+            .doc-sub { font-size: {$micro}; color: {$softInk}; margin-top: 0.4mm; }
+            .meta { background-color: {$tint}; border-radius: 7px; padding: 1.4mm 3mm; }
+            .meta td { padding: 0.25mm 0; vertical-align: middle; white-space: nowrap; }
+            .meta .k { font-family: {$medium}; font-size: {$overline}; letter-spacing: 0.06em; text-transform: uppercase;
+                       color: {$accent}; padding-right: 5mm; }
+            .meta .v { font-size: {$nano}; color: #334155; text-align: right; }
+            .meta .v.lead { font-family: {$heavy}; font-size: {$numSize}; color: {$deep}; }
 
-            /* A tinted square behind an uploaded logo, so a small or pale mark
-               still reads as a mark rather than as a stray picture. */
-            .mark { background-color: {$tint}; border-radius: 8px; text-align: center;
-                    padding: 2mm; }
-            /*
-             * AND A MARK WHEN THERE IS NO LOGO. Most branches never upload
-             * one, which left the letterhead as a line of text against a lot
-             * of white — the corner a reader looks at first, saying nothing.
-             * The same ramp as the title band, so the two read as one identity
-             * rather than as a badge that wandered in.
-             */
-            .mark-tile { {$band} border-radius: 9px; width: 13mm; padding: 2.4mm 0;
-                         text-align: center; color: #ffffff; font-size: {$display}pt; }
+            /* ---- people ----------------------------------------------- */
+            .people { background-color: {$pale}; border-radius: 8px; padding: {$peoplePad}; margin-top: {$gap}; }
+            .people td { vertical-align: middle; }
+            .people .pc { padding: 0 3.4mm; }
+            .people .pc.split { border-left: 0.8pt solid {$rule}; }
+            .avatar { {$avatarBox} border-radius: 50%; background-color: {$soft}; color: {$accent}; text-align: center; }
+            .avatar.light { background-color: #ffffff; }
+            .avatar.pale { background-color: {$tint}; }
+            .av-col { width: {$avCol}; }
+            .ov { font-family: {$medium}; font-size: {$overline}; letter-spacing: 0.08em; text-transform: uppercase;
+                  color: {$accent}; }
+            .p-name { font-size: {$nameSize}; font-weight: bold; color: {$ink}; margin-top: 0.1mm; line-height: 1.2; }
+            .p-id { font-size: {$nano}; font-weight: normal; color: #64748b; }
+            .p-sub { font-size: {$nano}; color: #475569; margin-top: 0.3mm; line-height: 1.2; }
+            .p-sub .sep { color: #94a3b8; }
 
-            /* How to reach them — one fact per line, each with its own icon,
-               because a run-on "phone · email" line is the part of a
-               letterhead nobody can find anything in. */
-            .contact td { padding: 1px 0; font-size: {$micro}pt; color: #475569; }
-            .contact .ic { width: 4mm; color: {$accent}; }
-
-            .rule { border-bottom: 0.6pt solid #e2e8f0; height: 0; margin: {$gap} 0 0; }
-
-            /* ---- the title band ---------------------------------------- */
-            /*
-             * WHAT THIS DOCUMENT IS, said once and loudly.
-             *
-             * Somebody holding a bill looks for "Invoice" before they read the
-             * clinic's address. It used to print as one more grey line under
-             * the phone number, which is why the old layout read as a letter
-             * rather than as a document.
-             */
-            .band { {$band} border-radius: 7px; padding: {$padBand}; margin-top: {$gap}; }
-            .band td { vertical-align: middle; }
-            /* WHITE, with the glyph in the accent — not a paler accent with a
-               white glyph. On the ramp a tinted tile reads as a smudge; a
-               white one reads as a badge pinned to the band. */
-            .band-tile { background-color: #ffffff; border-radius: 6px; width: 7mm;
-                         padding: 1.3mm 0; text-align: center; color: {$accent};
-                         font-size: {$lead}pt; }
-            .band-title { font-size: {$lead}pt; font-weight: bold; color: #ffffff;
-                          text-transform: uppercase; letter-spacing: {$track};
-                          line-height: 1.2; }
-            .band-sub { font-size: {$micro}pt; color: {$tint}; line-height: 1.5; }
-            /* The oversized glyph at the right edge. `line-height: 0.7` keeps
-               it from setting the height of the band it decorates. */
-            .band-mark { color: {$lite}; font-size: {$mark}pt; line-height: 0.7;
-                         text-align: right; }
-
-            /* ---- the numbers, and whether it is settled ----------------- */
-            .meta { margin-top: {$gap}; }
-            .kv td { padding: 0.5px 0; font-size: {$small}pt; }
-            /*
-             * `width: 1%` with `nowrap` is the table-layout idiom for "as
-             * narrow as the widest label and no narrower". A percentage width
-             * put the colons a third of the way across the card with a hand's
-             * width of nothing between each label and its own answer.
-             */
-            .kv .k { color: #64748b; white-space: nowrap; width: 1%;
-                     padding-right: 2mm; }
-            .kv .c { color: #cbd5e1; width: 1%; padding-right: 2mm; }
-            .kv .v { font-weight: bold; color: #0f172a; }
-
-            .stamp-box { border-radius: 7px; text-align: center; padding: 4px 8px; }
-            .stamp-box .s-i { font-size: {$lead}pt; width: 6mm; }
-            .stamp-box .s-t { font-weight: bold; font-size: {$lead}pt;
-                              letter-spacing: {$track}; text-align: left; }
-            .stamp-box .s-n { font-size: {$nano}pt; }
-            .is-paid { background-color: #e9f8ef; border: 0.6pt solid #a7dbbd; color: #14804a; }
-            .is-part { background-color: #fdf4e3; border: 0.6pt solid #e9c98a; color: #92650a; }
-            .is-unpaid { background-color: #fdeded; border: 0.6pt solid #f0b4b4; color: #a21d1d; }
-            .is-refund { background-color: #eef2ff; border: 0.6pt solid #b9c3f5; color: #2e37a4; }
-
-            /* ---- the cards everything else sits in ---------------------- */
-            .card { border: 0.6pt solid #e2e8f0; border-radius: 7px; margin-top: {$gap}; }
-            /*
-             * A card of KNOWN, SHORT length is never split across a page
-             * boundary. The payment panel printed its heading at the foot of
-             * page one and its figures at the head of page two, which is the
-             * one card on a bill that has to be read as a unit.
-             *
-             * Asked for on the wrong card it costs a whole page: a card of
-             * free text — clinical notes, an items table — can legitimately be
-             * longer than the space left, and refusing to break it pushes the
-             * lot onto the next sheet and leaves half of this one blank. Only
-             * cards whose height the layout fixes ask for it.
-             */
-            .card.keep { page-break-inside: avoid; }
-            .card-h { background-color: {$tint}; border-bottom: 0.6pt solid {$edge};
-                      border-radius: 6px 6px 0 0; padding: {$padHead}; }
-            .card-h td { vertical-align: middle; }
-            .card-h .i { color: {$accent}; width: 5mm; font-size: {$small}pt; }
-            .card-h .t { font-weight: bold; color: #0f172a; font-size: {$small}pt; }
-            .card-b { padding: {$padBody}; }
-            /* The items table is the card, so it runs to the border. */
-            .card-b.flush { padding: 0; }
-            .col-split { border-left: 0.6pt solid #e2e8f0; }
-
-            /* ---- the items table --------------------------------------- */
-            /*
-             * A FULL GRID, unlike the tables in the app's own screens. On a
-             * bill somebody checks a quantity against a rate against an
-             * amount, reading across a row and down a column in the same
-             * glance, and the rules are what keep that honest on paper — where
-             * there is no hover to hold the row for you.
-             */
-            .grid th { background-color: {$accent}; color: #ffffff; padding: {$padTh};
-                       text-align: left; font-size: {$micro}pt; font-weight: bold;
-                       border: 0.6pt solid {$lite}; }
-            .grid td { border: 0.6pt solid #e2e8f0; padding: {$padTd};
-                       font-size: {$small}pt; }
-            /* Zebra, so a wide row is readable across without a ruler. */
-            .grid tr.alt td { background-color: #fbfcfe; }
-            .grid .num { text-align: right; }
-            /* A category heading inside the table — a band, not a row of data,
-               so it carries the accent wash and no cell rules. */
-            .grid tr.grp td { background-color: {$tint}; color: {$accent}; font-weight: bold;
-                              font-size: {$micro}pt; text-transform: uppercase;
-                              letter-spacing: {$track}; border-color: {$edge}; }
-
-            /* The totals hang off the right of the same table, so every figure
-               lines up under the column it was added from. */
-            .grid .void { border: 0; }
-            /* The figure never wraps; the label may. On 80mm of till roll a
-               "Total Amount" that will not break is a "Total Amount" that
-               takes the amount column off the edge of the paper with it. */
-            .grid .tk { text-align: right; color: #475569; }
-            .grid .tv { text-align: right; font-weight: bold; color: #0f172a;
-                        white-space: nowrap; }
-            .grid tr.grand td { background-color: {$pale}; color: {$accent};
-                                border-color: {$edge}; font-size: {$lead}pt;
-                                font-weight: bold; }
-            /* What is still owed, said once and loudly — a bill whose balance
-               reads the same weight as its tax line is a bill people misread. */
-            .grid tr.due td { background-color: #fdeded; color: #a21d1d;
-                              border-color: #f0b4b4; font-weight: bold; }
-
-            /* ---- how it was settled ------------------------------------ */
-            .qr-cap { font-size: {$nano}pt; color: #64748b; text-align: center;
-                      line-height: 1.3; }
-
-            /* Room to actually sign in. The rule used to sit a few points
-               under the last table row, which left a signature line nobody
-               could write on without crossing the row above it. */
-            .sign-box { height: {$signBox}; }
+            /* ---- registration sections -------------------------------- */
+            .sec { background-color: {$tint}; border-radius: 12px; margin-top: {$gap}; }
+            .sec td { vertical-align: middle; }
+            .sec-badge { {$secBox} border-radius: 50%; background-color: {$accent}; color: #ffffff; text-align: center; }
+            .sec-title { font-size: {$body}; font-weight: bold; color: {$accent}; padding-left: 3mm; }
+            .sec-body { padding: 2.4mm 1mm 0.4mm; }
+            .sec-body td { vertical-align: middle; }
+            .fld { padding: 0 3mm; border-left: 0.6pt solid #e2e8f0; }
+            .fld.first { border-left: 0; }
+            .fld .l { font-size: {$micro}; color: #64748b; }
+            .fld .v { font-size: {$body}; font-weight: bold; color: {$ink}; margin-top: 0.6mm; }
+            .fld .v .ti { color: {$accent}; }
+            .clin .v { font-size: {$small}; font-weight: normal; color: #1e293b; margin-top: 0.3mm; }
+            .subgrid { border: 0.6pt solid #e2e8f0; border-radius: 8px; padding: 2mm 0; margin-top: 2mm; }
+            .consent { background-color: #e6f6f0; border-radius: 10px; padding: 3.4mm 4mm; margin-top: {$gap}; }
+            .consent .shield { color: #0d9488; font-size: {$title}; }
+            .consent .h { font-size: {$lead}; font-weight: bold; color: {$mintInk}; }
+            .consent .txt { font-size: {$small}; color: #334155; margin-top: 1mm; line-height: 1.4; }
             .sign-room { height: {$signRoom}; }
-            .sign-line { border-top: 0.6pt solid #cbd5e1; padding-top: 2px;
-                         text-align: center; font-size: {$nano}pt; color: #94a3b8; }
-            .sign-name { font-weight: bold; color: #0f172a; font-size: {$small}pt; }
-            .sign-role { color: #6b7280; font-size: {$nano}pt; }
+            .sign-line { border-top: 0.8pt solid #94a3b8; padding-top: 1mm; font-size: {$micro};
+                         color: #475569; text-align: center; }
 
-            /* ---- the small print --------------------------------------- */
-            .terms { border: 0.6pt solid #e2e8f0; border-radius: 7px; background-color: #fafbfc;
-                     padding: {$padBody}; margin-top: {$gap}; color: #4b5563;
-                     line-height: 1.5; font-size: {$nano}pt; }
+            /* ---- cards ------------------------------------------------ */
+            .card { background-color: {$pale}; border-radius: 8px; margin-top: {$gap}; }
+            .card.white { background-color: #ffffff; border: 0.6pt solid #e2e8f0; }
+            .card.keep { page-break-inside: avoid; }
+            .card-h { background-color: {$tint}; border-radius: 8px 8px 0 0; padding: 1.1mm 2.6mm; }
+            .card-h td { vertical-align: middle; }
+            .tile { {$tileBox} border-radius: 1.6mm; background-color: {$accent}; color: #ffffff; text-align: center; }
+            .card-t { font-size: {$small}; font-weight: bold; color: {$accent}; padding-left: 2mm; }
+            .card-b { padding: {$panelPad}; }
+            .note { font-size: {$small}; color: #334155; line-height: 1.4; }
+            .steps td { font-size: {$small}; color: #334155; padding: 0.4mm 0; line-height: 1.3; }
+            .steps .n { width: 5mm; color: {$accent}; font-weight: bold; }
 
-            /*
-             * Reaches back out through the sheet's inset to sit on its bottom
-             * corners, which is the difference between a footer and a box that
-             * happens to be last. Only the bottom corners are rounded — the
-             * top edge is a rule across the card.
-             */
-            .fband { {$foot} border-top: 0.6pt solid {$edge};
-                     border-radius: 0 0 9px 9px; padding: {$padBody};
-                     margin: {$gap} -{$inset} 0; text-align: center; }
-            .fband .h { font-weight: bold; color: {$accent}; font-size: {$small}pt; }
-            .fband .s { color: #64748b; font-size: {$nano}pt; line-height: 1.5; }
+            /* ---- the items table -------------------------------------- */
+            .sect-h { margin-top: {$gap}; font-size: {$body}; font-weight: bold; color: {$accent}; }
+            .items { border-collapse: separate; border-spacing: 0; margin-top: {$gap}; }
+            .sect-h + .items { margin-top: 1.6mm; }
+            .items th { background-color: {$accent}; color: #ffffff; font-size: {$micro}; font-weight: bold;
+                        text-align: left; padding: {$thPad}; border-right: 0.6pt solid {$headLine};
+                        vertical-align: middle; }
+            .items th.first { border-top-left-radius: 7px; }
+            .items th.last { border-top-right-radius: 7px; border-right: 0; }
+            .items td { font-size: {$small}; color: #1e293b; padding: {$tdPad}; vertical-align: middle;
+                        border-bottom: 0.6pt solid #e5eaf0; border-right: 0.6pt solid #e5eaf0; }
+            .items td.first { border-left: 0.6pt solid #e5eaf0; }
+            .items .num { text-align: right; white-space: nowrap; }
+            .items .mid { text-align: center; }
+            .items .strong { font-weight: bold; color: {$ink}; }
+            .items .ico { color: {$accent}; font-size: {$body}; padding-right: 1.6mm; }
 
-            /* The provenance line, always. A printed medical document that
-               cannot say when it was produced is one nobody can place
-               afterwards. */
-            .provenance { margin-top: 5px; color: #9ca3af; font-size: {$nano}pt;
-                          text-align: center; }
+            /* ---- summary and payment ---------------------------------- */
+            .sum td { font-size: {$kvSize}; color: #334155; padding: 0.8mm 2.6mm; border-bottom: 0.6pt solid #e5eaf0;
+                      vertical-align: middle; }
+            .sum .v { text-align: right; font-weight: bold; color: {$ink}; white-space: nowrap; }
+            .sum tr.last td { border-bottom: 0; }
+            .grand { background-color: {$mint}; border-radius: 0 0 8px 8px; padding: 1.5mm 2.6mm; }
+            .grand td { vertical-align: middle; font-size: {$grandSize}; font-weight: bold; color: {$ink}; }
+            .grand .v { text-align: right; white-space: nowrap; }
+            .words { font-size: {$nano}; font-style: italic; color: #475569; margin-top: 0.8mm; }
+            .kv td { font-size: {$kvSize}; padding: 0.3mm 0; vertical-align: middle; }
+            .kv .k { color: #64748b; width: 1%; white-space: nowrap; padding-right: 4mm; }
+            .kv .v { color: {$ink}; }
+            .kv .money { font-weight: bold; }
+            .kv .owe { color: #dc2626; font-weight: bold; }
+            .pill { padding: 0.5mm 2.6mm; border-radius: 9px; font-size: {$micro}; font-weight: bold; }
+            .pill.paid { background-color: #d8f3e4; color: #15803d; }
+            .pill.part { background-color: #fdeac4; color: #b45309; }
+            .pill.unpaid { background-color: #fde2e2; color: #b91c1c; }
+            .pill.refund { background-color: {$tint}; color: {$accent}; }
+            .qr-box { text-align: center; }
+            .qr-t { font-family: {$medium}; font-size: {$nano}; color: {$accent}; margin-top: 0.5mm; }
+            .qr-n { font-size: {$tiny}; color: #475569; }
 
-            .block { margin-top: {$gap}; }
+            /* ---- signatures and small print --------------------------- */
+            .signs { margin-top: 1.5mm; page-break-inside: avoid; }
+            .signs td { vertical-align: bottom; }
+                        .s-label { font-family: {$medium}; font-size: {$micro}; color: #64748b; }
+            .s-name { font-size: {$body}; font-weight: bold; color: {$ink}; }
+            .s-role { font-size: {$micro}; color: #64748b; }
+            .smallprint { margin-top: {$gap}; text-align: center; font-size: {$micro}; color: #475569; }
+            .provenance { text-align: center; font-size: {$tiny}; color: #7b8aa0; line-height: 1; }
+            .intro { margin-top: {$gap}; font-size: {$small}; color: #334155; line-height: 1.4; }
         </style></head><body>
         {$content}
         </body></html>
         HTML;
     }
 
-    /**
-     * A lighter shade of the accent, mixed towards white.
-     *
-     * `$towardsWhite` of 0.90 is a wash you can print a heading on; 0.74 is a
-     * border that reads as "related to the accent" without competing with it.
-     * Done here rather than in CSS because dompdf's colour handling is not
-     * worth betting a printed document on.
-     */
-    private function mix(string $hex, float $towardsWhite): string
+    /** The footer band, including the provenance line along its foot. */
+    private function bandHeight(bool $a4): float
     {
-        [$r, $g, $b] = sscanf($hex, '#%02x%02x%02x');
+        return $a4 ? 25.0 : 18.5;
+    }
 
-        $blend = fn (int $channel) => (int) round($channel + (255 - $channel) * $towardsWhite);
+    /* ==================================================================
+       Art
+       ================================================================== */
 
-        return sprintf('#%02x%02x%02x', $blend((int) $r), $blend((int) $g), $blend((int) $b));
+    private function corner(bool $a4): string
+    {
+        $art = $this->gradient->swoosh(self::FRESH, $this->mix(self::FRESH, 0.70));
+
+        return $art === null
+            ? ''
+            : '<div class="corner"><img src="'.$art.'" style="'.($a4 ? 'width:58mm;height:23mm' : 'width:42mm;height:17mm').'"></div>';
     }
 
     /**
-     * The letterhead, and the title band under it.
+     * The band fixed to the foot of every page: a thank-you line and three
+     * badges over a pale ground with a wave in each corner.
      *
      * @param  array<string, mixed>  $config
      * @param  array<string, string>  $values
      */
-    private function header(string $documentType, array $config, array $values, ?string $logoData, bool $receipt): string
+    private function footerBand(string $documentType, array $config, array $values, string $accent, bool $a4): string
+    {
+        $lines = $this->footerLines($config, $values);
+        $headline = rtrim($lines[0] ?? '', '. ');
+
+        $base = $this->mix($accent, 0.965);
+        $art = $this->gradient->footerWaves(
+            $base,
+            $this->mix($accent, 0.90),
+            $accent,
+            self::FRESH,
+            $this->mix($accent, 0.62),
+        );
+
+        $ground = 'background-color:'.$base.';'
+            .($art !== null ? 'background-image:url('.$art.');background-size:100% 100%;background-repeat:no-repeat;' : '');
+
+        $badges = '';
+
+        foreach (self::BADGES[$this->badgeSet($documentType)] as [$icon, $label, $sub]) {
+            $badges .= '<td style="width:33%"><table><tr>'
+                .'<td style="width:'.($a4 ? '6.8mm' : '5.4mm').'"><div class="b-ic">'.Icons::span($icon).'</div></td>'
+                .'<td><div class="b-t">'.$this->e($label).'</div><div class="b-s">'.$this->e($sub).'</div></td>'
+                .'</tr></table></td>';
+        }
+
+        // Three layers placed outright rather than stacked in table rows,
+        // which grow past any height they are given: the thank-you between
+        // the waves (they rise above the upper half, see Gradient), the badges
+        // on the swell below, and the stamp along the very foot.
+        $side = $a4 ? '18mm' : '14mm';
+
+        return '<div class="fband" style="'.$ground.'">'
+            .'<div class="thanks" style="position:absolute;left:'.$side.';right:'.$side.';top:'.($a4 ? '1.2mm' : '0.2mm').'">'
+            .($headline !== '' ? $this->e($headline).' <span class="heart">&#9829;</span>' : '')
+            .'</div>'
+            .'<div style="position:absolute;left:'.($a4 ? '12mm' : '7mm').';right:'.($a4 ? '12mm' : '7mm').';bottom:'.($a4 ? '4mm' : '2.8mm').'">'
+            .'<table><tr>'.$badges.'</tr></table></div>'
+            .'<div style="position:absolute;left:0;right:0;bottom:'.($a4 ? '0.8mm' : '0.3mm').'">'.$this->provenance($values).'</div>'
+            .'</div>';
+    }
+
+    private function badgeSet(string $documentType): string
+    {
+        return match ($documentType) {
+            'patient_registration', 'prescription' => 'care',
+            'pharmacy_invoice', 'payment_receipt' => 'pharmacy',
+            default => 'billing',
+        };
+    }
+
+    /* ==================================================================
+       Letterhead and title
+       ================================================================== */
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @param  array<string, string>  $values
+     */
+    private function letterhead(array $config, array $values, ?string $logoData, string $accent): string
     {
         $header = Arr::get($config, 'header', []);
 
@@ -512,76 +503,50 @@ class DocumentHtml
         $department = $this->fill(Arr::get($header, 'department', ''), $values);
         $tagline = $this->fill(Arr::get($header, 'tagline', ''), $values);
         $registration = $this->fill(Arr::get($header, 'registration_no', ''), $values);
-        $title = $this->fill(Arr::get($header, 'title', ''), $values);
-        $subtitle = $this->fill(Arr::get($header, 'subtitle', ''), $values);
+        $name = $legal !== '' ? $legal : $this->fill(Arr::get($header, 'title', ''), $values);
 
-        /*
-         * Who this clinic is: the practice, the branch, and its own line.
-         */
-        $identity = '<div class="org">'.$this->e($legal !== '' ? $legal : $title).'</div>'
-            .($department !== '' ? '<div class="dept">'.$this->e($department).'</div>' : '')
+        $identity = '<div class="org">'.$this->e($name).'</div>'
             .($tagline !== '' ? '<div class="tagline">'.$this->e($tagline).'</div>' : '')
+            .($department !== '' ? '<div class="dept">'.$this->e($department).'</div>' : '')
             .($registration !== '' ? '<div class="reg">'.$this->e($registration).'</div>' : '');
 
-        /*
-         * The clinic's mark: what was uploaded, or a drawn one standing in.
-         *
-         * Falling back to NOTHING is what made the letterhead look unfinished
-         * — most branches never upload a logo, and the corner a reader looks
-         * at first was a line of text and a lot of white.
-         */
-        $logo = match (true) {
-            ! Arr::get($header, 'show_logo') => '',
-            $logoData !== null => '<div class="mark"><img src="'.$logoData
-                .'" style="max-height:14mm;max-width:30mm;"></div>',
-            default => '<div class="mark-tile">'.Icons::span('building-hospital').'</div>',
-        };
+        $a4 = Arr::get($config, 'layout.paper', DocumentTypes::PAPER_A4) === DocumentTypes::PAPER_A4;
+        $logo = '';
 
-        /* A drawn mark is 13mm and an uploaded one may be 30mm, and a column
-           sized for the larger leaves the drawn one floating a centimetre from
-           the name it belongs to. */
-        $logoColumn = $logoData !== null ? '34mm' : '17mm';
+        if (Arr::get($header, 'show_logo')) {
+            $mark = $logoData ?? $this->gradient->mark($accent, self::FRESH);
+
+            $logo = match (true) {
+                $logoData !== null => '<img src="'.$logoData.'" style="'.($a4 ? 'max-height:12mm;max-width:30mm' : 'max-height:10mm;max-width:24mm').'">',
+                $mark !== null => '<img src="'.$mark.'" style="'.($a4 ? 'width:11.5mm;height:11.5mm' : 'width:9mm;height:9mm').'">',
+                default => '<div class="t-badge">'.Icons::span('building-hospital').'</div>',
+            };
+        }
 
         $contact = $this->contacts((array) Arr::get($header, 'lines', []), $values, $department);
-
         $position = Arr::get($header, 'logo_position', 'left');
         $rule = Arr::get($header, 'show_divider') ? '<div class="rule"></div>' : '';
 
-        /*
-         * A till roll is 80mm of one column. Two columns of anything on it
-         * would be four words per line, so everything stacks and centres.
-         */
-        if ($receipt || $position === 'center') {
-            $letterhead = '<div style="text-align:center">'.$logo.$identity.'</div>'
-                .'<div style="margin-top:4px">'.$contact.'</div>';
-        } else {
-            [$first, $second] = $position === 'right'
-                ? ['<td style="vertical-align:top">'.$identity.'</td>'
-                    .($logo !== '' ? '<td style="width:'.$logoColumn.';vertical-align:top">'.$logo.'</td>' : ''), '']
-                : [($logo !== '' ? '<td style="width:'.$logoColumn.';vertical-align:top">'.$logo.'</td>' : '')
-                    .'<td style="vertical-align:top'.($logo !== '' ? ';padding-left:4mm' : '').'">'.$identity.'</td>', ''];
-
-            /*
-             * A SHARE OF THE MEASURE, not a fixed 56mm. On A4 that width was
-             * right; on A5 it left the clinic's own name so little room that
-             * "CarePlus Healthcare" broke across two lines under a logo — a
-             * letterhead whose first job is to say the name once.
-             */
-            $letterhead = '<table><tr>'.$first.$second
-                .'<td style="width:40%;vertical-align:top;padding-left:5mm">'.$contact.'</td>'
-                .'</tr></table>';
+        if ($position === 'center') {
+            return '<div style="text-align:center">'.$logo.$identity.'</div>'
+                .($contact !== '' ? '<div style="margin-top:2mm">'.$this->contactsInline((array) Arr::get($header, 'lines', []), $values, $department).'</div>' : '')
+                .$rule;
         }
 
-        return $letterhead.$rule.$this->band($documentType, $title, $subtitle, $receipt);
+        $logoCell = $logo !== '' ? '<td style="width:1%;padding-right:3.5mm">'.$logo.'</td>' : '';
+        $identityCell = '<td'.($position === 'right' ? ' style="text-align:right"' : '').'>'.$identity.'</td>';
+        $contactCell = '<td style="width:'.($a4 ? '38%' : '40%').';padding-left:3mm">'.$contact.'</td>';
+
+        $cells = $position === 'right'
+            ? $contactCell.$identityCell.str_replace('padding-right:3.5mm', 'padding-left:3.5mm', $logoCell)
+            : $logoCell.$identityCell.$contactCell;
+
+        return '<table class="lh"><tr>'.$cells.'</tr></table>'.$rule;
     }
 
     /**
-     * How to reach the branch — one fact per line, each behind its own icon.
-     *
-     * The icon is chosen from what the line CONTAINS rather than from its
-     * position, so a branch that reorders its address lines — or drops the one
-     * it does not have — still gets a pin against the address and an envelope
-     * against the email.
+     * How to reach the branch — one fact per line, behind an icon chosen
+     * from what the line contains rather than where it sits.
      *
      * @param  list<string>  $lines
      * @param  array<string, string>  $values
@@ -590,26 +555,67 @@ class DocumentHtml
     {
         $rows = '';
 
-        foreach ($lines as $line) {
-            $filled = trim($this->fill((string) $line, $values));
-
-            /*
-             * A line whose only content was an empty placeholder is dropped
-             * rather than printed as a blank row — a letterhead with a gap
-             * where the phone number should be reads as a broken document.
-             * So is one that merely repeats the branch name already set under
-             * the clinic's own, which is what a template written before the
-             * letterhead had a branch line would otherwise do.
-             */
-            if ($filled === '' || $filled === '·' || $filled === $department) {
-                continue;
-            }
-
-            $rows .= '<tr><td class="ic">'.Icons::span($this->contactIcon($filled)).'</td>'
-                .'<td>'.$this->e($filled).'</td></tr>';
+        foreach ($this->contactLines($lines, $values, $department) as $line) {
+            $rows .= '<tr><td class="ic">'.Icons::span($this->contactIcon($line)).'</td>'
+                .'<td>'.$this->link($line).'</td></tr>';
         }
 
         return $rows === '' ? '' : '<table class="contact">'.$rows.'</table>';
+    }
+
+    /**
+     * @param  list<string>  $lines
+     * @param  array<string, string>  $values
+     */
+    private function contactsInline(array $lines, array $values, string $department): string
+    {
+        $parts = array_map(
+            fn (string $line) => '<span style="color:#334155">'.Icons::span($this->contactIcon($line), 'color:inherit').' '.$this->e($line).'</span>',
+            $this->contactLines($lines, $values, $department),
+        );
+
+        return '<div class="contact" style="font-size:inherit">'.implode('&nbsp;&nbsp;&nbsp;', $parts).'</div>';
+    }
+
+    /**
+     * A line whose only content was an empty placeholder is dropped, as is
+     * one that merely repeats the branch name already under the clinic's.
+     *
+     * @param  list<string>  $lines
+     * @param  array<string, string>  $values
+     * @return list<string>
+     */
+    private function contactLines(array $lines, array $values, string $department): array
+    {
+        $out = [];
+
+        foreach ($lines as $line) {
+            $filled = trim($this->fill((string) $line, $values));
+
+            if ($filled !== '' && $filled !== '·' && $filled !== $department) {
+                $out[] = $filled;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * A contact line as a link where it is one — tapping the number in a PDF
+     * opened on a phone dials it, tapping the address writes to it.
+     */
+    private function link(string $line): string
+    {
+        $href = match ($this->contactIcon($line)) {
+            'mail' => 'mailto:'.$line,
+            'phone' => 'tel:'.preg_replace('/[^\d+]/', '', $line),
+            'world' => preg_match('~^https?://~i', $line) ? $line : 'https://'.$line,
+            default => null,
+        };
+
+        return $href === null
+            ? $this->e($line)
+            : '<a href="'.$this->e($href).'">'.$this->e($line).'</a>';
     }
 
     private function contactIcon(string $line): string
@@ -617,521 +623,567 @@ class DocumentHtml
         return match (true) {
             str_contains($line, '@') => 'mail',
             (bool) preg_match('~(www\.|https?://)~i', $line) => 'world',
-            /* Digits, spaces and the punctuation a phone number is written
-               with, and nothing else — an address starting "14 Sector 44"
-               is not a telephone. */
+            // An address starting "14 Sector 44" is not a telephone.
             (bool) preg_match('/^[+(]?[\d][\d\s()+.-]{5,}$/', $line) => 'phone',
             default => 'map-pin',
         };
     }
 
     /**
-     * The coloured band that says what the document is.
+     * What the document is, on the left; its number and date on the right.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  array<string, string>  $values
      */
-    private function band(string $documentType, string $title, string $subtitle, bool $receipt): string
+    private function titleRow(string $documentType, array $config, array $values): string
     {
-        if ($title === '') {
-            return '';
+        $header = Arr::get($config, 'header', []);
+        $title = $this->titleCase($this->fill(Arr::get($header, 'title', ''), $values));
+        $subtitle = $this->fill(Arr::get($header, 'subtitle', ''), $values);
+        $subtitle = $subtitle !== '' ? $subtitle : (self::SUBTITLE[$documentType] ?? '');
+
+        // A long name steps down a size rather than breaking beside the number box.
+        $words = ($title !== '' ? '<div class="doc-title'.(mb_strlen($title) > 19 ? ' long' : '').'">'.$this->e($title).'</div>' : '')
+            .($subtitle !== '' ? '<div class="doc-sub">'.$this->e($subtitle).'</div>' : '');
+
+        $left = '<table><tr>'
+            .'<td style="width:'.(Arr::get($config, 'layout.paper', DocumentTypes::PAPER_A4) === DocumentTypes::PAPER_A4 ? '10.5mm' : '9mm').'"><div class="t-badge">'.Icons::span(self::TYPE_ICON[$documentType] ?? 'receipt').'</div></td>'
+            .'<td>'.$words.'</td>'
+            .'</tr></table>';
+
+        [$label, $number, $others] = $this->numbers($documentType, $values);
+        $date = $this->documentDate($values);
+
+        // Number first and largest, the rest as quiet rows under it.
+        $rows = '';
+
+        foreach (array_filter([$label => $number, 'Date' => $date, ...$others], fn ($v) => trim((string) $v) !== '') as $key => $value) {
+            $lead = $key === $label;
+            $rows .= '<tr><td class="k">'.$this->e((string) $key).'</td>'
+                .'<td class="v'.($lead ? ' lead' : '').'">'.$this->e((string) $value).'</td></tr>';
         }
 
-        $icon = self::TYPE_ICON[$documentType] ?? 'receipt';
+        return '<table class="title-row gap"><tr>'
+            .'<td>'.$left.'</td>'
+            .($rows !== '' ? '<td style="width:1%;padding-left:4mm"><div class="meta"><table>'.$rows.'</table></div></td>' : '')
+            .'</tr></table>';
+    }
 
-        $words = '<div class="band-title">'.$this->e($title).'</div>'
-            .($subtitle !== '' ? '<div class="band-sub">'.$this->e($subtitle).'</div>' : '');
+    /**
+     * The number the document leads with, and any others it carries.
+     *
+     * A receipt — or a refund — leads with its own number; the bill behind it
+     * is a smaller line under it, and the document number is not printed
+     * twice when it is the same number.
+     *
+     * @param  array<string, string>  $values
+     * @return array{0: string, 1: string, 2: array<string, string>}
+     */
+    private function numbers(string $documentType, array $values): array
+    {
+        $receipt = (string) ($values['receipt_number'] ?? '');
+        $refund = (string) ($values['refund_number'] ?? '');
+        $document = (string) ($values['document_number'] ?? '');
 
-        /* The watermark is decoration, and 80mm has no width to spare. */
-        $watermark = $receipt
-            ? ''
-            : '<td class="band-mark" style="width:16mm">'.Icons::span($icon).'</td>';
+        $candidates = array_filter([
+            'Refund No' => $refund,
+            'Receipt No' => $receipt,
+            'Invoice No' => (string) ($values['invoice_number'] ?? ''),
+            'Prescription No' => (string) ($values['prescription_number'] ?? ''),
+        ], fn ($value) => trim($value) !== '');
 
-        return '<div class="band"><table><tr>'
-            .'<td style="width:7mm"><div class="band-tile">'.Icons::span($icon).'</div></td>'
-            .'<td style="padding-left:3mm">'.$words.'</td>'
-            .$watermark
-            .'</tr></table></div>';
+        if ($documentType === 'patient_registration' && trim((string) ($values['patient_id'] ?? '')) !== '') {
+            $candidates = ['Registration No' => (string) $values['patient_id'], ...$candidates];
+        }
+
+        // The document number leads only when there is nothing else; otherwise
+        // it is already in the provenance line along the footer.
+        if ($candidates === [] && trim($document) !== '') {
+            $candidates['Document No'] = $document;
+        }
+
+        if ($candidates === []) {
+            return ['', '', []];
+        }
+
+        $label = (string) array_key_first($candidates);
+        $number = (string) array_shift($candidates);
+
+        return [$label, $number, $candidates];
+    }
+
+    /** @param array<string, string> $values */
+    private function documentDate(array $values): string
+    {
+        foreach (['refund_date', 'receipt_date', 'invoice_date', 'prescription_date', 'visit_date', 'generated_on'] as $key) {
+            if (trim((string) ($values[$key] ?? '')) !== '') {
+                return (string) $values[$key];
+            }
+        }
+
+        return '';
     }
 
     /**
      * @param  array<string, mixed>  $config
      * @param  array<string, string>  $values
-     * @param  array<string, mixed>  $tables
      */
-    private function body(string $documentType, array $config, array $values, array $tables, bool $receipt): string
+    private function intro(array $config, array $values): string
+    {
+        $intro = trim($this->fill((string) Arr::get($config, 'body.intro', ''), $values));
+
+        return $intro === '' ? '' : '<div class="intro">'.nl2br($this->e($intro)).'</div>';
+    }
+
+    /* ==================================================================
+       People
+       ================================================================== */
+
+    /**
+     * Who the document is about, in one card: the patient, and the doctor
+     * beside them across a hairline when there is one.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  array<string, string>  $values
+     */
+    private function people(string $documentType, array $config, array $values): string
     {
         $body = Arr::get($config, 'body', []);
-        $out = [];
 
-        $out[] = $this->meta($values, $receipt);
+        $cells = array_values(array_filter([
+            Arr::get($body, 'show_patient') ? $this->patientCell($values) : '',
+            Arr::get($body, 'show_visit') ? $this->doctorCell($documentType, $values) : '',
+        ]));
 
-        $intro = trim($this->fill((string) Arr::get($body, 'intro', ''), $values));
-
-        if ($intro !== '') {
-            $out[] = '<div class="block">'.nl2br($this->e($intro)).'</div>';
+        if ($cells === []) {
+            return '';
         }
 
-        /*
-         * WHO, and WHEN — side by side in one card.
-         *
-         * They used to be two stacked tables, which ran seven near-empty rows
-         * down a page that then had no room for what the document was actually
-         * about. They belong together: both answer "whose document is this",
-         * and a reader checks them in one glance before reading anything else.
-         */
-        $who = [];
+        $row = '';
 
-        if (Arr::get($body, 'show_patient')) {
-            $who = [
-                'Name' => $values['patient_name'] ?? '',
-                'Patient ID' => $values['patient_id'] ?? '',
-                'Age / Gender' => trim(($values['patient_age'] ?? '').' / '.($values['patient_gender'] ?? ''), ' /'),
-                'Mobile No' => $values['patient_mobile'] ?? '',
+        foreach ($cells as $index => $cell) {
+            $row .= '<td class="pc'.($index > 0 ? ' split' : '').'"'
+                .(count($cells) > 1 && $index === 0 ? ' style="width:56%"' : '').'>'.$cell.'</td>';
+        }
+
+        return '<div class="people"><table><tr>'.$row.'</tr></table></div>';
+    }
+
+    /** @param array<string, string> $values */
+    private function patientCell(array $values): string
+    {
+        $name = trim((string) ($values['patient_name'] ?? ''));
+
+        if ($name === '') {
+            return '';
+        }
+
+        $id = trim((string) ($values['patient_id'] ?? ''));
+        $age = trim((string) ($values['patient_age'] ?? ''));
+
+        $lines = array_filter([
+            $this->joined([
+                $age !== '' ? (is_numeric($age) ? $age.' Yrs' : $age) : '',
+                (string) ($values['patient_gender'] ?? ''),
+                (string) ($values['patient_mobile'] ?? ''),
+                (string) ($values['patient_address'] ?? ''),
+            ]),
+        ]);
+
+        return $this->person('user-filled', false, 'Patient',
+            $this->e($name).($id !== '' ? ' <span class="p-id">'.$this->e($id).'</span>' : ''),
+            $lines,
+        );
+    }
+
+    /** @param array<string, string> $values */
+    private function doctorCell(string $documentType, array $values): string
+    {
+        $name = trim((string) ($values['doctor_name'] ?? ''));
+
+        if ($name === '') {
+            return '';
+        }
+
+        $label = in_array($documentType, ['prescription', 'pharmacy_invoice'], true) ? 'Prescribed By' : 'Consulting Doctor';
+
+        $lines = array_filter([
+            $this->joined([
+                trim((string) ($values['doctor_registration_number'] ?? '')) !== ''
+                    ? 'Reg. No '.$values['doctor_registration_number'] : '',
+                trim((string) ($values['visit_id'] ?? '')) !== '' ? 'Visit '.$values['visit_id'] : '',
+            ]),
+        ]);
+
+        return $this->person('stethoscope', true, $label, $this->e($name), $lines);
+    }
+
+    /**
+     * An icon, a small capitalised label, a name, and the lines under it.
+     *
+     * @param  array<int, string>  $lines  escaped already
+     */
+    private function person(string $icon, bool $light, string $label, string $nameHtml, array $lines): string
+    {
+        return '<table><tr>'
+            .'<td class="av-col"><div class="avatar'.($light ? ' light' : '').'">'.Icons::span($icon).'</div></td>'
+            .'<td><div class="ov">'.$this->e($label).'</div>'
+            .'<div class="p-name">'.$nameHtml.'</div>'
+            .($lines !== [] ? '<div class="p-sub">'.implode('<br>', $lines).'</div>' : '')
+            .'</td></tr></table>';
+    }
+
+    /**
+     * Escaped pieces joined with a pale divider, empties dropped.
+     *
+     * @param  list<string>  $pieces
+     */
+    private function joined(array $pieces): string
+    {
+        $pieces = array_values(array_filter(array_map('trim', $pieces), fn ($piece) => $piece !== ''));
+
+        // Short pieces stay whole, so the line breaks between them; a long
+        // one (an address) may wrap inside itself.
+        return implode(' <span class="sep">&nbsp;·&nbsp;</span> ', array_map(
+            fn (string $piece) => mb_strlen($piece) > 28 ? $this->e($piece) : str_replace(' ', '&nbsp;', $this->e($piece)),
+            $pieces,
+        ));
+    }
+
+    /* ==================================================================
+       The registration form
+       ================================================================== */
+
+    /**
+     * Numbered sections, then the consent the patient signs.
+     *
+     * Only sections with something in them are printed, and the numbering
+     * follows what printed — a form that jumps from 1 to 3 reads as torn.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  array<string, string>  $values
+     */
+    private function registration(array $config, array $values): string
+    {
+        $sections = [];
+
+        $who = $this->fields([
+            ['Full Name', $values['patient_name'] ?? '', ''],
+            ['Gender', $values['patient_gender'] ?? '', 'user'],
+            ['Date of Birth', $values['patient_dob'] ?? '', 'calendar'],
+            ['Age', ($values['patient_age'] ?? '') !== '' && is_numeric($values['patient_age']) ? $values['patient_age'].' Years' : ($values['patient_age'] ?? ''), ''],
+        ]);
+
+        $reach = $this->fields([
+            ['Mobile Number', $values['patient_mobile'] ?? '', 'phone'],
+            ['Email Address', $values['patient_email'] ?? '', 'mail'],
+            ['Patient ID', $values['patient_id'] ?? '', 'id'],
+        ]);
+
+        if ($who !== '' || $reach !== '') {
+            $sections[] = ['user', 'Patient Information',
+                '<table><tr>'
+                .'<td class="av-col"><div class="avatar">'.Icons::span('user-filled').'</div></td>'
+                .'<td>'.$who.'</td></tr></table>'
+                .($reach !== '' ? '<div class="subgrid">'.$reach.'</div>' : ''),
             ];
         }
 
-        if (Arr::get($body, 'show_visit')) {
-            $who['Doctor'] = $values['doctor_name'] ?? '';
-            $who['Reg. No'] = $values['doctor_registration_number'] ?? '';
-            $who['Visit ID'] = $values['visit_id'] ?? '';
+        $address = trim((string) ($values['patient_address'] ?? ''));
+
+        if ($address !== '') {
+            $sections[] = ['map-pin', 'Address Information', $this->withAvatar('map-pin', $this->fields([['Address', $address, '']]))];
         }
 
-        /*
-         * ONE LIST, SPLIT IN HALF — not "patient on the left, visit on the
-         * right". A pharmacy bill knows nothing about a doctor, so the visit
-         * side came out holding a single line with the whole right half of the
-         * card empty beside it. Halving whatever there actually is fills the
-         * card whichever document type is printing.
-         */
-        if ($who !== []) {
-            $out[] = $this->card('Patient details', 'user', $this->columns($who, $receipt), false, true);
+        $visit = $this->fields([
+            ['Registered At', $values['branch_name'] ?? '', ''],
+            ['Registration Date', $this->documentDate($values), ''],
+            ['Registered By', $values['generated_by'] ?? '', ''],
+        ]);
+
+        if ($visit !== '') {
+            $sections[] = ['calendar', 'Registration Details', $this->withAvatar('calendar', $visit)];
         }
 
-        if (Arr::get($body, 'show_clinical')) {
-            $clinical = '';
+        $out = '';
 
-            foreach ([
-                'Complaint' => $values['symptoms'] ?? '',
-                'Diagnosis' => $values['diagnosis'] ?? '',
-                'Vitals' => $values['vitals'] ?? '',
-                'Advice' => $values['advice'] ?? '',
-            ] as $label => $value) {
-                if (trim((string) $value) !== '') {
-                    $clinical .= '<div class="kv" style="margin-bottom:3px">'
-                        .'<div class="muted" style="color:#64748b">'.$this->e($label).'</div>'
-                        .'<div style="font-weight:bold;color:#0f172a">'.nl2br($this->e((string) $value)).'</div>'
-                        .'</div>';
-                }
-            }
-
-            if ($clinical !== '') {
-                $out[] = $this->card('Clinical notes', 'report-medical', $clinical, false);
-            }
+        foreach ($sections as $index => [$icon, $title, $content]) {
+            $out .= '<div class="sec"><table><tr>'
+                .'<td style="width:8mm"><div class="sec-badge">'.Icons::span($icon).'</div></td>'
+                .'<td class="sec-title">'.($index + 1).'. '.$this->e($title).'</td>'
+                .'</tr></table></div>'
+                .'<div class="sec-body">'.$content.'</div>';
         }
 
-        /*
-         * THE TOTALS BELONG TO THE ITEMS TABLE, as trailing rows of it.
-         *
-         * Printed as a separate right-hand block they sat a column or two out
-         * from the amounts they add up — which on a bill somebody is checking
-         * is the difference between "the sum of the column above" and "a
-         * number somebody typed". Only when there is no table to hang them off
-         * do they print on their own.
-         */
-        $totals = $this->totalRows($values);
-        $printed = false;
+        return $out.$this->consent($config, $values);
+    }
 
-        foreach ((array) Arr::get($body, 'tables', []) as $table) {
-            $token = (string) ($table['token'] ?? '');
-            $data = $tables[$token] ?? null;
+    private function withAvatar(string $icon, string $content): string
+    {
+        return '<table><tr>'
+            .'<td class="av-col"><div class="avatar pale">'.Icons::span($icon).'</div></td>'
+            .'<td>'.$content.'</td></tr></table>';
+    }
 
-            /*
-             * Either shape counts as "has something to print": a flat list of
-             * rows, or the grouped form a consolidated bill uses. Testing only
-             * `rows` skipped every grouped table, which on an invoice meant
-             * printing a total with no lines above it.
-             */
-            $hasRows = is_array($data)
-                && (($data['rows'] ?? []) !== [] || ($data['groups'] ?? []) !== []);
+    /**
+     * Label-over-value cells divided by hairlines; empty ones are skipped.
+     *
+     * @param  list<array{0: string, 1: string, 2: string}>  $fields
+     */
+    private function fields(array $fields): string
+    {
+        $cells = '';
+        $first = true;
 
-            if (! $hasRows) {
+        foreach ($fields as [$label, $value, $icon]) {
+            if (trim((string) $value) === '') {
                 continue;
             }
 
-            $trailing = $printed ? [] : $totals;
-            $printed = $printed || $trailing !== [];
-
-            $out[] = $this->card(
-                (string) ($table['title'] ?? ''),
-                $this->tableIcon($documentType),
-                $this->grid($data, $trailing),
-                true,
-            );
+            $cells .= '<td class="fld'.($first ? ' first' : '').'">'
+                .'<div class="l">'.$this->e($label).'</div>'
+                .'<div class="v">'.($icon !== '' ? Icons::span($icon).' ' : '').$this->e((string) $value).'</div>'
+                .'</td>';
+            $first = false;
         }
 
-        // An invoice's totals are the point of it, so they are printed whether
-        // or not the items table rendered.
-        if (! $printed && $totals !== []) {
-            $out[] = $this->card('Summary', 'file-invoice', $this->grid(
-                ['columns' => [], 'rows' => []],
-                $totals,
-            ), true);
-        }
-
-        $out[] = $this->settlement($documentType, $values, $receipt);
-
-        $notes = trim($this->fill((string) Arr::get($body, 'notes', ''), $values));
-
-        if ($notes !== '') {
-            $out[] = '<div class="block muted">'.nl2br($this->e($notes)).'</div>';
-        }
-
-        return implode("\n", array_filter($out));
+        return $cells === '' ? '' : '<table><tr>'.$cells.'</tr></table>';
     }
 
-    /** The icon on the items card — a pill for a pharmacy, a form elsewhere. */
+    /**
+     * The statement a patient signs. The template's notes, when it has
+     * them, are the clinic's own wording.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  array<string, string>  $values
+     */
+    private function consent(array $config, array $values): string
+    {
+        $text = trim($this->fill((string) Arr::get($config, 'body.notes', ''), $values));
+
+        if ($text === '') {
+            $text = 'I hereby confirm that the above information is correct to the best of my knowledge. '
+                .'I consent to receive medical treatment and allow the clinic to maintain my medical records for future reference.';
+        }
+
+        return '<div class="consent keep"><table><tr>'
+            .'<td style="width:11mm"><span class="ti shield">'.$this->glyph('shield-check-filled').'</span></td>'
+            .'<td><div class="h">Patient Consent</div><div class="txt">'.nl2br($this->e($text)).'</div>'
+            .'<table style="margin-top:2mm"><tr>'
+            .'<td style="width:46%"><div class="sign-room"></div><div class="sign-line">Patient Signature</div></td>'
+            .'<td style="width:8%"></td>'
+            .'<td style="width:46%"><div class="sign-room"></div><div class="sign-line">Date</div></td>'
+            .'</tr></table>'
+            .'</td></tr></table></div>';
+    }
+
+    /* ==================================================================
+       Clinical notes and the items table
+       ================================================================== */
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @param  array<string, string>  $values
+     */
+    private function clinical(array $config, array $values): string
+    {
+        if (! Arr::get($config, 'body.show_clinical')) {
+            return '';
+        }
+
+        $entries = array_filter([
+            'Complaint' => (string) ($values['symptoms'] ?? ''),
+            'Diagnosis' => (string) ($values['diagnosis'] ?? ''),
+            'Vitals' => (string) ($values['vitals'] ?? ''),
+            'Advice' => (string) ($values['advice'] ?? ''),
+        ], fn ($value) => trim($value) !== '');
+
+        if ($entries === []) {
+            return '';
+        }
+
+        $cells = [];
+
+        foreach ($entries as $label => $value) {
+            $cells[] = '<div class="fld first clin" style="padding:0 0 1.4mm"><div class="l">'.$this->e($label).'</div>'
+                .'<div class="v">'.nl2br($this->e($value)).'</div></div>';
+        }
+
+        $half = (int) ceil(count($cells) / 2);
+        $grid = count($cells) < 2
+            ? implode('', $cells)
+            : '<table><tr>'
+                .'<td style="width:50%;padding-right:4mm">'.implode('', array_slice($cells, 0, $half)).'</td>'
+                .'<td style="width:50%;padding-left:4mm">'.implode('', array_slice($cells, $half)).'</td>'
+                .'</tr></table>';
+
+        return $this->card('Clinical Notes', 'report-medical', $grid);
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @param  array<string, mixed>  $tables
+     */
+    private function itemTables(string $documentType, array $config, array $tables): string
+    {
+        $out = '';
+        $bill = in_array($documentType, ['clinic_invoice', 'pharmacy_invoice', 'payment_receipt'], true);
+
+        foreach ((array) Arr::get($config, 'body.tables', []) as $table) {
+            $data = $tables[(string) ($table['token'] ?? '')] ?? null;
+
+            // Either shape counts: flat rows, or the grouped form a
+            // consolidated bill uses.
+            if (! is_array($data) || (($data['rows'] ?? []) === [] && ($data['groups'] ?? []) === [])) {
+                continue;
+            }
+
+            $title = trim((string) ($table['title'] ?? ''));
+
+            // On a bill the table head says what it is; elsewhere a heading helps.
+            if (! $bill && $title !== '') {
+                $out .= '<div class="sect-h">'.Icons::span($this->tableIcon($documentType), 'padding-right:1.6mm').$this->e($title).'</div>';
+            }
+
+            $out .= $this->grid($data, $documentType);
+        }
+
+        return $out;
+    }
+
     private function tableIcon(string $documentType): string
     {
         return match ($documentType) {
-            'pharmacy_invoice', 'payment_receipt' => 'pill',
-            'prescription' => 'prescription',
+            'pharmacy_invoice', 'payment_receipt', 'prescription' => 'pill',
             'document_cover' => 'file-stack',
             default => 'file-invoice',
         };
     }
 
     /**
-     * The document's own numbers, and the stamp saying whether it is settled.
+     * The items table: a solid head in the accent, ruled rows under it.
      *
-     * @param  array<string, string>  $values
-     */
-    private function meta(array $values, bool $receipt): string
-    {
-        $receiptNumber = (string) ($values['receipt_number'] ?? '');
-        $refundNumber = (string) ($values['refund_number'] ?? '');
-        $documentNumber = (string) ($values['document_number'] ?? '');
-
-        $facts = $this->pairs([
-            /* A receipt — or a refund — leads with its own number; the bill it
-               belongs to is the line under it. Its document number IS that
-               number, so the line is not printed twice. */
-            'Refund No' => $refundNumber,
-            'Receipt No' => $receiptNumber,
-            'Invoice No' => $values['invoice_number'] ?? '',
-            'Prescription No' => $values['prescription_number'] ?? '',
-            'Document No' => in_array($documentNumber, array_filter([$receiptNumber, $refundNumber]), true)
-                ? ''
-                : $documentNumber,
-            'Date' => $values['refund_date'] ?? $values['receipt_date'] ?? $values['invoice_date'] ?? $values['prescription_date'] ?? $values['visit_date'] ?? '',
-            'Printed' => $values['generated_on'] ?? '',
-        ]);
-
-        $stamp = $this->stamp((string) ($values['payment_state'] ?? ''));
-
-        if ($facts === '' && $stamp === '') {
-            return '';
-        }
-
-        // A till roll has one column; two would be four words wide.
-        if ($receipt) {
-            return '<div class="meta">'.$facts.($stamp !== '' ? '<div style="margin-top:5px">'.$stamp.'</div>' : '').'</div>';
-        }
-
-        if ($stamp === '') {
-            return '<div class="meta">'.$facts.'</div>';
-        }
-
-        return '<table class="meta"><tr>'
-            .'<td style="vertical-align:top;padding-right:6mm">'.$facts.'</td>'
-            .'<td style="width:48mm;vertical-align:top">'.$stamp.'</td>'
-            .'</tr></table>';
-    }
-
-    /**
-     * The stamp somebody looks for before anything else on a bill they have
-     * already paid. Green for settled, amber for part paid, red for owing —
-     * said once, large, and nowhere else.
-     */
-    private function stamp(string $state): string
-    {
-        if ($state === '') {
-            return '';
-        }
-
-        [$class, $icon, $note] = match ($state) {
-            'PAID' => ['is-paid', 'circle-check', 'Thank you for your payment.'],
-            'PART PAID' => ['is-part', 'clock', 'A balance is still outstanding.'],
-            'REFUNDED' => ['is-refund', 'cash', 'This amount has been returned to you.'],
-            default => ['is-unpaid', 'circle-x', 'Payment has not been received.'],
-        };
-
-        return '<div class="stamp-box '.$class.'">'
-            .'<table><tr>'
-            .'<td class="s-i">'.Icons::span($icon).'</td>'
-            .'<td class="s-t">'.$this->e($state).'</td>'
-            .'</tr></table>'
-            .'<div class="s-n">'.$this->e($note).'</div>'
-            .'</div>';
-    }
-
-    /**
-     * A label/value block, with the colon in a column of its own.
-     *
-     * The label set small and grey, the value in ink beside it, and the colons
-     * lined up down the page — which is the whole job of a panel somebody
-     * scans rather than reads.
-     *
-     * @param  array<string, string>  $entries
-     */
-    private function pairs(array $entries): string
-    {
-        $rows = '';
-
-        foreach ($entries as $label => $value) {
-            if (trim((string) $value) === '') {
-                continue;
-            }
-
-            $rows .= '<tr><td class="k">'.$this->e((string) $label).'</td>'
-                .'<td class="c">:</td>'
-                .'<td class="v">'.$this->e((string) $value).'</td></tr>';
-        }
-
-        return $rows === '' ? '' : '<table class="kv">'.$rows.'</table>';
-    }
-
-    /**
-     * A run of pairs, split down the middle of a card.
-     *
-     * TWO COLUMNS, not one. Stretching a single label/value table across the
-     * page put the labels hard left and their values a third of the way in,
-     * with the whole right half of the card empty — the values read as
-     * stranded rather than as a pair, and it halves the distance a reader's
-     * eye travels from a label to its value.
-     *
-     * @param  array<string, string>  $entries
-     */
-    private function columns(array $entries, bool $receipt): string
-    {
-        $filled = array_filter($entries, fn ($value) => trim((string) $value) !== '');
-
-        if ($filled === []) {
-            return '';
-        }
-
-        // A till roll has one column; two would be four words wide. So is a
-        // card holding two or three facts — splitting those leaves a column
-        // with one line in it.
-        if ($receipt || count($filled) < 4) {
-            return $this->pairs($filled);
-        }
-
-        $half = (int) ceil(count($filled) / 2);
-
-        return '<table><tr>'
-            .'<td style="width:50%;padding-right:5mm">'
-            .$this->pairs(array_slice($filled, 0, $half, true)).'</td>'
-            .'<td class="col-split" style="width:50%;padding-left:5mm">'
-            .$this->pairs(array_slice($filled, $half, null, true)).'</td>'
-            .'</tr></table>';
-    }
-
-    /**
-     * One bordered card: a tinted head with an icon, and a body.
-     *
-     * `$flush` for a card whose body IS a table — the grid runs to the card's
-     * own border rather than sitting inside padding, which is what keeps the
-     * heading band and the table's own head reading as one object.
-     */
-    private function card(string $title, string $icon, string $content, bool $flush, bool $keep = false): string
-    {
-        if (trim($content) === '') {
-            return '';
-        }
-
-        $head = $title === '' ? '' : '<div class="card-h"><table><tr>'
-            .'<td class="i">'.Icons::span($icon).'</td>'
-            .'<td class="t">'.$this->e($title).'</td>'
-            .'</tr></table></div>';
-
-        return '<div class="card'.($keep ? ' keep' : '').'">'.$head
-            .'<div class="card-b'.($flush ? ' flush' : '').'">'.$content.'</div></div>';
-    }
-
-    /**
-     * What the bill comes to — the rows that hang off the foot of the table.
-     *
-     * @param  array<string, string>  $values
-     * @return list<array{label: string, value: string, class: string}>
-     */
-    private function totalRows(array $values): array
-    {
-        if (trim((string) ($values['total'] ?? '')) === '') {
-            return [];
-        }
-
-        $rows = [];
-
-        foreach ([
-            ['Sub Total', $values['subtotal'] ?? '', ''],
-            ['Discount', $values['discount'] ?? '', ''],
-            ['Tax', $values['tax'] ?? '', ''],
-            ['Total Amount', $values['total'] ?? '', 'grand'],
-        ] as [$label, $value, $class]) {
-            if (trim((string) $value) === '') {
-                continue;
-            }
-
-            $rows[] = ['label' => $label, 'value' => (string) $value, 'class' => $class];
-        }
-
-        /*
-         * The balance is shown only when something is actually owed. A settled
-         * bill printing "Balance ₹0.00" in a highlighted band invites the one
-         * question the document exists to answer.
-         */
-        if ($this->owing($values)) {
-            $rows[] = ['label' => 'Balance due', 'value' => (string) $values['balance'], 'class' => 'due'];
-        }
-
-        return $rows;
-    }
-
-    /** @param array<string, string> $values */
-    private function owing(array $values): bool
-    {
-        return $this->amount($values['balance'] ?? '') > 0;
-    }
-
-    /**
-     * The items table, with the totals as its last rows.
+     * A grouped table (a consolidated bill) is printed flat with the group
+     * as a Type column beside each charge, and the charge carries the
+     * group's icon.
      *
      * @param  array{columns?: list<string>, rows?: list<list<string>>, groups?: list<array{title: string, rows: list<list<string>>}>}  $data
-     * @param  list<array{label: string, value: string, class: string}>  $totals
      */
-    private function grid(array $data, array $totals = []): string
+    private function grid(array $data, string $documentType): string
     {
-        $columns = $data['columns'] ?? [];
-        $span = max(count($columns), 2);
+        $columns = array_values($data['columns'] ?? []);
+        $rows = [];
+        $icons = [];
+        $grouped = ($data['groups'] ?? []) !== [];
 
-        /*
-         * ALIGNMENT IS A PROPERTY OF THE COLUMN, NOT OF EACH CELL.
-         *
-         * It used to be decided twice and differently: the heading by its
-         * position (the last one, always) and the cells by sniffing each
-         * value. On a table whose final column held dates that printed a
-         * right-aligned "Added" over a stack of left-aligned dates — and a
-         * heading that does not sit over its own column is the small kind of
-         * wrongness that makes a whole printed table look untrustworthy.
-         */
-        $numeric = $this->numericColumns($this->allRows($data), $span);
+        if ($grouped) {
+            array_splice($columns, 2, 0, ['Type']);
 
-        $head = '';
-
-        foreach ($columns as $index => $column) {
-            $head .= '<th'.(($numeric[$index] ?? false) ? ' class="num"' : '').'>'
-                .$this->e((string) $column).'</th>';
-        }
-
-        $head = $head === '' ? '' : '<thead><tr>'.$head.'</tr></thead>';
-
-        $body = '';
-        $index = 0;
-
-        $rowHtml = function (array $row) use (&$index, $numeric): string {
-            $cells = '';
-
-            foreach (array_values($row) as $column => $cell) {
-                $cells .= '<td'.(($numeric[$column] ?? false) ? ' class="num"' : '').'>'
-                    .$this->e((string) $cell).'</td>';
-            }
-
-            $html = '<tr'.($index % 2 === 1 ? ' class="alt"' : '').'>'.$cells.'</tr>';
-            $index++;
-
-            return $html;
-        };
-
-        /*
-         * GROUPED, where the payload said how.
-         *
-         * A consolidated bill carries a consultation, a test and a strip of
-         * tablets; a flat list of them reads as a shopping receipt. The
-         * heading rows are what let a patient check "was I charged for the
-         * lab?" without reading every line.
-         */
-        if (($data['groups'] ?? []) !== []) {
             foreach ($data['groups'] as $group) {
-                $body .= '<tr class="grp"><td colspan="'.$span.'">'
-                    .$this->e((string) ($group['title'] ?? '')).'</td></tr>';
-
-                // Zebra restarts per group, so the first row under every
-                // heading reads the same way.
-                $index = 0;
+                $type = (string) ($group['title'] ?? '');
 
                 foreach ($group['rows'] ?? [] as $row) {
-                    $body .= $rowHtml($row);
+                    $row = array_values($row);
+                    array_splice($row, 2, 0, [$type]);
+                    $rows[] = $row;
+                    $icons[] = self::ROW_ICON[mb_strtolower($type)] ?? 'receipt';
                 }
             }
         } else {
             foreach (array_values($data['rows'] ?? []) as $row) {
-                $body .= $rowHtml($row);
+                $rows[] = array_values($row);
+                $icons[] = in_array($documentType, ['pharmacy_invoice', 'payment_receipt', 'prescription'], true) ? 'pill' : '';
             }
         }
 
-        /*
-         * The figure sits under the amounts and the label to its left, with
-         * the columns neither uses left unruled — so the totals read as
-         * hanging off the table rather than as more line items.
-         *
-         * THE LABEL SPANS HALF THE TABLE, and that is not cosmetic. In a
-         * single column, "Total Amount" set bold at the display size demanded
-         * its whole width from one heading — which on a tax invoice blew the
-         * Tax column out to three times the width of the figures in it, and on
-         * an 80mm till roll pushed the Amount column clean off the paper.
-         * Spread across several columns nobody has to give up anything.
-         */
-        $label = max(1, (int) ceil(($span - 1) / 2));
-        $void = $span - 1 - $label;
+        $span = max(count($columns), $rows === [] ? 1 : max(array_map('count', $rows)));
+        $numeric = $this->numericColumns($rows, $span);
+        $itemColumn = $this->itemColumn($columns);
+        $amountColumn = $this->lastNumeric($numeric, $span);
 
-        foreach ($totals as $total) {
-            $body .= '<tr'.($total['class'] !== '' ? ' class="'.$total['class'].'"' : '').'>'
-                .($void > 0 ? '<td class="void" colspan="'.$void.'"></td>' : '')
-                .'<td class="tk" colspan="'.$label.'">'.$this->e($total['label']).'</td>'
-                .'<td class="tv">'.$this->e($total['value']).'</td></tr>';
+        $align = function (int $index) use ($columns, $numeric): string {
+            $heading = mb_strtolower(trim((string) ($columns[$index] ?? '')));
+
+            return match (true) {
+                in_array($heading, ['#', 'qty', 'quantity', 'sr', 'sr.', 's.no'], true) => 'mid',
+                $numeric[$index] ?? false => 'num',
+                default => '',
+            };
+        };
+
+        $head = '';
+
+        foreach ($columns as $index => $column) {
+            $classes = trim(implode(' ', array_filter([
+                $index === 0 ? 'first' : '',
+                $index === count($columns) - 1 ? 'last' : '',
+                $align($index),
+            ])));
+
+            $head .= '<th'.($classes !== '' ? ' class="'.$classes.'"' : '').'>'.$this->e((string) $column).'</th>';
         }
 
-        return '<table class="grid">'.$head.'<tbody>'.$body.'</tbody></table>';
+        $body = '';
+
+        foreach ($rows as $r => $row) {
+            $cells = '';
+
+            for ($index = 0; $index < $span; $index++) {
+                $cell = $this->e((string) ($row[$index] ?? ''));
+                $classes = trim(implode(' ', array_filter([
+                    $index === 0 ? 'first' : '',
+                    $align($index),
+                    $index === $amountColumn ? 'strong' : '',
+                ])));
+
+                if ($index === $itemColumn && ($icons[$r] ?? '') !== '' && $cell !== '') {
+                    $cell = '<table><tr><td class="ico" style="width:5mm;border:0;padding:0 1.6mm 0 0">'.Icons::span($icons[$r]).'</td>'
+                        .'<td style="border:0;padding:0">'.$cell.'</td></tr></table>';
+                }
+
+                $cells .= '<td'.($classes !== '' ? ' class="'.$classes.'"' : '').'>'.$cell.'</td>';
+            }
+
+            $body .= '<tr>'.$cells.'</tr>';
+        }
+
+        return '<table class="items">'.($head !== '' ? '<thead><tr>'.$head.'</tr></thead>' : '')
+            .'<tbody>'.$body.'</tbody></table>';
     }
 
     /**
-     * Every data row, flat or grouped, for working out column alignment.
+     * Which column names the thing charged for: the first headed like an
+     * item, else the second column (the first is usually "#").
      *
-     * @param  array<string, mixed>  $data
-     * @return list<list<string>>
+     * @param  list<string>  $columns
      */
-    private function allRows(array $data): array
+    private function itemColumn(array $columns): int
     {
-        if (($data['groups'] ?? []) === []) {
-            return array_values($data['rows'] ?? []);
-        }
-
-        $rows = [];
-
-        foreach ($data['groups'] as $group) {
-            foreach ($group['rows'] ?? [] as $row) {
-                $rows[] = $row;
+        foreach ($columns as $index => $column) {
+            if (preg_match('/item|service|medicine|name|document/i', (string) $column)) {
+                return $index;
             }
         }
 
-        return $rows;
+        return count($columns) > 1 && trim((string) ($columns[0] ?? '')) === '#' ? 1 : 0;
+    }
+
+    /** @param array<int, bool> $numeric */
+    private function lastNumeric(array $numeric, int $span): int
+    {
+        for ($index = $span - 1; $index > 0; $index--) {
+            if ($numeric[$index] ?? false) {
+                return $index;
+            }
+        }
+
+        return -1;
     }
 
     /**
-     * Which columns hold nothing but numbers.
-     *
-     * EVERY non-empty value has to be numeric, not most of them. A column of
-     * amounts with one "N/A" in it is still a column of amounts and should
-     * line up on the right; a column of dates with one bare year in it is not,
-     * and half-aligning it would be worse than leaving it alone.
+     * Which columns hold nothing but numbers. EVERY non-empty value has to
+     * be numeric, and the first column is never pushed right — it is a row
+     * number or the name of the thing being charged for.
      *
      * @param  list<list<string>>  $rows
      * @return array<int, bool>
@@ -1145,7 +1197,7 @@ class DocumentHtml
             $numbers = 0;
 
             foreach ($rows as $row) {
-                $cell = trim((string) (array_values($row)[$column] ?? ''));
+                $cell = trim((string) ($row[$column] ?? ''));
 
                 if ($cell === '') {
                     continue;
@@ -1158,167 +1210,337 @@ class DocumentHtml
                 }
             }
 
-            /*
-             * The first column is never pushed right. It is either a row
-             * number or the name of the thing being charged for — a label for
-             * its row rather than a figure anybody compares against the row
-             * above, and both read better hard against the left margin.
-             */
             $numeric[$column] = $column > 0 && $seen > 0 && $numbers === $seen;
         }
 
         return $numeric;
     }
 
+    /* ==================================================================
+       Summary, notes, payment
+       ================================================================== */
+
     /**
-     * How the bill was settled — and the square that opens it again.
+     * What the bill comes to beside how it was paid, then any notes across
+     * the full width.
      *
-     * Absent entirely when nothing has been tendered and nothing is owed: an
-     * empty "Payment information" card over a document that is not a bill is a
-     * card that answers nothing.
-     *
+     * @param  array<string, mixed>  $config
      * @param  array<string, string>  $values
      */
-    private function settlement(string $documentType, array $values, bool $receipt): string
+    private function lowerGrid(string $documentType, array $config, array $values): string
     {
-        $paid = (string) ($values['amount_paid'] ?? '');
-        $refunded = (string) ($values['refund_amount'] ?? '');
+        $payment = $this->settlement(
+            $documentType,
+            $values,
+            Arr::get($config, 'layout.paper', DocumentTypes::PAPER_A4) === DocumentTypes::PAPER_A4,
+        );
 
-        /*
-         * Money going back gets its own panel and its own words. Printed
-         * through the payment rows it read "Amount Paid ₹300" on a slip
-         * handing ₹300 back — the one sentence on it that has to be right.
-         */
-        $rows = $refunded !== ''
-            ? $this->pairs([
-                'Amount Refunded' => $refunded,
-                'Refund Mode' => $values['refund_method'] ?? '',
-                'Against Receipt' => $values['refunded_receipt_number'] ?? '',
-                'Reason' => $values['refund_reason'] ?? '',
-                'Refunded On' => $values['refund_date'] ?? '',
-                'Amount in Words' => $this->words($this->amount($refunded)),
-            ])
-            : $this->pairs([
-                'Amount Paid' => $paid,
-                'Payment Mode' => $values['payment_method'] ?? '',
-                'Transaction Ref.' => $values['payment_reference'] ?? '',
-                'Paid On' => $values['payment_date'] ?? '',
-                /* The figure written out, which is what makes a receipt hard to
-                   alter after it has been handed over. */
-                'Amount in Words' => $this->words($this->amount($paid !== '' ? $paid : ($values['total'] ?? ''))),
-            ]);
+        $summary = $this->summary($documentType, $values, $payment !== '');
+        $notes = ($documentType === 'patient_registration' ? '' : $this->remarks($config, $values))
+            .$this->terms($documentType, $config, $values);
 
-        if (trim($rows) === '') {
-            return '';
+        return $this->pair($summary, $payment).$notes;
+    }
+
+    /** Two cards side by side; alone, a card takes the full width. */
+    private function pair(string $left, string $right): string
+    {
+        if ($left === '' || $right === '') {
+            return $left.$right;
         }
 
-        /*
-         * THE QR SQUARE encodes the document's own number rather than a URL:
-         * this software is deployed per clinic, and there is no address here
-         * guaranteed to resolve from a patient's phone. A number a counter can
-         * search for works on every install; a link to a host that may not be
-         * public works on none of them reliably.
-         *
-         * Absent on a till roll — 80mm of thermal paper has no room, and the
-         * receipt already carries the number in text.
-         */
-        // A receipt's square carries the receipt, not the bill behind it.
-        $reference = trim((string) ($values['refund_number'] ?? $values['receipt_number'] ?? $values['invoice_number'] ?? $values['document_number'] ?? ''));
-
-        $qr = ! $receipt && $reference !== ''
-            ? $this->qr->dataUri($reference, 220)
-            : null;
-
-        $content = $qr === null
-            ? $rows
-            : '<table><tr>'
-                .'<td style="vertical-align:top;padding-right:5mm">'.$rows.'</td>'
-                .'<td style="width:20mm;vertical-align:top;text-align:center">'
-                .'<img src="'.$qr.'" style="width:17mm;height:17mm">'
-                .'<div class="qr-cap">Scan to verify<br>'.$this->e($reference).'</div>'
-                .'</td></tr></table>';
-
-        return $this->card($refunded !== '' ? 'Refund information' : 'Payment information', 'credit-card', $content, false, true)
-            .$this->signatures($documentType, $values, $receipt);
+        return '<table style="page-break-inside:avoid"><tr>'
+            .'<td style="width:52%;padding-right:1.7mm">'.$left.'</td>'
+            .'<td style="padding-left:1.7mm">'.$right.'</td>'
+            .'</tr></table>';
     }
 
     /**
-     * Who handed it over, and who the clinic signs as.
-     *
-     * Two boxes rather than one rule at the foot of the page: a receipt that
-     * names the person who took the money is a receipt somebody can come back
-     * about, and that name is not the same as the clinic's own signature.
+     * What the bill comes to. The words go here only when there is no
+     * payment card to carry them.
      *
      * @param  array<string, string>  $values
      */
-    private function signatures(string $documentType, array $values, bool $receipt): string
+    private function summary(string $documentType, array $values, bool $hasPayment): string
     {
-        $label = self::HANDOVER[$documentType] ?? null;
+        $total = trim((string) ($values['total'] ?? ''));
 
-        if ($receipt || $label === null) {
+        if ($total === '') {
             return '';
         }
 
-        $by = trim((string) ($values['generated_by'] ?? ''));
+        $lines = array_filter([
+            'Subtotal' => (string) ($values['subtotal'] ?? ''),
+            'Discount' => (string) ($values['discount'] ?? ''),
+            'Tax' => (string) ($values['tax'] ?? ''),
+        ], fn ($value) => trim($value) !== '');
 
-        /*
-         * BOTH BOXES THE SAME HEIGHT, set on the body rather than left to the
-         * content. One holds two lines of name and the other a hand's width of
-         * blank paper, so left to themselves they set as a tall box beside a
-         * short one — which reads as a layout that ran out rather than as a
-         * pair of things to sign.
-         *
-         * A SPACER, not `vertical-align: bottom`: dompdf ignores the alignment
-         * on a cell whose height is larger than its content, which put the
-         * signature rule across the TOP of its box with the space to sign in
-         * underneath it.
-         */
-        $left = $this->card($label, 'user',
-            '<div class="sign-box">'
-            .'<div class="sign-name">'.$this->e($by !== '' ? $by : '—').'</div>'
-            .'<div class="sign-role">'.$this->e($values['branch_name'] ?? 'Counter').'</div>'
-            .'</div>',
-            false, true);
+        // Money owed shows in the payment card when there is one; a refund
+        // slip never prints a balance.
+        if (! $hasPayment && $documentType !== 'clinic_refund' && $this->owing($values)) {
+            $lines['Balance Amount'] = (string) $values['balance'];
+        }
 
-        $right = $this->card('Authorised signature', 'writing-sign',
-            '<div class="sign-box">'
-            .'<div class="sign-room"></div>'
-            .'<div class="sign-line">Authorised signatory</div>'
-            .'</div>',
-            false, true);
+        $rows = '';
+        $last = count($lines) - 1;
+        $i = 0;
 
-        return '<table><tr>'
-            .'<td style="width:50%;padding-right:2.5mm">'.$left.'</td>'
-            .'<td style="width:50%;padding-left:2.5mm">'.$right.'</td>'
-            .'</tr></table>';
+        foreach ($lines as $label => $value) {
+            $rows .= '<tr'.($i === $last ? ' class="last"' : '').'><td>'.$this->e($label).'</td>'
+                .'<td class="v"'.($label === 'Balance Amount' ? ' style="color:#dc2626"' : '').'>'.$this->e($value).'</td></tr>';
+            $i++;
+        }
+
+        $words = $hasPayment ? '' : $this->words($this->amount($total));
+
+        return '<div class="card white">'
+            .$this->cardHead('Payment Summary', 'receipt-2')
+            .($rows !== '' ? '<table class="sum">'.$rows.'</table>' : '')
+            .'<div class="grand"><table><tr><td>Grand Total</td><td class="v">'.$this->e($total).'</td></tr></table>'
+            .($words !== '' ? '<div class="words">'.$this->e($words).'</div>' : '')
+            .'</div></div>';
     }
 
     /**
      * @param  array<string, mixed>  $config
      * @param  array<string, string>  $values
      */
-    private function footer(array $config, array $values): string
+    private function remarks(array $config, array $values): string
     {
-        $footer = Arr::get($config, 'footer', []);
-        $out = [];
+        $notes = trim($this->fill((string) Arr::get($config, 'body.notes', ''), $values));
 
-        /*
-         * Terms get a box of their own, separate from the footer band.
-         *
-         * They are the one part of a document somebody may have to point at
-         * later — a refund policy, a validity period — and running them into
-         * the same centred grey paragraph as "Thank you" is how a clinic loses
-         * that argument.
-         */
-        $terms = trim($this->fill((string) Arr::get($footer, 'terms', ''), $values));
+        return $notes === '' ? '' : $this->card('Remarks', 'file-text', '<div class="note">'.nl2br($this->e($notes)).'</div>');
+    }
 
-        if ($terms !== '') {
-            $out[] = '<div class="terms">'.nl2br($this->e($terms)).'</div>';
+    /**
+     * The template's terms, one numbered line each — they are the part of a
+     * document somebody may have to point at later.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  array<string, string>  $values
+     */
+    private function terms(string $documentType, array $config, array $values): string
+    {
+        $terms = trim($this->fill((string) Arr::get($config, 'footer.terms', ''), $values));
+
+        if ($terms === '') {
+            return '';
         }
 
+        $lines = array_values(array_filter(array_map('trim', preg_split('/\R/', $terms) ?: []), fn ($line) => $line !== ''));
+        $rows = '';
+
+        foreach ($lines as $index => $line) {
+            $rows .= '<tr>'.(count($lines) > 1 ? '<td class="n">'.($index + 1).'.</td>' : '')
+                .'<td>'.$this->e($line).'</td></tr>';
+        }
+
+        $title = in_array($documentType, ['pharmacy_invoice', 'payment_receipt', 'prescription'], true)
+            ? 'Important Instructions'
+            : 'Terms & Conditions';
+
+        return $this->card($title, 'info-circle', '<table class="steps">'.$rows.'</table>');
+    }
+
+    /**
+     * How the bill was settled, and the square that finds it again.
+     *
+     * Money going back gets its own card and its own words: printed through
+     * the payment rows a refund slip read "Paid Amount ₹300" on a sheet
+     * handing ₹300 back.
+     *
+     * @param  array<string, string>  $values
+     */
+    private function settlement(string $documentType, array $values, bool $a4 = true): string
+    {
+        $paid = (string) ($values['amount_paid'] ?? '');
+        $refunded = (string) ($values['refund_amount'] ?? '');
+        $state = (string) ($values['payment_state'] ?? '');
+
+        if ($refunded !== '') {
+            $title = 'Refund Information';
+            $rows = $this->rows([
+                ['Amount Refunded', $refunded, 'money'],
+                ['Refund Mode', $values['refund_method'] ?? '', ''],
+                ['Against Receipt', $values['refunded_receipt_number'] ?? '', ''],
+                ['Reason', $values['refund_reason'] ?? '', ''],
+                ['Refunded On', $values['refund_date'] ?? '', ''],
+                ['Refund Status', $state, 'pill'],
+            ]);
+            $words = $this->words($this->amount($refunded));
+        } else {
+            $title = 'Payment Information';
+            $rows = $this->rows([
+                ['Payment Mode', $values['payment_method'] ?? '', ''],
+                ['Transaction ID', $values['payment_reference'] ?? '', ''],
+                ['Payment Status', $state, 'pill'],
+                ['Paid Amount', $paid, 'money'],
+                ['Balance Amount', $documentType !== 'clinic_refund' && $this->owing($values) ? (string) $values['balance'] : '', 'owe'],
+                ['Paid On', $values['payment_date'] ?? '', ''],
+            ]);
+            $words = $this->words($this->amount($paid !== '' ? $paid : ($values['total'] ?? '')));
+        }
+
+        // Nothing tendered and nothing owed: no card that answers nothing.
+        if ($rows === '') {
+            return '';
+        }
+
+        $body = '<table class="kv">'.$rows.'</table>'
+            .($words !== '' ? '<div class="words">'.$this->e($words).'</div>' : '');
+        $qr = $this->qrBlock($values, $a4);
+
+        // The square sits inside the card it verifies, not in a card of its own.
+        $content = $qr === ''
+            ? $body
+            : '<table><tr><td>'.$body.'</td>'
+                .'<td style="width:'.($a4 ? '22mm' : '17mm').';padding-left:2mm;vertical-align:middle">'.$qr.'</td></tr></table>';
+
+        return $this->card($title, 'credit-card', $content);
+    }
+
+    /**
+     * Label/value rows; `money` bolds the value, `owe` sets it in red, `pill`
+     * prints a payment state as a coloured badge.
+     *
+     * @param  list<array{0: string, 1: string, 2: string}>  $entries
+     */
+    private function rows(array $entries): string
+    {
+        $out = '';
+
+        foreach ($entries as [$label, $value, $style]) {
+            $value = trim((string) $value);
+
+            if ($value === '') {
+                continue;
+            }
+
+            $shown = match ($style) {
+                'pill' => '<span class="pill '.$this->pillClass($value).'">'.$this->e($value).'</span>',
+                default => $this->e($value),
+            };
+
+            $class = match ($style) {
+                'money' => 'v money',
+                'owe' => 'v owe',
+                default => 'v',
+            };
+
+            $out .= '<tr><td class="k">'.$this->e($label).'</td><td class="'.$class.'">'.$shown.'</td></tr>';
+        }
+
+        return $out;
+    }
+
+    private function pillClass(string $state): string
+    {
+        return match ($state) {
+            'PAID' => 'paid',
+            'PART PAID' => 'part',
+            'REFUNDED' => 'refund',
+            default => 'unpaid',
+        };
+    }
+
+    /**
+     * The QR square encodes the document's own number, not a URL: this
+     * software is deployed per clinic, and no address here is guaranteed to
+     * resolve from a patient's phone. A number a counter can search for
+     * works on every install.
+     *
+     * @param  array<string, string>  $values
+     */
+    private function qrBlock(array $values, bool $a4): string
+    {
+        $reference = trim((string) ($values['refund_number'] ?? $values['receipt_number'] ?? $values['invoice_number'] ?? $values['document_number'] ?? ''));
+
+        if ($reference === '') {
+            return '';
+        }
+
+        $qr = $this->qr->dataUri($reference, 220);
+
+        if ($qr === null) {
+            return '';
+        }
+
+        $size = $a4 ? '17mm' : '13mm';
+
+        return '<div class="qr-box"><img src="'.$qr.'" style="width:'.$size.';height:'.$size.'">'
+            .'<div class="qr-t">Scan to verify</div>'
+            .'<div class="qr-n">'.$this->e($reference).'</div></div>';
+    }
+
+    /* ==================================================================
+       Signatures, small print, provenance
+       ================================================================== */
+
+    /**
+     * The last row: who handed it over and where the copy came from on the
+     * left, the signature on the right. A document with no hand-over signs
+     * once, under the template's own signature label.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  array<string, string>  $values
+     */
+    private function closing(string $documentType, array $config, array $values): string
+    {
+        $handover = self::HANDOVER[$documentType] ?? null;
+        $signs = $documentType !== 'patient_registration'
+            && ($handover !== null || Arr::get($config, 'footer.show_signature'));
+
+        if (! $signs) {
+            return '';
+        }
+
+        $left = '';
+
+        if ($handover !== null) {
+            $by = trim((string) ($values['generated_by'] ?? ''));
+            $left = '<div class="s-label">'.$this->e($handover).'</div>'
+                .'<div class="s-name">'.$this->e($by !== '' ? $by : '—')
+                .' <span class="s-role">· '.$this->e((string) ($values['branch_name'] ?? 'Counter')).'</span></div>';
+            $label = 'Authorised Signatory';
+            $signer = '';
+        } else {
+            $label = trim($this->fill((string) Arr::get($config, 'footer.signature_label', ''), $values));
+            $label = $label !== '' ? $label : 'Authorised Signatory';
+            $doctor = trim((string) ($values['doctor_name'] ?? ''));
+            $signer = $doctor !== '' ? '<b style="color:#0f172a">'.$this->e($doctor).'</b><br>' : '';
+        }
+
+        return '<table class="signs"><tr>'
+            .'<td style="width:58%">'.$left.'</td>'
+            .'<td><div class="sign-room"></div><div class="sign-line">'.$signer.$this->e($label).'</div></td>'
+            .'</tr></table>';
+    }
+
+    /**
+     * Footer lines after the first — the first is the band's thank-you.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  array<string, string>  $values
+     */
+    private function smallPrint(array $config, array $values): string
+    {
+        $lines = array_slice($this->footerLines($config, $values), 1);
+
+        return $lines === []
+            ? ''
+            : '<div class="smallprint">'.implode('<br>', array_map($this->e(...), $lines)).'</div>';
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @param  array<string, string>  $values
+     * @return list<string>
+     */
+    private function footerLines(array $config, array $values): array
+    {
         $lines = [];
 
-        foreach ((array) Arr::get($footer, 'lines', []) as $line) {
+        foreach ((array) Arr::get($config, 'footer.lines', []) as $line) {
             $filled = trim($this->fill((string) $line, $values));
 
             if ($filled !== '') {
@@ -1326,33 +1548,12 @@ class DocumentHtml
             }
         }
 
-        /*
-         * The FIRST footer line is the clinic's own — set in the accent and
-         * bold, with the rest under it as small print. A band of five grey
-         * lines at the same weight is a band nobody reads any of.
-         */
-        if ($lines !== []) {
-            $headline = array_shift($lines);
-
-            $out[] = '<div class="fband">'
-                .'<div class="h">'.Icons::span('shield-check').' '.$this->e($headline).'</div>'
-                .($lines !== [] ? '<div class="s">'.implode('<br>', array_map($this->e(...), $lines)).'</div>' : '')
-                .'</div>';
-        }
-
-        return implode("\n", $out);
+        return $lines;
     }
 
     /**
-     * Where this copy came from — printed under the sheet, not on it.
-     *
-     * ALWAYS. A printed medical document that cannot say when it was produced
-     * or by whom is a document nobody can place afterwards, and two copies of
-     * the same bill are otherwise indistinguishable.
-     *
-     * Outside the card on purpose: it is a note about the printing rather than
-     * part of the bill, and inside the frame it read as one more thing the
-     * clinic was telling the patient.
+     * Where this copy came from, always: two copies of the same bill are
+     * otherwise indistinguishable.
      *
      * @param  array<string, string>  $values
      */
@@ -1369,6 +1570,207 @@ class DocumentHtml
             : '<div class="provenance">'.$this->e(implode(' · ', $stamp)).'</div>';
     }
 
+    /* ==================================================================
+       Cards
+       ================================================================== */
+
+    private function card(string $title, string $icon, string $content): string
+    {
+        if (trim($content) === '') {
+            return '';
+        }
+
+        return '<div class="card">'.$this->cardHead($title, $icon)
+            .'<div class="card-b">'.$content.'</div></div>';
+    }
+
+    private function cardHead(string $title, string $icon): string
+    {
+        return '<div class="card-h"><table><tr>'
+            .'<td style="width:5.2mm"><div class="tile">'.Icons::span($icon).'</div></td>'
+            .'<td class="card-t">'.$this->e($title).'</td>'
+            .'</tr></table></div>';
+    }
+
+    /* ==================================================================
+       The till roll
+       ================================================================== */
+
+    /**
+     * 80mm of one column: name and contacts centred, then the numbers, the
+     * items, the totals and how it was paid. No art — thermal paper prints
+     * one colour, and every millimetre is paper.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  array<string, string>  $values
+     * @param  array<string, mixed>  $tables
+     */
+    private function receiptPage(string $documentType, array $config, array $values, array $tables): string
+    {
+        $layout = Arr::get($config, 'layout', []);
+        $header = Arr::get($config, 'header', []);
+        $margins = Arr::get($layout, 'margin_mm', []);
+        $size = (float) (Arr::get($layout, 'font_size', 9) ?: 9);
+        $accent = $this->colour(Arr::get($layout, 'accent', '#0b5275'));
+        $ink = $this->darken($accent, 0.58);
+
+        $margin = sprintf('%smm %smm %smm %smm',
+            (float) ($margins['top'] ?? 4), (float) ($margins['right'] ?? 4),
+            (float) ($margins['bottom'] ?? 4), (float) ($margins['left'] ?? 4));
+
+        $department = $this->fill(Arr::get($header, 'department', ''), $values);
+        $legal = $this->fill(Arr::get($header, 'legal_name', ''), $values);
+        $title = $this->titleCase($this->fill(Arr::get($header, 'title', ''), $values));
+        $contacts = $this->contactLines((array) Arr::get($header, 'lines', []), $values, $department);
+
+        $head = '<div class="c"><div class="org">'.$this->e($legal !== '' ? $legal : $title).'</div>'
+            .($department !== '' ? '<div>'.$this->e($department).'</div>' : '')
+            .($contacts !== [] ? '<div class="m">'.implode('<br>', array_map($this->e(...), $contacts)).'</div>' : '')
+            .'</div>'
+            .($title !== '' ? '<div class="t">'.$this->e($title).'</div>' : '');
+
+        [$label, $number, $others] = $this->numbers($documentType, $values);
+
+        $meta = $this->plainPairs(array_filter([
+            $label => $number,
+            ...$others,
+            'Date' => $this->documentDate($values),
+            'Patient' => (string) ($values['patient_name'] ?? ''),
+            'Mobile' => (string) ($values['patient_mobile'] ?? ''),
+        ], fn ($value) => trim((string) $value) !== ''), false);
+
+        $items = '';
+
+        foreach ((array) Arr::get($config, 'body.tables', []) as $table) {
+            $data = $tables[(string) ($table['token'] ?? '')] ?? null;
+
+            if (! is_array($data)) {
+                continue;
+            }
+
+            $rows = [];
+
+            foreach ($data['groups'] ?? [] as $group) {
+                foreach ($group['rows'] ?? [] as $row) {
+                    $rows[] = array_values($row);
+                }
+            }
+
+            foreach ($data['rows'] ?? [] as $row) {
+                $rows[] = array_values($row);
+            }
+
+            if ($rows === []) {
+                continue;
+            }
+
+            $columns = array_values($data['columns'] ?? []);
+            $span = max(count($columns), max(array_map('count', $rows)));
+            $numeric = $this->numericColumns($rows, $span);
+
+            $items .= '<table class="it"><thead><tr>';
+            foreach ($columns as $index => $column) {
+                $items .= '<th'.(($numeric[$index] ?? false) ? ' class="n"' : '').'>'.$this->e((string) $column).'</th>';
+            }
+            $items .= '</tr></thead><tbody>';
+            foreach ($rows as $row) {
+                $items .= '<tr>';
+                for ($index = 0; $index < $span; $index++) {
+                    $items .= '<td'.(($numeric[$index] ?? false) ? ' class="n"' : '').'>'.$this->e((string) ($row[$index] ?? '')).'</td>';
+                }
+                $items .= '</tr>';
+            }
+            $items .= '</tbody></table>';
+        }
+
+        $totals = [];
+        if (trim((string) ($values['total'] ?? '')) !== '') {
+            $totals = array_filter([
+                'Sub Total' => (string) ($values['subtotal'] ?? ''),
+                'Discount' => (string) ($values['discount'] ?? ''),
+                'Tax' => (string) ($values['tax'] ?? ''),
+                'Total' => (string) $values['total'],
+            ], fn ($value) => trim($value) !== '');
+
+            if ($documentType !== 'clinic_refund' && $this->owing($values)) {
+                $totals['Balance Amount'] = (string) $values['balance'];
+            }
+        }
+
+        $paid = array_filter([
+            'Paid Amount' => (string) ($values['amount_paid'] ?? ''),
+            'Mode' => (string) ($values['payment_method'] ?? ''),
+            'Ref.' => (string) ($values['payment_reference'] ?? ''),
+            'Status' => (string) ($values['payment_state'] ?? ''),
+        ], fn ($value) => trim($value) !== '');
+
+        $lines = $this->footerLines($config, $values);
+
+        $content = $head
+            .'<div class="hr"></div>'.$meta
+            .($items !== '' ? '<div class="hr"></div>'.$items : '')
+            .($totals !== [] ? '<div class="hr"></div>'.$this->plainPairs($totals, true) : '')
+            .($paid !== [] ? '<div class="hr"></div>'.$this->plainPairs($paid, false) : '')
+            .($lines !== [] ? '<div class="hr"></div><div class="c">'.implode('<br>', array_map($this->e(...), $lines)).'</div>' : '')
+            .$this->provenance($values);
+
+        $family = Arr::get($layout, 'font_family') === 'serif' ? "'DejaVu Serif', serif" : "'DejaVu Sans', sans-serif";
+        $small = round($size * 0.86, 1);
+        $big = round($size * 1.3, 1);
+
+        return <<<HTML
+        <!DOCTYPE html>
+        <html><head><meta charset="utf-8">
+        <style>
+            @page { size: 80mm auto; margin: {$margin}; }
+            body { font-family: {$family}; font-size: {$size}pt; color: #111827; margin: 0; line-height: 1.3; }
+            table { width: 100%; border-collapse: collapse; }
+            td, th { vertical-align: top; padding: 0.6mm 0; }
+            .c { text-align: center; }
+            .org { font-size: {$big}pt; font-weight: bold; color: {$ink}; }
+            .m { font-size: {$small}pt; color: #4b5563; }
+            .t { margin-top: 2mm; text-align: center; font-weight: bold; color: {$accent}; }
+            .hr { border-top: 0.6pt dashed #9ca3af; margin: 2mm 0; }
+            .it th { font-size: {$small}pt; text-align: left; color: #ffffff; background-color: {$accent}; padding: 0.8mm 1mm; }
+            .it td { font-size: {$small}pt; padding: 0.8mm 1mm; border-bottom: 0.4pt solid #e5e7eb; }
+            .n { text-align: right; white-space: nowrap; }
+            .k { color: #4b5563; }
+            .v { text-align: right; font-weight: bold; }
+            .provenance { margin-top: 2mm; text-align: center; font-size: {$small}pt; color: #9ca3af; }
+        </style></head><body>
+        {$content}
+        </body></html>
+        HTML;
+    }
+
+    /**
+     * Label/value rows for the till roll, the value pushed right.
+     *
+     * @param  array<string, string>  $entries
+     */
+    private function plainPairs(array $entries, bool $lastBold): string
+    {
+        $rows = '';
+        $last = array_key_last($entries);
+
+        foreach ($entries as $label => $value) {
+            $rows .= '<tr><td class="k">'.$this->e((string) $label).'</td>'
+                .'<td class="v"'.($lastBold && $label === $last ? ' style="font-size:1.15em"' : '').'>'.$this->e((string) $value).'</td></tr>';
+        }
+
+        return $rows === '' ? '' : '<table>'.$rows.'</table>';
+    }
+
+    /* ==================================================================
+       Helpers
+       ================================================================== */
+
+    /** @param array<string, string> $values */
+    private function owing(array $values): bool
+    {
+        return $this->amount($values['balance'] ?? '') > 0;
+    }
+
     /** A formatted money string back to a number. "₹1,240.50" → 1240.5 */
     private function amount(string $money): float
     {
@@ -1379,10 +1781,6 @@ class DocumentHtml
 
     /**
      * A figure written out, Indian style — lakh and crore, not million.
-     *
-     * "Rupees One Lakh Twenty Thousand Only" is what a bill in India says, and
-     * a receipt that spells the same number as "One Hundred Twenty Thousand"
-     * is one a patient will query at the counter.
      */
     private function words(float $amount): string
     {
@@ -1441,19 +1839,14 @@ class DocumentHtml
     }
 
     /**
-     * Substitute `{{token}}`, tolerating whitespace inside the braces.
-     *
-     * An UNKNOWN placeholder becomes an empty string rather than staying as
-     * literal `{{whatever}}`. Templates are validated before they can be
-     * activated, so reaching here means a token the payload simply had no
-     * value for — an unfilled optional. Printing the braces would put
-     * `{{patient_email}}` on a document handed to a patient.
+     * Substitute `{{token}}`, tolerating whitespace inside the braces. An
+     * unknown placeholder becomes an empty string rather than printing the
+     * braces on a document handed to a patient.
      */
     private function fill(?string $text, array $values): string
     {
         // A config read back from jsonb can hold a null where the defaults
-        // have an empty string — an unset footer line, a blank registration
-        // number. Null is "nothing to print", not a failure.
+        // have an empty string.
         if ($text === null) {
             return '';
         }
@@ -1463,6 +1856,18 @@ class DocumentHtml
             fn (array $match) => (string) ($values[mb_strtolower($match[1])] ?? ''),
             $text,
         ) ?? '';
+    }
+
+    /** "Clinic payment receipt" → "Clinic Payment Receipt"; capitals already typed are kept. */
+    private function titleCase(string $text): string
+    {
+        return (string) preg_replace_callback('/(^|\s)(\p{Ll})/u', fn (array $m) => $m[1].mb_strtoupper($m[2]), $text);
+    }
+
+    /** The raw glyph for an icon, for a span that sets its own classes. */
+    private function glyph(string $name): string
+    {
+        return strip_tags(Icons::span($name));
     }
 
     private function e(string $value): string
@@ -1475,11 +1880,26 @@ class DocumentHtml
     {
         return is_string($value) && preg_match('/^#[0-9a-f]{6}$/i', $value)
             ? $value
-            : '#2e37a4';
+            : '#0b5275';
     }
 
-    private function scale(float $size, float $factor): string
+    /** A shade mixed towards white: 0.90 is a wash, 0.80 a hairline. */
+    private function mix(string $hex, float $towardsWhite): string
     {
-        return (string) round($size * $factor, 1);
+        [$r, $g, $b] = sscanf($hex, '#%02x%02x%02x');
+
+        $blend = fn (int $channel) => (int) round($channel + (255 - $channel) * $towardsWhite);
+
+        return sprintf('#%02x%02x%02x', $blend((int) $r), $blend((int) $g), $blend((int) $b));
+    }
+
+    /** A shade mixed towards black, for text that must read as the accent's ink. */
+    private function darken(string $hex, float $towardsBlack): string
+    {
+        [$r, $g, $b] = sscanf($hex, '#%02x%02x%02x');
+
+        $blend = fn (int $channel) => (int) round($channel * (1 - $towardsBlack));
+
+        return sprintf('#%02x%02x%02x', $blend((int) $r), $blend((int) $g), $blend((int) $b));
     }
 }

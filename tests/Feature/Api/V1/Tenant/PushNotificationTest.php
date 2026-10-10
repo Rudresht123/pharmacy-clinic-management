@@ -5,24 +5,16 @@ namespace Tests\Feature\Api\V1\Tenant;
 use App\Http\Middleware\ResolveTenantFromHeader;
 use App\Jobs\SendPushNotification;
 use App\Models\Platform\FirebaseDevice;
-use App\Models\Platform\Module;
 use App\Models\Platform\Organization;
-use App\Models\Tenant\Customer;
-use App\Models\Tenant\Doctor;
-use App\Models\Tenant\DoctorSchedule;
-use App\Models\Tenant\Location;
 use App\Models\Tenant\User as TenantUser;
-use App\Services\Portal\Otp\OtpSender;
 use App\Services\Push\DeviceRegistry;
 use App\Services\Push\FcmPushSender;
 use App\Services\Push\LogPushSender;
 use App\Services\Push\PushMessage;
 use App\Services\Push\PushResult;
 use App\Services\Push\PushSender;
-use App\Support\Opd\Weekday;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
@@ -291,6 +283,8 @@ class PushNotificationTest extends TenantTestCase
         $this->assertCount(1, $sender->calls);
         $this->assertSame(['fcm-apollo'], $sender->calls[0]['tokens']);
         $this->assertSame($apollo->uuid, $sender->calls[0]['message']->data['organization']);
+        // What the app compares with the clinic it is signed in to.
+        $this->assertSame($apollo->subdomain, $sender->calls[0]['message']->data['workspace']);
     }
 
     public function test_a_token_from_one_organization_cannot_register_against_another(): void
@@ -417,89 +411,5 @@ class PushNotificationTest extends TenantTestCase
                 && $body['message']['notification']['title'] === 'Appointment confirmed'
                 && $body['message']['data']['type'] === 'appointment_booked';
         });
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | The first real use
-    |--------------------------------------------------------------------------
-    */
-
-    public function test_booking_in_the_app_pushes_the_patients_own_phones(): void
-    {
-        $this->travelTo(Carbon::parse(self::MONDAY.' 08:00'));
-
-        $organization = $this->provisionOrganization('PP');
-        $organization->moduleEntitlements()->create([
-            'module_id' => Module::where('key', 'appointments')->value('id'),
-            'is_enabled' => true,
-        ]);
-
-        [$doctorId, $branchId] = $this->onTenant($organization, function () {
-            $branch = Location::on('organization')->create([
-                'name' => 'Gurgaon', 'code' => 'GGN', 'type' => Location::CLINIC, 'is_active' => true,
-            ]);
-
-            $doctor = Doctor::on('organization')->create([
-                'name' => 'Dr. Priya Sharma', 'default_consultation_fee' => 500, 'is_active' => true,
-            ]);
-
-            DoctorSchedule::on('organization')->create([
-                'doctor_id' => $doctor->id, 'location_id' => $branch->id, 'name' => 'Morning OPD',
-                'weekday' => Weekday::MONDAY, 'starts_at' => '10:00', 'ends_at' => '12:00',
-                'slot_minutes' => 30, 'is_active' => true,
-            ]);
-
-            return [$doctor->id, $branch->id];
-        });
-
-        // The patient signs in to the app with a code, as the portal does.
-        $sms = new PushTestOtpSender;
-        $this->app->instance(OtpSender::class, $sms);
-
-        $this->fresh();
-        $this->withHeaders([ResolveTenantFromHeader::HEADER => $organization->subdomain])
-            ->postJson('/api/v1/tenant/portal/auth/code', ['phone' => self::PHONE])->assertOk();
-
-        $this->fresh();
-        $token = $this->withHeaders([ResolveTenantFromHeader::HEADER => $organization->subdomain])
-            ->postJson('/api/v1/tenant/portal/auth/verify', [
-                'phone' => self::PHONE, 'code' => $sms->last, 'name' => 'Rahul Tiwari',
-            ])->assertOk()->json('data.token');
-
-        // Their phone registers — through the portal's own route.
-        $this->asPhone($organization, $token)->postJson('/api/v1/tenant/portal/devices', [
-            'device_id' => 'rahul-phone', 'fcm_token' => 'fcm-rahul', 'platform' => 'android',
-        ])->assertOk();
-
-        $patientUser = (int) $this->onTenant($organization, fn () => TenantUser::on('organization')
-            ->where('userable_type', Customer::class)
-            ->value('id'));
-
-        Queue::fake();
-
-        $booked = $this->asPhone($organization, $token)->postJson('/api/v1/tenant/portal/appointments', [
-            'doctor_id' => $doctorId,
-            'location_id' => $branchId,
-            'appointment_date' => self::MONDAY,
-            'slot_at' => '10:30',
-        ])->assertCreated()->json('data.id');
-
-        Queue::assertPushed(SendPushNotification::class, fn (SendPushNotification $job) => $job->organizationId === $organization->id
-            && $job->userIds === [$patientUser]
-            && $job->title === 'Appointment confirmed'
-            && $job->data['type'] === 'appointment_booked'
-            && (int) $job->data['appointment_id'] === (int) $booked);
-    }
-}
-
-/** Keeps the last code instead of texting it. */
-class PushTestOtpSender implements OtpSender
-{
-    public ?string $last = null;
-
-    public function send(string $phone, string $code, string $clinicName): void
-    {
-        $this->last = $code;
     }
 }

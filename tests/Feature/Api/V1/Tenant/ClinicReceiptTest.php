@@ -279,7 +279,7 @@ class ClinicReceiptTest extends TenantTestCase
 
         $this->assertStringContainsString('Refund No', $html);
         $this->assertStringContainsString('GGN/RFD/26-27/00001', $html);
-        $this->assertStringContainsString('Refund information', $html);
+        $this->assertStringContainsString('Refund Information', $html);
         $this->assertStringContainsString('Amount Refunded', $html);
         $this->assertStringContainsString('GGN/RCP/26-27/00001', $html);
         $this->assertStringContainsString('REFUNDED', $html);

@@ -329,7 +329,7 @@ export function TemplateEditor({
                             locked={isLocked('header.title')}
                             disabled={off('header.title')}
                             onChange={(v) => set('header', 'title', v)}
-                            hint="Printed in the coloured band — e.g. “Invoice”, “Receipt”."
+                            hint="Printed large at the top of the page — e.g. “Invoice”, “Receipt”."
                         />
                     </div>
                     <div className="col-md-6">
@@ -495,7 +495,7 @@ export function TemplateEditor({
 
                 <Lines
                     label="Footer lines"
-                    hint="The first line is set large and in the accent colour; anything after it prints as small print beneath."
+                    hint="The first line is the handwritten thank-you along the footer; anything after it prints as small print above it."
                     addLabel="Add footer line"
                     value={config.footer.lines}
                     disabled={off('footer.lines')}

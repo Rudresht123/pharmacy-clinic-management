@@ -35,6 +35,21 @@ class OpdHandoff
         Prescription::PARTIALLY_DISPENSED,
     ];
 
+    /*
+     * Where the counter stands with one patient — the panel's tabs. Finer than
+     * `pharmacy_pending`, which says only whether anything is still owed:
+     * half a prescription handed over is a different conversation from none
+     * of it, and the counter works the two differently.
+     */
+    public const STATE_PENDING = 'pending';
+
+    public const STATE_IN_PROGRESS = 'in_progress';
+
+    public const STATE_COMPLETED = 'completed';
+
+    /** Consulted, but nothing was prescribed for the counter to hand over. */
+    public const STATE_NONE = 'none';
+
     /**
      * Today's finished consultations at a branch.
      *
@@ -95,18 +110,43 @@ class OpdHandoff
         return [
             'appointment_id' => $visit->id,
             'token_no' => $visit->token_no,
+            // The code and the number are how a counter tells two Rohit
+            // Sharmas apart when it calls one of them up.
             'patient' => [
                 'id' => $visit->customer_id,
                 'name' => $visit->customer?->name,
+                'code' => $visit->customer?->code,
+                'phone' => $visit->customer?->phone,
             ],
             'doctor' => [
                 'id' => $visit->doctor_id,
                 'name' => $visit->doctor?->name,
+                'specialisation' => $visit->doctor?->specialisation,
             ],
             'completed_at' => $visit->completed_at?->toIso8601String(),
             'has_prescription' => $statuses->isNotEmpty(),
             'pharmacy_pending' => $statuses->contains(fn (string $status) => in_array($status, self::PENDING, true)),
+            'pharmacy_state' => $this->state($statuses),
             'status' => $visit->status,
         ];
+    }
+
+    /**
+     * One patient's place on the counter's tabs, from their prescriptions.
+     *
+     * Part-dispensed wins over not-started: a patient with one prescription
+     * half handed over and another untouched is mid-way through the counter,
+     * not waiting to reach it.
+     *
+     * @param  Collection<int, string>  $statuses
+     */
+    private function state(Collection $statuses): string
+    {
+        return match (true) {
+            $statuses->isEmpty() => self::STATE_NONE,
+            $statuses->contains(Prescription::PARTIALLY_DISPENSED) => self::STATE_IN_PROGRESS,
+            $statuses->contains(fn (string $status) => in_array($status, self::PENDING, true)) => self::STATE_PENDING,
+            default => self::STATE_COMPLETED,
+        };
     }
 }

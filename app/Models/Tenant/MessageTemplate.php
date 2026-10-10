@@ -6,6 +6,7 @@ use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -83,6 +84,12 @@ class MessageTemplate extends Model
     public function editor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /** Branches that send their own wording of this template. */
+    public function variants(): HasMany
+    {
+        return $this->hasMany(MessageTemplateVariant::class);
     }
 
     protected function historyLabel(): ?string
