@@ -44,6 +44,28 @@ return [
             'after_commit' => false,
         ],
 
+        /*
+         * Building a new organization (App\Jobs\ProvisionOrganization).
+         *
+         * Its own connection for one reason: the lease. A tenant's whole
+         * schema migrates in one job and can run for minutes; on the default
+         * connection a job still running after `retry_after` (90s) is handed
+         * to a second worker. The same `jobs` table, a lease longer than the
+         * job's own 30-minute timeout. Pinned to the master database, because
+         * the migrator repoints the default connection at the tenant while it
+         * runs.
+         *
+         * Worked by: php artisan queue:work provisioning --queue=provisioning
+         */
+        'provisioning' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION', env('DB_CONNECTION', 'pgsql')),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => 'provisioning',
+            'retry_after' => (int) env('PROVISIONING_QUEUE_RETRY_AFTER', 2000),
+            'after_commit' => true,
+        ],
+
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),

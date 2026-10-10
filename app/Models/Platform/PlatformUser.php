@@ -2,8 +2,10 @@
 
 namespace App\Models\Platform;
 
+use App\Models\File;
 use Database\Factories\Platform\PlatformUserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -70,6 +72,12 @@ class PlatformUser extends Authenticatable
             'platform_user_id',
             'platform_role_id'
         );
+    }
+
+    /** Their profile photo, when they have one. */
+    public function avatarFile(): BelongsTo
+    {
+        return $this->belongsTo(File::class, 'avatar');
     }
 
     /**

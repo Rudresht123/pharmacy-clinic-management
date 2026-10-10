@@ -138,9 +138,20 @@ return [
     */
 
     'passwords' => [
+        /*
+         * Tenant users are physically multi-tenant — one database per
+         * organization, selected at runtime by TenantConnectionService. The
+         * token table has to live there too, or "email X's token" would be
+         * ambiguous the moment two organizations share an administrator's
+         * inbox for testing. `connection` here names the shared 'organization'
+         * connection; by the time this broker is used, the caller (see
+         * Tenant\Auth\Concerns\ResolvesOrganization) has already pointed it at
+         * the right tenant database.
+         */
         'users' => [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'connection' => 'organization',
             'expire' => 60,
             'throttle' => 60,
         ],

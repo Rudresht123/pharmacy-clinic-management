@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Api\V1\Tenant\Auth;
 
+use App\Http\Requests\Api\V1\Tenant\Auth\Concerns\ResolvesOrganization;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\User as TenantUser;
 use App\Services\Tenancy\TenantConnectionService;
-use App\Support\Tenancy\SubdomainResolver;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;

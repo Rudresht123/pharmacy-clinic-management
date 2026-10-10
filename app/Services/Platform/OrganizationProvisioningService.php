@@ -2,7 +2,9 @@
 
 namespace App\Services\Platform;
 
+use App\Jobs\ProvisionOrganization;
 use App\Models\Platform\Organization;
+use App\Models\Platform\TenantProvisionEvent;
 use App\Models\Tenant\User as TenantUser;
 use App\Repositories\Platform\Contracts\DbClusterRepositoryInterface;
 use App\Repositories\Platform\Contracts\OrganizationRepositoryInterface;
@@ -14,11 +16,13 @@ use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DefaultRoleSeeder;
 use App\Services\Tenant\DefaultTemplateSeeder;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -31,7 +35,12 @@ use Illuminate\Support\Str;
  *   5. create the owner's tenant account
  *   6. email the owner a sign-in link (or a setup link for legacy callers)
  *
- * Steps 3-5 are tracked one row at a time in `tenant_provision_events`. A
+ * Steps 1-2 happen in the request; 3-6 run on the `provisioning` queue
+ * (ProvisionOrganization), so the request returns at once and a schema of a
+ * hundred migrations can never time it out. The administrator watches the
+ * steps land on the organization's page (`progress()`).
+ *
+ * Steps 3-6 are tracked one row at a time in `tenant_provision_events`. A
  * step already marked `completed` there is skipped on the next attempt, so
  * a retry resumes from wherever it actually stopped instead of restarting
  * — and nothing is deleted or dropped on failure, since doing so is exactly
@@ -41,12 +50,29 @@ use Illuminate\Support\Str;
  */
 class OrganizationProvisioningService
 {
+    /** The queued steps, in the order they run, as the administrator reads them. */
+    public const STEPS = [
+        'create_database' => 'Create the database',
+        'migrate_tenant' => 'Build the tables',
+        'seed_default_roles' => 'Add the default roles and print templates',
+        'seed_notification_templates' => 'Add the message templates',
+        'create_owner_account' => "Create the owner's login",
+        'send_setup_email' => 'Email the owner',
+    ];
+
+    /** Where a tenant's schema lives, in the order the migrator runs it. */
+    private const MIGRATION_PATHS = [
+        'database/migrations/organization',
+        'database/migrations/organization/after-seed',
+    ];
+
     public function __construct(
         private readonly OrganizationRepositoryInterface $organizations,
         private readonly TenantProvisionEventRepositoryInterface $provisionEvents,
         private readonly TenantDatabaseRepositoryInterface $tenantDatabases,
         private readonly DbClusterRepositoryInterface $dbClusters,
         private readonly TenantConnectionService $tenants = new TenantConnectionService,
+        private readonly ?ProvisioningProgress $progress = null,
     ) {}
 
     /**
@@ -96,7 +122,7 @@ class OrganizationProvisioningService
             throw $e;
         }
 
-        return $this->runProvisioningSteps($organization);
+        return $this->queue($organization);
     }
 
     /**
@@ -107,21 +133,142 @@ class OrganizationProvisioningService
      */
     public function retryProvisioning(Organization $organization): Organization
     {
-        if (! in_array($organization->status, [Organization::PENDING, Organization::PROVISIONING, Organization::FAILED], true)) {
+        if (! $this->isUnfinished($organization)) {
             throw new \RuntimeException('Only a pending, provisioning or failed organization can be retried.');
         }
 
-        return $this->runProvisioningSteps($organization);
+        // Back in the queue: the page reads "waiting" until a worker picks it up.
+        $organization = $this->organizations->changeStatus(
+            $organization,
+            Organization::PENDING,
+            'Provisioning queued again.',
+            Auth::guard('platform')->id(),
+        );
+
+        return $this->queue($organization);
     }
 
-    private function runProvisioningSteps(Organization $organization): Organization
+    public function isUnfinished(Organization $organization): bool
+    {
+        return in_array($organization->status, [Organization::PENDING, Organization::PROVISIONING, Organization::FAILED], true);
+    }
+
+    /**
+     * Hand the steps to the `provisioning` queue and return at once.
+     *
+     * Where the queue is `sync` — the test suite, a machine with no worker
+     * configured — the job runs right here, as provisioning always used to,
+     * and a failure reaches the caller as before.
+     */
+    private function queue(Organization $organization): Organization
+    {
+        $job = (new ProvisionOrganization($organization->id, Auth::guard('platform')->id()))
+            ->onConnection(config('queue.default') === 'sync' ? 'sync' : 'provisioning');
+
+        app(Dispatcher::class)->dispatch($job);
+
+        return $organization->fresh('organizationType');
+    }
+
+    /**
+     * Where provisioning has got to, for the administrator watching it: every
+     * step in order with its latest attempt, and how far the migrations are.
+     *
+     * @return array<string, mixed>
+     */
+    public function progress(Organization $organization): array
+    {
+        $events = $this->provisionEvents->query()
+            ->where('organization_id', $organization->id)
+            ->orderBy('id')
+            ->get();
+
+        $steps = [];
+
+        foreach (self::STEPS as $key => $label) {
+            $latest = $events->where('step', $key)->last();
+
+            $steps[] = [
+                'key' => $key,
+                'label' => $label,
+                // Not attempted yet in this run, or ever.
+                'status' => $latest?->status ?? 'waiting',
+                'progress_current' => $latest?->progress_current,
+                'progress_total' => $latest?->progress_total,
+                'detail' => $latest?->detail,
+                'error' => $latest?->status === 'failed' ? $latest->error : null,
+                'started_at' => $latest?->started_at?->toIso8601String(),
+                'finished_at' => $latest?->finished_at?->toIso8601String(),
+            ];
+        }
+
+        $done = collect($steps)->where('status', 'completed')->count();
+
+        return [
+            'status' => $organization->status,
+            'steps' => $steps,
+            'completed_steps' => $done,
+            'total_steps' => count($steps),
+            'started_at' => $events->min('started_at')?->toIso8601String(),
+            'finished_at' => $organization->status === Organization::ACTIVE
+                ? $events->max('finished_at')?->toIso8601String()
+                : null,
+            // Queued, and no worker has started on it since.
+            'waiting_for_worker' => $organization->status === Organization::PENDING,
+            'queued_at' => $organization->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Record that the worker gave up on this organization — a timeout or a
+     * killed process leaves a step "in progress" that will never finish.
+     */
+    public function markFailed(int $organizationId, ?string $error = null, ?int $by = null): void
+    {
+        $organization = $this->organizations->query()->find($organizationId);
+
+        if (! $organization) {
+            return;
+        }
+
+        $this->provisionEvents->query()
+            ->where('organization_id', $organizationId)
+            ->where('status', 'in_progress')
+            ->update([
+                'status' => 'failed',
+                'error' => $error ?: 'The provisioning worker stopped before this step finished.',
+                'finished_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        if (in_array($organization->status, [Organization::PENDING, Organization::PROVISIONING], true)) {
+            $this->organizations->changeStatus(
+                $organization,
+                Organization::FAILED,
+                'Provisioning stopped — see provisioning history for detail.',
+                $by,
+            );
+
+            if ($tenantDatabase = $organization->tenantDatabase()->first()) {
+                $this->tenantDatabases->update($tenantDatabase, ['provision_status' => 'failed']);
+            }
+        }
+    }
+
+    /**
+     * Run every step that has not completed yet. Called by the queued job.
+     *
+     * @param  int|null  $by  the administrator who asked for it — there is no
+     *                        signed-in user on a queue worker to ask
+     */
+    public function runProvisioningSteps(Organization $organization, ?int $by = null): Organization
     {
         try {
             $organization = $this->organizations->changeStatus(
                 $organization,
                 Organization::PROVISIONING,
                 'Provisioning started.',
-                Auth::guard('platform')->id(),
+                $by,
             );
 
             $cluster = $this->dbClusters->findDefault();
@@ -151,7 +298,7 @@ class OrganizationProvisioningService
             $this->runStep(
                 $organization,
                 'migrate_tenant',
-                fn () => $this->migrateTenant($organization->database_name),
+                fn (TenantProvisionEvent $event) => $this->migrateTenant($organization->database_name, $event),
             );
 
             /*
@@ -203,7 +350,7 @@ class OrganizationProvisioningService
                 $organization,
                 Organization::ACTIVE,
                 'Provisioning completed.',
-                Auth::guard('platform')->id(),
+                $by,
             );
 
             return $organization->fresh('organizationType');
@@ -212,7 +359,7 @@ class OrganizationProvisioningService
                 $organization,
                 Organization::FAILED,
                 'Provisioning failed — see provisioning history for detail.',
-                Auth::guard('platform')->id(),
+                $by,
             );
 
             if ($tenantDatabase = $organization->tenantDatabase()->first()) {
@@ -248,7 +395,8 @@ class OrganizationProvisioningService
         ]);
 
         try {
-            $action();
+            // The step's own row, for a step that reports how far it has got.
+            $action($event);
 
             $this->provisionEvents->update($event, [
                 'status' => 'completed',
@@ -271,21 +419,65 @@ class OrganizationProvisioningService
      *
      * Naturally idempotent — Laravel's migrator tracks what has already run
      * against this tenant database, so re-running it on a retry is safe.
+     *
+     * Given the step's row, it counts the migrations onto it as they run, so
+     * the administrator sees "45 of 92" rather than a step that just sits.
      */
-    public function migrateTenant(string $databaseName): void
+    public function migrateTenant(string $databaseName, ?TenantProvisionEvent $event = null): void
     {
         $this->tenants->connect($databaseName);
 
-        foreach ([
-            'database/migrations/organization',
-            'database/migrations/organization/after-seed',
-        ] as $path) {
-            Artisan::call('migrate', [
-                '--database' => TenantConnectionService::CONNECTION,
-                '--path' => $path,
-                '--force' => true,
-            ]);
+        $progress = $event ? ($this->progress ?? app(ProvisioningProgress::class)) : null;
+        $progress?->track($event, $this->pendingMigrations());
+
+        try {
+            foreach (self::MIGRATION_PATHS as $path) {
+                Artisan::call('migrate', [
+                    '--database' => TenantConnectionService::CONNECTION,
+                    '--path' => $path,
+                    '--force' => true,
+                ]);
+            }
+        } finally {
+            $progress?->stop();
         }
+    }
+
+    /**
+     * The migrations this tenant has not run yet, in the order the migrator
+     * will run them: each path in turn, by file name — what the migrator
+     * itself does.
+     *
+     * The DB facade for `migrations`: Laravel's own table, with no model.
+     *
+     * @return list<string>
+     */
+    private function pendingMigrations(): array
+    {
+        $connection = TenantConnectionService::CONNECTION;
+
+        $ran = Schema::connection($connection)->hasTable('migrations')
+            ? array_flip(DB::connection($connection)->table('migrations')->pluck('migration')->all())
+            : [];
+
+        $pending = [];
+
+        foreach (self::MIGRATION_PATHS as $path) {
+            $names = array_map(
+                fn (string $file) => basename($file, '.php'),
+                glob(base_path($path).'/*_*.php') ?: [],
+            );
+
+            sort($names);
+
+            foreach ($names as $name) {
+                if (! isset($ran[$name])) {
+                    $pending[] = $name;
+                }
+            }
+        }
+
+        return $pending;
     }
 
     /**
@@ -375,8 +567,14 @@ class OrganizationProvisioningService
     {
         if ($organization->is_setup_completed) {
             $domain = config('organization.main_domain');
+            /*
+             * The scheme from APP_URL, not from the request: this runs on a
+             * queue worker, where there is no request — the console's stand-in
+             * always says http, which would send a live clinic an http link.
+             */
+            $scheme = parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https';
             $loginUrl = $domain
-                ? request()->getScheme().'://'.$organization->subdomain.'.'.$domain.'/login'
+                ? $scheme.'://'.$organization->subdomain.'.'.$domain.'/login'
                 : url('/login');
 
             $sent = EmailService::send(

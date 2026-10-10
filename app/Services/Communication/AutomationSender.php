@@ -261,6 +261,9 @@ class AutomationSender
     /**
      * A finished lab order, as a template's variables.
      *
+     * LabOrder names its patient relation `patient()`, not `customer()` — the
+     * same spelling Prescription uses and everything else here does not.
+     *
      * @return array{customer: Customer, variables: array<string, string|int|float|null>}|null
      */
     private function labReport(ClinicEvent $event, Organization $organization): ?array
@@ -269,17 +272,17 @@ class AutomationSender
             return null;
         }
 
-        $order = LabOrder::query()->with(['customer', 'doctor', 'location'])->find($event->subjectId);
+        $order = LabOrder::query()->with(['patient', 'doctor', 'location'])->find($event->subjectId);
 
-        if ($order?->customer === null) {
+        if ($order?->patient === null) {
             return null;
         }
 
         return [
-            'customer' => $order->customer,
+            'customer' => $order->patient,
             'variables' => [
-                'patient_name' => $order->customer->name,
-                'phone' => $order->customer->phone,
+                'patient_name' => $order->patient->name,
+                'phone' => $order->patient->phone,
                 'doctor_name' => $order->doctor?->name,
                 'date' => $order->order_date?->format('d M Y'),
                 'clinic_name' => $organization->organization_name,

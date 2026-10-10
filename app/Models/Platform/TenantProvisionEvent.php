@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One row per provisioning step attempted for an organization — the trail
- * that lets a retry resume instead of restart. Scaffolding only; nothing
- * writes here yet.
+ * that lets a retry resume instead of restart, and what the administrator
+ * watches while the queue works through it (`progress_*`, `detail`).
  */
 class TenantProvisionEvent extends Model
 {
@@ -16,12 +16,17 @@ class TenantProvisionEvent extends Model
         'organization_id',
         'step',
         'status',
+        'progress_current',
+        'progress_total',
+        'detail',
         'error',
         'started_at',
         'finished_at',
     ];
 
     protected $casts = [
+        'progress_current' => 'integer',
+        'progress_total' => 'integer',
         'started_at' => 'datetime',
         'finished_at' => 'datetime',
     ];

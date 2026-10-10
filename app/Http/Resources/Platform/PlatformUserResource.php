@@ -18,6 +18,7 @@ class PlatformUserResource extends JsonResource
             'uuid' => $this->uuid,
             'name' => $this->name,
             'email' => $this->email,
+            'avatar_url' => $this->whenLoaded('avatarFile', fn () => $this->avatarFile?->url, null),
             'is_active' => $this->is_active,
 
             // Drives what the panel renders; the server still authorises

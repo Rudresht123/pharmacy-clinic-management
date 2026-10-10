@@ -131,6 +131,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('auth/me', [AuthController::class, 'me'])->name('auth.me');
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::put('auth/profile', [AuthController::class, 'updateProfile']);
+        Route::post('auth/avatar', [AuthController::class, 'uploadAvatar']);
+        Route::delete('auth/avatar', [AuthController::class, 'deleteAvatar']);
 
         Route::post('auth/confirm-password', [PasswordController::class, 'confirm']);
         Route::put('auth/password', [PasswordController::class, 'update']);
@@ -164,6 +166,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
             'organizations/{organization}/retry-provisioning',
             [OrganizationController::class, 'retryProvisioning']
         );
+
+        // Setting a new organization up runs on a queue; its page polls this.
+        Route::get(
+            'organizations/{organization}/provisioning',
+            [OrganizationController::class, 'provisioning']
+        )->name('organizations.provisioning');
 
         /*
         | Module entitlements — what an organization has been sold.

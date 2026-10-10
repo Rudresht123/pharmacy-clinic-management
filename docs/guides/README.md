@@ -11,6 +11,7 @@ added here appears there with no code change. Its `<title>` is the card's title 
 | Guide | What it covers |
 |---|---|
 | [Receipts, Refund Slips aur Automatic Documents](receipts-and-automatic-documents.pdf) ([source](receipts-and-automatic-documents.html)) | Branch-wise invoice/receipt/refund numbers, what a receipt and a refund slip print, every print button and where it appears, taking a payment and a refund, Settings › Automatic documents, the one-copy rules, permissions, troubleshooting, and a file map for developers. |
+| [Billing and Payments: User Guide](billing-user-guide.pdf) ([source](billing-user-guide.html)) | The staff manual in simple English, with eight flow charts: the three bills of a visit; who can do what and how to change a role; first-time setup; the OPD visit from check-in to payment; taking a payment (split tenders, the pay-in-full rule); refunds, cancelling and correcting a bill; lab bills; the pharmacy counter (sales, collecting a balance, returns); reading the Finance screen; troubleshooting; and where to find everything. |
 | [Billing: Har Department ka Apna Bill](billing-by-department.pdf) ([source](billing-by-department.html)) | OPD, Lab and Pharmacy each billing for themselves; the four parts of Settings › Billing; OPD and lab timings; the pharmacy counter (credit, collecting later, returns); payment rules (full, part, credit, split tenders); refunds crediting the bill; when a bill may be corrected; the Finance screen's five figures; permissions; and a file map for developers. |
 
 ## Adding or changing a guide

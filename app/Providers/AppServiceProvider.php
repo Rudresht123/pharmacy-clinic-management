@@ -12,8 +12,12 @@ use App\Services\Push\PushSender;
 use App\Services\Portal\Otp\LogOtpSender;
 use App\Services\Portal\Otp\OtpSender;
 use App\Services\Email\EmailManager;
+use App\Services\Platform\ProvisioningProgress;
 use App\Services\WhatsApp\WhatsAppManager;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Database\Events\MigrationEnded;
+use Illuminate\Database\Events\MigrationStarted;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
@@ -53,6 +57,13 @@ class AppServiceProvider extends ServiceProvider
          */
         $this->app->scoped(WhatsAppManager::class);
         $this->app->scoped(EmailManager::class);
+
+        /*
+         * One per worker process: it holds the provisioning step whose
+         * migrations are being counted, between the migrator's events. A
+         * worker runs one job at a time, and the job clears it when done.
+         */
+        $this->app->singleton(ProvisioningProgress::class);
 
         $this->app->bind(OtpSender::class, fn () => match (config('services.otp.driver')) {
             default => new LogOtpSender,
@@ -119,6 +130,14 @@ class AppServiceProvider extends ServiceProvider
          * a console command.
          */
         TenantUser::observe(TenantUserDevicesObserver::class);
+
+        /*
+         * A new tenant's migrations, counted onto the provisioning step the
+         * administrator is watching. Nothing is written unless provisioning
+         * is tracking a step — tenants:migrate and the tests fire these too.
+         */
+        Event::listen(MigrationStarted::class, fn () => $this->app->make(ProvisioningProgress::class)->started());
+        Event::listen(MigrationEnded::class, fn () => $this->app->make(ProvisioningProgress::class)->ended());
 
         /*
          * Point reset links at the SPA rather than the Blade route.

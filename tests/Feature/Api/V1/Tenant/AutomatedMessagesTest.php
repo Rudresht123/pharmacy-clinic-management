@@ -106,13 +106,18 @@ class AutomatedMessagesTest extends TenantTestCase
                 'is_active' => true,
             ]);
 
-            AutomationRule::query()->create([
-                'channel' => $channel,
-                'event_key' => $eventKey,
-                'title' => $eventKey,
-                'message_template_id' => $template->id,
-                'is_enabled' => $ruleOn,
-            ]);
+            // updateOrCreate, not create: every organisation now starts with
+            // default email rules for confirmed/cancelled/payment_received
+            // (see EmailDefaults/the 2026_10_23 migration) — this points
+            // THAT row at the test's own template instead of colliding.
+            AutomationRule::query()->updateOrCreate(
+                ['channel' => $channel, 'event_key' => $eventKey],
+                [
+                    'title' => $eventKey,
+                    'message_template_id' => $template->id,
+                    'is_enabled' => $ruleOn,
+                ],
+            );
         });
     }
 

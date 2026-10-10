@@ -89,10 +89,26 @@ class OrganizationController extends BaseApiController
             return $this->failFromThrowable($e, 'Failed to create organization.');
         }
 
+        /*
+         * Created, and being built. The database, schema and owner login are
+         * made on the `provisioning` queue; the organization's page follows
+         * them through progress() below.
+         */
         return $this->created(
             OrganizationResource::make($organization),
-            'Organization created successfully.'
+            $organization->status === Organization::ACTIVE
+                ? 'Organization created successfully.'
+                : 'Organization created. Setting it up in the background.'
         );
+    }
+
+    /**
+     * How far setting the organization up has got — polled by its page
+     * while the queue works: each step, and the migrations as they run.
+     */
+    public function provisioning(Organization $organization): JsonResponse
+    {
+        return $this->ok($this->provisioning->progress($organization));
     }
 
     public function update(
@@ -146,7 +162,9 @@ class OrganizationController extends BaseApiController
 
         return $this->ok(
             OrganizationResource::make($organization),
-            'Provisioning retried successfully.'
+            $organization->status === Organization::ACTIVE
+                ? 'Provisioning retried successfully.'
+                : 'Provisioning queued again. It resumes from the step that failed.'
         );
     }
 }

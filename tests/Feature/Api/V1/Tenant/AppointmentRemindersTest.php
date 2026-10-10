@@ -99,14 +99,19 @@ class AppointmentRemindersTest extends TenantTestCase
                 'is_active' => true,
             ]);
 
-            AutomationRule::query()->create([
-                'channel' => CommunicationChannel::EMAIL,
-                'event_key' => $eventKey,
-                'title' => $eventKey,
-                'message_template_id' => $template->id,
-                'is_enabled' => true,
-                'lead_minutes' => $leadMinutes,
-            ]);
+            // updateOrCreate, not create: every organisation now starts with
+            // a default email rule for both reminder events (see
+            // EmailDefaults/the 2026_10_23 migration) — this points THAT row
+            // at the test's own template rather than colliding with it.
+            AutomationRule::query()->updateOrCreate(
+                ['channel' => CommunicationChannel::EMAIL, 'event_key' => $eventKey],
+                [
+                    'title' => $eventKey,
+                    'message_template_id' => $template->id,
+                    'is_enabled' => true,
+                    'lead_minutes' => $leadMinutes,
+                ],
+            );
         });
     }
 
