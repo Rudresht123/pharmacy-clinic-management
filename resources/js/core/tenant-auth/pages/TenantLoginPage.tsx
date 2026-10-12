@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useApiForm } from '@/shared/components/form/useApiForm';
 import { FormError } from '@/shared/components/form/Fields';
@@ -175,6 +175,10 @@ export default function TenantLoginPage() {
                             <input type="checkbox" {...register('remember')} />
                             Remember me
                         </label>
+
+                        <Link to="/forgot-password" className="hx-link">
+                            Forgot password?
+                        </Link>
                     </div>
 
                     <button type="submit" className="hx-submit" disabled={isSubmitting}>

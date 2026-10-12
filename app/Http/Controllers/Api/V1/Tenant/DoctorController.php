@@ -16,7 +16,6 @@ use App\Services\Fields\FieldSchema;
 use App\Services\Permissions\Permission;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DoctorAccountProvisioner;
-use App\Services\Tenant\DoctorPostings;
 use App\Support\Fields\DoctorFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -89,15 +88,22 @@ class DoctorController extends BaseApiController
         return $this->ok(DoctorResource::make($doctor->load(['schedules.location', 'user', 'photograph', 'postings', 'department.parent'])));
     }
 
+    /**
+     * The profile only — their name, registration, specialisation, a login.
+     *
+     * Nothing about where they work. A doctor is the organization's, not one
+     * branch's, and `locations` left this request's rules the same day
+     * `appointments.doctors` became an organization-scoped capability — a
+     * branch posts a doctor to itself by giving them a sitting there (see
+     * DoctorScheduleController), under its own `appointments.schedule`.
+     */
     public function store(
         StoreDoctorRequest $request,
         DoctorAccountProvisioner $accounts,
-        DoctorPostings $postings,
     ): JsonResponse {
         $data = $this->withDepartment($request->validated());
         $account = $data['account'] ?? null;
-        $branches = $data['locations'] ?? null;
-        unset($data['account'], $data['locations']);
+        unset($data['account']);
 
         /*
          * Both in one transaction. A doctor saved with a half-made login is
@@ -105,12 +111,8 @@ class DoctorController extends BaseApiController
          * fails against an account nobody can see.
          */
         $doctor = DB::connection(TenantConnectionService::CONNECTION)
-            ->transaction(function () use ($data, $account, $branches, $request, $accounts, $postings) {
+            ->transaction(function () use ($data, $account, $request, $accounts) {
                 $doctor = $this->doctors->create($data);
-
-                if ($branches !== null) {
-                    $postings->assign($doctor, $branches);
-                }
 
                 if ($account) {
                     $accounts->open($doctor, $account, $this->modules($request));
@@ -129,26 +131,14 @@ class DoctorController extends BaseApiController
         UpdateDoctorRequest $request,
         Doctor $doctor,
         DoctorAccountProvisioner $accounts,
-        DoctorPostings $postings,
     ): JsonResponse {
         $data = $this->withDepartment($request->validated());
         $account = $data['account'] ?? null;
-        $branches = $data['locations'] ?? null;
-        unset($data['account'], $data['locations']);
+        unset($data['account']);
 
         $updated = DB::connection(TenantConnectionService::CONNECTION)
-            ->transaction(function () use ($doctor, $data, $account, $branches, $request, $accounts, $postings) {
+            ->transaction(function () use ($doctor, $data, $account, $request, $accounts) {
                 $updated = $this->doctors->update($doctor, $data);
-
-                /*
-                 * Null means the client did not send the field at all — an
-                 * older caller, or a partial update — and its branches are
-                 * left alone. An empty array is a deliberate "nowhere", which
-                 * is a thing somebody can mean.
-                 */
-                if ($branches !== null) {
-                    $postings->assign($updated, $branches);
-                }
 
                 if ($account) {
                     $accounts->open($updated, $account, $this->modules($request));

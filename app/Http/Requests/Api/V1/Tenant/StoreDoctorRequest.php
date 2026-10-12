@@ -15,8 +15,9 @@ use Illuminate\Validation\Rule;
 /**
  * Adding a doctor.
  *
- * Owner-only, enforced by the route's `tenant.owner` middleware rather than
- * here — `authorize()` returning true is the house convention, because
+ * The profile only — nothing about where they work. `appointments.doctors`
+ * is organization-scoped (see ModuleRegistry), enforced by the route rather
+ * than here — `authorize()` returning true is the house convention, because
  * authorization lives with the route and never in two places.
  */
 class StoreDoctorRequest extends FormRequest
@@ -113,16 +114,6 @@ class StoreDoctorRequest extends FormRequest
                 'string',
                 Password::min(8),
             ],
-
-            /*
-             * The branches this doctor covers.
-             *
-             * Optional: a doctor can be registered before anybody decides
-             * where they will work, which is the whole reason the posting is
-             * separate from the timetable.
-             */
-            'locations' => ['nullable', 'array'],
-            'locations.*' => ['integer'],
         ];
 
         $rules = $this->withFieldSettings(

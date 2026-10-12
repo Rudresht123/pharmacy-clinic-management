@@ -106,6 +106,12 @@ class User extends Authenticatable
         return $this->morphTo();
     }
 
+    /** Their profile photo, when they have one. */
+    public function avatarFile(): BelongsTo
+    {
+        return $this->belongsTo(File::class, 'avatar');
+    }
+
     /**
      * The set of capabilities this person holds.
      *

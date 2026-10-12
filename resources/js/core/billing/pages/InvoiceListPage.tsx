@@ -8,6 +8,8 @@ import { resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { openDocument, useGenerateDocument } from '@/core/documents/api';
+import { BranchFilter } from '@/core/locations/components/BranchFilter';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import {
     INVOICE_KIND_LABELS,
     exportInvoices,
@@ -214,6 +216,7 @@ export default function InvoiceListPage() {
     const [searchInput, setSearchInput] = useState('');
     const [search, setSearch] = useState('');
     const [range, setRange] = useState<{ from: string; to: string } | null>(null);
+    const [branch, setBranch] = useState('');
     const [type, setType] = useState('');
     const [status, setStatus] = useState('');
     const [page, setPage] = useState(1);
@@ -239,9 +242,10 @@ export default function InvoiceListPage() {
         () => ({
             ...(search ? { search } : {}),
             ...(range ? { from: range.from, to: range.to } : {}),
+            ...(branch ? { location_id: branch } : {}),
             ...(type ? { type } : {}),
         }),
-        [search, range, type],
+        [search, range, branch, type],
     );
 
     const listParams = useMemo(
@@ -285,6 +289,7 @@ export default function InvoiceListPage() {
         setSearchInput('');
         setSearch('');
         setRange(null);
+        setBranch('');
         setType('');
         setStatus('');
     }
@@ -354,7 +359,7 @@ export default function InvoiceListPage() {
         });
     }
 
-    const filtered = Boolean(searchInput || range || type || status);
+    const filtered = Boolean(searchInput || range || branch || type || status);
 
     const sortable = (label: string, column: SortKey) => (
         <th>
@@ -388,11 +393,15 @@ export default function InvoiceListPage() {
                 tone="teal"
                 crumbs={[{ label: 'Billing', to: '/billing' }, { label: 'Invoices' }]}
                 actions={
-                    canCreate ? (
-                        <Button icon="ti ti-plus" onClick={() => navigate('/billing/invoices/new')}>
-                            Create Invoice
-                        </Button>
-                    ) : undefined
+                    <div className="bd-header-actions">
+                        <BranchFilter value={branch} onChange={setBranch} />
+
+                        {canCreate && (
+                            <Button icon="ti ti-plus" onClick={() => navigate('/billing/invoices/new')}>
+                                Create Invoice
+                            </Button>
+                        )}
+                    </div>
                 }
             />
 
@@ -482,27 +491,23 @@ export default function InvoiceListPage() {
 
                     <DateRangeField value={range} onChange={setRange} />
 
-                    <label className="inv-select">
-                        <i className="ti ti-file-description" aria-hidden="true" />
-                        <select value={type} onChange={(event) => setType(event.target.value)} aria-label="Type">
-                            {TYPES.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                    <div className="inv-filter-ss">
+                        <SearchableSelect
+                            value={type}
+                            onChange={setType}
+                            ariaLabel="Type"
+                            options={TYPES.map((option) => ({ value: option.value, label: option.label }))}
+                        />
+                    </div>
 
-                    <label className="inv-select">
-                        <i className="ti ti-clock" aria-hidden="true" />
-                        <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Status">
-                            {STATUSES.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                    <div className="inv-filter-ss">
+                        <SearchableSelect
+                            value={status}
+                            onChange={setStatus}
+                            ariaLabel="Status"
+                            options={STATUSES.map((option) => ({ value: option.value, label: option.label }))}
+                        />
+                    </div>
 
                     <button type="button" className="inv-reset" onClick={reset} disabled={!filtered}>
                         <i className="ti ti-refresh" aria-hidden="true" />

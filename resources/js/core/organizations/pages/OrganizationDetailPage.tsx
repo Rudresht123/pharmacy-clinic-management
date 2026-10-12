@@ -8,6 +8,7 @@ import { cn } from '@/shared/utils/cn';
 import { ModulesTab } from '../components/ModulesTab';
 import { OrganizationHero } from '../components/OrganizationHero';
 import { OrganizationHistoryTab } from '../components/OrganizationHistoryTab';
+import { ProvisioningPanel } from '../components/ProvisioningPanel';
 import { organizationsHooks, useOrganizationModules } from '../api';
 import type { Organization, TenantDatabase, TenantMigrationState } from '../types';
 
@@ -71,6 +72,9 @@ export default function OrganizationDetailPage() {
     return (
         <>
             <OrganizationHero organization={organization} />
+
+            {/* Setting a new organization up, live — see the component. */}
+            <ProvisioningPanel organization={organization} />
 
             <OrganizationVitals organization={organization} />
 
@@ -144,12 +148,26 @@ function OrganizationVitals({ organization }: { organization: Organization }) {
                 },
                 {
                     label: 'Owner access',
-                    value: organization.is_setup_completed ? 'Set up' : 'Pending',
-                    icon: organization.is_setup_completed ? 'ti ti-lock-open' : 'ti ti-lock',
-                    tone: organization.is_setup_completed ? 'emerald' : 'amber',
-                    hint: organization.is_setup_completed
-                        ? 'The owner has set their password'
-                        : 'The owner has not set a password yet',
+                    value: organization.owner_restricted
+                        ? 'Restricted'
+                        : organization.is_setup_completed
+                          ? 'Set up'
+                          : 'Pending',
+                    icon: organization.owner_restricted
+                        ? 'ti ti-shield-lock'
+                        : organization.is_setup_completed
+                          ? 'ti ti-lock-open'
+                          : 'ti ti-lock',
+                    tone: organization.owner_restricted
+                        ? 'amber'
+                        : organization.is_setup_completed
+                          ? 'emerald'
+                          : 'amber',
+                    hint: organization.owner_restricted
+                        ? 'Capped to reports, branches, staff & settings'
+                        : organization.is_setup_completed
+                          ? 'The owner has set their password'
+                          : 'The owner has not set a password yet',
                 },
             ]}
         />

@@ -72,7 +72,12 @@ export function DonutChart({
     const total = slices.reduce((sum, slice) => sum + slice.value, 0);
 
     if (total === 0) {
-        return <p className="bar-list-empty">{empty}</p>;
+        return (
+            <div className="donut-empty">
+                <i className="ti ti-chart-donut" aria-hidden="true" />
+                <p>{empty}</p>
+            </div>
+        );
     }
 
     const present = slices.filter((slice) => slice.value > 0);

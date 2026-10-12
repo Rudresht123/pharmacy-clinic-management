@@ -4,6 +4,7 @@ import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { EmptyState, ErrorState, LoadingBlock } from '@/shared/components/ui/Feedback';
 import { Pagination } from '@/shared/components/ui/Pagination';
 import { useDebounce } from '@/shared/hooks/useDebounce';
+import { BranchFilter } from '@/core/locations/components/BranchFilter';
 import {
     PAYMENT_METHOD_LABELS,
     useFinanceDocuments,
@@ -56,18 +57,24 @@ export default function FinancePage() {
     const [tab, setTab] = useState<Tab>('all');
     const [owingOnly, setOwingOnly] = useState(false);
     const [search, setSearch] = useState('');
+    const [branch, setBranch] = useState('');
     const [page, setPage] = useState(1);
 
     const debouncedSearch = useDebounce(search);
 
-    useEffect(() => setPage(1), [tab, owingOnly, debouncedSearch, range.from, range.to]);
+    useEffect(() => setPage(1), [tab, owingOnly, debouncedSearch, branch, range.from, range.to]);
 
-    const summary = useFinanceSummary(range);
+    const summary = useFinanceSummary({
+        from: range.from,
+        to: range.to,
+        location_id: branch ? Number(branch) : undefined,
+    });
     const documents = useFinanceDocuments({
         page,
         per_page: PAGE_SIZE,
         from: owingOnly ? undefined : range.from,
         to: owingOnly ? undefined : range.to,
+        location_id: branch ? Number(branch) : undefined,
         ...(tab === 'all' ? {} : { module: tab }),
         ...(owingOnly ? { outstanding_only: 1 as const } : {}),
         ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
@@ -88,7 +95,12 @@ export default function FinancePage() {
                 icon="ti ti-chart-pie"
                 tone="teal"
                 crumbs={[{ label: 'Billing', to: '/billing' }, { label: 'Finance' }]}
-                actions={<DateRangePicker value={range} onChange={setRange} />}
+                actions={
+                    <div className="bd-header-actions">
+                        <BranchFilter value={branch} onChange={setBranch} />
+                        <DateRangePicker value={range} onChange={setRange} />
+                    </div>
+                }
             />
 
             {summary.isLoading ? (

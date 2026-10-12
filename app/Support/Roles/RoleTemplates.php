@@ -101,7 +101,15 @@ class RoleTemplates
                     'appointments.book',
                     'appointments.queue',
                     'appointments.cancel',
-                    'appointments.doctors',
+                    /*
+                     * Not `appointments.doctors` — a doctor is the
+                     * organization's, taken on once and possibly shared
+                     * across branches, so registering one is head office's.
+                     * A branch manager still decides which of the
+                     * organization's doctors cover their own floor and when:
+                     * `appointments.schedule` posts a doctor to this branch
+                     * the moment a sitting is written here.
+                     */
                     'appointments.schedule',
                     'prescriptions.view',
 
@@ -197,6 +205,9 @@ class RoleTemplates
                      */
                     'appointments.consult_start',
                     'appointments.consult_complete',
+
+                    // Their own patients, between visits.
+                    'appointments.messages',
 
                     'prescriptions.view',
                     'prescriptions.write',
@@ -437,6 +448,8 @@ class RoleTemplates
                     'customers.create',
                     'customers.edit',
                     'appointments.view',
+                    /* The doctor roster, organization-wide — see ModuleRegistry. */
+                    'appointments.doctors',
                     'documents.view',
                     'documents.template_view',
                     'documents.template_edit',

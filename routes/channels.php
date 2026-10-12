@@ -1,6 +1,7 @@
 <?php
 
 use App\Broadcasting\BranchPharmacyChannel;
+use App\Broadcasting\UserMessagesChannel;
 use Illuminate\Support\Facades\Broadcast;
 
 /*
@@ -30,5 +31,11 @@ use Illuminate\Support\Facades\Broadcast;
 Broadcast::channel(
     'org.{organization}.branch.{branch}.pharmacy',
     BranchPharmacyChannel::class,
+    ['guards' => ['web']],
+);
+
+Broadcast::channel(
+    'org.{organization}.user.{user}.messages',
+    UserMessagesChannel::class,
     ['guards' => ['web']],
 );

@@ -28,6 +28,7 @@ const EMPTY: OrganizationFormValues = {
     phone_number: '',
     address: '',
     is_active: true,
+    owner_restricted: false,
 
     // §5: nullable at creation, required before the tenant goes live.
     legal_name: '',
@@ -85,6 +86,7 @@ export default function OrganizationFormPage() {
                 phone_number: organization.phone_number ?? '',
                 address: organization.address ?? '',
                 is_active: organization.is_active,
+                owner_restricted: organization.owner_restricted,
                 legal_name: organization.legal_name ?? '',
                 gstin: organization.gstin ?? '',
                 drug_license_no: organization.drug_license_no ?? '',
@@ -113,7 +115,12 @@ export default function OrganizationFormPage() {
             );
 
             if (result) {
-                navigate('/organizations');
+                /*
+                 * A new organization is set up on a queue after this returns,
+                 * so the administrator lands on its page to watch that happen;
+                 * an edit goes back to the list as before.
+                 */
+                navigate(!isEdit && result.uuid ? `/organizations/${result.uuid}` : '/organizations');
             }
         } finally {
             // Cleared either way — a validation failure must not leave the
@@ -374,6 +381,16 @@ export default function OrganizationFormPage() {
                                 name="is_active"
                                 label="Active"
                                 description="Inactive organizations stay in the list but cannot be used."
+                                register={register}
+                                errors={errors}
+                            />
+                        </Card>
+
+                        <Card title="Owner access" icon="ti ti-shield-lock">
+                            <SwitchField
+                                name="owner_restricted"
+                                label="Restrict the owner to monitoring & control"
+                                description="The owner's own login loses its usual bypass and is capped to reports, branches, staff and organization settings — no patients, appointments, prescriptions, dispensing or billing transactions. That clinical floor stays with each branch's own Branch manager. Off by default."
                                 register={register}
                                 errors={errors}
                             />

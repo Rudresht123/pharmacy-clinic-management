@@ -4,7 +4,12 @@ import { createResourceHooks, resourceKey } from '@/shared/hooks/useResource';
 import { http } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import type { ApiResponse } from '@/shared/types/api';
-import type { ModuleBindingInput, Organization, OrganizationModulesPayload } from './types';
+import type {
+    ModuleBindingInput,
+    Organization,
+    OrganizationModulesPayload,
+    ProvisioningProgress,
+} from './types';
 
 /**
  * The whole data layer for this module — the factory supplies list/get/
@@ -24,6 +29,31 @@ export async function retryOrganizationProvisioning(uuid: string): Promise<Organ
     );
 
     return data.data;
+}
+
+/**
+ * How far setting an organization up has got.
+ *
+ * Polled every second and a half while the queue is working on it, and not
+ * at all once it is active or has failed — there is nothing left to watch.
+ */
+export function useOrganizationProvisioning(uuid: string | undefined, watching: boolean) {
+    return useQuery({
+        queryKey: resourceKey(organizationsApi.endpoint, 'provisioning', uuid),
+        queryFn: async (): Promise<ProvisioningProgress> => {
+            const { data } = await http.get<ApiResponse<ProvisioningProgress>>(
+                `/admin/organizations/${uuid}/provisioning`,
+            );
+
+            return data.data;
+        },
+        enabled: Boolean(uuid) && watching,
+        refetchInterval: (query) => {
+            const status = query.state.data?.status;
+
+            return status === 'active' || status === 'failed' ? false : 1500;
+        },
+    });
 }
 
 /**

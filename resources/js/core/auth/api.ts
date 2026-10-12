@@ -22,6 +22,7 @@ export interface PlatformUser {
     uuid: string;
     name: string;
     email: string;
+    avatar_url: string | null;
     is_active: boolean;
     roles: PlatformRole[];
     two_factor_enabled: boolean;
@@ -77,6 +78,21 @@ export const authApi = {
         await ensureCsrfCookie();
 
         await http.post('/admin/auth/reset-password', payload);
+    },
+
+    async uploadAvatar(file: File): Promise<PlatformUser> {
+        const body = new FormData();
+        body.append('avatar', file);
+
+        const { data } = await http.post<ApiResponse<PlatformUser>>('/admin/auth/avatar', body);
+
+        return data.data;
+    },
+
+    async deleteAvatar(): Promise<PlatformUser> {
+        const { data } = await http.delete<ApiResponse<PlatformUser>>('/admin/auth/avatar');
+
+        return data.data;
     },
 };
 

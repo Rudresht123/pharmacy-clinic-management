@@ -69,6 +69,14 @@ class OrganizationResource extends JsonResource
             'status' => $this->status,
             'is_active' => (bool) $this->is_active,
             'is_setup_completed' => (bool) $this->is_setup_completed,
+            /*
+             * Caps the owner's own account down to reports and
+             * administration — the one deliberate exception to "the owner
+             * bypasses every capability" (see Permission::allows()). Off by
+             * default: every organization's owner has full reach until this
+             * is switched on for them specifically.
+             */
+            'owner_restricted' => (bool) $this->owner_restricted,
 
             'plan_id' => $this->plan_id,
             'trial_ends_at' => $this->trial_ends_at?->toIso8601String(),

@@ -337,8 +337,38 @@ class ModuleRegistry
                     ['key' => 'appointments.consult_complete', 'name' => 'Complete and reopen a consultation', 'scope' => self::SCOPE_BRANCH],
 
                     ['key' => 'appointments.cancel', 'name' => 'Cancel and mark no-shows', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'appointments.doctors', 'name' => 'Add and edit doctors', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'appointments.schedule', 'name' => 'Set timings, leave and extra sessions', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * A doctor writing to their own patients, and reading what
+                     * they write back. In this module because the relationship
+                     * it rides on is a visit: a doctor may message somebody
+                     * they have an appointment with, and nobody else — which
+                     * the controller checks, since no capability can.
+                     */
+                    ['key' => 'appointments.messages', 'name' => 'Message their own patients', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * A DOCTOR IS THE ORGANIZATION'S, THEIR WEEK IS THE
+                     * BRANCH'S.
+                     *
+                     * The `doctors` row has no `location_id` — a doctor is
+                     * taken on by the organization and may sit at more than
+                     * one branch, so the profile (name, registration,
+                     * specialisation, their own login) is written once,
+                     * organization-wide, the same as the medicine master.
+                     * ORGANIZATION scope: a branch role cannot hold it
+                     * (SaveRoleRequest refuses it), so a branch admin cannot
+                     * register a doctor the network has never heard of.
+                     *
+                     * Where they sit is the opposite question, and stays with
+                     * the branch: `appointments.schedule` posts a doctor to a
+                     * branch the moment a sitting is written there (see
+                     * DoctorPostings::ensure()), so a branch's own admin
+                     * decides which of the organization's doctors cover their
+                     * floor, without touching the doctor's profile at all.
+                     */
+                    ['key' => 'appointments.doctors', 'name' => 'Add and edit doctors', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'appointments.schedule', 'name' => 'Assign doctors to this branch, and set their timings, leave and extra sessions', 'scope' => self::SCOPE_BRANCH],
 
                     /*
                      * The patient's side of the same module, in the patient
@@ -354,6 +384,7 @@ class ModuleRegistry
                      */
                     ['key' => 'portal.appointments.view', 'name' => 'Patients: see their own appointments', 'scope' => self::SCOPE_ORGANIZATION],
                     ['key' => 'portal.appointments.book', 'name' => 'Patients: find a doctor and book for themselves', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'portal.messages', 'name' => 'Patients: message the doctors they have seen', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             [

@@ -180,7 +180,7 @@ export default function RolesPage() {
      * that would drift the first time a screen moved, and a preview that lies
      * is worse than none.
      */
-    const { modules: orgModules, user, activeBranch, refreshSession } = useTenantAuth();
+    const { modules: orgModules, user, activeBranch, refreshSession, can } = useTenantAuth();
     const { data: entities } = useConfigurableEntities();
 
     const labels = useMemo(
@@ -425,6 +425,20 @@ export default function RolesPage() {
     const isOwner = user?.role === 'owner';
 
     /*
+     * Whether this person may write a role AT ALL, regardless of which one.
+     *
+     * An owner used to be assumed yes, unconditionally — `isOwner` below is
+     * what every write check here was built on. A restricted owner breaks
+     * that assumption: they still hold `people.view` (they have to, to pick
+     * a role when adding a Branch manager) but not `people.roles`, so every
+     * write surface on this screen — New Role, Edit, Delete, Copy to this
+     * branch, the permission toggles, both Save bars — is gated on this
+     * first, same as it would refuse a member of staff who held only
+     * `people.view`.
+     */
+    const mayWriteRoles = can('people.roles');
+
+    /*
      * A role written by the organization but assignable per branch — "Branch
      * manager", "Receptionist" and the like. Editing it outright changes what
      * every branch's holders may do; customising it is the alternative that
@@ -466,8 +480,8 @@ export default function RolesPage() {
      * what a receptionist may do everywhere — which is the whole reason a
      * branch writes its own instead.
      */
-    const canWrite =
-        !current || (isOwner ? effectiveBranch === null : false) || current.location_id !== null;
+    const canWrite = mayWriteRoles
+        && (!current || (isOwner ? effectiveBranch === null : false) || current.location_id !== null);
 
     /*
      * Whether the lock column means anything here.
@@ -478,7 +492,8 @@ export default function RolesPage() {
      * role written here is organization-wide and branch-assigned, which is
      * exactly the kind that does.
      */
-    const canLock = isOwner && effectiveBranch === null && (current?.is_customisable_by_branch ?? true);
+    const canLock = mayWriteRoles && isOwner && effectiveBranch === null
+        && (current?.is_customisable_by_branch ?? true);
 
     /*
      * The other way to change what a role means here.
@@ -637,9 +652,11 @@ export default function RolesPage() {
                 tone="violet"
                 crumbs={[{ label: 'Roles & Permissions' }]}
                 actions={
-                    <Button icon="ti ti-plus" onClick={() => startNew()}>
-                        New Role
-                    </Button>
+                    mayWriteRoles ? (
+                        <Button icon="ti ti-plus" onClick={() => startNew()}>
+                            New Role
+                        </Button>
+                    ) : undefined
                 }
             />
 
@@ -674,14 +691,16 @@ export default function RolesPage() {
                         <aside className="rp-rail">
                             <header className="rp-rail-head">
                                 <h6>Roles</h6>
-                                <button
-                                    type="button"
-                                    className="rp-rail-add"
-                                    aria-label="New role"
-                                    onClick={() => startNew()}
-                                >
-                                    <i className="ti ti-plus" />
-                                </button>
+                                {mayWriteRoles && (
+                                    <button
+                                        type="button"
+                                        className="rp-rail-add"
+                                        aria-label="New role"
+                                        onClick={() => startNew()}
+                                    >
+                                        <i className="ti ti-plus" />
+                                    </button>
+                                )}
                             </header>
 
                             <div className="rp-rail-list">
@@ -751,7 +770,7 @@ export default function RolesPage() {
                                                     out: a copy this branch owns and
                                                     may change freely.
                                                 */}
-                                                {!canWrite && current && (
+                                                {mayWriteRoles && !canWrite && current && (
                                                     <button
                                                         type="button"
                                                         className="rp-act"
@@ -784,7 +803,7 @@ export default function RolesPage() {
                                                     </button>
                                                 )}
 
-                                                {current && (
+                                                {mayWriteRoles && current && (
                                                     <div className="rp-menu">
                                                         <button
                                                             type="button"
@@ -893,7 +912,13 @@ export default function RolesPage() {
                                                 {!canWrite && (
                                                     <p className="rp-shared">
                                                         <i className="ti ti-lock" />
-                                                        {branchCustomising ? (
+                                                        {!mayWriteRoles ? (
+                                                            <>
+                                                                Your role does not include writing
+                                                                roles. You can read this one, not
+                                                                change it.
+                                                            </>
+                                                        ) : branchCustomising ? (
                                                             <>
                                                                 These permissions come from your
                                                                 organisation. You can switch them
@@ -920,9 +945,12 @@ export default function RolesPage() {
                                                     screen a branch manager gets automatically.
                                                     Without this an owner could only ever edit
                                                     the organization's own copy — there was no
-                                                    button that meant "just at Gorakhpur".
+                                                    button that meant "just at Gorakhpur". Behind
+                                                    `mayWriteRoles` too: a restricted owner who
+                                                    cannot write any role has nothing to pick a
+                                                    branch for.
                                                 */}
-                                                {isOwner && branchScoped && (
+                                                {mayWriteRoles && isOwner && branchScoped && (
                                                     <label className="rp-field rp-branch-pick">
                                                         <span>Editing</span>
                                                         <SearchableSelect
@@ -1058,7 +1086,7 @@ export default function RolesPage() {
                                                                   [])
                                                                 : null
                                                         }
-                                                        canWrite={branchCustomising || canWrite}
+                                                        canWrite={mayWriteRoles && (branchCustomising || canWrite)}
                                                         onToggle={
                                                             branchCustomising
                                                                 ? toggleForBranch
@@ -1092,6 +1120,7 @@ export default function RolesPage() {
                                     {branchCustomising ? (
                                         <footer
                                             className={`rp-foot${branchDirty ? ' is-dirty' : ''}`}
+                                            hidden={!mayWriteRoles}
                                         >
                                             <span className="rp-foot-state">
                                                 {branchDirty ? (

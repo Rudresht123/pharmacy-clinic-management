@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Tenant\Auth;
 use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Http\Requests\Api\V1\Tenant\Auth\LoginRequest;
 use App\Http\Resources\Tenant\UserResource;
+use App\Models\Tenant\File as TenantFile;
 use App\Models\Tenant\PersonalAccessToken;
 use App\Models\Tenant\User as TenantUser;
 use App\Services\Push\DeviceRegistry;
@@ -12,6 +13,7 @@ use App\Services\Tenant\SessionPayload;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 /**
  * Tenant session — the first login any organization's own staff can use.
@@ -166,7 +168,7 @@ class AuthController extends BaseApiController
 
         if (! $organization) {
             return $this->ok([
-                'user' => UserResource::make($user),
+                'user' => UserResource::make($user->loadMissing('avatarFile')),
                 'organization' => null,
                 'modules' => [],
                 'capabilities' => [],
@@ -174,5 +176,108 @@ class AuthController extends BaseApiController
         }
 
         return $this->ok($session->for($user, $organization));
+    }
+
+    /**
+     * The signed-in person's own name/email.
+     *
+     * Mirrors the platform panel's own updateProfile: name and email only —
+     * everything else about an account (role, branches, department) is the
+     * owner's call on the People screen, not something staff edit on
+     * themselves.
+     */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $this->actor($request);
+
+        if (! $user) {
+            return $this->fail('Unauthenticated.', 401);
+        }
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'email' => [
+                'required', 'string', 'email', 'max:190',
+                // The model class, not the string 'users' — a string table
+                // name resolves against the master connection and 500s (see
+                // StoreTenantUserRequest).
+                Rule::unique(TenantUser::class, 'email')
+                    ->whereNull('deleted_at')
+                    ->ignore($user->id),
+            ],
+        ]);
+
+        $user->update($data);
+
+        return $this->ok(
+            UserResource::make($user->fresh()->loadMissing('avatarFile')),
+            'Profile updated successfully.'
+        );
+    }
+
+    /**
+     * Replace this person's profile photo.
+     *
+     * Its own endpoint rather than a field on [updateProfile], for the same
+     * reason DoctorController::uploadPhoto is its own: a file is not a value
+     * that belongs in a JSON body, and re-sending it on every profile save
+     * would upload the same image again.
+     */
+    public function uploadAvatar(Request $request): JsonResponse
+    {
+        $user = $this->actor($request);
+
+        if (! $user) {
+            return $this->fail('Unauthenticated.', 401);
+        }
+
+        $request->validate([
+            'avatar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
+
+        $previous = $user->avatarFile;
+
+        $disk = config('filesystems.uploads_disk');
+        $stored = $request->file('avatar')->store('avatars', $disk);
+
+        $file = TenantFile::create([
+            'file_name' => $request->file('avatar')->getClientOriginalName(),
+            'file_path' => $stored,
+            'disk' => $disk,
+            'mime_type' => $request->file('avatar')->getClientMimeType(),
+            'file_size' => $request->file('avatar')->getSize(),
+            'extension' => $request->file('avatar')->getClientOriginalExtension(),
+        ]);
+
+        $user->forceFill(['avatar' => $file->id])->save();
+
+        // Only once the new one is safely in place — a failure above leaves
+        // this person with the photo they had rather than with none.
+        $previous?->purge();
+
+        return $this->ok(
+            UserResource::make($user->fresh()->loadMissing('avatarFile')),
+            'Photo updated'
+        );
+    }
+
+    /** Remove it, leaving the account. */
+    public function deleteAvatar(Request $request): JsonResponse
+    {
+        $user = $this->actor($request);
+
+        if (! $user) {
+            return $this->fail('Unauthenticated.', 401);
+        }
+
+        $existing = $user->avatarFile;
+
+        $user->forceFill(['avatar' => null])->save();
+        $existing?->purge();
+
+        return $this->ok(
+            UserResource::make($user->fresh()->loadMissing('avatarFile')),
+            'Photo removed'
+        );
     }
 }

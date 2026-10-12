@@ -8,9 +8,12 @@ import { EmptyState, LoadingBlock } from '@/shared/components/ui/Feedback';
 import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { http, resolveErrorMessage } from '@/shared/api/http';
 import type { Page } from '@/shared/api/resource';
+import type { ApiResponse } from '@/shared/types/api';
 import { formatDate } from '@/shared/utils/format';
 import { notify } from '@/shared/utils/notify';
 import { customersHooks } from '@/core/customers/api';
+import { medicinesApi } from '@/core/medicines/api';
+import type { PrescriptionItem, VisitPrescription } from '@/core/prescriptions/types';
 import { NoStores, StorePicker, useChosenStore } from '../components/StorePicker';
 import { OpdPatientsPanel } from '../components/OpdPatientsPanel';
 import { useStock, useStoreCategories, type MedicineBatch, type StockRow } from '../inventory';
@@ -270,6 +273,9 @@ export default function PosPage() {
     const [customerId, setCustomerId] = useState('');
     /** A patient picked from OPD who may not be in the first page of customers. */
     const [picked, setPicked] = useState<{ id: number; name: string; hint: string } | null>(null);
+    /** The visit's prescription, once picked — sent with the bill so dispensing credits it. */
+    const [prescriptionId, setPrescriptionId] = useState<number | null>(null);
+    const [fillingRx, setFillingRx] = useState(false);
     const [walkIn, setWalkIn] = useState({ name: '', phone: '' });
     const [note, setNote] = useState<string | null>(null);
     const [method, setMethod] = useState('cash');
@@ -399,6 +405,49 @@ export default function PosPage() {
 
     const owed = Number(tendered === '' ? totals.rounded : tendered);
 
+    /**
+     * The batch a medicine would be sold from: first expiry, first out — and
+     * how much of it is usable in total, across every batch at this store.
+     *
+     * Shared by the shelf's own "Add" and by the prescription auto-fill,
+     * which has no StockRow of its own to read a batch off.
+     */
+    async function bestBatch(medicineId: number): Promise<{ batch: CartLine['batch']; usable: number }> {
+        try {
+            const { data } = await http.get<{ data: MedicineBatch[] }>(
+                `/tenant/pharmacy-stores/${store?.id}/batches`,
+                { params: { medicine_id: medicineId, in_stock: 1, per_page: 50 }, silent: true },
+            );
+
+            const candidates = data.data
+                .filter((candidate) => candidate.is_usable && candidate.quantity_available > 0)
+                .sort((a, b) => a.expiry_date.localeCompare(b.expiry_date));
+
+            const usable = candidates.reduce((sum, row) => sum + row.quantity_available, 0);
+
+            if (!candidates[0]) {
+                return { batch: null, usable };
+            }
+
+            const mrp = Number(candidates[0].mrp);
+
+            return {
+                usable,
+                batch: {
+                    id: candidates[0].id,
+                    number: candidates[0].batch_number,
+                    expiry: candidates[0].expiry_date,
+                    mrp,
+                    price: settings?.price_basis === 'selling' ? Number(candidates[0].selling_price) : mrp,
+                },
+            };
+        } catch {
+            // The bill is the server's answer anyway; a price we could not
+            // read just means the cart shows no estimate for this line.
+            return { batch: null, usable: 0 };
+        }
+    }
+
     /** Add a medicine, with the batch that would fill it: first expiry first out. */
     async function add(row: StockRow) {
         setError(null);
@@ -412,33 +461,7 @@ export default function PosPage() {
             return;
         }
 
-        let batch: CartLine['batch'] = null;
-
-        try {
-            const { data } = await http.get<{ data: MedicineBatch[] }>(
-                `/tenant/pharmacy-stores/${store?.id}/batches`,
-                { params: { medicine_id: row.medicine_id, in_stock: 1, per_page: 50 }, silent: true },
-            );
-
-            const usable = data.data
-                .filter((candidate) => candidate.is_usable && candidate.quantity_available > 0)
-                .sort((a, b) => a.expiry_date.localeCompare(b.expiry_date));
-
-            if (usable[0]) {
-                const mrp = Number(usable[0].mrp);
-
-                batch = {
-                    id: usable[0].id,
-                    number: usable[0].batch_number,
-                    expiry: usable[0].expiry_date,
-                    mrp,
-                    price: settings?.price_basis === 'selling' ? Number(usable[0].selling_price) : mrp,
-                };
-            }
-        } catch {
-            // The bill is the server's answer anyway; a price we could not
-            // read just means the cart shows no estimate for this line.
-        }
+        const { batch } = await bestBatch(row.medicine_id);
 
         setLines((was) => [
             ...was,
@@ -452,6 +475,84 @@ export default function PosPage() {
                 batch,
             },
         ]);
+    }
+
+    /** What a prescription still owes the counter — medicines only, nothing cancelled or already handed over. */
+    function stillOwed(items: PrescriptionItem[]): PrescriptionItem[] {
+        return items.filter(
+            (item) =>
+                item.medicine_id !== null &&
+                (item.item_kind === 'medicine' || item.item_kind == null) &&
+                item.status !== 'cancelled' &&
+                (item.prescribed_quantity ?? 0) - item.dispensed_quantity > 0,
+        );
+    }
+
+    /**
+     * Bring the visit's own prescription onto the bill.
+     *
+     * Only while the counter may actually dispense against it — issued, or
+     * already part-filled by an earlier bill. A draft is still the doctor's,
+     * and one fully dispensed has nothing left to add. The prescription's id
+     * travels with the bill so checkout credits it, exactly as if the
+     * cashier had opened it line by line.
+     */
+    async function fillFromPrescription(appointmentId: number) {
+        if (!store) {
+            return;
+        }
+
+        setFillingRx(true);
+
+        try {
+            const { data } = await http.get<ApiResponse<VisitPrescription>>(
+                `/tenant/appointments/${appointmentId}/prescription`,
+                { silent: true },
+            );
+
+            const prescription = data.data.prescription;
+
+            if (!prescription || (prescription.status !== 'issued' && prescription.status !== 'partially_dispensed')) {
+                return;
+            }
+
+            const owed = stillOwed(prescription.items ?? []);
+            const added: CartLine[] = [];
+
+            for (const item of owed) {
+                const medicineId = item.medicine_id as number;
+
+                // Already on the bill — picked by hand, or a second line of the same visit.
+                if (lines.some((line) => line.medicine_id === medicineId) || added.some((line) => line.medicine_id === medicineId)) {
+                    continue;
+                }
+
+                const [{ batch, usable }, medicine] = await Promise.all([
+                    bestBatch(medicineId),
+                    medicinesApi.get(medicineId).catch(() => null),
+                ]);
+
+                added.push({
+                    medicine_id: medicineId,
+                    name: [item.generic_name ?? item.medicine_name, item.strength].filter(Boolean).join(' '),
+                    unit: item.base_unit ?? 'unit',
+                    quantity: Math.max(1, Math.round((item.prescribed_quantity ?? 1) - item.dispensed_quantity)),
+                    available: usable,
+                    taxRate: medicine?.tax_rate ?? 0,
+                    batch,
+                });
+            }
+
+            if (added.length > 0) {
+                setLines((was) => [...was, ...added]);
+                setPrescriptionId(prescription.id);
+                notify.success(`Added ${added.length} medicine${added.length === 1 ? '' : 's'} from the prescription`);
+            }
+        } catch {
+            // Nothing clinical to show here — the cashier can still add items by hand.
+        } finally {
+            setFillingRx(false);
+        }
     }
 
     /**
@@ -498,6 +599,7 @@ export default function PosPage() {
         setLines([]);
         setCustomerId('');
         setPicked(null);
+        setPrescriptionId(null);
         setWalkIn({ name: '', phone: '' });
         setNote(null);
         setTendered('');
@@ -517,6 +619,12 @@ export default function PosPage() {
             hint: [patient.patient.code, patient.patient.phone].filter(Boolean).join(' · '),
         });
         setCustomerId(String(patient.patient.id));
+
+        // What the doctor just prescribed, onto the bill — so the cashier is
+        // not retyping what was already written down.
+        if (patient.has_prescription) {
+            void fillFromPrescription(patient.appointment_id);
+        }
     }
 
     async function checkout() {
@@ -530,6 +638,7 @@ export default function PosPage() {
             customer_id: customerId ? Number(customerId) : null,
             walk_in_name: customerId ? null : walkIn.name || null,
             walk_in_phone: customerId ? null : walkIn.phone || null,
+            prescription_id: prescriptionId,
             notes: note?.trim() || null,
             items: lines.map((line) => ({
                 medicine_id: line.medicine_id,
@@ -945,7 +1054,15 @@ export default function PosPage() {
                                 <SearchableSelect
                                     id="pos-customer"
                                     value={customerId}
-                                    onChange={(next) => setCustomerId(next)}
+                                    onChange={(next) => {
+                                        setCustomerId(next);
+
+                                        // Switched to somebody else — the prescription on the
+                                        // bill was never theirs.
+                                        if (next !== (picked ? String(picked.id) : '')) {
+                                            setPrescriptionId(null);
+                                        }
+                                    }}
                                     placeholder="Walk-in customer"
                                     ariaLabel="Customer"
                                     clearable
@@ -963,6 +1080,20 @@ export default function PosPage() {
                                 <i className="ti ti-scan" aria-hidden="true" />
                             </button>
                         </div>
+
+                        {fillingRx && (
+                            <p className="pos-rx-loading">
+                                <i className="ti ti-loader-2 is-spinning" aria-hidden="true" />
+                                Reading the prescription…
+                            </p>
+                        )}
+
+                        {!fillingRx && prescriptionId && (
+                            <p className="pos-rx-attached">
+                                <i className="ti ti-file-text" aria-hidden="true" />
+                                Billing against the visit's prescription
+                            </p>
+                        )}
 
                         {!customerId && (
                             <div className="pos-walkin">
@@ -1041,38 +1172,39 @@ export default function PosPage() {
                             )
                         ) : (
                             <div className="pos-lines-wrap">
-                                <table className="pos-lines">
-                                    <thead>
-                                        <tr>
-                                            <th className="pos-line-no">#</th>
-                                            <th>Item</th>
-                                            <th className="is-center">Qty</th>
-                                            <th className="is-num">MRP (₹)</th>
-                                            <th className="is-num">Price (₹)</th>
-                                            <th className="is-num">Total (₹)</th>
-                                            <th aria-label="Remove" />
-                                        </tr>
-                                    </thead>
+                                <div className="pos-lines">
+                                    {lines.map((line, index) => {
+                                        const price = line.batch?.price ?? 0;
+                                        const short = line.quantity > line.available;
 
-                                    <tbody>
-                                        {lines.map((line, index) => {
-                                            const price = line.batch?.price ?? 0;
-                                            const short = line.quantity > line.available;
+                                        return (
+                                            <div className="pos-line" key={line.medicine_id}>
+                                                <div className="pos-line-row">
+                                                    <span className="pos-line-name">{line.name}</span>
 
-                                            return (
-                                                <tr key={line.medicine_id}>
-                                                    <td className="pos-line-no">{index + 1}</td>
+                                                    <button
+                                                        type="button"
+                                                        className="pos-remove"
+                                                        aria-label={`Remove ${line.name}`}
+                                                        onClick={() => remove(index)}
+                                                    >
+                                                        <i className="ti ti-x" aria-hidden="true" />
+                                                    </button>
+                                                </div>
 
-                                                    <td className="pos-line-item">
-                                                        <span>{line.name}</span>
+                                                <div className="pos-line-row pos-line-sub">
+                                                    <span className="pos-line-meta">
+                                                        {line.batch && <>MRP {money(line.batch.mrp)} · </>}
+                                                        {money(price)}/{line.unit}
                                                         {short && (
-                                                            <small className="pos-line-warn">
-                                                                Only {line.available} in stock
-                                                            </small>
+                                                            <span className="pos-line-warn">
+                                                                <i className="ti ti-alert-triangle" aria-hidden="true" />
+                                                                Only {line.available} left
+                                                            </span>
                                                         )}
-                                                    </td>
+                                                    </span>
 
-                                                    <td className="is-center">
+                                                    <span className="pos-line-controls">
                                                         <div className="pos-stepper">
                                                             <button
                                                                 type="button"
@@ -1111,31 +1243,14 @@ export default function PosPage() {
                                                                 <i className="ti ti-plus" aria-hidden="true" />
                                                             </button>
                                                         </div>
-                                                    </td>
 
-                                                    <td className="is-num">
-                                                        {line.batch ? line.batch.mrp.toFixed(2) : '—'}
-                                                    </td>
-                                                    <td className="is-num">{price.toFixed(2)}</td>
-                                                    <td className="is-num pos-line-total">
-                                                        {(price * line.quantity).toFixed(2)}
-                                                    </td>
-
-                                                    <td className="is-act">
-                                                        <button
-                                                            type="button"
-                                                            className="pos-remove"
-                                                            aria-label={`Remove ${line.name}`}
-                                                            onClick={() => remove(index)}
-                                                        >
-                                                            <i className="ti ti-trash" aria-hidden="true" />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+                                                        <b className="pos-line-total">{money(price * line.quantity)}</b>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
 

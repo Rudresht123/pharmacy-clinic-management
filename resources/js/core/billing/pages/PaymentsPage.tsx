@@ -4,6 +4,7 @@ import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { EmptyState, ErrorState, LoadingBlock } from '@/shared/components/ui/Feedback';
 import { Pagination } from '@/shared/components/ui/Pagination';
 import { useDebounce } from '@/shared/hooks/useDebounce';
+import { BranchFilter } from '@/core/locations/components/BranchFilter';
 import {
     PAYMENT_METHOD_LABELS,
     usePayments,
@@ -72,6 +73,7 @@ export default function PaymentsPage() {
     const [dateRange, setDateRange] = useState(last30DaysWindow);
     const [method, setMethod] = useState<Method>('all');
     const [search, setSearch] = useState('');
+    const [branch, setBranch] = useState('');
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(10);
 
@@ -79,9 +81,13 @@ export default function PaymentsPage() {
 
     useEffect(() => {
         setPage(1);
-    }, [method, debouncedSearch, dateRange.from, dateRange.to]);
+    }, [method, debouncedSearch, branch, dateRange.from, dateRange.to]);
 
-    const summaryQuery = usePaymentsSummary(dateRange);
+    const summaryQuery = usePaymentsSummary({
+        from: dateRange.from,
+        to: dateRange.to,
+        location_id: branch ? Number(branch) : undefined,
+    });
     const summary = summaryQuery.data;
 
     const { data: pageData, isLoading, isFetching, isError, refetch } = usePayments({
@@ -90,6 +96,7 @@ export default function PaymentsPage() {
         from: dateRange.from || undefined,
         to: dateRange.to || undefined,
         search: debouncedSearch.trim() || undefined,
+        location_id: branch || undefined,
         ...(method === 'all' ? {} : { method }),
     });
 
@@ -104,10 +111,11 @@ export default function PaymentsPage() {
     function handleReset() {
         setDateRange(last30DaysWindow());
         setSearch('');
+        setBranch('');
         setMethod('all');
     }
 
-    const hasFilters = Boolean(search || method !== 'all');
+    const hasFilters = Boolean(search || branch || method !== 'all');
 
     return (
         <div className="inv-page">
@@ -117,7 +125,12 @@ export default function PaymentsPage() {
                 icon="ti ti-cash"
                 tone="teal"
                 crumbs={[{ label: 'Billing', to: '/billing' }, { label: 'Payments' }]}
-                actions={<ExportButton dateRange={dateRange} method={method} search={debouncedSearch} />}
+                actions={
+                    <div className="bd-header-actions">
+                        <BranchFilter value={branch} onChange={setBranch} />
+                        <ExportButton dateRange={dateRange} method={method} search={debouncedSearch} branch={branch} />
+                    </div>
+                }
             />
 
             <div className="inv-kpis">
@@ -371,10 +384,12 @@ function ExportButton({
     dateRange,
     method,
     search,
+    branch,
 }: {
     dateRange: { from: string; to: string };
     method: Method;
     search: string;
+    branch: string;
 }) {
     const [open, setOpen] = useState(false);
     const box = useRef<HTMLDivElement>(null);
@@ -391,6 +406,7 @@ function ExportButton({
 
         if (method !== 'all') params.set('method', method);
         if (search.trim()) params.set('search', search.trim());
+        if (branch) params.set('location_id', branch);
 
         window.open(`/api/v1/tenant/billing/payments/export?${params.toString()}`, '_blank');
     }

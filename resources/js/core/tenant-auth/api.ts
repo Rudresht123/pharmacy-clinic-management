@@ -16,6 +16,7 @@ export interface TenantUser {
     id: number;
     name: string;
     email: string;
+    avatar_url: string | null;
     /** The account's kind. Not the same question as `role_id` below. */
     role: TenantUserRole;
 
@@ -145,6 +146,15 @@ export interface TenantSession {
      * owner is kept on the setup screen and everybody else is told to wait.
      */
     setup_completed: boolean;
+
+    /**
+     * Whether this organization has capped its owner to reports.
+     *
+     * `capabilities` already reflects it — this is only here so the home
+     * route can send a restricted owner to `/pharmacy/reports` instead of
+     * the dashboard, which would have nothing to show them.
+     */
+    owner_restricted?: boolean;
 }
 
 export interface TenantLoginPayload {
@@ -189,5 +199,56 @@ export const tenantAuthApi = {
         const { data } = await http.get<ApiResponse<TenantSession>>('/tenant/auth/me');
 
         return data.data;
+    },
+
+    async updateProfile(payload: { name: string; email: string }): Promise<TenantUser> {
+        const { data } = await http.put<ApiResponse<TenantUser>>('/tenant/auth/profile', payload);
+
+        return data.data;
+    },
+
+    async uploadAvatar(file: File): Promise<TenantUser> {
+        const body = new FormData();
+        body.append('avatar', file);
+
+        const { data } = await http.post<ApiResponse<TenantUser>>('/tenant/auth/avatar', body);
+
+        return data.data;
+    },
+
+    async deleteAvatar(): Promise<TenantUser> {
+        const { data } = await http.delete<ApiResponse<TenantUser>>('/tenant/auth/avatar');
+
+        return data.data;
+    },
+
+    async updatePassword(payload: {
+        current_password: string;
+        password: string;
+        password_confirmation: string;
+    }): Promise<void> {
+        await http.put('/tenant/auth/password', payload);
+    },
+
+    async forgotPassword(email: string): Promise<string> {
+        await ensureCsrfCookie();
+
+        const { data } = await http.post<{ message: string }>('/tenant/auth/forgot-password', {
+            email,
+        });
+
+        return data.message;
+    },
+
+    async resetPassword(payload: {
+        token: string;
+        email: string;
+        subdomain?: string;
+        password: string;
+        password_confirmation: string;
+    }): Promise<void> {
+        await ensureCsrfCookie();
+
+        await http.post('/tenant/auth/reset-password', payload);
     },
 };

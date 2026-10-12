@@ -17,6 +17,7 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            'avatar_url' => $this->whenLoaded('avatarFile', fn () => $this->avatarFile?->url, null),
             // The account's kind — owner or staff. Not the same question as
             // `role_id` below, which is what they may do.
             'role' => $this->role,

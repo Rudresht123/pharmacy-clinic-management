@@ -30,6 +30,8 @@ use Illuminate\Validation\ValidationException;
  */
 class LoginRequest extends FormRequest
 {
+    use ResolvesOrganization;
+
     private const MAX_ATTEMPTS = 5;
 
     private const DECAY_SECONDS = 900;
@@ -124,11 +126,13 @@ class LoginRequest extends FormRequest
 
     /**
      * Finds the organization, checks it may be signed in to, and points the
-     * shared connection at its database.
+     * shared connection at its database — the lookup itself is
+     * ResolvesOrganization, shared with the forgot/reset-password requests.
      *
-     * Shared by both sign-in paths so they cannot drift: the rate limit, the
-     * lifecycle check and the deliberately generic failure message are part of
-     * the security of this endpoint, not incidental detail.
+     * Wrapped here (rather than called directly) so that EVERY way this can
+     * fail — including "no such subdomain", which the trait raises on its
+     * own — still counts against the login rate limit. Forgot/reset-password
+     * have no such counter to feed.
      *
      * @throws ValidationException
      */
@@ -136,22 +140,13 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        $organization = Organization::where('subdomain', $this->resolveSubdomain())->first();
+        try {
+            return $this->resolveTenantOrganization($this->tenants);
+        } catch (ValidationException $e) {
+            RateLimiter::hit($this->throttleKey(), self::DECAY_SECONDS);
 
-        // A generic failure when the clinic itself doesn't resolve — same
-        // message as a credentials mismatch, so a login form can't be used
-        // to enumerate which subdomains exist.
-        if (! $organization) {
-            $this->fail();
+            throw $e;
         }
-
-        if (! $organization->canSignIn()) {
-            $this->failNotSignInable($organization);
-        }
-
-        $this->tenants->connect($organization->database_name);
-
-        return $organization;
     }
 
     /**
@@ -187,43 +182,9 @@ class LoginRequest extends FormRequest
         ]);
     }
 
-    /**
-     * Surfaces *why* — per the acceptance criterion that a suspended
-     * organization's login says so, rather than a generic failure. Unlike a
-     * credentials mismatch, an org's lifecycle state is not a secret its own
-     * staff would be enumerating.
-     *
-     * @throws ValidationException
-     */
-    private function failNotSignInable(Organization $organization): never
-    {
-        $message = match ($organization->status) {
-            Organization::SUSPENDED => 'This organization is suspended'
-                .($organization->suspension_reason ? ": {$organization->suspension_reason}" : '.'),
-            Organization::CANCELLED => 'This organization\'s subscription has been cancelled.',
-            Organization::FAILED => 'This organization\'s setup could not be completed. Contact support.',
-            default => 'This organization is not ready to sign in yet.',
-        };
-
-        $this->fail($message);
-    }
-
     /** Keyed on address + IP, and namespaced so it cannot collide with platform logins. */
     protected function throttleKey(): string
     {
         return 'tenant|'.Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
-    }
-
-    /**
-     * The Host header wins whenever it actually looks like a real tenant
-     * subdomain — it can't be spoofed to a *different* value than whatever
-     * DNS/hosts actually routed the browser through, unlike a body field.
-     * Falls back to the request field for anything else (API testing, the
-     * test suite, any client not reachable via real subdomain DNS).
-     */
-    private function resolveSubdomain(): string
-    {
-        return SubdomainResolver::fromHost($this->getHost())
-            ?? Str::lower((string) $this->input('subdomain'));
     }
 }

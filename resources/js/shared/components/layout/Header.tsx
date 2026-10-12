@@ -8,6 +8,7 @@ import { initials } from '@/shared/utils/format';
 export interface HeaderUser {
     name: string;
     email: string;
+    avatar_url?: string | null;
 }
 
 interface HeaderProps {
@@ -134,12 +135,21 @@ export function Header({
                         onClick={() => setMenuOpen((open) => !open)}
                         aria-expanded={menuOpen}
                     >
-                        <span
-                            className="avatar rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
-                            style={{ width: 34, height: 34, fontSize: 13, fontWeight: 600 }}
-                        >
-                            {user ? initials(user.name) : '?'}
-                        </span>
+                        {user?.avatar_url ? (
+                            <img
+                                src={user.avatar_url}
+                                alt=""
+                                className="rounded-circle"
+                                style={{ width: 34, height: 34, objectFit: 'cover' }}
+                            />
+                        ) : (
+                            <span
+                                className="avatar rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                                style={{ width: 34, height: 34, fontSize: 13, fontWeight: 600 }}
+                            >
+                                {user ? initials(user.name) : '?'}
+                            </span>
+                        )}
 
                         <span className="d-none d-md-block text-start lh-sm">
                             <span className="d-block fw-semibold fs-14">{user?.name}</span>

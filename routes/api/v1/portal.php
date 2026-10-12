@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Tenant\ConversationController;
 use App\Http\Controllers\Api\V1\Tenant\DeviceController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\AppointmentController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\DoctorController;
@@ -79,6 +80,31 @@ Route::middleware([
         Route::get('appointments', [AppointmentController::class, 'index'])
             ->middleware('permission:portal.appointments.view')
             ->name('appointments.index');
+
+        /*
+        | Messages with the doctors they have seen. The doctor's half is in
+        | routes/api/v1.php on the same controller; EnsurePortalPatient above
+        | is what makes the asker the patient side here.
+        */
+        Route::middleware('permission:portal.messages')
+            ->prefix('messages')
+            ->name('messages.')
+            ->group(function () {
+                Route::get('conversations', [ConversationController::class, 'index'])->name('index');
+                Route::get('unread', [ConversationController::class, 'unread'])->name('unread');
+                Route::get('contacts', [ConversationController::class, 'contacts'])->name('contacts');
+                Route::post('conversations', [ConversationController::class, 'store'])->name('store');
+                Route::get('conversations/{conversation}', [ConversationController::class, 'show'])
+                    ->whereNumber('conversation')->name('show');
+                Route::get('conversations/{conversation}/messages', [ConversationController::class, 'messages'])
+                    ->whereNumber('conversation')->name('messages');
+                Route::post('conversations/{conversation}/messages', [ConversationController::class, 'send'])
+                    ->whereNumber('conversation')->middleware('throttle:60,1')->name('send');
+                Route::post('conversations/{conversation}/read', [ConversationController::class, 'read'])
+                    ->whereNumber('conversation')->name('read');
+                Route::get('attachments/{message}', [ConversationController::class, 'attachment'])
+                    ->whereNumber('message')->name('attachment');
+            });
     });
 
     Route::middleware('module:prescriptions')->group(function () {

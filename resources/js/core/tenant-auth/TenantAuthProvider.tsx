@@ -84,6 +84,15 @@ interface TenantAuthContextValue {
      */
     setupCompleted: boolean;
 
+    /**
+     * Whether this organization has capped its owner to reports.
+     *
+     * `capabilities` already says what they may do; this is only here so the
+     * home route can send a restricted owner straight to `/pharmacy/reports`
+     * instead of a dashboard that has nothing to show them.
+     */
+    ownerRestricted: boolean;
+
     /** Called when the setup has just been completed, so the workspace opens without a reload. */
     markSetupCompleted(): void;
 
@@ -129,6 +138,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
 
     // True until told otherwise, so a session without the flag never locks anybody out.
     const [setupCompleted, setSetupCompleted] = useState(true);
+    const [ownerRestricted, setOwnerRestricted] = useState(false);
     const [initialising, setInitialising] = useState(true);
 
     /** One place that takes a session in, so the fields cannot be set in three different ways. */
@@ -143,6 +153,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         setActive(session.active_branch ?? null);
         setDoctorId(session.doctor_id ?? null);
         setSetupCompleted(session.setup_completed ?? true);
+        setOwnerRestricted(session.owner_restricted ?? false);
     }, []);
 
     const clear = useCallback(() => {
@@ -159,6 +170,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         setActive(null);
         setDoctorId(null);
         setSetupCompleted(true);
+        setOwnerRestricted(false);
     }, []);
 
     useEffect(() => {
@@ -235,6 +247,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         setRealtime(session.realtime ?? { enabled: false });
         setDoctorId(session.doctor_id ?? null);
         setSetupCompleted(session.setup_completed ?? true);
+        setOwnerRestricted(session.owner_restricted ?? false);
     }, []);
 
     const setActiveBranch = useCallback((branchId: number | null) => {
@@ -250,6 +263,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             setActive(session.active_branch ?? null);
             setDoctorId(session.doctor_id ?? null);
             setSetupCompleted(session.setup_completed ?? true);
+            setOwnerRestricted(session.owner_restricted ?? false);
         });
     }, []);
 
@@ -267,6 +281,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             refreshSession,
             doctorId,
             setupCompleted,
+            ownerRestricted,
             markSetupCompleted,
             setActiveBranch,
             initialising,
@@ -288,6 +303,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             refreshSession,
             doctorId,
             setupCompleted,
+            ownerRestricted,
             markSetupCompleted,
             setActiveBranch,
             initialising,

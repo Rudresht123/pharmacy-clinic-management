@@ -24,13 +24,20 @@ use Illuminate\Support\Facades\Hash;
  */
 class BranchAdminProvisioner
 {
-    /** What running a branch means, wherever the capability exists. */
+    /**
+     * What running a branch means, wherever the capability exists.
+     *
+     * Not `appointments.doctors` — organization-scoped now, a branch role
+     * cannot hold it (SaveRoleRequest refuses it). A branch admin still
+     * covers a doctor's presence and timings here through
+     * `appointments.schedule`; registering a new doctor is head office's.
+     */
     private const WANTED = [
         'branches.view',
         'people.view', 'people.create', 'people.edit', 'people.delete', 'people.roles',
         'customers.view', 'customers.create', 'customers.edit', 'customers.delete',
         'appointments.view', 'appointments.book', 'appointments.queue',
-        'appointments.cancel', 'appointments.doctors', 'appointments.schedule',
+        'appointments.cancel', 'appointments.schedule',
         'prescriptions.view', 'prescriptions.write', 'prescriptions.cancel',
         'medicines.view',
     ];

@@ -77,6 +77,8 @@ export interface Organization extends Timestamps {
     status: OrganizationStatus;
     is_active: boolean;
     is_setup_completed: boolean;
+    /** Caps the owner's own login to reports and administration — nothing on the clinical floor. */
+    owner_restricted: boolean;
 
     plan_id: number | null;
     trial_ends_at: string | null;
@@ -101,6 +103,7 @@ export interface OrganizationFormValues {
     phone_number: string;
     address: string;
     is_active: boolean;
+    owner_restricted: boolean;
     profile_image?: FileList;
 
     // Licensing — nullable at creation, required before going live (§5).
@@ -152,6 +155,34 @@ export interface OrganizationModulesPayload {
     modules: OrganizationModule[];
     /** Everything the organization is in a position to grant its own roles. */
     capabilities: string[];
+}
+
+/** One step of setting an organization up, as its latest attempt left it. */
+export interface ProvisioningStep {
+    key: string;
+    label: string;
+    status: 'waiting' | 'pending' | 'in_progress' | 'completed' | 'failed';
+    /** Migrations run so far, for the step that builds the tables. */
+    progress_current: number | null;
+    progress_total: number | null;
+    /** What it is doing right now — the migration being run. */
+    detail: string | null;
+    error: string | null;
+    started_at: string | null;
+    finished_at: string | null;
+}
+
+/** Where setting a new organization up has got to, on the provisioning queue. */
+export interface ProvisioningProgress {
+    status: OrganizationStatus;
+    steps: ProvisioningStep[];
+    completed_steps: number;
+    total_steps: number;
+    started_at: string | null;
+    finished_at: string | null;
+    /** Queued, and no worker has picked it up yet. */
+    waiting_for_worker: boolean;
+    queued_at: string | null;
 }
 
 /** One binding as the screen submits it. */

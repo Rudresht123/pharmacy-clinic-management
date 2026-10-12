@@ -7,10 +7,12 @@ use App\Models\Platform\Organization;
 use App\Models\Platform\OrganizationType;
 use App\Models\Platform\PlatformRole;
 use App\Models\Platform\PlatformUser;
+use App\Models\Tenant\User;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Support\Platform\OrganizationCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -81,9 +83,9 @@ class OrganizationProvisioningTest extends TestCase
 
         (new TenantConnectionService)->connect($organization->database_name);
         $this->assertTrue(Schema::connection('organization')->hasTable('users'));
-        $owner = \App\Models\Tenant\User::query()->where('email', $organization->email)->sole();
-        $this->assertSame(\App\Models\Tenant\User::OWNER, $owner->role);
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('OwnerPass1!', $owner->password));
+        $owner = User::query()->where('email', $organization->email)->sole();
+        $this->assertSame(User::OWNER, $owner->role);
+        $this->assertTrue(Hash::check('OwnerPass1!', $owner->password));
         $this->assertTrue($organization->is_setup_completed);
         $this->assertNull($organization->owner_password_hash);
 
@@ -107,7 +109,7 @@ class OrganizationProvisioningTest extends TestCase
          * migration cannot read.
          */
         $this->assertSame(
-            ['create_database', 'create_owner_account', 'migrate_tenant', 'seed_default_roles', 'send_setup_email'],
+            ['create_database', 'create_owner_account', 'migrate_tenant', 'seed_default_roles', 'seed_notification_templates', 'send_setup_email'],
             $completedSteps,
         );
 
@@ -115,7 +117,7 @@ class OrganizationProvisioningTest extends TestCase
             'email' => $organization->email,
             'password' => 'OwnerPass1!',
         ])->assertOk()
-            ->assertJsonPath('data.user.role', \App\Models\Tenant\User::OWNER);
+            ->assertJsonPath('data.user.role', User::OWNER);
     }
 
     public function test_creation_rejects_a_weak_owner_password(): void

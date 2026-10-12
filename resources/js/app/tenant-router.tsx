@@ -10,6 +10,9 @@ const OrganizationSetupPage = lazy(() => import('@/core/org-setup/pages/Organiza
 const DepartmentsPage = lazy(() => import('@/core/departments/pages/DepartmentsPage'));
 
 const TenantLoginPage = lazy(() => import('@/core/tenant-auth/pages/TenantLoginPage'));
+const TenantForgotPasswordPage = lazy(() => import('@/core/tenant-auth/pages/ForgotPasswordPage'));
+const TenantResetPasswordPage = lazy(() => import('@/core/tenant-auth/pages/ResetPasswordPage'));
+const TenantProfilePage = lazy(() => import('@/core/tenant-auth/pages/ProfilePage'));
 const TenantDashboardPage = lazy(() => import('@/core/tenant-auth/pages/TenantDashboardPage'));
 const CustomerListPage = lazy(() => import('@/core/customers/pages/CustomerListPage'));
 const CustomerFormPage = lazy(() => import('@/core/customers/pages/CustomerFormPage'));
@@ -208,6 +211,11 @@ export function TenantAppRoutes() {
                 <Routes>
                     <Route element={<TenantGuestRoute />}>
                         <Route path="/login" element={<TenantLoginPage />} />
+                        <Route path="/forgot-password" element={<TenantForgotPasswordPage />} />
+                        <Route
+                            path="/reset-password/:token"
+                            element={<TenantResetPasswordPage />}
+                        />
                     </Route>
 
                     <Route element={<TenantProtectedRoute />}>
@@ -224,6 +232,10 @@ export function TenantAppRoutes() {
 
                         <Route element={<TenantShell />}>
                             <Route path="/dashboard" element={<HomeRoute />} />
+
+                            {/* Their own account — open to everybody signed
+                                in, same as the platform panel's /profile. */}
+                            <Route path="/profile" element={<TenantProfilePage />} />
 
                             {/* How the software works — open to everybody
                                 signed in; a guide holds nothing to gate. */}

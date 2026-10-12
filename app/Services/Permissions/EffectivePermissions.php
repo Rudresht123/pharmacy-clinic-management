@@ -40,6 +40,9 @@ class EffectivePermissions
     /** The account holder, who no role constrains. */
     public const OWNER = 'owner';
 
+    /** The account holder, capped to reports and administration — see `organization.owner_restricted`. */
+    public const OWNER_RESTRICTED = 'owner_restricted';
+
     /** Their organization-wide role — head office, applies at every branch. */
     public const ORGANIZATION_ROLE = 'organization_role';
 
@@ -108,6 +111,7 @@ class EffectivePermissions
                     $organizationRunning,
                     $running,
                     $user,
+                    $organization,
                     $organizationCapabilities,
                     $branchCapabilities,
                     $removed,
@@ -147,6 +151,7 @@ class EffectivePermissions
         array $organizationRunning,
         array $running,
         User $user,
+        Organization $organization,
         array $organizationCapabilities,
         array $branchCapabilities,
         array $removed,
@@ -168,6 +173,13 @@ class EffectivePermissions
         }
 
         if ($user->isOwner()) {
+            if ($organization->owner_restricted) {
+                return [
+                    'allowed' => in_array($capability, Permission::OWNER_RESTRICTED_CAPABILITIES, true),
+                    'source' => self::OWNER_RESTRICTED,
+                ];
+            }
+
             return ['allowed' => true, 'source' => self::OWNER];
         }
 

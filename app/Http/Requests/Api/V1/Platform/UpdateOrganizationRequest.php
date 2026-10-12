@@ -47,6 +47,7 @@ class UpdateOrganizationRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:1000'],
             'profile_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'is_active' => ['nullable', 'boolean'],
+            'owner_restricted' => ['nullable', 'boolean'],
 
             // §5: nullable at creation, required before the tenant goes live.
             'legal_name' => ['nullable', 'string', 'max:191'],
@@ -90,6 +91,7 @@ class UpdateOrganizationRequest extends FormRequest
     {
         $this->merge(array_filter([
             'is_active' => $this->boolean('is_active'),
+            'owner_restricted' => $this->boolean('owner_restricted'),
             'subdomain' => strtolower(trim((string) $this->subdomain)),
 
             // Stored upper case, matched without regard to case -- see the

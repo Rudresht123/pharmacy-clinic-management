@@ -6,6 +6,8 @@ import { Pagination } from '@/shared/components/ui/Pagination';
 import { Button } from '@/shared/components/ui/Button';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
+import { BranchFilter } from '@/core/locations/components/BranchFilter';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { PAYMENT_STATUS_LABELS, useInvoices, useOutstandingSummary, type Invoice } from '../api';
 import { PaymentDialog } from '../components/PaymentDialog';
 import {
@@ -62,6 +64,7 @@ export default function OutstandingPage() {
     const [status, setStatus] = useState('');
     const [aging, setAging] = useState('');
     const [search, setSearch] = useState('');
+    const [branch, setBranch] = useState('');
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(25);
     const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -71,13 +74,17 @@ export default function OutstandingPage() {
 
     useEffect(() => {
         setPage(1);
-    }, [status, aging, debouncedSearch, dateRange.from, dateRange.to]);
+    }, [status, aging, debouncedSearch, branch, dateRange.from, dateRange.to]);
 
     useEffect(() => {
         setSelected(new Set());
     }, [page]);
 
-    const summaryQuery = useOutstandingSummary(dateRange);
+    const summaryQuery = useOutstandingSummary({
+        from: dateRange.from,
+        to: dateRange.to,
+        location_id: branch ? Number(branch) : undefined,
+    });
     const summary = summaryQuery.data;
 
     const { data: pageData, isLoading, isFetching, isError, refetch } = useInvoices({
@@ -89,6 +96,7 @@ export default function OutstandingPage() {
         payment_status: status || undefined,
         aging: aging || undefined,
         search: debouncedSearch.trim() || undefined,
+        location_id: branch || undefined,
         sort: 'invoice_date',
         direction: 'asc',
     });
@@ -118,9 +126,10 @@ export default function OutstandingPage() {
         setStatus('');
         setAging('');
         setSearch('');
+        setBranch('');
     }
 
-    const hasFilters = Boolean(status || aging || search);
+    const hasFilters = Boolean(status || aging || search || branch);
 
     return (
         <div className="inv-page">
@@ -130,6 +139,7 @@ export default function OutstandingPage() {
                 icon="ti ti-clock-dollar"
                 tone="amber"
                 crumbs={[{ label: 'Billing', to: '/billing' }, { label: 'Outstanding Invoices' }]}
+                actions={<BranchFilter value={branch} onChange={setBranch} />}
             />
 
             <div className="inv-kpis">
@@ -200,27 +210,26 @@ export default function OutstandingPage() {
 
                     <DateRangePicker value={dateRange} onChange={setDateRange} />
 
-                    <label className="inv-select">
-                        <i className="ti ti-clock" aria-hidden="true" />
-                        <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                            {STATUS_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                    <div className="inv-filter-ss">
+                        <SearchableSelect
+                            value={status}
+                            onChange={setStatus}
+                            ariaLabel="Status"
+                            options={STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                        />
+                    </div>
 
-                    <label className="inv-select">
-                        <i className="ti ti-hourglass" aria-hidden="true" />
-                        <select value={aging} onChange={(e) => setAging(e.target.value)}>
-                            {AGING_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                    {opt.value === '' ? 'Aging: All' : opt.label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                    <div className="inv-filter-ss">
+                        <SearchableSelect
+                            value={aging}
+                            onChange={setAging}
+                            ariaLabel="Aging"
+                            options={AGING_OPTIONS.map((opt) => ({
+                                value: opt.value,
+                                label: opt.value === '' ? 'Aging: All' : opt.label,
+                            }))}
+                        />
+                    </div>
 
                     <button type="button" className="inv-reset" onClick={handleReset} disabled={!hasFilters}>
                         <i className="ti ti-refresh" aria-hidden="true" />
@@ -243,7 +252,7 @@ export default function OutstandingPage() {
                         Entries
                     </label>
 
-                    <ExportButton dateRange={dateRange} status={status} aging={aging} search={debouncedSearch} />
+                    <ExportButton dateRange={dateRange} status={status} aging={aging} search={debouncedSearch} branch={branch} />
                 </div>
 
                 {isLoading ? (
@@ -398,11 +407,13 @@ function ExportButton({
     status,
     aging,
     search,
+    branch,
 }: {
     dateRange: { from: string; to: string };
     status: string;
     aging: string;
     search: string;
+    branch: string;
 }) {
     const [open, setOpen] = useState(false);
     const box = useRef<HTMLDivElement>(null);
@@ -421,6 +432,7 @@ function ExportButton({
         if (status) params.set('payment_status', status);
         if (aging) params.set('aging', aging);
         if (search.trim()) params.set('search', search.trim());
+        if (branch) params.set('location_id', branch);
 
         window.open(`/api/v1/tenant/invoices/export?${params.toString()}`, '_blank');
     }

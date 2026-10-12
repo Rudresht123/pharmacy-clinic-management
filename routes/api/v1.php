@@ -23,9 +23,11 @@ use App\Http\Controllers\Api\V1\Tenant\MessageTemplateController;
 use App\Http\Controllers\Api\V1\Tenant\MessageTemplateVariantController;
 use App\Http\Controllers\Api\V1\Tenant\PushDeviceController;
 use App\Http\Controllers\Api\V1\Tenant\Auth\AuthController as TenantAuthController;
+use App\Http\Controllers\Api\V1\Tenant\Auth\PasswordController as TenantPasswordController;
 use App\Http\Controllers\Api\V1\Tenant\AvailabilityController;
 use App\Http\Controllers\Api\V1\Tenant\BrandingController;
 use App\Http\Controllers\Api\V1\Tenant\ConsultationController;
+use App\Http\Controllers\Api\V1\Tenant\ConversationController;
 use App\Http\Controllers\Api\V1\Tenant\CustomerController;
 use App\Http\Controllers\Api\V1\Tenant\DashboardController;
 use App\Http\Controllers\Api\V1\Tenant\DepartmentController;
@@ -248,6 +250,11 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
      */
     Route::middleware(['resolve.tenant', 'guest:web'])->group(function () {
         Route::post('auth/login', [TenantAuthController::class, 'login'])->name('auth.login');
+
+        Route::post('auth/forgot-password', [TenantPasswordController::class, 'forgot'])
+            ->middleware('throttle:6,1');
+
+        Route::post('auth/reset-password', [TenantPasswordController::class, 'reset']);
     });
 
     /*
@@ -299,6 +306,10 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         Route::get('auth/me', [TenantAuthController::class, 'me'])->name('auth.me');
         Route::delete('auth/token', [TenantAuthController::class, 'revokeToken'])
             ->name('auth.token.revoke');
+        Route::put('auth/profile', [TenantAuthController::class, 'updateProfile']);
+        Route::post('auth/avatar', [TenantAuthController::class, 'uploadAvatar']);
+        Route::delete('auth/avatar', [TenantAuthController::class, 'deleteAvatar']);
+        Route::put('auth/password', [TenantPasswordController::class, 'update']);
 
         /*
         | This phone can receive pushes for me. Ungated beyond being signed in:
@@ -1146,6 +1157,32 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             Route::get('opd/my-records', [OpdController::class, 'myRecords'])
                 ->middleware('permission:appointments.queue')
                 ->name('opd.my-records');
+
+            /*
+            | A doctor's messages with their own patients. The patient's half
+            | is in routes/api/v1/portal.php, on the same controller; which
+            | side is asking comes from the login, and every thread is
+            | checked to be that doctor's own.
+            */
+            Route::middleware('permission:appointments.messages')
+                ->prefix('messages')
+                ->name('messages.')
+                ->group(function () {
+                    Route::get('conversations', [ConversationController::class, 'index'])->name('index');
+                    Route::get('unread', [ConversationController::class, 'unread'])->name('unread');
+                    Route::get('contacts', [ConversationController::class, 'contacts'])->name('contacts');
+                    Route::post('conversations', [ConversationController::class, 'store'])->name('store');
+                    Route::get('conversations/{conversation}', [ConversationController::class, 'show'])
+                        ->whereNumber('conversation')->name('show');
+                    Route::get('conversations/{conversation}/messages', [ConversationController::class, 'messages'])
+                        ->whereNumber('conversation')->name('messages');
+                    Route::post('conversations/{conversation}/messages', [ConversationController::class, 'send'])
+                        ->whereNumber('conversation')->middleware('throttle:60,1')->name('send');
+                    Route::post('conversations/{conversation}/read', [ConversationController::class, 'read'])
+                        ->whereNumber('conversation')->name('read');
+                    Route::get('attachments/{message}', [ConversationController::class, 'attachment'])
+                        ->whereNumber('message')->name('attachment');
+                });
 
             /*
             | THE CONSULTATION — the doctor's, and nobody else's.

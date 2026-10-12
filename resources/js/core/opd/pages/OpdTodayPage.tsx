@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from '@/shared/components/ui/Card';
 import { DonutChart } from '@/shared/components/ui/DonutChart';
-import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
+import { LoadingBlock, ErrorState, EmptyState, NoResultsState } from '@/shared/components/ui/Feedback';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { useEntityLabel } from '@/core/field-settings/api';
 import { BookDialog } from '@/core/appointments/components/BookDialog';
@@ -33,6 +33,38 @@ const TABS: { key: keyof OpdTabs; label: string; status: AppointmentStatus | nul
     { key: 'booked', label: 'Expected', status: 'booked' },
     { key: 'completed', label: 'Completed', status: 'completed' },
 ];
+
+/** What each empty tab says there is none of, in its own words. */
+const QUEUE_EMPTY_COPY: Record<
+    'all' | 'checked_in' | 'in_consultation' | 'booked' | 'completed',
+    { icon: string; title: string; description: string }
+> = {
+    all: {
+        icon: 'ti ti-users-group',
+        title: "Nobody's in the queue",
+        description: 'Walk-ins, bookings and check-ins will show up here as the day gets moving.',
+    },
+    checked_in: {
+        icon: 'ti ti-clock-hour-4',
+        title: 'No one is waiting',
+        description: 'Patients land here once the front desk checks them in.',
+    },
+    in_consultation: {
+        icon: 'ti ti-stethoscope',
+        title: 'No one is with a doctor',
+        description: 'This fills in as soon as a waiting patient is called through.',
+    },
+    booked: {
+        icon: 'ti ti-calendar-time',
+        title: "Nobody's expected",
+        description: "Patients booked for later today will appear here ahead of their slot.",
+    },
+    completed: {
+        icon: 'ti ti-circle-check',
+        title: 'Nothing completed yet',
+        description: 'Finished visits collect here once they are closed out.',
+    },
+};
 
 /**
  * Everything the header's Actions menu offers.
@@ -365,6 +397,8 @@ export default function OpdTodayPage() {
                     String(row.token_no ?? '').includes(term),
             );
     }, [data, tab, search]);
+
+    const queueEmptyCopy = QUEUE_EMPTY_COPY[tab as keyof typeof QUEUE_EMPTY_COPY] ?? QUEUE_EMPTY_COPY.all;
 
     /*
      * How many of the day this tab is actually showing.
@@ -744,14 +778,18 @@ export default function OpdTodayPage() {
                                 {isLoading ? (
                                     <LoadingBlock label="Loading the queue…" />
                                 ) : rows.length === 0 ? (
-                                    <div className="opd-quiet">
-                                        <i className="ti ti-users" aria-hidden="true" />
-                                        <p>
-                                            {search.trim()
-                                                ? `Nobody in the queue matches “${search.trim()}”.`
-                                                : 'Nobody is in this part of the queue.'}
-                                        </p>
-                                    </div>
+                                    search.trim() ? (
+                                        <NoResultsState
+                                            term={search.trim()}
+                                            onClear={() => setSearch('')}
+                                        />
+                                    ) : (
+                                        <EmptyState
+                                            icon={queueEmptyCopy.icon}
+                                            title={queueEmptyCopy.title}
+                                            description={queueEmptyCopy.description}
+                                        />
+                                    )
                                 ) : (
                                     <div className="opd-table-scroll tbl-cards-scroll">
                                         <table className="opd-table tbl-cards">

@@ -6678,10 +6678,16 @@ html::-webkit-scrollbar-track {
     font-weight:600;
 }
 
-/* Nothing to report is a real answer, not an empty box. */
+/* Nothing to report is a real answer, not an empty box.
+   Centred in whatever height the card body has to give — the card-body
+   flex column (.opd-main/.opd-stack/.opd-charts > .card > .card-body) is
+   what supplies that height, so this only has to ask for its share. */
 .opd-quiet{
-    display:grid;
-    justify-items:center;
+    display:flex;
+    flex:1 1 auto;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
     gap:6px;
     padding:26px 12px;
     text-align:center;
@@ -6690,6 +6696,24 @@ html::-webkit-scrollbar-track {
 
 .opd-quiet i{ font-size:26px; color:var(--ink-3); }
 .opd-quiet p{ margin:0; font-size:13px; }
+
+/* Same quiet treatment, sized for a donut's own footprint so a ring and
+   its absence take up the same room in a matched-height row. */
+.donut-empty{
+    display:flex;
+    flex:1 1 auto;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    min-height:176px;
+    padding:26px 12px;
+    text-align:center;
+    color:var(--muted);
+}
+
+.donut-empty i{ font-size:26px; color:var(--ink-3); }
+.donut-empty p{ margin:0; font-size:13px; }
 
 .opd-more{
     display:inline-flex;
@@ -18346,10 +18370,11 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 /*
  * The bill is a till, not a long card.
  *
- * It stays put, is always the height of the window, scrolls inside itself,
- * and keeps the total and the button on the floor of it. A "take the money"
- * button below the fold is one scroll per sale, which on a busy counter is
- * the whole day.
+ * It stays put, is always the height of the window, and scrolls as ONE piece
+ * inside itself — customer, lines, totals, the "take the money" button, all
+ * of it. It used to split off just the line items into their own scrolling
+ * strip, pinning everything else in place; that read as a stray scrollbar
+ * glued into the middle of the card rather than one coherent bill.
  */
 .pos-bill {
     position: sticky;
@@ -18365,14 +18390,13 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     flex-direction: column;
     min-height: 0;
     flex: 1 1 auto;
-}
-
-.pos-bill-scroll {
-    flex: 1 1 auto;
-    min-height: 0;
     overflow-y: auto;
     /* Room for the scrollbar so it does not sit on the numbers. */
     padding-right: 2px;
+}
+
+.pos-bill-scroll {
+    flex: 0 0 auto;
 }
 
 .pos-bill-foot {
@@ -18964,102 +18988,132 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     font-size: 12.5px;
 }
 
-/* -- the bill: lines ------------------------------------------------------ */
+/* -- the bill: lines -------------------------------------------------------
+ *
+ * ROWS, not a seven-column table and not a card of their own. A till this
+ * narrow has no room for #, Item, Qty, MRP, Price and Total side by side —
+ * that forced a horizontal scroll a cashier could not see past — but a boxed,
+ * rounded card per line looked like it had wandered off from the rest of the
+ * bill. This is a plain list: a hairline above and below it, each line two
+ * tight rows, nothing boxed. It reads as part of the till, the way the totals
+ * underneath already do.
+ */
 
 .pos-lines-wrap {
-    overflow: hidden;
-    border: 1px solid var(--line);
-    border-radius: 10px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
 }
 
 .pos-lines {
-    width: 100%;
-    border-collapse: collapse;
+    display: flex;
+    flex-direction: column;
 }
 
-.pos-lines th {
-    padding: 9px 6px;
+.pos-line {
+    padding: 7px 2px;
     border-bottom: 1px solid var(--line);
-    font-size: 11.5px;
-    font-weight: 500;
-    text-align: left;
-    white-space: nowrap;
-    color: var(--muted);
 }
 
-.pos-lines td {
-    padding: 9px 6px;
-    border-bottom: 1px solid var(--line);
-    font-size: 12.5px;
-    vertical-align: middle;
-    color: var(--ink);
-    font-variant-numeric: tabular-nums;
-}
-
-.pos-lines tbody tr:last-child td {
+.pos-lines > .pos-line:last-child {
     border-bottom: 0;
 }
 
-.pos-lines th:first-child,
-.pos-lines td:first-child {
-    padding-left: 12px;
+.pos-line-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
 
-.pos-lines th:last-child,
-.pos-lines td:last-child {
-    padding-right: 8px;
+.pos-line-sub {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    margin-top: 3px;
 }
 
-.pos-lines .is-num {
-    text-align: right;
-    white-space: nowrap;
+.pos-line-name {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--ink);
 }
 
-.pos-lines .is-center {
-    text-align: center;
-}
-
-.pos-lines .is-act {
-    width: 1%;
-}
-
-.pos-line-no {
-    width: 1%;
+.pos-line-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    min-width: 0;
+    gap: 2px 6px;
     font-size: 11.5px;
     color: var(--muted);
-}
-
-.pos-line-item span {
-    display: block;
-    font-weight: 500;
-    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
 }
 
 .pos-line-warn {
-    display: block;
-    font-size: 10.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 4px;
     color: #d03a2f;
+    font-weight: 500;
+}
+
+.pos-line-controls {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 10px;
 }
 
 .pos-line-total {
+    font-size: 13px;
     font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 .pos-remove {
     display: grid;
     place-items: center;
-    width: 26px;
-    height: 26px;
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
     border: 0;
-    border-radius: 7px;
+    border-radius: 6px;
     background: transparent;
-    font-size: 15px;
-    color: #e0483e;
+    font-size: 12px;
+    color: var(--muted);
     cursor: pointer;
 }
 
 .pos-remove:hover {
     background: #fdecea;
+    color: #e0483e;
+}
+
+/* -- the prescription, once it is on the bill ------------------------------ */
+
+.pos-rx-loading,
+.pos-rx-attached {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.pos-rx-loading {
+    color: var(--muted);
+}
+
+.pos-rx-loading i {
+    animation: pos-spin 0.8s linear infinite;
+}
+
+.pos-rx-attached {
+    color: rgb(var(--brand));
 }
 
 /* -- quantity stepper ----------------------------------------------------- */
@@ -21055,7 +21109,7 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     font-weight: 400;
 }
 
-.mv-filter-select-text {
+.mv-filter-display-text {
     width: 100%;
     font-size: 13.5px;
     color: #0f172a;
@@ -21063,6 +21117,30 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.mv-chevron-icon {
+    flex-shrink: 0;
+    font-size: 16px;
+    color: #94a3b8;
+}
+
+/*
+ * The real control, invisible and covering the whole pill — a click
+ * anywhere on it opens the native list; `.mv-filter-display-text` and
+ * `.mv-chevron-icon` beside it are only what that click is shown as.
+ * `.mv-filter-input-wrap` is its `position: relative` anchor.
+ */
+.mv-native-select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    opacity: 0;
+    cursor: pointer;
 }
 
 .mv-filter-clear-btn {
@@ -23343,6 +23421,26 @@ select.dt-input {
 
 .bd-btn-select i:first-child {
     color: var(--muted);
+}
+
+/* The branch picker (SearchableSelect) sitting beside it, up in the header. */
+.bd-branch-filter {
+    flex: 0 0 auto;
+    width: 190px;
+}
+
+.bd-branch-filter .ss {
+    min-height: 38px;
+}
+
+/* A SearchableSelect sized to sit in a filter row beside .inv-search / .inv-select. */
+.inv-filter-ss {
+    flex: 0 0 auto;
+    width: 170px;
+}
+
+.inv-filter-ss .ss {
+    min-height: 38px;
 }
 
 /* ── 4 KPI cards ─────────────────────────────────────────────────────── */
@@ -26903,4 +27001,91 @@ fieldset:disabled .bset-method:not(.is-on):hover {
 @media (max-width: 575.98px){
     .sb-patient{ flex-direction:column; }
     .sb-meta{ grid-template-columns:minmax(0, 1fr); }
+}
+
+/* =====================================================================
+   Provisioning panel — a new organization being set up, live
+   ---------------------------------------------------------------------
+   Prefixed prov-. Sits under the organization's hero while the
+   provisioning queue works: a bar, then each step with its own state.
+   Layout tokens only, so dark mode follows; status inks lighten below.
+   ===================================================================== */
+
+.prov{
+    margin-bottom:16px;
+    padding:18px 20px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:16px;
+}
+.prov.is-failed{ border-color:rgba(244,63,94,.35); }
+.prov.is-active{ border-color:rgba(16,185,129,.35); }
+
+.prov-head{ display:flex; align-items:center; gap:14px; }
+.prov-badge{
+    display:grid;
+    place-items:center;
+    width:42px;
+    height:42px;
+    flex:0 0 auto;
+    border-radius:12px;
+    font-size:21px;
+    background:rgba(var(--brand), .1);
+    color:rgb(var(--brand));
+}
+.prov.is-active .prov-badge{ background:rgba(16,185,129,.12); color:#047857; }
+.prov.is-failed .prov-badge{ background:rgba(244,63,94,.1); color:#be123c; }
+.prov-title{ flex:1; min-width:0; }
+.prov-title h5{ margin:0; font-size:15px; font-weight:800; color:var(--ink); }
+.prov-title p{ margin:2px 0 0; font-size:12.5px; color:var(--muted); }
+.prov-count{ font-size:12.5px; font-weight:700; color:var(--ink-2); white-space:nowrap; }
+
+.prov-bar{ height:8px; margin:14px 0 6px; border-radius:999px; background:var(--surface-3); overflow:hidden; }
+.prov-bar span{ display:block; height:100%; border-radius:inherit; background:rgb(var(--brand)); transition:width .6s ease; }
+.prov.is-active .prov-bar span{ background:#10b981; }
+.prov.is-failed .prov-bar span{ background:#f43f5e; }
+
+.prov-hint{
+    display:flex;
+    gap:10px;
+    margin:10px 0 4px;
+    padding:10px 12px;
+    border-radius:10px;
+    background:rgba(245,158,11,.1);
+    font-size:12.5px;
+    color:#92400e;
+}
+.prov-hint i{ font-size:17px; }
+.prov-hint code{ display:block; margin-top:4px; font-size:12px; color:inherit; }
+
+.prov-steps{ display:grid; margin:10px 0 0; padding:0; list-style:none; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.prov-steps li{ display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid var(--line); }
+.prov-steps li:last-child{ border-bottom:0; }
+.prov-steps li > i{ font-size:19px; color:var(--muted); }
+.prov-steps li.is-completed > i{ color:#10b981; }
+.prov-steps li.is-in_progress{ background:rgba(var(--brand), .04); }
+.prov-steps li.is-in_progress > i{ color:rgb(var(--brand)); }
+.prov-steps li.is-failed{ background:rgba(244,63,94,.06); }
+.prov-steps li.is-failed > i{ color:#e11d48; }
+.prov-step{ display:grid; flex:1; min-width:0; }
+.prov-step-label{ font-size:13px; font-weight:600; color:var(--ink); }
+.prov-steps li.is-waiting .prov-step-label{ color:var(--muted); font-weight:500; }
+.prov-step-sub{ font-size:12px; color:var(--muted); }
+.prov-detail{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11.5px; color:var(--ink-2); }
+.prov-step-error{ font-size:12px; color:#be123c; word-break:break-word; }
+.prov-time{ font-size:12px; font-variant-numeric:tabular-nums; color:var(--muted); white-space:nowrap; }
+
+.prov-foot{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-top:12px; font-size:13px; color:var(--ink-2); }
+
+.prov-spin{ display:inline-block; animation:prov-spin 1s linear infinite; }
+@keyframes prov-spin{ to{ transform:rotate(360deg); } }
+
+[data-theme='dark'] .prov.is-active .prov-badge{ color:#34d399; }
+[data-theme='dark'] .prov.is-failed .prov-badge,
+[data-theme='dark'] .prov-step-error{ color:#fb7185; }
+[data-theme='dark'] .prov-hint{ color:#fbbf24; }
+
+@media (max-width: 575.98px){
+    .prov-head{ flex-wrap:wrap; }
+    .prov-count{ width:100%; }
 }

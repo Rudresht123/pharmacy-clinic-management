@@ -36,6 +36,7 @@ class PatientAccountProvisioner
     private const DEFAULTS = [
         'portal.appointments.view',
         'portal.appointments.book',
+        'portal.messages',
     ];
 
     /**

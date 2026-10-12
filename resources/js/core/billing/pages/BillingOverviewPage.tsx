@@ -8,6 +8,8 @@ import { notify } from '@/shared/utils/notify';
 import { resourceKey } from '@/shared/hooks/useResource';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { openDocument, useGenerateDocument } from '@/core/documents/api';
+import { BranchFilter } from '@/core/locations/components/BranchFilter';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import {
     exportInvoices,
     useBillingOverview,
@@ -201,6 +203,7 @@ export default function BillingOverviewPage() {
     const [trendUnit, setTrendUnit] = useState<'daily' | 'weekly' | 'monthly'>('daily');
     const [viewTab, setViewTab] = useState<ViewTab>('all');
     const [search, setSearch] = useState('');
+    const [branch, setBranch] = useState('');
     const [serviceFilter, setServiceFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [page, setPage] = useState(1);
@@ -213,7 +216,7 @@ export default function BillingOverviewPage() {
     // Reset pagination on filter changes
     useEffect(() => {
         setPage(1);
-    }, [viewTab, search, serviceFilter, statusFilter, dateRange.from, dateRange.to]);
+    }, [viewTab, search, branch, serviceFilter, statusFilter, dateRange.from, dateRange.to]);
 
     // Clear selection on page or tab change
     useEffect(() => {
@@ -221,12 +224,17 @@ export default function BillingOverviewPage() {
     }, [page, viewTab]);
 
     /* Queries */
-    const overviewQuery = useBillingOverview(dateRange);
+    const overviewQuery = useBillingOverview({
+        from: dateRange.from,
+        to: dateRange.to,
+        location_id: branch ? Number(branch) : undefined,
+    });
     const summaryQuery = useInvoiceSummary({
         from: dateRange.from || undefined,
         to: dateRange.to || undefined,
         search: search.trim() || undefined,
         type: serviceFilter || undefined,
+        location_id: branch || undefined,
     });
 
     const invoiceParams = useMemo(
@@ -236,13 +244,14 @@ export default function BillingOverviewPage() {
             from: dateRange.from || undefined,
             to: dateRange.to || undefined,
             search: search.trim() || undefined,
+            location_id: branch || undefined,
             type: serviceFilter || undefined,
             payment_status: statusFilter || undefined,
             sort,
             direction,
             ...VIEW_FILTERS[viewTab],
         }),
-        [page, perPage, dateRange.from, dateRange.to, search, serviceFilter, statusFilter, sort, direction, viewTab],
+        [page, perPage, dateRange.from, dateRange.to, search, branch, serviceFilter, statusFilter, sort, direction, viewTab],
     );
 
     const invoicesQuery = useInvoices(invoiceParams);
@@ -331,12 +340,13 @@ export default function BillingOverviewPage() {
     function handleReset() {
         setDateRange(currentMonthWindow());
         setSearch('');
+        setBranch('');
         setServiceFilter('');
         setStatusFilter('');
         setViewTab('all');
     }
 
-    const hasFilters = Boolean(search || serviceFilter || statusFilter || viewTab !== 'all');
+    const hasFilters = Boolean(search || branch || serviceFilter || statusFilter || viewTab !== 'all');
 
     return (
         <div className="inv-page">
@@ -349,6 +359,7 @@ export default function BillingOverviewPage() {
                 crumbs={[{ label: 'Billing' }, { label: 'Dashboard' }]}
                 actions={
                     <div className="bd-header-actions">
+                        <BranchFilter value={branch} onChange={setBranch} />
                         <DateRangePicker value={dateRange} onChange={setDateRange} />
                         <CompareSelector value={compare} onChange={setCompare} />
                     </div>
@@ -442,33 +453,23 @@ export default function BillingOverviewPage() {
 
                     <DateRangePicker value={dateRange} onChange={setDateRange} />
 
-                    <label className="inv-select">
-                        <i className="ti ti-clipboard-list" aria-hidden="true" />
-                        <select
+                    <div className="inv-filter-ss">
+                        <SearchableSelect
                             value={serviceFilter}
-                            onChange={(e) => setServiceFilter(e.target.value)}
-                        >
-                            {SERVICE_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                            onChange={setServiceFilter}
+                            ariaLabel="Service"
+                            options={SERVICE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                        />
+                    </div>
 
-                    <label className="inv-select">
-                        <i className="ti ti-clock" aria-hidden="true" />
-                        <select
+                    <div className="inv-filter-ss">
+                        <SearchableSelect
                             value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                        >
-                            {STATUS_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                            onChange={setStatusFilter}
+                            ariaLabel="Status"
+                            options={STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                        />
+                    </div>
 
                     <button
                         type="button"

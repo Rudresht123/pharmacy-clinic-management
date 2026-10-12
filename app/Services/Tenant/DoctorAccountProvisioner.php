@@ -58,6 +58,9 @@ class DoctorAccountProvisioner
         'appointments.consult_start',
         'appointments.consult_complete',
 
+        // Writing to their own patients between visits.
+        'appointments.messages',
+
         'customers.view',
         'prescriptions.view',
         'prescriptions.write',

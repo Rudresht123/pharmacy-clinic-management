@@ -362,22 +362,39 @@ export default function PushPage() {
                         onTest={manage ? test : undefined}
                     />
 
-                    <AutomationRules
-                        rules={data.rules}
-                        connected={on}
-                        templates={data.templates}
-                        saving={toggleRule.isPending}
-                        onToggle={
-                            manage ? (rule) => toggleRule.mutate({ id: rule.id, enabled: !rule.is_enabled }) : undefined
-                        }
-                        onEdit={manage ? setEditingRule : undefined}
-                        description="Notify patients on their phone when something happens at the clinic"
-                    />
+                    {/*
+                        Side by side at matched height, same pairing
+                        WhatsAppPage/EmailPage use — .comm-rules-card and
+                        .comm-log-card are both built for this. Stacked
+                        full-width, the rules list's fixed height just read as
+                        a cramped scrollbox with nothing beside it.
 
-                    {/* So testing a template and seeing what it actually did
-                        are the same screen — no tab switch to check a send
-                        just made landed, or why it didn't. */}
-                    <RecentMessages messages={data.recent} typeLabel="Notification" onView={setViewing} />
+                        Kept on the same screen (rather than its own tab) so
+                        testing a template and seeing what it actually did are
+                        one screen — no tab switch to check a send just made
+                        landed, or why it didn't.
+                    */}
+                    <div className="row g-3">
+                        <div className="col-12 col-xxl-5">
+                            <AutomationRules
+                                rules={data.rules}
+                                connected={on}
+                                templates={data.templates}
+                                saving={toggleRule.isPending}
+                                onToggle={
+                                    manage
+                                        ? (rule) => toggleRule.mutate({ id: rule.id, enabled: !rule.is_enabled })
+                                        : undefined
+                                }
+                                onEdit={manage ? setEditingRule : undefined}
+                                description="Notify patients on their phone when something happens at the clinic"
+                            />
+                        </div>
+
+                        <div className="col-12 col-xxl-7">
+                            <RecentMessages messages={data.recent} typeLabel="Notification" onView={setViewing} />
+                        </div>
+                    </div>
                 </>
             )}
 

@@ -32,7 +32,7 @@ class SessionPayload
     /** @return array<string, mixed> */
     public function for(User $user, Organization $organization): array
     {
-        $user->loadMissing(['memberships.location', 'memberships.role']);
+        $user->loadMissing(['memberships.location', 'memberships.role', 'avatarFile']);
 
         $branch = $this->permission->branchFor($user);
 
@@ -125,6 +125,16 @@ class SessionPayload
              * everybody else to wait — the workspace is not usable half set up.
              */
             'setup_completed' => $this->setup->isComplete(),
+
+            /*
+             * Whether this organization has capped its owner to reports —
+             * see Permission::OWNER_RESTRICTED_CAPABILITIES. `capabilities`
+             * above already reflects it; this is here so the client can send
+             * a restricted owner straight to the one screen they hold
+             * (`/pharmacy/reports`) rather than the dashboard, which has
+             * nothing to show them and would otherwise read as broken.
+             */
+            'owner_restricted' => $organization->owner_restricted,
         ];
     }
 

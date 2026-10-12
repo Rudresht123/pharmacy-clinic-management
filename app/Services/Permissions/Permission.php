@@ -47,6 +47,18 @@ use App\Support\Modules\ModuleRegistry;
  * seeing the queue, booking, cancelling, running reports, managing staff — is
  * untouched.
  *
+ * A second, narrower exception: `organization.owner_restricted`. An owner who
+ * is meant to watch the business rather than run the floor — reports, the
+ * branches, who works where, the organization's own settings — and nothing
+ * clinical or operational, can have it capped to `OWNER_RESTRICTED_CAPABILITIES`
+ * instead of the usual bypass. The clinical floor (patients, the queue,
+ * prescriptions, the pharmacy counter, billing transactions) is left to the
+ * branch's own roles — a Branch manager runs that day to day; the owner
+ * reads the numbers it produces. Off by default and set per organization, by
+ * a platform administrator, on the organization's own record — never
+ * something a role or a branch decides, because it is a statement about the
+ * account holder, not about a branch's module list.
+ *
  * Branch-level DATA scope is a different question and stays with
  * App\Services\Tenancy\TenantBranchAccess. This says what may be done; that
  * says where. Both are needed on a write and neither substitutes for the other.
@@ -67,6 +79,64 @@ class Permission
      */
     private const DESK_CAPABILITIES = [
         'appointments.queue',
+    ];
+
+    /**
+     * What a restricted owner may still do — see `organization.owner_restricted`
+     * above. Six groups, each either a report or the organization-level half
+     * of something a branch also does:
+     *
+     *   - the six reports, the same set `REPORT_CAPABILITIES` on the tenant
+     *     navigation builds the Reports menu from;
+     *   - branches: seeing the network, opening a new one, appointing who
+     *     runs it;
+     *   - people, organization-wide: adding a Branch manager and assigning
+     *     them to their branch — never `people.roles`, which WRITES a role.
+     *     That is the branch's own to decide for its own team, same as the
+     *     rest of running it day to day;
+     *   - doctors, in full: the profile (name, registration, specialisation,
+     *     a login) and which branches they cover with what timings. A doctor
+     *     is a roster the owner hires and places, not a patient-facing act —
+     *     unlike booking or seeing one, which stays the branch's. Carries
+     *     `appointments.view` too, the umbrella the Doctors/Schedules/
+     *     Availability screens and their nav sit behind — the same "may
+     *     watch, not work" read `DESK_CAPABILITIES` already gives the owner
+     *     over the queue, so watching it costs nothing new;
+     *   - billing's own reporting half: what was invoiced and paid, and
+     *     finance across OPD/lab/pharmacy, both read with the same branch
+     *     filter as the six reports above. Never `billing.create` or
+     *     `billing.collect_payment` — raising or settling a bill is the
+     *     clinical floor's transaction, not a number to read;
+     *   - the pharmacy's own `pharmacy.view`: the shop read rather than run —
+     *     its dashboard, stock, purchases, bills, movements and suppliers,
+     *     all list screens. Never `pharmacy.sell`, `.dispense`, `.inward`,
+     *     `.adjust`, `.transfer` or the rest of the counter's own write
+     *     capabilities — stocking and selling stay the clinical floor's,
+     *     same split as billing's;
+     *   - the organization's own settings and its audit log.
+     *
+     * Deliberately without `customers.*`, the rest of `appointments.*`,
+     * `prescriptions.*`, `laboratory.*`, or billing's and the pharmacy's own
+     * write capabilities — every one of those is the clinical floor, and a
+     * Branch manager already runs it.
+     *
+     * @var list<string>
+     */
+    public const OWNER_RESTRICTED_CAPABILITIES = [
+        'reports.sales', 'reports.purchases', 'reports.stock', 'reports.expiry', 'reports.profit', 'reports.gst',
+
+        'branches.view', 'branches.create', 'branches.edit', 'branches.delete', 'branches.manage_manager',
+
+        'people.view', 'people.create', 'people.edit', 'people.delete',
+        'people.across_branches', 'people.assign_branch',
+
+        'appointments.view', 'appointments.doctors', 'appointments.schedule',
+
+        'billing.view', 'billing.finance',
+
+        'pharmacy.view',
+
+        'settings.manage', 'settings.audit',
     ];
 
     /**
@@ -193,8 +263,14 @@ class Permission
             return false;
         }
 
-        if ($user->isOwner() && ! in_array($capability, self::DESK_CAPABILITIES, true)) {
-            return true;
+        if ($user->isOwner()) {
+            if ($organization->owner_restricted) {
+                return in_array($capability, self::OWNER_RESTRICTED_CAPABILITIES, true);
+            }
+
+            if (! in_array($capability, self::DESK_CAPABILITIES, true)) {
+                return true;
+            }
         }
 
         return in_array($capability, $this->heldBy($user, $branch), true);
@@ -358,6 +434,10 @@ class Permission
         $pool = ModuleRegistry::capabilitiesFor($this->modulesAt($organization, $branch));
 
         if ($user->isOwner()) {
+            if ($organization->owner_restricted) {
+                return array_values(array_intersect($pool, self::OWNER_RESTRICTED_CAPABILITIES));
+            }
+
             // Same carve-out as allows(): the desk is not the owner's to work,
             // so the client is never handed a button `allows()` would refuse.
             return array_values(array_diff($pool, self::DESK_CAPABILITIES));

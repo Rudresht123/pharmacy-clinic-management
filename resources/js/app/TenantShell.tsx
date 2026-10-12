@@ -10,10 +10,9 @@ import { useConfigurableEntities } from '@/core/field-settings/api';
  * An organization's own chrome — the same AppShell the platform panel uses,
  * wired to the `web` guard instead.
  *
- * No lock screen and no profile link: LockProvider is built on the platform
- * AuthProvider, and the tenant side has no profile route yet. Both items
- * hide themselves when their handler is absent rather than rendering a
- * control that goes nowhere.
+ * No lock screen: LockProvider is built on the platform AuthProvider, which
+ * this tree doesn't have. The lock item hides itself when its handler is
+ * absent rather than rendering a control that goes nowhere.
  */
 export function TenantShell() {
     const {
@@ -62,6 +61,7 @@ export function TenantShell() {
             navigation={navigation}
             user={user}
             onLogout={logout}
+            profileTo="/profile"
             sidebarFooter={
                 organization && (
                     <div className="app-org">

@@ -4,7 +4,7 @@ import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
-import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
+import { LoadingBlock, ErrorState, EmptyState } from '@/shared/components/ui/Feedback';
 import { Pagination } from '@/shared/components/ui/Pagination';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
@@ -1136,10 +1136,11 @@ export default function QueuePage() {
                     {isLoading ? (
                         <LoadingBlock label="Loading…" />
                     ) : byDoctor.length === 0 ? (
-                        <div className="opd-quiet">
-                            <i className="ti ti-calendar-off" aria-hidden="true" />
-                            <p>Nobody is booked with anyone here.</p>
-                        </div>
+                        <EmptyState
+                            icon="ti ti-calendar-off"
+                            title="Nobody is booked with anyone"
+                            description="Doctor loads will fill in here once patients are booked or waiting."
+                        />
                     ) : (
                         <ul className="q-load">
                             {byDoctor.map((doctor) => (
