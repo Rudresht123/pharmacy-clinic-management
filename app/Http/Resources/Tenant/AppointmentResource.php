@@ -59,6 +59,9 @@ class AppointmentResource extends JsonResource
             'appointment_date' => $this->appointment_date?->toDateString(),
             'type' => $this->type,
 
+            // In the building or on a video call.
+            'mode' => $this->mode,
+
             /*
              * Three columns, three questions, and the screens read whichever
              * one their job is about.

@@ -162,6 +162,7 @@ class BookingService
 
             'appointment_date' => $date->toDateString(),
             'type' => Appointment::BOOKED,
+            'mode' => $attributes['mode'] ?? Appointment::MODE_IN_CLINIC,
             'status' => Appointment::STATUS_BOOKED,
             'slot_at' => $slot,
             'notes' => $attributes['notes'] ?? null,

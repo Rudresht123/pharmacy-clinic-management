@@ -76,7 +76,7 @@ const DEFAULT_KPI: StageKpi = {
  */
 export function AuthLayout({
     children,
-    brand = <img src="/assets/img/logo-white.svg" alt="" />,
+    brand = <img src="/assets/img/zevro-logo-dark.png" alt="ZEVRO" />,
     eyebrow = 'Pharmacy Management',
     heading = (
         <>
@@ -88,7 +88,7 @@ export function AuthLayout({
     appUrl = 'app.hms.local',
     kpi = DEFAULT_KPI,
     features = DEFAULT_FEATURES,
-    footerBrand = 'Pharmacy Suite',
+    footerBrand = 'ZEVRO',
 }: AuthLayoutProps) {
     return (
         <div className="hx-auth">

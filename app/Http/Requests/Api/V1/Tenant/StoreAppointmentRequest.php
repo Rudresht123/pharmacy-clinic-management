@@ -57,6 +57,18 @@ class StoreAppointmentRequest extends FormRequest
                 'date_format:H:i',
             ],
 
+            /*
+             * Video is for a booked time only: somebody who walked in is
+             * standing at the desk, which is the one place a video visit
+             * is not.
+             */
+            'mode' => [
+                'nullable',
+                Rule::in($this->input('type') === Appointment::WALK_IN
+                    ? [Appointment::MODE_IN_CLINIC]
+                    : Appointment::MODES),
+            ],
+
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }

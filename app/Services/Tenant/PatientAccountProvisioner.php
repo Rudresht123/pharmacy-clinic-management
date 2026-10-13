@@ -37,6 +37,7 @@ class PatientAccountProvisioner
         'portal.appointments.view',
         'portal.appointments.book',
         'portal.messages',
+        'portal.video_calls',
     ];
 
     /**

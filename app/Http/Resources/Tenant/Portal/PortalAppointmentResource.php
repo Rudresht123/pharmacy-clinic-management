@@ -27,6 +27,19 @@ class PortalAppointmentResource extends JsonResource
             // Issued on arrival, so null until they have checked in.
             'token_no' => $this->token_no,
 
+            // `video`: the doctor rings at the slot instead of the patient coming in.
+            'mode' => $this->mode,
+
+            /*
+             * The doctor's ring or call for this visit while there is one —
+             * what puts a "Join call" button on the appointment, for a patient
+             * who dismissed the ringing screen or opened the app late. A ring
+             * nobody can answer any more is not offered.
+             */
+            'video_call' => $this->whenLoaded('liveVideoCall', fn () => $this->liveVideoCall && ! $this->liveVideoCall->ringHasLapsed()
+                ? ['id' => $this->liveVideoCall->id, 'status' => $this->liveVideoCall->status]
+                : null),
+
             'doctor' => $this->whenLoaded('doctor', fn () => [
                 'id' => $this->doctor?->id,
                 'name' => $this->doctor?->name,

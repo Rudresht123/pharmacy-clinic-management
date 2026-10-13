@@ -3,7 +3,9 @@
 namespace App\Services\Messaging;
 
 use App\Broadcasting\UserMessagesChannel;
+use App\Events\Realtime\ConversationDelivered;
 use App\Events\Realtime\ConversationRead;
+use App\Events\Realtime\ConversationTyping;
 use App\Events\Realtime\MessageSent;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
@@ -60,9 +62,13 @@ class Messenger
     /**
      * The inbox: every thread with something in it, newest first.
      *
+     * Fetching it is this phone receiving what is in it: each thread with a
+     * message newer than this side's delivered pointer is marked delivered,
+     * and the other side's single tick becomes two.
+     *
      * @return array{rows: list<array<string, mixed>>, unread: int}
      */
-    public function inbox(Participant $me, ?string $search = null): array
+    public function inbox(Organization $organization, Participant $me, ?string $search = null): array
     {
         $other = Conversation::otherSide($me->side);
         $readColumn = Conversation::readColumn($me->side);
@@ -81,6 +87,16 @@ class Messenger
             ->orderByDesc('id')
             ->limit(200)
             ->get();
+
+        $deliveredColumn = Conversation::deliveredColumn($me->side);
+
+        foreach ($conversations as $conversation) {
+            $latest = (int) $conversation->latestMessage?->getKey();
+
+            if ($latest > (int) $conversation->getAttribute($deliveredColumn)) {
+                $this->markDelivered($organization, $me, $conversation, $latest);
+            }
+        }
 
         $rows = $conversations->map(fn (Conversation $conversation) => $this->conversationRow($me, $conversation))
             ->values()
@@ -105,60 +121,102 @@ class Messenger
             ->count();
     }
 
+    /** How many people the picker lists before it asks for a search instead. */
+    private const CONTACTS = 100;
+
     /**
      * Who this participant may start a conversation with.
      *
      * The other side of every appointment they share that was not cancelled,
-     * most recently seen first, with the thread id where one already exists.
+     * with when they were last seen and the thread id where one already
+     * exists. Most recently seen first: a doctor with hundreds of patients is
+     * nearly always writing to somebody from this week, and an alphabetical
+     * first page buries them. `total` is everybody who matches, so the screen
+     * can say "248 patients" while showing the first hundred.
      *
-     * @return list<array<string, mixed>>
+     * @return array{rows: list<array<string, mixed>>, total: int}
      */
     public function contacts(Participant $me, ?string $search = null): array
     {
         $term = trim((string) $search);
+        $today = now()->toDateString();
 
         if ($me->isDoctor()) {
-            $people = Customer::query()
+            $doctorId = $me->doctor->getKey();
+
+            $matching = Customer::query()
                 ->active()
-                ->with('user')
-                ->whereIn('id', $this->visits()->where('doctor_id', $me->doctor->getKey())->select('customer_id'))
+                ->whereIn('id', $this->visits()->where('doctor_id', $doctorId)->select('customer_id'))
                 ->when($term !== '', fn (Builder $query) => $query->where(fn (Builder $q) => $q
                     ->where('name', 'ilike', "%{$term}%")
                     ->orWhere('code', 'ilike', "%{$term}%")
-                    ->orWhere('phone', 'ilike', "%{$term}%")))
+                    ->orWhere('phone', 'ilike', "%{$term}%")));
+
+            $people = (clone $matching)
+                ->with('user')
+                ->addSelect(['last_visit_on' => $this->visits()
+                    ->selectRaw('max(appointment_date)')
+                    ->whereColumn('appointments.customer_id', 'customers.id')
+                    ->where('doctor_id', $doctorId)
+                    ->where('appointment_date', '<=', $today)])
+                ->orderByRaw('last_visit_on desc nulls last')
                 ->orderBy('name')
-                ->limit(50)
+                ->limit(self::CONTACTS)
                 ->get();
 
             $threads = Conversation::query()
-                ->where('doctor_id', $me->doctor->getKey())
+                ->where('doctor_id', $doctorId)
                 ->whereIn('customer_id', $people->modelKeys())
                 ->pluck('id', 'customer_id');
 
-            return $people->map(fn (Customer $customer) => $this->patientCard($customer) + [
-                'conversation_id' => $threads[$customer->getKey()] ?? null,
-            ])->values()->all();
+            return [
+                'rows' => $people->map(fn (Customer $customer) => $this->patientCard($customer) + [
+                    'conversation_id' => $threads[$customer->getKey()] ?? null,
+                    'last_visit_on' => $this->day($customer->getAttribute('last_visit_on')),
+                ])->values()->all(),
+                'total' => $matching->count(),
+            ];
         }
 
-        $doctors = Doctor::query()
+        $customerId = $me->customer->getKey();
+
+        $matching = Doctor::query()
             ->active()
-            ->with(['photograph', 'user'])
-            ->whereIn('id', $this->visits()->where('customer_id', $me->customer->getKey())->select('doctor_id'))
+            ->whereIn('id', $this->visits()->where('customer_id', $customerId)->select('doctor_id'))
             ->when($term !== '', fn (Builder $query) => $query->where(fn (Builder $q) => $q
                 ->where('name', 'ilike', "%{$term}%")
-                ->orWhere('specialisation', 'ilike', "%{$term}%")))
+                ->orWhere('specialisation', 'ilike', "%{$term}%")));
+
+        $doctors = (clone $matching)
+            ->with(['photograph', 'user'])
+            ->addSelect(['last_visit_on' => $this->visits()
+                ->selectRaw('max(appointment_date)')
+                ->whereColumn('appointments.doctor_id', 'doctors.id')
+                ->where('customer_id', $customerId)
+                ->where('appointment_date', '<=', $today)])
+            ->orderByRaw('last_visit_on desc nulls last')
             ->orderBy('name')
-            ->limit(50)
+            ->limit(self::CONTACTS)
             ->get();
 
         $threads = Conversation::query()
-            ->where('customer_id', $me->customer->getKey())
+            ->where('customer_id', $customerId)
             ->whereIn('doctor_id', $doctors->modelKeys())
             ->pluck('id', 'doctor_id');
 
-        return $doctors->map(fn (Doctor $doctor) => $this->doctorCard($doctor) + [
-            'conversation_id' => $threads[$doctor->getKey()] ?? null,
-        ])->values()->all();
+        return [
+            'rows' => $doctors->map(fn (Doctor $doctor) => $this->doctorCard($doctor) + [
+                'conversation_id' => $threads[$doctor->getKey()] ?? null,
+                'last_visit_on' => $this->day($doctor->getAttribute('last_visit_on')),
+            ])->values()->all(),
+            'total' => $matching->count(),
+        ];
+    }
+
+    /** A date column read through a subquery, as `Y-m-d` or null. */
+    private function day(mixed $value): ?string
+    {
+        return $value === null ? null : substr((string) $value, 0, 10);
     }
 
     /**
@@ -342,7 +400,14 @@ class Messenger
             return $current;
         }
 
-        $conversation->forceFill([$column => $target])->save();
+        $delivered = Conversation::deliveredColumn($me->side);
+
+        // Read on this phone is received on this phone: blue ticks never sit
+        // above a grey "delivered" that lags behind them.
+        $conversation->forceFill([
+            $column => $target,
+            $delivered => max($target, (int) $conversation->getAttribute($delivered)),
+        ])->save();
 
         $this->broadcast(new ConversationRead(
             $organization->uuid,
@@ -351,6 +416,49 @@ class Messenger
         ));
 
         return $target;
+    }
+
+    /**
+     * The participant's phone has received everything up to [upTo] (or all
+     * of it) — the second grey tick on the other side.
+     *
+     * Forward only and never past the end, for the same reasons as reading.
+     */
+    public function markDelivered(Organization $organization, Participant $me, Conversation $conversation, ?int $upTo = null): int
+    {
+        $column = Conversation::deliveredColumn($me->side);
+        $latest = (int) $conversation->messages()->max('id');
+        $target = min($upTo ?? $latest, $latest);
+        $current = (int) $conversation->getAttribute($column);
+
+        if ($target <= $current) {
+            return $current;
+        }
+
+        $conversation->forceFill([$column => $target])->save();
+
+        $this->broadcast(new ConversationDelivered(
+            $organization->uuid,
+            $this->loginsOf(Conversation::otherSide($me->side), $conversation),
+            ['conversation_id' => (int) $conversation->getKey(), 'side' => $me->side, 'last_delivered_id' => $target],
+        ));
+
+        return $target;
+    }
+
+    /**
+     * The participant is writing in this thread right now.
+     *
+     * Only ever live — there is nothing to fetch later, and nobody to tell
+     * when the other side has no login or the socket is down.
+     */
+    public function typing(Organization $organization, Participant $me, Conversation $conversation): void
+    {
+        $this->broadcast(new ConversationTyping(
+            $organization->uuid,
+            $this->loginsOf(Conversation::otherSide($me->side), $conversation),
+            ['conversation_id' => (int) $conversation->getKey(), 'side' => $me->side],
+        ));
     }
 
     /** The private channel this participant's own live updates arrive on. */
@@ -490,11 +598,25 @@ class Messenger
             'last_message' => $latest ? $this->messageRow($latest) : null,
             'last_message_at' => $conversation->last_message_at?->toIso8601String(),
             'unread' => (int) ($conversation->unread_count ?? 0),
-            // How far the other side has read, so the sender's ticks turn blue.
-            'counterpart_read_id' => (int) $conversation->getAttribute(
-                Conversation::readColumn(Conversation::otherSide($me->side)),
-            ),
+            // How far the other side has read and received: the sender's
+            // ticks are one grey, two grey, or two blue from these.
+            'counterpart_read_id' => $this->counterpartRead($me, $conversation),
+            'counterpart_delivered_id' => $this->counterpartDelivered($me, $conversation),
         ];
+    }
+
+    public function counterpartRead(Participant $me, Conversation $conversation): int
+    {
+        return (int) $conversation->getAttribute(Conversation::readColumn(Conversation::otherSide($me->side)));
+    }
+
+    /** Never behind what they have read — a message read was received. */
+    public function counterpartDelivered(Participant $me, Conversation $conversation): int
+    {
+        return max(
+            $this->counterpartRead($me, $conversation),
+            (int) $conversation->getAttribute(Conversation::deliveredColumn(Conversation::otherSide($me->side))),
+        );
     }
 
     /** @return array<string, mixed> */

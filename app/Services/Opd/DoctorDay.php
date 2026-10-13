@@ -88,7 +88,7 @@ class DoctorDay
     private function dayFor(Doctor $doctor, Carbon $date, ?int $locationId): Collection
     {
         return Appointment::on('organization')
-            ->with(['customer', 'location', 'consultation.livePrescription.items'])
+            ->with(['customer', 'location', 'consultation.livePrescription.items', 'liveVideoCall'])
             ->where('doctor_id', $doctor->id)
             ->whereDate('appointment_date', $date->toDateString())
             ->when($locationId, fn ($query, $id) => $query->where('location_id', $id))
@@ -430,6 +430,15 @@ class DoctorDay
 
             'type' => $row->type,
 
+            // In the building, or on a video call the doctor places.
+            'mode' => $row->mode,
+
+            // The ring or call going on for this visit right now, if any —
+            // so the list can say "Rejoin" instead of ringing again.
+            'video_call' => $row->relationLoaded('liveVideoCall') && $row->liveVideoCall && ! $row->liveVideoCall->ringHasLapsed()
+                ? ['id' => $row->liveVideoCall->id, 'status' => $row->liveVideoCall->status]
+                : null,
+
             // What the desk means by "new" or "follow-up": have we seen them
             // before, not how the appointment was made.
             'is_new' => ! in_array((int) $row->customer_id, $this->returning, true),
@@ -459,6 +468,12 @@ class DoctorDay
                 'consult_complete' => $row->consultation_status === Appointment::CONSULT_IN_PROGRESS,
                 'consult_reopen' => $row->consultationCompleted()
                     && (bool) $row->appointment_date?->isToday(),
+
+                // The same rules VideoCalls::ring() enforces: a video visit,
+                // today, not called off.
+                'video_call' => $row->isVideo()
+                    && (bool) $row->appointment_date?->isToday()
+                    && ! in_array($row->status, [Appointment::STATUS_CANCELLED, Appointment::STATUS_NO_SHOW], true),
             ],
         ];
     }
@@ -666,6 +681,7 @@ class DoctorDay
                 'slot_at' => substr((string) $row->slot_at, 0, 5),
                 'customer_name' => $row->customer?->name,
                 'type' => $row->type,
+                'mode' => $row->mode,
             ])
             ->values()
             ->all();

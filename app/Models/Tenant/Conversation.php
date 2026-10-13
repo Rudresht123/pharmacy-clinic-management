@@ -30,6 +30,8 @@ class Conversation extends Model
         'last_message_at',
         'doctor_last_read_id',
         'patient_last_read_id',
+        'doctor_delivered_id',
+        'patient_delivered_id',
     ];
 
     protected function casts(): array
@@ -38,6 +40,8 @@ class Conversation extends Model
             'last_message_at' => 'datetime',
             'doctor_last_read_id' => 'integer',
             'patient_last_read_id' => 'integer',
+            'doctor_delivered_id' => 'integer',
+            'patient_delivered_id' => 'integer',
         ];
     }
 
@@ -65,6 +69,12 @@ class Conversation extends Model
     public static function readColumn(string $side): string
     {
         return $side === self::DOCTOR ? 'doctor_last_read_id' : 'patient_last_read_id';
+    }
+
+    /** The column holding what [side]'s phone has received up to. */
+    public static function deliveredColumn(string $side): string
+    {
+        return $side === self::DOCTOR ? 'doctor_delivered_id' : 'patient_delivered_id';
     }
 
     public static function otherSide(string $side): string

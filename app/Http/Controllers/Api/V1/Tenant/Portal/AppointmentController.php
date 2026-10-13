@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1\Tenant\Portal;
 
 use App\Http\Requests\Api\V1\Tenant\Portal\BookAppointmentRequest;
 use App\Http\Resources\Tenant\Portal\PortalAppointmentResource;
+use App\Models\Tenant\Appointment;
+use App\Services\Permissions\Permission;
 use App\Services\Portal\PatientAppointments;
 use App\Services\Portal\PatientNotifications;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -22,6 +24,7 @@ class AppointmentController extends PortalController
     public function __construct(
         private readonly PatientAppointments $appointments,
         private readonly PatientNotifications $notifications,
+        private readonly Permission $permission,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -39,6 +42,16 @@ class AppointmentController extends PortalController
 
     public function store(BookAppointmentRequest $request): JsonResponse
     {
+        /*
+         * A video visit is one the patient has to answer. Booking one without
+         * the capability to take the call would leave the doctor ringing a
+         * phone that cannot pick up.
+         */
+        if ($request->input('mode') === Appointment::MODE_VIDEO
+            && ! $this->permission->allows($this->organization($request), $request->user(), 'portal.video_calls')) {
+            return $this->fail('Video visits are not available to you at this clinic. Please book an in-clinic visit.', 403);
+        }
+
         try {
             $appointment = $this->appointments->book(
                 $this->organization($request),

@@ -126,9 +126,10 @@ class PatientAppointments
                 'location_id' => $locationId,
                 'appointment_date' => $date->toDateString(),
                 'slot_at' => $data['slot_at'],
+                'mode' => $data['mode'] ?? Appointment::MODE_IN_CLINIC,
                 'notes' => $data['notes'] ?? null,
             ])
-            ->load(['doctor.photograph', 'location']);
+            ->load(['doctor.photograph', 'location', 'liveVideoCall']);
     }
 
     /**
@@ -173,7 +174,7 @@ class PatientAppointments
     private function of(Customer $patient): Builder
     {
         return Appointment::query()
-            ->with(['doctor.photograph', 'location'])
+            ->with(['doctor.photograph', 'location', 'liveVideoCall'])
             ->where('customer_id', $patient->id);
     }
 }

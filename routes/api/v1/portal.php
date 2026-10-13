@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Tenant\Portal\HomeController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\LabReportController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\PrescriptionController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\SignInController;
+use App\Http\Controllers\Api\V1\Tenant\VideoCallController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -102,8 +103,32 @@ Route::middleware([
                     ->whereNumber('conversation')->middleware('throttle:60,1')->name('send');
                 Route::post('conversations/{conversation}/read', [ConversationController::class, 'read'])
                     ->whereNumber('conversation')->name('read');
+                Route::post('conversations/{conversation}/delivered', [ConversationController::class, 'delivered'])
+                    ->whereNumber('conversation')->name('delivered');
+                Route::post('conversations/{conversation}/typing', [ConversationController::class, 'typing'])
+                    ->whereNumber('conversation')->middleware('throttle:40,1')->name('typing');
                 Route::get('attachments/{message}', [ConversationController::class, 'attachment'])
                     ->whereNumber('message')->name('attachment');
+            });
+
+        /*
+        | Video consultations — the patient's end: hearing the doctor ring,
+        | answering, and the handshake that connects the two phones. The
+        | doctor's end is in routes/api/v1.php on the same controller.
+        */
+        Route::middleware('permission:portal.video_calls')
+            ->prefix('video-calls')
+            ->name('video-calls.')
+            ->group(function () {
+                Route::get('current', [VideoCallController::class, 'current'])->name('current');
+                Route::get('{call}', [VideoCallController::class, 'show'])->whereNumber('call')->name('show');
+                Route::post('{call}/accept', [VideoCallController::class, 'accept'])->whereNumber('call')->name('accept');
+                Route::post('{call}/decline', [VideoCallController::class, 'decline'])->whereNumber('call')->name('decline');
+                Route::post('{call}/end', [VideoCallController::class, 'end'])->whereNumber('call')->name('end');
+                Route::post('{call}/signals', [VideoCallController::class, 'signal'])
+                    ->whereNumber('call')->middleware('throttle:300,1')->name('signal');
+                Route::get('{call}/signals', [VideoCallController::class, 'signals'])
+                    ->whereNumber('call')->middleware('throttle:300,1')->name('signals');
             });
     });
 

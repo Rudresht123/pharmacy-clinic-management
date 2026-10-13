@@ -165,7 +165,7 @@ class PatientPortalTest extends TenantTestCase
         // What they may do comes from the Patient role, through the same
         // capability list staff sessions carry.
         $this->assertEqualsCanonicalizing(
-            ['portal.appointments.view', 'portal.appointments.book', 'portal.messages'],
+            ['portal.appointments.view', 'portal.appointments.book', 'portal.messages', 'portal.video_calls'],
             $session->json('data.capabilities'),
         );
 
@@ -304,6 +304,59 @@ class PatientPortalTest extends TenantTestCase
             ->assertJsonPath('data.patient.name', 'Rahul Tiwari')
             ->assertJsonPath('data.next_appointment.id', $booked->json('data.id'))
             ->assertJsonPath('data.upcoming_count', 1);
+    }
+
+    public function test_a_patient_books_a_video_visit_and_it_stays_one(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+        $token = $this->signInPatient($organization);
+
+        $booking = fn (array $extra) => $this->asPatient($organization, $token)
+            ->postJson('/api/v1/tenant/portal/appointments', $extra + [
+                'doctor_id' => $doctorId,
+                'location_id' => $branchId,
+                'appointment_date' => self::MONDAY,
+                'slot_at' => '10:30',
+            ]);
+
+        $booking(['mode' => 'teleport'])->assertUnprocessable()->assertJsonValidationErrors('mode');
+
+        $booking(['mode' => Appointment::MODE_VIDEO])
+            ->assertCreated()
+            ->assertJsonPath('data.mode', Appointment::MODE_VIDEO)
+            // Nobody has rung yet.
+            ->assertJsonPath('data.video_call', null);
+
+        $this->asPatient($organization, $token)
+            ->getJson('/api/v1/tenant/portal/appointments')
+            ->assertOk()
+            ->assertJsonPath('data.0.mode', Appointment::MODE_VIDEO);
+    }
+
+    /** A video visit is one the patient answers — without the capability, they cannot book one. */
+    public function test_a_patient_who_cannot_take_calls_books_in_clinic_only(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinic();
+        $token = $this->signInPatient($organization);
+
+        $this->onTenant($organization, fn () => Role::query()
+            ->where('slug', PatientAccountProvisioner::ROLE)
+            ->firstOrFail()
+            ->syncCapabilities(['portal.appointments.view', 'portal.appointments.book']));
+
+        $book = fn (?string $mode) => $this->asPatient($organization, $token)
+            ->postJson('/api/v1/tenant/portal/appointments', array_filter([
+                'doctor_id' => $doctorId,
+                'location_id' => $branchId,
+                'appointment_date' => self::MONDAY,
+                'slot_at' => '10:30',
+                'mode' => $mode,
+            ]));
+
+        $book(Appointment::MODE_VIDEO)->assertForbidden();
+
+        // Asking for nothing in particular is an in-clinic visit, as it always was.
+        $book(null)->assertCreated()->assertJsonPath('data.mode', Appointment::MODE_IN_CLINIC);
     }
 
     /**

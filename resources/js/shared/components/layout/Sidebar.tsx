@@ -32,7 +32,7 @@ export function Sidebar({
     extra,
 }: SidebarProps) {
     const { pathname } = useLocation();
-    const { settings } = useAppSettings();
+    const { settings, resolvedTheme } = useAppSettings();
 
     /*
      * Which groups are open, by their own path.
@@ -63,19 +63,24 @@ export function Sidebar({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pathname]);
 
-    // The dark-text logo disappears on a dark or brand-coloured sidebar.
-    const onDarkSurface = settings.sidebar !== 'light';
+    // The navy wordmark disappears on a dark or brand-coloured sidebar, and
+    // the dark theme turns every sidebar dark whatever its own setting says.
+    const onDarkSurface = settings.sidebar !== 'light' || resolvedTheme === 'dark';
 
     return (
         <aside className="app-sidebar">
             <div className="app-brand">
                 <NavLink to="/dashboard" onClick={onNavigate}>
                     <img
-                        src={onDarkSurface ? '/assets/img/logo-white.svg' : '/assets/img/logo.svg'}
-                        alt=""
+                        src={
+                            onDarkSurface
+                                ? '/assets/img/zevro-logo-dark.png'
+                                : '/assets/img/zevro-logo.png'
+                        }
+                        alt="ZEVRO"
                         className="app-brand-full"
                     />
-                    <img src="/assets/img/logo-small.svg" alt="" className="app-brand-mark" />
+                    <img src="/assets/img/zevro-mark.png" alt="" className="app-brand-mark" />
                 </NavLink>
 
                 <button

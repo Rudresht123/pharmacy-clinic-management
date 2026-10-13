@@ -29,6 +29,18 @@ class Appointment extends Model
     public const TYPES = [self::BOOKED, self::WALK_IN];
 
     /*
+     * Where the patient will be: in the building, or on the phone. Separate
+     * from `type`, which is how the visit was MADE — a video visit is booked
+     * ahead like any other, and only a booking can be one (nobody walks in
+     * over video).
+     */
+    public const MODE_IN_CLINIC = 'in_clinic';
+
+    public const MODE_VIDEO = 'video';
+
+    public const MODES = [self::MODE_IN_CLINIC, self::MODE_VIDEO];
+
+    /*
     |--------------------------------------------------------------------------
     | 1. THE VISIT — `status`
     |--------------------------------------------------------------------------
@@ -256,6 +268,7 @@ class Appointment extends Model
         'doctor_schedule_id',
         'appointment_date',
         'type',
+        'mode',
         'status',
         'slot_at',
         'token_no',
@@ -426,6 +439,26 @@ class Appointment extends Model
     public function sales(): HasMany
     {
         return $this->hasMany(PharmacySale::class);
+    }
+
+    public function isVideo(): bool
+    {
+        return $this->mode === self::MODE_VIDEO;
+    }
+
+    /** Every time the doctor rang for this visit, newest last. */
+    public function videoCalls(): HasMany
+    {
+        return $this->hasMany(VideoCall::class);
+    }
+
+    /**
+     * The ring or call still going on, if there is one. One at most — the
+     * partial unique index `video_calls_one_live_per_visit` sees to that.
+     */
+    public function liveVideoCall(): HasOne
+    {
+        return $this->hasOne(VideoCall::class)->whereIn('status', VideoCall::LIVE);
     }
 
     public function caller(): BelongsTo

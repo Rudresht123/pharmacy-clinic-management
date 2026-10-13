@@ -209,6 +209,9 @@ class RoleTemplates
                     // Their own patients, between visits.
                     'appointments.messages',
 
+                    // And on video, for a visit booked that way.
+                    'appointments.video_call',
+
                     'prescriptions.view',
                     'prescriptions.write',
 

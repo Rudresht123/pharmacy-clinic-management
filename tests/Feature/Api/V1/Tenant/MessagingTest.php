@@ -2,14 +2,18 @@
 
 namespace Tests\Feature\Api\V1\Tenant;
 
+use App\Events\Realtime\ConversationDelivered;
 use App\Events\Realtime\ConversationRead;
+use App\Events\Realtime\ConversationTyping;
 use App\Events\Realtime\MessageSent;
 use App\Jobs\SendPushMessage;
 use App\Models\Platform\Module;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Customer;
+use App\Models\Tenant\Doctor;
 use App\Models\Tenant\Location;
+use App\Models\Tenant\Role;
 use App\Models\Tenant\User as TenantUser;
 use App\Services\Tenant\PatientAccountProvisioner;
 use Illuminate\Broadcasting\BroadcastManager;
@@ -51,10 +55,8 @@ class MessagingTest extends TenantTestCase
 
         $this->artisan('modules:sync');
 
-        Queue::fake();
-        Event::fake([MessageSent::class, ConversationRead::class]);
-        Storage::fake('local');
-
+        // Provisioning runs as a queued job, so the queue is faked only once
+        // the organization exists — faked earlier, it would never be built.
         $this->organization = $this->provisionOrganization('MSG');
         $this->organization->moduleEntitlements()->create([
             'module_id' => Module::where('key', 'appointments')->value('id'),
@@ -88,6 +90,10 @@ class MessagingTest extends TenantTestCase
                 'password' => 'doctor-secret-1',
             ])->assertOk()->json('data.token');
         }
+
+        Queue::fake();
+        Event::fake([MessageSent::class, ConversationRead::class, ConversationTyping::class, ConversationDelivered::class]);
+        Storage::fake('local');
     }
 
     private function fresh(): void
@@ -116,7 +122,7 @@ class MessagingTest extends TenantTestCase
      *
      * @return array{0: int, 1: string} customer id, token
      */
-    private function patient(string $name, ?string $seenBy = 'anjali', string $status = Appointment::STATUS_COMPLETED): array
+    private function patient(string $name, ?string $seenBy = 'anjali', string $status = Appointment::STATUS_BOOKED): array
     {
         return $this->onTenant($this->organization, function () use ($name, $seenBy, $status) {
             $customer = Customer::on('organization')->create([
@@ -133,7 +139,8 @@ class MessagingTest extends TenantTestCase
                     'appointment_date' => now()->toDateString(),
                     'type' => Appointment::BOOKED,
                     'status' => $status,
-                    'slot_at' => '10:00',
+                    // One slot each: a doctor's slot holds one booking.
+                    'slot_at' => sprintf('%02d:%02d', 9 + intdiv($customer->id, 4), ($customer->id % 4) * 15),
                 ]);
             }
 
@@ -159,7 +166,9 @@ class MessagingTest extends TenantTestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $this->doctors['anjali'])
             ->assertJsonPath('data.0.on_app', true)
-            ->assertJsonPath('data.0.conversation_id', null);
+            ->assertJsonPath('data.0.conversation_id', null)
+            ->assertJsonPath('data.0.last_visit_on', now()->toDateString())
+            ->assertJsonPath('meta.total', 1);
 
         $conversationId = $this->as($patientToken)
             ->postJson(self::PORTAL.'/conversations', ['doctor_id' => $this->doctors['anjali']])
@@ -372,7 +381,7 @@ class MessagingTest extends TenantTestCase
     {
         [, $patientToken] = $this->patient('Rahul Tiwari');
 
-        $this->onTenant($this->organization, fn () => \App\Models\Tenant\Role::query()
+        $this->onTenant($this->organization, fn () => Role::query()
             ->where('slug', PatientAccountProvisioner::ROLE)
             ->firstOrFail()
             ->syncCapabilities(['portal.appointments.view']));
@@ -382,7 +391,7 @@ class MessagingTest extends TenantTestCase
 
     public function test_a_patient_cannot_open_a_thread_with_a_doctor_who_has_no_login(): void
     {
-        $doctorId = $this->onTenant($this->organization, fn () => \App\Models\Tenant\Doctor::on('organization')->create([
+        $doctorId = $this->onTenant($this->organization, fn () => Doctor::on('organization')->create([
             'name' => 'Dr. Visiting Consultant',
             'is_active' => true,
         ])->id);
@@ -504,6 +513,75 @@ class MessagingTest extends TenantTestCase
                 && $payload['data']['type'] === 'message.received'
                 && $payload['data']['conversation_id'] === $conversationId;
         });
+    }
+
+    /** One grey tick, two grey ticks, two blue ticks — in that order. */
+    public function test_a_message_is_sent_then_delivered_then_read(): void
+    {
+        [, $patientToken] = $this->patient('Rahul Tiwari');
+
+        $conversationId = $this->as($patientToken)
+            ->postJson(self::PORTAL.'/conversations', ['doctor_id' => $this->doctors['anjali']])
+            ->json('data.id');
+
+        $messageId = $this->as($patientToken)
+            ->postJson(self::PORTAL."/conversations/{$conversationId}/messages", ['body' => 'Fever since two days.'])
+            ->json('data.id');
+
+        // Sent: the doctor's phone has not had it yet.
+        $this->as($patientToken)->getJson(self::PORTAL."/conversations/{$conversationId}")
+            ->assertJsonPath('data.counterpart_delivered_id', 0)
+            ->assertJsonPath('data.counterpart_read_id', 0);
+
+        // The doctor's inbox loading is their phone receiving it.
+        $this->asDoctor()->getJson(self::STAFF_DOCTOR.'/conversations')->assertOk();
+
+        $this->as($patientToken)->getJson(self::PORTAL."/conversations/{$conversationId}/messages")
+            ->assertJsonPath('meta.counterpart_delivered_id', $messageId)
+            ->assertJsonPath('meta.counterpart_read_id', 0);
+
+        Event::assertDispatched(ConversationDelivered::class, fn (ConversationDelivered $event) => $event->payload === [
+            'conversation_id' => $conversationId,
+            'side' => 'doctor',
+            'last_delivered_id' => $messageId,
+        ]);
+
+        // Asked again, nothing moves and nothing more is announced.
+        $this->asDoctor()->getJson(self::STAFF_DOCTOR.'/conversations')->assertOk();
+        $this->asDoctor()
+            ->postJson(self::STAFF_DOCTOR."/conversations/{$conversationId}/delivered", ['up_to' => 1])
+            ->assertJsonPath('data.last_delivered_id', $messageId);
+        Event::assertDispatchedTimes(ConversationDelivered::class, 1);
+
+        // Read.
+        $this->asDoctor()->postJson(self::STAFF_DOCTOR."/conversations/{$conversationId}/read")->assertOk();
+
+        $this->as($patientToken)->getJson(self::PORTAL."/conversations/{$conversationId}")
+            ->assertJsonPath('data.counterpart_read_id', $messageId)
+            ->assertJsonPath('data.counterpart_delivered_id', $messageId);
+    }
+
+    /** "Typing…" goes to the other side only, and only in one's own thread. */
+    public function test_typing_is_told_to_the_other_side_alone(): void
+    {
+        [, $rahul] = $this->patient('Rahul Tiwari');
+        [, $asha] = $this->patient('Asha Rane');
+
+        $conversationId = $this->as($rahul)
+            ->postJson(self::PORTAL.'/conversations', ['doctor_id' => $this->doctors['anjali']])
+            ->json('data.id');
+
+        $this->as($rahul)->postJson(self::PORTAL."/conversations/{$conversationId}/typing")->assertOk();
+        $this->as($asha)->postJson(self::PORTAL."/conversations/{$conversationId}/typing")->assertNotFound();
+
+        $doctorLogin = $this->onTenant($this->organization, fn () => TenantUser::query()
+            ->where('email', 'anjali@clinic.test')
+            ->value('id'));
+
+        Event::assertDispatchedTimes(ConversationTyping::class, 1);
+        Event::assertDispatched(ConversationTyping::class, fn (ConversationTyping $event) => $event->userIds === [$doctorLogin]
+            && $event->payload === ['conversation_id' => $conversationId, 'side' => 'patient']
+            && $event->broadcastAs() === 'conversation.typing');
     }
 
     /*

@@ -38,7 +38,11 @@ class ConversationController extends BaseApiController
         $request->validate(['q' => ['nullable', 'string', 'max:100']]);
 
         $me = $this->participant($request);
-        $inbox = $this->messenger->inbox($me, $request->string('q')->toString() ?: null);
+        $inbox = $this->messenger->inbox(
+            $request->attributes->get('tenant.organization'),
+            $me,
+            $request->string('q')->toString() ?: null,
+        );
 
         return $this->ok($inbox['rows'], meta: $this->meta($request, $me) + ['unread' => $inbox['unread']]);
     }
@@ -57,8 +61,9 @@ class ConversationController extends BaseApiController
         $request->validate(['q' => ['nullable', 'string', 'max:100']]);
 
         $me = $this->participant($request);
+        $contacts = $this->messenger->contacts($me, $request->string('q')->toString() ?: null);
 
-        return $this->ok($this->messenger->contacts($me, $request->string('q')->toString() ?: null));
+        return $this->ok($contacts['rows'], meta: ['total' => $contacts['total']]);
     }
 
     /**
@@ -107,9 +112,8 @@ class ConversationController extends BaseApiController
 
         return $this->ok($page['messages'], meta: [
             'has_more' => $page['has_more'],
-            'counterpart_read_id' => (int) $conversation->getAttribute(
-                Conversation::readColumn(Conversation::otherSide($me->side)),
-            ),
+            'counterpart_read_id' => $this->messenger->counterpartRead($me, $conversation),
+            'counterpart_delivered_id' => $this->messenger->counterpartDelivered($me, $conversation),
         ]);
     }
 
@@ -162,6 +166,35 @@ class ConversationController extends BaseApiController
         );
 
         return $this->ok(['last_read_id' => $lastRead]);
+    }
+
+    /** This phone has received everything up to `up_to` (or all of it). */
+    public function delivered(Request $request, Conversation $conversation): JsonResponse
+    {
+        $request->validate(['up_to' => ['nullable', 'integer', 'min:1']]);
+
+        $me = $this->participant($request);
+        $this->ensureOwn($me, $conversation);
+
+        $lastDelivered = $this->messenger->markDelivered(
+            $request->attributes->get('tenant.organization'),
+            $me,
+            $conversation,
+            $request->filled('up_to') ? $request->integer('up_to') : null,
+        );
+
+        return $this->ok(['last_delivered_id' => $lastDelivered]);
+    }
+
+    /** "I am writing" — relayed live to the other side, never stored. */
+    public function typing(Request $request, Conversation $conversation): JsonResponse
+    {
+        $me = $this->participant($request);
+        $this->ensureOwn($me, $conversation);
+
+        $this->messenger->typing($request->attributes->get('tenant.organization'), $me, $conversation);
+
+        return $this->ok(['typing' => true]);
     }
 
     /** An attachment's bytes, after the same ownership check as everything else. */

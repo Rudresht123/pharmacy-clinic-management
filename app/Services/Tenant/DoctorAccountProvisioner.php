@@ -61,6 +61,9 @@ class DoctorAccountProvisioner
         // Writing to their own patients between visits.
         'appointments.messages',
 
+        // Seeing them on video, for a visit booked that way.
+        'appointments.video_call',
+
         'customers.view',
         'prescriptions.view',
         'prescriptions.write',

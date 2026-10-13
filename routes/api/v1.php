@@ -73,6 +73,7 @@ use App\Http\Controllers\Api\V1\Tenant\StoreMedicineController;
 use App\Http\Controllers\Api\V1\Tenant\SupplierController;
 use App\Http\Controllers\Api\V1\Tenant\UserController as TenantUserController;
 use App\Http\Controllers\Api\V1\Tenant\UserPermissionController;
+use App\Http\Controllers\Api\V1\Tenant\VideoCallController;
 use App\Http\Controllers\Api\V1\Tenant\WorkspaceLookupController;
 use App\Services\Pharmacy\PharmacyReports;
 use App\Services\Tenant\OrganizationSetup;
@@ -1180,9 +1181,35 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                         ->whereNumber('conversation')->middleware('throttle:60,1')->name('send');
                     Route::post('conversations/{conversation}/read', [ConversationController::class, 'read'])
                         ->whereNumber('conversation')->name('read');
+                    Route::post('conversations/{conversation}/delivered', [ConversationController::class, 'delivered'])
+                        ->whereNumber('conversation')->name('delivered');
+                    Route::post('conversations/{conversation}/typing', [ConversationController::class, 'typing'])
+                        ->whereNumber('conversation')->middleware('throttle:40,1')->name('typing');
                     Route::get('attachments/{message}', [ConversationController::class, 'attachment'])
                         ->whereNumber('message')->name('attachment');
                 });
+
+            /*
+            | Video consultations — the doctor's end. The patient's is in
+            | routes/api/v1/portal.php on the same controller. Ringing takes a
+            | visit; everything after is about the call, checked to be this
+            | doctor's own.
+            */
+            Route::middleware('permission:appointments.video_call')->group(function () {
+                Route::post('appointments/{appointment}/video-call', [VideoCallController::class, 'ring'])
+                    ->middleware('throttle:20,1')
+                    ->name('appointments.video-call');
+
+                Route::prefix('video-calls')->name('video-calls.')->group(function () {
+                    Route::get('current', [VideoCallController::class, 'current'])->name('current');
+                    Route::get('{call}', [VideoCallController::class, 'show'])->whereNumber('call')->name('show');
+                    Route::post('{call}/end', [VideoCallController::class, 'end'])->whereNumber('call')->name('end');
+                    Route::post('{call}/signals', [VideoCallController::class, 'signal'])
+                        ->whereNumber('call')->middleware('throttle:300,1')->name('signal');
+                    Route::get('{call}/signals', [VideoCallController::class, 'signals'])
+                        ->whereNumber('call')->middleware('throttle:300,1')->name('signals');
+                });
+            });
 
             /*
             | THE CONSULTATION — the doctor's, and nobody else's.

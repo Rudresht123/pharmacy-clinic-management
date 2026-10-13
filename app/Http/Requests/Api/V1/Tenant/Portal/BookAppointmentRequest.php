@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\Tenant\Portal;
 
+use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\Location;
 use App\Services\Portal\BookableDoctors;
@@ -39,6 +40,10 @@ class BookAppointmentRequest extends FormRequest
                 'before_or_equal:'.now()->addDays(BookableDoctors::DAYS_AHEAD)->toDateString(),
             ],
             'slot_at' => ['required', 'date_format:H:i'],
+
+            // In the clinic unless they ask for video; the doctor rings at the slot.
+            'mode' => ['nullable', Rule::in(Appointment::MODES)],
+
             'notes' => ['nullable', 'string', 'max:500'],
         ];
     }

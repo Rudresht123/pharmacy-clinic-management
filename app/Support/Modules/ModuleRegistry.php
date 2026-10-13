@@ -348,6 +348,14 @@ class ModuleRegistry
                     ['key' => 'appointments.messages', 'name' => 'Message their own patients', 'scope' => self::SCOPE_BRANCH],
 
                     /*
+                     * Seeing a patient on video instead of in a room. Only a
+                     * visit booked as video can be rung, and only by its own
+                     * doctor, on its own day — which the controller checks,
+                     * since no capability can.
+                     */
+                    ['key' => 'appointments.video_call', 'name' => 'Video-call their own patients for video visits', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
                      * A DOCTOR IS THE ORGANIZATION'S, THEIR WEEK IS THE
                      * BRANCH'S.
                      *
@@ -385,6 +393,7 @@ class ModuleRegistry
                     ['key' => 'portal.appointments.view', 'name' => 'Patients: see their own appointments', 'scope' => self::SCOPE_ORGANIZATION],
                     ['key' => 'portal.appointments.book', 'name' => 'Patients: find a doctor and book for themselves', 'scope' => self::SCOPE_ORGANIZATION],
                     ['key' => 'portal.messages', 'name' => 'Patients: message the doctors they have seen', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'portal.video_calls', 'name' => 'Patients: book video visits and take the doctor\'s call', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             [

@@ -147,11 +147,14 @@ body {
 
 .app-brand-mark {
     display: none;
-    height: 28px;
+    /* Wider than it is tall: if the rail ever squeezes it, it shrinks in
+       proportion instead of being pulled thin. */
+    object-fit: contain;
 }
 
 .app-shell[data-collapsed='true'] .app-brand {
     justify-content: center;
+    gap: 4px;
     padding: 0 8px;
 }
 
@@ -161,6 +164,11 @@ body {
 
 .app-shell[data-collapsed='true'] .app-brand-mark {
     display: block;
+}
+
+/* The 78px rail leaves the mark and the 30px expand button 62px to share */
+.app-shell[data-collapsed='true'] .app-brand img.app-brand-mark {
+    height: 20px;
 }
 
 .app-collapse-btn {
@@ -3243,12 +3251,6 @@ body {
 [data-theme='dark'] .app-sidebar,
 [data-theme='dark'] .app-header {
     background: var(--surface);
-}
-
-/* The dark-text logo disappears on a dark ground */
-[data-theme='dark'] .app-brand img.app-brand-full {
-    filter: brightness(0) invert(1);
-    opacity: 0.92;
 }
 
 .app-content {
