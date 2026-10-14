@@ -446,6 +446,12 @@ class Appointment extends Model
         return $this->mode === self::MODE_VIDEO;
     }
 
+    /** The patient's latest request to move this visit, whatever became of it. */
+    public function latestRescheduleRequest(): HasOne
+    {
+        return $this->hasOne(AppointmentRescheduleRequest::class)->latestOfMany();
+    }
+
     /** Every time the doctor rang for this visit, newest last. */
     public function videoCalls(): HasMany
     {

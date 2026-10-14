@@ -2,14 +2,12 @@ import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Card } from '@/shared/components/ui/Card';
-import { Tabs, type TabItem } from '@/shared/components/ui/Tabs';
 import { ErrorState, LoadingBlock } from '@/shared/components/ui/Feedback';
-import { Pagination } from '@/shared/components/ui/Pagination';
-import { formatDate } from '@/shared/utils/format';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { NoStores, StorePicker, useChosenStore } from '../components/StorePicker';
-import { ReportSummaryView } from '../components/ReportSummary';
-import { PAYMENT_METHOD_LABELS } from '../types';
+import { RangeSelect, defaultRange, rangeComparison, type Range } from '../components/reports/RangeSelect';
+import { ReportDashboardView } from '../components/reports/ReportDashboardView';
+import { FILTER_KEYS, ReportTableView } from '../components/reports/ReportTableView';
 import {
     REPORTS,
     REPORT_BLURBS,
@@ -21,109 +19,22 @@ import {
 
 type View = 'dashboard' | 'table';
 
-const VIEWS: TabItem<View>[] = [
-    { value: 'dashboard', label: 'Dashboard', icon: 'ti ti-chart-histogram' },
-    { value: 'table', label: 'Table', icon: 'ti ti-table' },
-];
-
-/** Rupees, grouped the Indian way — ₹12,48,500 rather than ₹1,248,500. */
-function money(amount: number): string {
-    return `₹${Math.round(amount).toLocaleString('en-IN')}`;
-}
-
-function count(value: number): string {
-    return value.toLocaleString('en-IN');
-}
-
-/** `upi` is how a tender is stored; "UPI" is how it is read. */
-function tenderName(method: string): string {
-    return PAYMENT_METHOD_LABELS[method] ?? method;
-}
-
-
-/** Which columns each report's table has, and how each cell reads. */
-type Column = {
-    key: string;
-    label: string;
-    /** Right-aligned, tabular, and never wrapped. */
-    numeric?: boolean;
-    cell?: (row: Record<string, unknown>) => string;
-};
-
-const COLUMNS: Record<ReportKey, Column[]> = {
-    sales: [
-        { key: 'date', label: 'Date', cell: (row) => formatDate(row.date as string) },
-        { key: 'number', label: 'Bill' },
-        { key: 'customer', label: 'Sold to' },
-        { key: 'lines', label: 'Lines', numeric: true },
-        { key: 'taxable', label: 'Taxable', numeric: true, cell: (row) => money(row.taxable as number) },
-        { key: 'tax', label: 'GST', numeric: true, cell: (row) => money(row.tax as number) },
-        { key: 'total', label: 'Total', numeric: true, cell: (row) => money(row.total as number) },
-        { key: 'due', label: 'Owed', numeric: true, cell: (row) => money(row.due as number) },
-        {
-            key: 'tender',
-            label: 'Paid by',
-            cell: (row) => tenderName(row.tender as string),
-        },
-    ],
-    purchases: [
-        { key: 'date', label: 'Received', cell: (row) => formatDate(row.date as string) },
-        { key: 'number', label: 'GRN' },
-        { key: 'supplier', label: 'Supplier' },
-        { key: 'invoice', label: 'Invoice', cell: (row) => (row.invoice as string) ?? '—' },
-        { key: 'lines', label: 'Lines', numeric: true },
-        { key: 'total', label: 'Total', numeric: true, cell: (row) => money(row.total as number) },
-    ],
-    stock: [
-        { key: 'item', label: 'Item' },
-        { key: 'category', label: 'Category' },
-        { key: 'batches', label: 'Batches', numeric: true },
-        { key: 'units', label: 'Units', numeric: true, cell: (row) => count(row.units as number) },
-        { key: 'at_cost', label: 'At cost', numeric: true, cell: (row) => money(row.at_cost as number) },
-        { key: 'at_mrp', label: 'At MRP', numeric: true, cell: (row) => money(row.at_mrp as number) },
-    ],
-    expiry: [
-        { key: 'item', label: 'Item' },
-        { key: 'batch', label: 'Batch' },
-        { key: 'expiry', label: 'Expires', cell: (row) => formatDate(row.expiry as string) },
-        {
-            key: 'days_left',
-            label: 'Days left',
-            numeric: true,
-            cell: (row) => ((row.days_left as number) < 0 ? 'Expired' : `${row.days_left}d`),
-        },
-        { key: 'units', label: 'Units', numeric: true, cell: (row) => count(row.units as number) },
-        { key: 'at_cost', label: 'At cost', numeric: true, cell: (row) => money(row.at_cost as number) },
-    ],
-    profit: [
-        { key: 'item', label: 'Item' },
-        { key: 'units', label: 'Sold', numeric: true, cell: (row) => count(row.units as number) },
-        { key: 'revenue', label: 'Revenue', numeric: true, cell: (row) => money(row.revenue as number) },
-        { key: 'cost', label: 'Cost', numeric: true, cell: (row) => money(row.cost as number) },
-        { key: 'margin', label: 'Margin', numeric: true, cell: (row) => money(row.margin as number) },
-        { key: 'margin_percent', label: 'Margin %', numeric: true, cell: (row) => `${row.margin_percent}%` },
-    ],
-    gst: [
-        { key: 'hsn', label: 'HSN' },
-        { key: 'rate', label: 'Rate', numeric: true, cell: (row) => `${row.rate}%` },
-        { key: 'units', label: 'Units', numeric: true, cell: (row) => count(row.units as number) },
-        { key: 'taxable', label: 'Taxable', numeric: true, cell: (row) => money(row.taxable as number) },
-        { key: 'tax', label: 'GST', numeric: true, cell: (row) => money(row.tax as number) },
-    ],
-};
+/** Reports about the shelf today rather than a span of dates. */
+const UNDATED: ReportKey[] = ['stock', 'expiry'];
 
 /**
- * The pharmacy's reports, each readable two ways.
+ * The pharmacy's reports — sales, purchases, stock, expiry, profit and GST —
+ * each readable two ways.
  *
- * **Dashboard** is the shape of the thing — a few figures and a chart — and
- * **Table** is the evidence, a page at a time. Both are cut from the same
- * filtered query on the server, so a figure on one is the sum of the other:
- * a summary nobody can drill into is a number taken on trust, and a table
- * with no summary is a spreadsheet.
+ * **Dashboard** is the shape of it: four figures, two charts and two short
+ * lists, drawn from App\Services\Pharmacy\Reports\ReportDashboards. **Table**
+ * is the evidence, a page at a time, filtered and sorted by whatever that
+ * report is about. Both read the same store and dates, so a figure on one is
+ * the sum of the other.
  *
- * Which report, which view, which store and which dates all live in the URL,
- * so a refresh lands where it was and a link to "profit, last month, as a
- * table" is a link somebody can send.
+ * Which report, which view, which store, which dates, and every filter live
+ * in the URL, so a refresh lands where it was and "unpaid sales, last month"
+ * is a link somebody can send.
  */
 export default function PharmacyReportsPage() {
     const { stores, store, choose, isLoading: storesLoading } = useChosenStore();
@@ -131,30 +42,24 @@ export default function PharmacyReportsPage() {
 
     /*
      * Which of the six this person actually holds — its own capability per
-     * report (`reports.sales` … `reports.gst`), not the one `pharmacy.view`
-     * that used to gate all six at once. A cashier who may see what sold
-     * today has no structural need to see what it cost.
+     * report (`reports.sales` … `reports.gst`), not one capability for all
+     * six. A cashier who may see what sold today has no structural need to
+     * see what it cost.
      */
     const { can } = useTenantAuth();
     const allowedReports = REPORTS.filter((key) => can(`reports.${key}`));
 
     const requested = params.get('report');
     const report = (
-        requested && allowedReports.includes(requested as ReportKey)
-            ? requested
-            : allowedReports[0]
+        requested && allowedReports.includes(requested as ReportKey) ? requested : allowedReports[0]
     ) as ReportKey | undefined;
     const view: View = params.get('view') === 'table' ? 'table' : 'dashboard';
-    const page = Math.max(1, Number(params.get('page') ?? 1));
-    const search = params.get('q') ?? '';
 
-    const window = useMemo(
-        () => ({
-            from: params.get('from') ?? undefined,
-            to: params.get('to') ?? undefined,
-        }),
-        [params],
-    );
+    const fallback = useMemo(defaultRange, []);
+    const range: Range = {
+        from: params.get('from') ?? fallback.from,
+        to: params.get('to') ?? fallback.to,
+    };
 
     function set(changes: Record<string, string | undefined>) {
         const next = new URLSearchParams(params);
@@ -170,15 +75,32 @@ export default function PharmacyReportsPage() {
         setParams(next, { replace: true });
     }
 
-    const summary = useReportSummary(store?.id, report, window);
-    const rows = useReportRows(
-        store?.id,
-        report,
-        { ...window, page, per_page: 25, search: search || undefined },
-        view === 'table',
-    );
+    /** Another report: its own filters, page and sort start afresh. */
+    function openReport(key: ReportKey, nextView: View = view) {
+        set({
+            report: key,
+            view: nextView === 'table' ? 'table' : undefined,
+            page: undefined,
+            q: undefined,
+            sort: undefined,
+            direction: undefined,
+            ...Object.fromEntries(FILTER_KEYS.map((filter) => [filter, undefined])),
+        });
+    }
 
-    const columns = report ? COLUMNS[report] : [];
+    const summary = useReportSummary(store?.id, report, range, true);
+
+    const rowParams = {
+        ...range,
+        page: Number(params.get('page') ?? 1),
+        per_page: Number(params.get('per_page') ?? 25),
+        search: params.get('q') || undefined,
+        sort: params.get('sort') || undefined,
+        direction: (params.get('direction') as 'asc' | 'desc' | null) || undefined,
+        ...Object.fromEntries(FILTER_KEYS.map((key) => [key, params.get(key) || undefined])),
+    };
+
+    const rows = useReportRows(store?.id, report, rowParams, view === 'table');
 
     if (storesLoading) {
         return <LoadingBlock label="Loading stores…" />;
@@ -194,10 +116,8 @@ export default function PharmacyReportsPage() {
 
     /*
      * Reached only by a direct link, or by a role somebody has since edited —
-     * the menu already hides the "Reports" row entirely once nobody holds any
-     * of the six. Said plainly rather than defaulting to Sales and letting
-     * the request 403: that would read as the screen being broken rather than
-     * as an answer.
+     * the menu hides "Reports" once nobody holds any of the six. Said plainly
+     * rather than defaulting to Sales and letting the request 403.
      */
     if (!report) {
         return (
@@ -211,153 +131,79 @@ export default function PharmacyReportsPage() {
         );
     }
 
-    const dated = summary.data?.dated ?? true;
-
     return (
-        <>
+        <div className="phr-page">
             <PageHeader
-                title="Pharmacy reports"
+                title="Pharmacy Reports"
                 subtitle={REPORT_BLURBS[report]}
-                icon="ti ti-report-analytics"
+                icon="ti ti-first-aid-kit"
                 tone="teal"
                 crumbs={[{ label: 'Pharmacy' }, { label: 'Reports' }]}
-                actions={<StorePicker stores={stores} value={store} onChange={choose} />}
+                actions={
+                    <div className="phr-head-controls">
+                        <StorePicker stores={stores} value={store} onChange={choose} />
+                        <RangeSelect
+                            value={range}
+                            onChange={(next) => set({ from: next.from, to: next.to, page: undefined })}
+                            disabled={UNDATED.includes(report)}
+                        />
+                    </div>
+                }
             />
 
             {/* Which report. Its own row, because it changes everything below. */}
-            <div className="rp-reports">
+            <nav className="phr-tabs" aria-label="Report">
                 {allowedReports.map((key) => (
                     <button
                         type="button"
                         key={key}
-                        className={`rp-report${key === report ? ' is-active' : ''}`}
-                        onClick={() => set({ report: key, page: undefined, q: undefined })}
+                        className={key === report ? 'is-active' : undefined}
+                        aria-current={key === report ? 'page' : undefined}
+                        onClick={() => openReport(key)}
                     >
                         {REPORT_LABELS[key]}
                     </button>
                 ))}
+            </nav>
+
+            <div className="phr-views" role="group" aria-label="How to read it">
+                <button
+                    type="button"
+                    className={view === 'dashboard' ? 'is-active' : undefined}
+                    aria-pressed={view === 'dashboard'}
+                    onClick={() => set({ view: undefined })}
+                >
+                    <i className="ti ti-chart-bar" aria-hidden="true" />
+                    Dashboard
+                </button>
+                <button
+                    type="button"
+                    className={view === 'table' ? 'is-active' : undefined}
+                    aria-pressed={view === 'table'}
+                    onClick={() => set({ view: 'table' })}
+                >
+                    <i className="ti ti-table" aria-hidden="true" />
+                    Table
+                </button>
             </div>
 
-            <div className="rp-bar">
-                <Tabs tabs={VIEWS} value={view} onChange={(next) => set({ view: next })} label="How to read it" />
-
-                {/* Hidden for the reports about the shelf right now: a date
-                    range that changes nothing is a control that lies. */}
-                {dated && (
-                    <div className="rp-dates">
-                        <label htmlFor="rp-from">From</label>
-                        <input
-                            id="rp-from"
-                            type="date"
-                            className="form-control"
-                            value={summary.data?.from ?? ''}
-                            onChange={(event) => set({ from: event.target.value, page: undefined })}
-                        />
-
-                        <label htmlFor="rp-to">to</label>
-                        <input
-                            id="rp-to"
-                            type="date"
-                            className="form-control"
-                            value={summary.data?.to ?? ''}
-                            onChange={(event) => set({ to: event.target.value, page: undefined })}
-                        />
-                    </div>
-                )}
-            </div>
-
-            {summary.isError ? (
-                <ErrorState onRetry={() => summary.refetch()} />
-            ) : summary.isLoading || !summary.data ? (
-                <LoadingBlock label="Adding it up…" />
-            ) : view === 'dashboard' ? (
-                <ReportSummaryView
-                    summary={summary.data}
-                    isLoading={summary.isLoading}
-                    isError={summary.isError}
-                    onRetry={() => summary.refetch()}
-                />
-            ) : (
+            {view === 'table' ? (
+                <ReportTableView report={report} rows={rows} params={params} set={set} />
+            ) : summary.isError ? (
                 <Card>
-                    <div className="rp-tools">
-                        <div className="dpt-search">
-                            <i className="ti ti-search" aria-hidden="true" />
-                            <input
-                                type="search"
-                                className="form-control"
-                                placeholder="Search these rows…"
-                                aria-label="Search the report"
-                                defaultValue={search}
-                                onChange={(event) => set({ q: event.target.value, page: undefined })}
-                            />
-                        </div>
-
-                        <span className="rp-count">
-                            {rows.data ? `${count(rows.data.meta.total)} rows` : ''}
-                        </span>
-                    </div>
-
-                    {rows.isError ? (
-                        <ErrorState onRetry={() => rows.refetch()} />
-                    ) : rows.isLoading || !rows.data ? (
-                        <LoadingBlock label="Reading the rows…" />
-                    ) : rows.data.data.length === 0 ? (
-                        <p className="dpt-none">
-                            Nothing in this range. Widen the dates, or clear the search.
-                        </p>
-                    ) : (
-                        <>
-                            <div className="dpt-frame">
-                                <table className="dpt-table rp-table">
-                                    <thead>
-                                        <tr>
-                                            {columns.map((column) => (
-                                                <th
-                                                    key={column.key}
-                                                    className={column.numeric ? 'text-end' : undefined}
-                                                >
-                                                    {column.label}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {rows.data.data.map((row, index) => (
-                                            <tr key={String(row.id ?? index)}>
-                                                {columns.map((column) => {
-                                                    const text = column.cell
-                                                        ? column.cell(row)
-                                                        : String(row[column.key] ?? '—');
-
-                                                    return (
-                                                        <td
-                                                            key={column.key}
-                                                            className={column.numeric ? 'text-end dpt-num' : undefined}
-                                                            title={text}
-                                                        >
-                                                            {text}
-                                                        </td>
-                                                    );
-                                                })}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {rows.data.meta.last_page > 1 && (
-                                <Pagination
-                                    page={rows.data.meta.current_page}
-                                    pageCount={rows.data.meta.last_page}
-                                    total={rows.data.meta.total}
-                                    perPage={rows.data.meta.per_page}
-                                    onChange={(next) => set({ page: String(next) })}
-                                />
-                            )}
-                        </>
-                    )}
+                    <ErrorState onRetry={() => summary.refetch()} />
                 </Card>
+            ) : !summary.data?.dashboard ? (
+                <LoadingBlock label="Adding it up…" />
+            ) : (
+                <div className={summary.isFetching && summary.isPlaceholderData ? 'phr-refreshing' : undefined}>
+                    <ReportDashboardView
+                        dashboard={summary.data.dashboard}
+                        compare={rangeComparison(range)}
+                        onViewAll={(key) => (allowedReports.includes(key) ? openReport(key, 'table') : set({ view: 'table' }))}
+                    />
+                </div>
             )}
-        </>
+        </div>
     );
 }

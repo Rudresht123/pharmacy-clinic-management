@@ -40,3 +40,11 @@ Schedule::command('campaigns:dispatch')->everyMinute()->withoutOverlapping();
 | once however often this asks.
 */
 Schedule::command('communication:send-reminders')->everyFiveMinutes()->withoutOverlapping();
+
+/*
+| Subscriptions — persist expiry, grace and lock transitions, send the owner's
+| reminders. Hourly is plenty: ACCESS never waits for this (the subscription
+| middleware decides from the dates on every request); this only writes the
+| status down and sends the emails, each exactly once.
+*/
+Schedule::command('subscriptions:process')->hourly()->withoutOverlapping()->onOneServer();

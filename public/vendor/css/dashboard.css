@@ -1,0 +1,1287 @@
+/* =========================================================
+   Organization dashboard (.od-)
+   ---------------------------------------------------------
+   Head office's view of the network: banner and plan, five
+   figures, revenue beside branch performance, visits /
+   services / stock, then profit & loss / activity / quick
+   actions. Built after the reference design section by
+   section.
+
+   Cards follow the project-wide card style: white, no
+   border, a brand-tinted shadow in light mode; the border
+   comes back in dark mode, where there is no white to
+   separate a card from the page.
+
+   Chart marks use the validated categorical palette
+   (--cat-*, in custom.css) rather than new hues, so a blue
+   here is the same blue as on every other chart.
+   ========================================================= */
+
+:root {
+    --od-blue: var(--cat-1);
+    --od-green: var(--cat-2);
+    --od-violet: var(--cat-3);
+    --od-amber: var(--cat-4);
+    --od-teal: var(--cat-6);
+    --od-rose: #e11d48;
+    --od-red: #ef4444;
+    --od-grey: #a3aab9;
+    --od-line: #2563eb;
+
+    --od-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+[data-theme='dark'] {
+    --od-rose: #f43f5e;
+    --od-line: #60a5fa;
+    --od-grey: #6b7391;
+}
+
+/* --- page ------------------------------------------------ */
+
+.od-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: opacity 0.2s ease;
+}
+
+.od-page.is-refreshing .od-kpis,
+.od-page.is-refreshing .od-row {
+    opacity: 0.6;
+}
+
+.od-greeting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.od-greeting h1 {
+    margin: 0;
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+
+.od-greeting p {
+    margin: 4px 0 0;
+    font-size: 13.5px;
+    color: var(--muted);
+}
+
+/* --- tones ----------------------------------------------- */
+
+/* "Blue" on a card title is the theme's own accent. */
+.od-tone-blue { color: rgb(var(--brand)); }
+.od-tone-green { color: #16a34a; }
+.od-tone-rose { color: #e11d48; }
+.od-tone-violet { color: #7c3aed; }
+.od-tone-amber { color: #d97706; }
+.od-tone-ink { color: var(--ink); }
+.od-tone-grey { color: var(--muted); }
+
+.od-bg-blue { background: #e8f0ff; color: #2563eb; }
+.od-bg-green { background: #e3f7ea; color: #16a34a; }
+.od-bg-amber { background: #fff1db; color: #d97706; }
+.od-bg-violet { background: #f0eaff; color: #7c3aed; }
+.od-bg-rose { background: #ffe8ec; color: #e11d48; }
+.od-bg-grey { background: var(--surface-3); color: var(--ink-3); }
+.od-bg-teal { background: #dff5f8; color: #0891b2; }
+[data-theme='dark'] .od-bg-teal { background: rgba(8, 145, 178, 0.18); color: #67e8f9; }
+
+[data-theme='dark'] .od-tone-blue { color: rgb(var(--brand-2)); }
+[data-theme='dark'] .od-tone-green { color: #4ade80; }
+[data-theme='dark'] .od-tone-rose { color: #fb7185; }
+[data-theme='dark'] .od-tone-violet { color: #a78bfa; }
+[data-theme='dark'] .od-tone-amber { color: #fbbf24; }
+
+[data-theme='dark'] .od-bg-blue { background: rgba(59, 130, 246, 0.16); color: #93c5fd; }
+[data-theme='dark'] .od-bg-green { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+[data-theme='dark'] .od-bg-amber { background: rgba(245, 158, 11, 0.16); color: #fcd34d; }
+[data-theme='dark'] .od-bg-violet { background: rgba(139, 92, 246, 0.18); color: #c4b5fd; }
+[data-theme='dark'] .od-bg-rose { background: rgba(244, 63, 94, 0.16); color: #fda4af; }
+
+/* --- banner and plan ------------------------------------- */
+
+.od-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr);
+    gap: 16px;
+}
+
+.od-hero.is-single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+/*
+   Plain white cards, the theme's own (.card in layout.css) — no tinted
+   washes. Colour is kept for what carries meaning: icons, chart marks,
+   up and down.
+*/
+.od-banner {
+    position: relative;
+    z-index: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 104px;
+    padding: 20px 22px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: var(--od-shadow);
+}
+
+.od-banner-mark {
+    position: relative;
+    z-index: 1;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    overflow: hidden;
+    border-radius: 14px;
+    background: rgb(var(--brand));
+    color: rgb(var(--brand-fg));
+    font-size: 28px;
+}
+
+.od-banner-mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #ffffff;
+}
+
+.od-banner-text {
+    position: relative;
+    z-index: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.od-banner-text h2 {
+    margin: 0 0 8px;
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+/*
+   Separators sit in the gap before each fact. The list clips its own
+   overflow, so the separator before whichever fact starts a line falls
+   outside it and disappears — a wrapped line never opens with a stray bar.
+*/
+.od-banner-text ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 25px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    list-style: none;
+}
+
+.od-banner-text li {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    white-space: nowrap;
+}
+
+.od-banner-text li::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: -13px;
+    border-left: 1px solid var(--line-2);
+}
+
+.od-banner-text li i {
+    font-size: 15px;
+    color: var(--ink-3);
+}
+
+/*
+   The building, in the row beside the text rather than under it, so the
+   two can never overlap — it gives way first when the banner narrows.
+   Standing on the card's bottom edge, as the reference's does.
+*/
+.od-banner-art {
+    flex: 0 1 auto;
+    align-self: flex-end;
+    min-width: 0;
+    height: 96px;
+    max-width: 38%;
+    margin: 0 -10px -20px auto;
+    object-fit: contain;
+    object-position: right bottom;
+    pointer-events: none;
+}
+
+.od-plan {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    padding: 20px 22px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: var(--od-shadow);
+}
+
+.od-plan-mark {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+    background: #fff1d6;
+    color: #f59e0b;
+    font-size: 25px;
+}
+
+.od-plan-text {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.od-plan-text b {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.od-plan-text span {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.od-plan-button {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 9px;
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.od-plan-button:hover {
+    border-color: rgba(var(--brand), 0.35);
+    background: rgba(var(--brand), 0.05);
+    color: rgb(var(--brand));
+}
+
+[data-theme='dark'] .od-banner,
+[data-theme='dark'] .od-plan {
+    background: var(--surface);
+    border-color: var(--line);
+}
+
+[data-theme='dark'] .od-banner-art { opacity: 0.75; }
+[data-theme='dark'] .od-plan-mark { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
+[data-theme='dark'] .od-plan-button { color: rgb(var(--brand-2)); }
+
+/* --- the five figures ------------------------------------ */
+
+.od-kpis {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.od-kpis.is-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.od-kpis.is-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.od-kpis.is-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.od-kpis.is-1 { grid-template-columns: minmax(0, 1fr); }
+
+.od-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    padding: 16px 16px 14px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: var(--od-shadow);
+}
+
+.od-kpi-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.od-kpi-icon {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 20px;
+}
+
+.od-kpi.is-blue .od-kpi-icon { background: #d6e5ff; color: #2563eb; }
+.od-kpi.is-green .od-kpi-icon { background: #ccf0da; color: #16a34a; }
+.od-kpi.is-rose .od-kpi-icon { background: #ffd5d8; color: #e11d48; }
+.od-kpi.is-violet .od-kpi-icon { background: #e3d7ff; color: #7c3aed; }
+.od-kpi.is-amber .od-kpi-icon { background: #ffe6ad; color: #d97706; }
+
+.od-kpi-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/*
+   Under the label, not under the icon — the figure belongs to its name.
+   The figure and its change share a line; the comparison sits under them
+   with the curve beside it.
+*/
+.od-kpi-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(56px, 48%);
+    grid-template-areas:
+        'value value'
+        'hint curve';
+    align-items: end;
+    column-gap: 8px;
+    padding-left: 50px;
+}
+
+.od-kpi-value {
+    grid-area: value;
+    display: flex;
+    align-items: baseline;
+    column-gap: 8px;
+    min-width: 0;
+}
+
+.od-kpi-body .od-curve {
+    grid-area: curve;
+}
+
+.od-kpi-value b {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.od-kpi-hint {
+    grid-area: hint;
+    align-self: end;
+    padding-bottom: 2px;
+    font-size: 11.5px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+[data-theme='dark'] .od-kpi {
+    background: var(--surface);
+    border-color: var(--line);
+}
+
+[data-theme='dark'] .od-kpi.is-blue .od-kpi-icon { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+[data-theme='dark'] .od-kpi.is-green .od-kpi-icon { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+[data-theme='dark'] .od-kpi.is-rose .od-kpi-icon { background: rgba(244, 63, 94, 0.2); color: #fda4af; }
+[data-theme='dark'] .od-kpi.is-violet .od-kpi-icon { background: rgba(139, 92, 246, 0.22); color: #c4b5fd; }
+[data-theme='dark'] .od-kpi.is-amber .od-kpi-icon { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+
+/* A change against the period before — arrow and colour together. */
+.od-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    font-style: normal;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.od-change i { font-size: 14px; }
+.od-change.is-good { color: #16a34a; }
+.od-change.is-bad { color: #dc2626; }
+
+[data-theme='dark'] .od-change.is-good { color: #4ade80; }
+[data-theme='dark'] .od-change.is-bad { color: #f87171; }
+
+/* --- the trend curve ------------------------------------- */
+
+.od-curve {
+    display: block;
+    width: 100%;
+    overflow: visible;
+}
+
+.od-curve.is-flat {
+    border-bottom: 2px solid var(--line-2);
+}
+
+.od-curve-line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* --- rows of cards --------------------------------------- */
+
+.od-row {
+    display: grid;
+    gap: 16px;
+    align-items: stretch;
+}
+
+.od-row.is-1 { grid-template-columns: minmax(0, 1fr); }
+.od-row-2.is-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.od-row-3.is-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.od-row-3.is-3 { grid-template-columns: minmax(0, 1.58fr) minmax(0, 1.5fr) minmax(0, 1fr); }
+
+/* --- a card ---------------------------------------------- */
+
+.od-card {
+    position: relative;
+    z-index: 0;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 16px 18px 18px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: var(--od-shadow);
+}
+
+[data-theme='dark'] .od-card {
+    background: var(--surface);
+    border-color: var(--line);
+}
+
+.od-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.od-card-head h2 {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.od-card-head h2 i {
+    font-size: 20px;
+}
+
+/* On a narrow card the controls drop under the title — kept to the right
+   there too, so they still read as the card's controls. */
+.od-card-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.od-card-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    transition: opacity 0.2s ease;
+}
+
+.od-card-body.is-busy {
+    opacity: 0.5;
+}
+
+.od-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.od-link:hover { color: rgb(var(--brand)); text-decoration: underline; }
+[data-theme='dark'] .od-link { color: rgb(var(--brand-2)); }
+
+.od-muted { color: var(--muted); }
+
+/* Daily · Weekly · Monthly */
+.od-seg {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid var(--line-2);
+    border-radius: 9px;
+    background: var(--surface);
+}
+
+.od-seg button {
+    padding: 4px 11px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-3);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.od-seg button:hover { color: var(--ink); }
+
+.od-seg button.is-active {
+    background: rgb(var(--brand));
+    color: rgb(var(--brand-fg));
+}
+
+/* A select sized for a card header. */
+.od-select {
+    position: relative;
+    display: inline-flex;
+}
+
+.od-select select {
+    height: 32px;
+    padding: 0 30px 0 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 9px;
+    background: var(--surface);
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink-2);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    /* A fixed width: a native select is otherwise as wide as its longest
+       branch name, and pushes the card's title onto two lines. */
+    width: 132px;
+    text-overflow: ellipsis;
+}
+
+.od-select select:focus-visible,
+.od-seg button:focus-visible {
+    outline: 2px solid rgba(var(--brand), 0.4);
+    outline-offset: 1px;
+}
+
+.od-select i {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: var(--muted);
+    pointer-events: none;
+}
+
+/* What a chart's colours mean. */
+.od-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 0 0 6px;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    color: var(--ink-3);
+}
+
+.od-legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.od-key {
+    flex: 0 0 auto;
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+}
+
+/* The total line's key: a line with its dot. */
+.od-key.is-line {
+    position: relative;
+    width: 18px;
+    height: 2px;
+    border-radius: 2px;
+}
+
+.od-key.is-line::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 7px;
+    height: 7px;
+    border: 2px solid var(--od-line);
+    border-radius: 50%;
+    background: var(--surface);
+    transform: translate(-50%, -50%);
+}
+
+/* Nothing to draw yet. */
+.od-nothing {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 170px;
+    padding: 16px;
+    text-align: center;
+    color: var(--muted);
+}
+
+.od-nothing i { font-size: 30px; opacity: 0.7; }
+.od-nothing p { margin: 0; font-size: 12.5px; }
+
+/* --- charts ---------------------------------------------- */
+
+.od-chart {
+    position: relative;
+    width: 100%;
+}
+
+.od-chart svg { display: block; overflow: visible; }
+
+.od-axis {
+    font-size: 11px;
+    fill: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.od-grid {
+    stroke: var(--line);
+    stroke-dasharray: 3 4;
+}
+
+.od-guide {
+    stroke: var(--line-2);
+    stroke-width: 1;
+}
+
+.od-chart g { transition: opacity 0.15s ease; }
+.od-chart g.is-dimmed { opacity: 0.55; }
+
+.od-total path {
+    fill: none;
+    stroke-width: 2.2;
+    stroke-linejoin: round;
+}
+
+.od-total circle {
+    fill: var(--surface);
+    stroke-width: 2;
+}
+
+.od-hit { fill: transparent; }
+
+/* The zero line, when a series runs below it — solid, so a loss reads as one. */
+.od-zero {
+    stroke: var(--line-2);
+    stroke-width: 1.2;
+}
+
+.od-line path {
+    fill: none;
+    stroke-width: 2.2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.od-line circle {
+    fill: var(--surface);
+    stroke-width: 2;
+    transition: r 0.12s ease;
+}
+
+/* The period before: thin and dashed, behind the one being read. */
+.od-line.is-dashed path {
+    stroke-width: 1.5;
+    stroke-dasharray: 4 4;
+    opacity: 0.7;
+}
+
+.od-line path.od-area {
+    stroke: none;
+}
+
+.od-tip {
+    position: absolute;
+    z-index: 3;
+    min-width: 188px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #1f2440;
+    color: #ffffff;
+    font-size: 12px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.28);
+    pointer-events: none;
+}
+
+.od-tip b {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.od-tip dl { margin: 0; }
+
+.od-tip dl > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 2px 0;
+}
+
+.od-tip dt {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.82);
+    white-space: nowrap;
+}
+
+.od-tip dt span {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+}
+
+.od-tip dd {
+    margin: 0;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+[data-theme='dark'] .od-tip {
+    background: #2a3150;
+    border: 1px solid var(--line-2);
+}
+
+/* --- branch performance ---------------------------------- */
+
+/* Inset in the card in its own frame, like every table in the app. */
+.od-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+.od-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+}
+
+.od-table th {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--line);
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--muted);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.od-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-2);
+    vertical-align: middle;
+}
+
+.od-table th:first-child,
+.od-table td:first-child { padding-left: 12px; }
+
+.od-table th:last-child,
+.od-table td:last-child { padding-right: 12px; }
+
+.od-table tbody tr:last-child td { border-bottom: 0; }
+.od-table tbody tr:hover td { background: var(--surface-2); }
+
+.od-table .is-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.od-table .is-rank {
+    width: 36px;
+    padding-right: 0;
+    text-align: center;
+}
+
+.od-table td.is-rank span {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--surface-3);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink-3);
+}
+
+.od-branch {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 130px;
+}
+
+.od-branch-mark {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.od-branch-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* A long branch name wraps rather than pushing the figures off the card. */
+.od-branch-text b {
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--ink);
+}
+
+.od-branch-text small {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+/* --- top services ---------------------------------------- */
+
+.od-services {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+}
+
+.od-ring {
+    position: relative;
+    width: 140px;
+    aspect-ratio: 1;
+}
+
+.od-ring svg { display: block; width: 100%; height: 100%; }
+
+.od-ring circle {
+    transition: stroke-width 0.15s ease, opacity 0.15s ease;
+    cursor: pointer;
+}
+
+.od-ring circle.is-dimmed { opacity: 0.4; }
+
+.od-ring-centre {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 30px;
+    text-align: center;
+    pointer-events: none;
+}
+
+.od-ring-centre b {
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.od-ring-centre span {
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.od-service-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.od-service-list li {
+    display: grid;
+    grid-template-columns: 9px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 6px;
+    margin: 0 -6px;
+    border-radius: 7px;
+    font-size: 12px;
+    transition: background-color 0.15s ease;
+}
+
+.od-service-list li.is-active { background: var(--surface-3); }
+
+.od-service-list .od-key { width: 9px; height: 9px; border-radius: 50%; }
+
+.od-service-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink-2);
+}
+
+.od-service-share {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.od-service-list b {
+    text-align: right;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* --- stock alerts ---------------------------------------- */
+
+.od-stock {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.od-stock li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.od-stock li:last-child { border-bottom: 0; }
+
+.od-stock-mark {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface-2);
+    font-size: 17px;
+    color: var(--ink-3);
+}
+
+.od-stock-mark.is-expired { color: #e11d48; }
+.od-stock-mark.is-out { color: #dc2626; }
+
+.od-stock-text {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.od-stock-text b,
+.od-stock-text small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.od-stock-text b {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.od-stock-text small {
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+.od-stock-text small.is-expired { color: #dc2626; }
+
+.od-badge {
+    flex: 0 0 auto;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.od-badge.is-low { background: #fdecec; color: #dc2626; }
+.od-badge.is-out { background: #fee2e2; color: #b91c1c; }
+.od-badge.is-expired { background: #ffe4ec; color: #e11d48; }
+
+[data-theme='dark'] .od-badge.is-low,
+[data-theme='dark'] .od-badge.is-out { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+[data-theme='dark'] .od-badge.is-expired { background: rgba(244, 63, 94, 0.16); color: #fda4af; }
+[data-theme='dark'] .od-stock-text small.is-expired { color: #fca5a5; }
+
+/* --- profit & loss --------------------------------------- */
+
+/* The three totals over the chart, each keyed to its line. */
+.od-pnl {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+    margin-bottom: 10px;
+}
+
+.od-pnl-figure {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.od-pnl-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.od-key.is-round { width: 8px; height: 8px; border-radius: 50%; }
+
+.od-pnl-figure > b {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.od-pnl-figure > b.is-loss { color: #dc2626; }
+[data-theme='dark'] .od-pnl-figure > b.is-loss { color: #f87171; }
+
+/* --- branch activity ------------------------------------- */
+
+.od-timeline {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* The thread the entries hang on. */
+.od-timeline::before {
+    content: '';
+    position: absolute;
+    top: 18px;
+    bottom: 18px;
+    left: 14px;
+    border-left: 1.5px dashed var(--line-2);
+}
+
+.od-timeline li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+}
+
+.od-timeline-mark {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 29px;
+    height: 29px;
+    border-radius: 50%;
+    font-size: 15px;
+    box-shadow: 0 0 0 3px var(--surface);
+}
+
+.od-timeline-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    font-size: 12.5px;
+    color: var(--ink-2);
+}
+
+.od-timeline-text small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.od-timeline time {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+/* --- quick actions --------------------------------------- */
+
+/* Centred in whatever height the row gives the card, rather than stretched
+   into tall slivers. */
+.od-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-block: auto;
+}
+
+.od-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 110px;
+    padding: 14px 2px;
+    border: 1px solid rgba(var(--brand), 0.12);
+    border-radius: 12px;
+    background: rgba(var(--brand), 0.05);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--ink);
+    text-align: center;
+    text-decoration: none;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.od-action > i:first-child { font-size: 22px; color: rgb(var(--brand)); }
+.od-action-go { font-size: 14px; color: rgb(var(--brand)); }
+
+.od-action:hover {
+    background: rgba(var(--brand), 0.09);
+    color: var(--ink);
+    transform: translateY(-1px);
+}
+
+[data-theme='dark'] .od-action {
+    border-color: var(--line-2);
+    background: rgba(var(--brand-2), 0.1);
+}
+
+[data-theme='dark'] .od-action:hover { background: rgba(var(--brand-2), 0.18); }
+[data-theme='dark'] .od-action > i:first-child,
+[data-theme='dark'] .od-action-go { color: rgb(var(--brand-2)); }
+
+/* --- narrower screens ------------------------------------ */
+
+@media (max-width: 1399.98px) {
+    .od-row-3.is-3 { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 1fr); }
+}
+
+@media (max-width: 1199.98px) {
+    .od-kpis,
+    .od-kpis.is-4 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+    .od-row-2.is-2 { grid-template-columns: minmax(0, 1fr); }
+
+    .od-row-3.is-3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .od-row-3.is-3 > :last-child { grid-column: 1 / -1; }
+}
+
+@media (max-width: 991.98px) {
+    .od-hero { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 767.98px) {
+    .od-kpis,
+    .od-kpis.is-4,
+    .od-kpis.is-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .od-row-3.is-2,
+    .od-row-3.is-3 { grid-template-columns: minmax(0, 1fr); }
+
+    .od-banner-art { display: none; }
+
+    .od-services { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+    .od-service-list { width: 100%; }
+}
+
+@media (max-width: 479.98px) {
+    .od-kpis,
+    .od-kpis.is-4,
+    .od-kpis.is-3,
+    .od-kpis.is-2 { grid-template-columns: minmax(0, 1fr); }
+
+    .od-pnl { grid-template-columns: minmax(0, 1fr); }
+    .od-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

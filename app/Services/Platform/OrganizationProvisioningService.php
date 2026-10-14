@@ -12,6 +12,7 @@ use App\Repositories\Platform\Contracts\TenantDatabaseRepositoryInterface;
 use App\Repositories\Platform\Contracts\TenantProvisionEventRepositoryInterface;
 use App\Services\Communication\OptionalModuleTemplateSeeder;
 use App\Services\Notifications\EmailService;
+use App\Services\Subscriptions\SubscriptionOnboarding;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DefaultRoleSeeder;
@@ -85,6 +86,10 @@ class OrganizationProvisioningService
         $password = $data['password'] ?? null;
         unset($data['password'], $data['password_confirmation']);
 
+        // Which plan it starts on — not a column, so it is taken out first.
+        $subscription = (array) ($data['subscription'] ?? []);
+        unset($data['subscription']);
+
         if (is_string($password) && $password !== '') {
             // Keep only a one-way hash in the master database while the tenant
             // is being provisioned, so a failed attempt can still be retried.
@@ -109,9 +114,19 @@ class OrganizationProvisioningService
         $data['status'] = Organization::PENDING;
 
         try {
-            $organization = DB::transaction(
-                fn () => $this->organizations->create($data)
-            );
+            /*
+             * The organization and its first subscription, together: no
+             * organization ever exists without one, so none can be locked
+             * by having nothing to say it may run. See SubscriptionOnboarding
+             * for which plan it gets.
+             */
+            $organization = DB::transaction(function () use ($data, $subscription) {
+                $organization = $this->organizations->create($data);
+
+                app(SubscriptionOnboarding::class)->start($organization, $subscription);
+
+                return $organization;
+            });
         } catch (\Throwable $e) {
             // Nothing exists yet for this attempt to resume, so the upload
             // really is orphaned — clean it up rather than leaving it behind.

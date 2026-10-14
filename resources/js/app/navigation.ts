@@ -83,6 +83,14 @@ export const navigation: NavSection[] = [
                 match: '/messaging',
             },
             {
+                // Where development phones find this server. Typed here and
+                // published to Firebase, instead of edited into the app.
+                label: 'Mobile App',
+                to: '/mobile-app',
+                icon: 'ti ti-device-mobile',
+                match: '/mobile-app',
+            },
+            {
                 label: 'Audit Log',
                 to: '/audit',
                 icon: 'ti ti-history',

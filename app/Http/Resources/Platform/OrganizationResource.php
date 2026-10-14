@@ -63,6 +63,17 @@ class OrganizationResource extends JsonResource
             'phone_number' => $this->phone_number,
             'address' => $this->address,
 
+            // Where it is: the profile's address detail and its map pin. Only
+            // when loaded, so the listing does not query a profile per row.
+            'location' => $this->whenLoaded('profile', fn () => [
+                'postal_code' => $this->profile?->postal_code,
+                'city' => $this->profile?->city,
+                'state_province' => $this->profile?->state_province,
+                'latitude' => $this->profile?->latitude,
+                'longitude' => $this->profile?->longitude,
+                'location_source' => $this->profile?->location_source,
+            ]),
+
             'profile_image_id' => $this->profile_image,
             'profile_image_url' => getFileUrl($this->profile_image),
 

@@ -52,7 +52,7 @@ const LABEL: Record<string, string> = {
  * second endpoint would only be a second thing to keep in step.
  */
 export default function MyQueuePage() {
-    const { activeBranch, can } = useTenantAuth();
+    const { activeBranch, can, queueStep } = useTenantAuth();
 
     const { data, isLoading, isError, refetch } = useMyDay(activeBranch);
 
@@ -269,7 +269,8 @@ export default function MyQueuePage() {
                                                 doctor's list.
                                             */}
                                             {row.available?.consult_start &&
-                                                can('appointments.consult_start') && (
+                                                can('appointments.consult_start') &&
+                                                        queueStep('consult_start') && (
                                                     <button
                                                         type="button"
                                                         className="md-call"
@@ -335,7 +336,8 @@ export default function MyQueuePage() {
                                                 row.consultation_status !== 'completed' &&
                                                 (row.status === 'checked_in' ||
                                                     row.status === 'booked') &&
-                                                can('appointments.consult_start') && (
+                                                can('appointments.consult_start') &&
+                                                        queueStep('consult_start') && (
                                                     <button
                                                         type="button"
                                                         className="md-call"

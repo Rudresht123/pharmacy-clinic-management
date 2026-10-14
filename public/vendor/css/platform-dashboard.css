@@ -1,0 +1,882 @@
+/* =========================================================
+   Super admin dashboard (.sa-)
+   ---------------------------------------------------------
+   The platform's own first screen: six figures, revenue
+   beside the plan and status rings, three lists, then
+   subscriptions / modules / locations / activity.
+
+   Built on the organization dashboard's pieces (.od-card,
+   .od-table, .od-legend, the charts in ReportCharts.tsx) —
+   this file holds only what the reference adds: the figure
+   tiles, status pills, module bars and the map.
+
+   Colour jobs, kept apart:
+   - plans and regions are IDENTITY: --cat-1..6 in fixed order;
+   - statuses are STATE: the reserved --sa-good / warn / bad,
+     always with their word beside them;
+   - module bars are MAGNITUDE: one hue.
+   ========================================================= */
+
+:root {
+    --sa-good: #16a34a;
+    --sa-warn: #d97706;
+    --sa-bad: #ef4444;
+
+    /* The India map: blue into violet, top to bottom — soft enough for pins. */
+    --sa-land: #ddd3fd;
+    --sa-land-top: #c8dcfd;
+    --sa-land-edge: #8fb0ec;
+    --sa-land-shadow: rgba(37, 99, 235, 0.28);
+    --sa-label-halo: rgba(255, 255, 255, 0.75);
+    --sa-sea: #7c9fd4;
+}
+
+[data-theme='dark'] {
+    --sa-good: #22c55e;
+    --sa-warn: #f59e0b;
+    --sa-bad: #f87171;
+
+    --sa-land: #2e2860;
+    --sa-land-top: #233766;
+    --sa-land-edge: #4b5c9a;
+    --sa-land-shadow: rgba(0, 0, 0, 0.45);
+    --sa-label-halo: rgba(22, 26, 43, 0.7);
+    --sa-sea: #6d8cc4;
+}
+
+.od-page.is-refreshing .sa-kpis,
+.od-page.is-refreshing .sa-row {
+    opacity: 0.6;
+}
+
+/* --- the six figures ------------------------------------- */
+
+.sa-kpis {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.sa-kpis.is-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.sa-kpis.is-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.sa-kpis.is-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sa-kpis.is-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sa-kpis.is-1 { grid-template-columns: minmax(0, 1fr); }
+
+.sa-kpi {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+    padding: 16px 14px 14px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: var(--od-shadow);
+}
+
+[data-theme='dark'] .sa-kpi {
+    background: var(--surface);
+    border-color: var(--line);
+    box-shadow: none;
+}
+
+.sa-kpi-icon {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    font-size: 20px;
+}
+
+.sa-kpi-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.sa-kpi-text > b {
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.sa-kpi-label {
+    margin-top: 2px;
+    font-size: 12.5px;
+    line-height: 1.3;
+    color: var(--ink-3);
+}
+
+.sa-kpi-change {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px 5px;
+    margin-top: 7px;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+/* No source for this figure yet: the dash is a placeholder, not a zero. */
+.sa-kpi.is-empty .sa-kpi-text > b {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+/* --- rows of cards --------------------------------------- */
+
+/* Stretched: cards side by side are one height. */
+.sa-row {
+    display: grid;
+    gap: 16px;
+    align-items: stretch;
+}
+
+.sa-row.is-1 { grid-template-columns: minmax(0, 1fr); }
+.sa-row.is-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sa-row.is-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sa-row.is-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.sa-row-charts.is-3 { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); }
+
+/* The map gets the wider half of its pair — it needs room to read. */
+.sa-row-map.is-2 {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+}
+
+/* --- a card ---------------------------------------------- */
+
+.sa-card .od-card-head h2 {
+    font-size: 14.5px;
+}
+
+.sa-card-icon {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+}
+
+.sa-card .sa-card-icon i {
+    font-size: 17px;
+}
+
+[data-theme='dark'] .sa-card {
+    box-shadow: none;
+}
+
+.sa-view-all {
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color 0.15s ease;
+}
+
+.sa-view-all:hover {
+    background: rgba(var(--brand), 0.06);
+    color: rgb(var(--brand));
+}
+
+[data-theme='dark'] .sa-view-all { color: rgb(var(--brand-2)); }
+
+.sa-note {
+    margin: -4px 0 12px;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+/* A line's legend key — the line with its dot, in the line's own colour. */
+.sa-key-line {
+    position: relative;
+    flex: 0 0 auto;
+    display: inline-block;
+    width: 18px;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+}
+
+.sa-key-line::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 7px;
+    height: 7px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: var(--surface);
+    transform: translate(-50%, -50%);
+}
+
+/* --- rings ----------------------------------------------- */
+
+.sa-ring .od-service-list li {
+    grid-template-columns: 9px minmax(0, 1fr) auto 40px;
+}
+
+.sa-ring .od-service-share {
+    text-align: right;
+}
+
+/* --- lists ----------------------------------------------- */
+
+.sa-table th,
+.sa-table td {
+    padding-top: 9px;
+    padding-bottom: 9px;
+}
+
+.sa-nowrap { white-space: nowrap; }
+
+.sa-org-name,
+.sa-org-link {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.sa-org-link { text-decoration: none; }
+.sa-org-link:hover { color: rgb(var(--brand)); text-decoration: underline; }
+[data-theme='dark'] .sa-org-link:hover { color: rgb(var(--brand-2)); }
+
+.sa-status {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.sa-status.is-active { background: #dcfce7; color: #15803d; }
+.sa-status.is-trial { background: #dbeafe; color: #1d4ed8; }
+.sa-status.is-setting_up { background: #fef3c7; color: #b45309; }
+.sa-status.is-suspended { background: var(--surface-3); color: var(--ink-3); }
+.sa-status.is-cancelled,
+.sa-status.is-failed { background: #fee2e2; color: #b91c1c; }
+
+/* An enquiry's progress. */
+.sa-status.is-new { background: #fef3c7; color: #b45309; }
+.sa-status.is-contacted { background: #dbeafe; color: #1d4ed8; }
+.sa-status.is-converted { background: #dcfce7; color: #15803d; }
+.sa-status.is-closed { background: var(--surface-3); color: var(--ink-3); }
+
+[data-theme='dark'] .sa-status.is-new { background: rgba(245, 158, 11, 0.16); color: #fcd34d; }
+[data-theme='dark'] .sa-status.is-contacted { background: rgba(59, 130, 246, 0.18); color: #93c5fd; }
+[data-theme='dark'] .sa-status.is-converted { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+
+[data-theme='dark'] .sa-status.is-active { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+[data-theme='dark'] .sa-status.is-trial { background: rgba(59, 130, 246, 0.18); color: #93c5fd; }
+[data-theme='dark'] .sa-status.is-setting_up { background: rgba(245, 158, 11, 0.16); color: #fcd34d; }
+[data-theme='dark'] .sa-status.is-cancelled,
+[data-theme='dark'] .sa-status.is-failed { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+
+/* --- module usage ---------------------------------------- */
+
+.sa-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sa-bars li {
+    display: grid;
+    grid-template-columns: minmax(80px, 38%) minmax(0, 1fr) 34px;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+}
+
+.sa-bar-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink-2);
+}
+
+.sa-bar-track {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--chart-track);
+    overflow: hidden;
+}
+
+.sa-bar-track span {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    background: var(--chart-mark);
+}
+
+.sa-bars b {
+    text-align: right;
+    font-weight: 600;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- locations ------------------------------------------- */
+
+/* The map and its legend on the left, totals and the ranked states right. */
+.sa-locations {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 236px;
+    gap: 20px;
+}
+
+.sa-locations-map {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+/*
+   India, drawn from its official boundary (IndiaMap.tsx), with a pin at
+   each organization's exact point. Land in a soft blue-to-violet wash,
+   quiet grey cities and blue seas under the pins.
+*/
+.sa-india {
+    position: relative;
+    width: 100%;
+    max-width: 340px;
+    margin: 0 auto;
+}
+
+.sa-india svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+/*
+   The shadow is in the SVG's own units (one is about 12px at card size) —
+   in screen pixels it would blur across the whole card.
+*/
+.sa-india-land {
+    stroke: var(--sa-land-edge);
+    stroke-width: 0.07;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 0.3px 0.35px var(--sa-land-shadow));
+}
+
+.sa-india-land-top { stop-color: var(--sa-land-top); }
+.sa-india-land-bottom { stop-color: var(--sa-land); }
+
+.sa-india-base { pointer-events: none; }
+
+.sa-india-city {
+    fill: var(--ink-3);
+    stroke: var(--surface);
+    stroke-width: 0.06;
+}
+
+.sa-india-city-name {
+    font-size: 0.6px;
+    font-weight: 500;
+    fill: var(--ink-3);
+    paint-order: stroke;
+    stroke: var(--sa-label-halo);
+    stroke-width: 0.16px;
+    stroke-linejoin: round;
+}
+
+.sa-india-sea {
+    font-size: 0.66px;
+    font-style: italic;
+    letter-spacing: 0.06px;
+    fill: var(--sa-sea);
+}
+
+/* A pin: a soft halo under the dot, both in its region's colour. */
+.sa-india-pin {
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+.sa-india-pin.is-dimmed { opacity: 0.3; }
+
+.sa-india-halo {
+    fill: currentColor;
+    opacity: 0.2;
+    transition: opacity 0.15s ease;
+}
+
+.sa-india-pin.is-active .sa-india-halo { opacity: 0.36; }
+
+/* A surface ring, so pins that touch stay apart. */
+.sa-india-dot {
+    fill: currentColor;
+    stroke: var(--surface);
+    stroke-width: 0.13;
+}
+
+/* Only as good as its PIN code or city: a dashed ring, a lighter fill. */
+.sa-india-pin.is-approximate .sa-india-dot {
+    fill-opacity: 0.6;
+    stroke: currentColor;
+    stroke-width: 0.1;
+    stroke-dasharray: 0.18 0.12;
+}
+
+.sa-india-tip {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    white-space: nowrap;
+    transform: translate(14px, -50%);
+}
+
+.sa-india-tip b { margin: 0; }
+.sa-india-tip span { color: rgba(255, 255, 255, 0.78); }
+
+.sa-india-tip em {
+    margin-top: 2px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Over the middle of an empty map. */
+.sa-map-empty {
+    position: absolute;
+    left: 50%;
+    top: 44%;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 90%;
+    margin: 0;
+    padding: 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 12px;
+    color: var(--muted);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+/* The colours' key: every region with its count, two to a row, empty ones faded. */
+.sa-regions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    color: var(--ink-2);
+}
+
+.sa-regions li {
+    display: grid;
+    grid-template-columns: 9px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    background: var(--surface-2);
+}
+
+.sa-regions li > span:nth-child(2) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sa-regions b {
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.sa-regions li.is-zero { opacity: 0.5; }
+
+.sa-region-key {
+    flex: 0 0 auto;
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+/* Under the map: what a solid and a dashed ring mean. */
+.sa-locations-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 18px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 11.5px;
+    color: var(--ink-3);
+}
+
+.sa-locations-legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sa-ring-key {
+    flex: 0 0 auto;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+    background: var(--cat-1);
+    box-shadow: 0 0 0 1px var(--cat-1);
+}
+
+.sa-ring-key.is-approximate {
+    border: 2px dashed var(--cat-1);
+    background: rgba(59, 130, 246, 0.45);
+    box-shadow: none;
+}
+
+.sa-locations-side {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+/* Two figures side by side, each in its own frame. */
+.sa-locations-totals {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+}
+
+.sa-locations-totals > div {
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+}
+
+.sa-locations-totals dt {
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--muted);
+}
+
+.sa-locations-totals dd {
+    margin: 2px 0 0;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.sa-states-title {
+    margin: 6px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.sa-states {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0 -8px;
+    padding: 0;
+    list-style: none;
+}
+
+/* Name and count on one line, the bar under them. */
+.sa-states li {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 5px;
+    padding: 7px 8px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    cursor: default;
+    transition: background-color 0.15s ease;
+}
+
+.sa-states li.is-active { background: var(--surface-3); }
+
+.sa-states li > .sa-region-key { justify-self: center; }
+
+.sa-states-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink-2);
+}
+
+.sa-states-name small {
+    margin-left: 6px;
+    font-size: 10.5px;
+    color: var(--muted);
+}
+
+.sa-states b {
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.sa-states-bar {
+    grid-column: 2 / -1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--chart-track);
+    overflow: hidden;
+}
+
+.sa-states-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+}
+
+.sa-states-empty {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 12px;
+    border: 1px dashed var(--line-2);
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--muted);
+}
+
+.sa-states-empty i {
+    flex: 0 0 auto;
+    font-size: 16px;
+}
+
+.sa-states-more {
+    margin: 0;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+/* --- website enquiries ----------------------------------- */
+
+.sa-enquiry-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.sa-enquiry-stat {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+}
+
+.sa-enquiry-stat-icon {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    font-size: 19px;
+}
+
+.sa-enquiry-stat > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.sa-enquiry-stat b {
+    font-size: 19px;
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The label only — not the icon tile, which is a span too. */
+.sa-enquiry-stat > div > span {
+    font-size: 12px;
+    color: var(--ink-3);
+}
+
+.sa-enquiry-stat small {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+/* Both ways to reach them, one under the other. */
+.sa-contact {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.sa-contact a {
+    color: var(--ink-2);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.sa-contact a:hover { color: rgb(var(--brand)); text-decoration: underline; }
+.sa-contact a + a { font-size: 11.5px; color: var(--muted); }
+
+.sa-interest {
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sa-type {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.sa-type.is-demo { background: #f0eaff; color: #6d28d9; }
+.sa-type.is-trial { background: #e3f7ea; color: #15803d; }
+.sa-type.is-contact { background: #e8f0ff; color: #1d4ed8; }
+
+[data-theme='dark'] .sa-type.is-demo { background: rgba(139, 92, 246, 0.18); color: #c4b5fd; }
+[data-theme='dark'] .sa-type.is-trial { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+[data-theme='dark'] .sa-type.is-contact { background: rgba(59, 130, 246, 0.18); color: #93c5fd; }
+
+/* --- recent activity ------------------------------------- */
+
+.sa-activity {
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sa-activity li {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+}
+
+.sa-activity-mark {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    font-size: 16px;
+}
+
+.sa-activity-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    font-size: 12.5px;
+    line-height: 1.35;
+    color: var(--ink-2);
+}
+
+.sa-activity-text time {
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+/* --- narrower screens ------------------------------------ */
+
+@media (max-width: 1499.98px) {
+    .sa-kpis,
+    .sa-kpis.is-5,
+    .sa-kpis.is-4 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1299.98px) {
+    .sa-row-charts.is-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sa-row-charts.is-3 > :first-child { grid-column: 1 / -1; }
+
+    .sa-row.is-3:not(.sa-row-charts) { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The map card needs its full width before its pair can sit beside it. */
+@media (max-width: 1099.98px) {
+    .sa-row-map.is-2 { grid-template-columns: minmax(0, 1fr); }
+    .sa-enquiry-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767.98px) {
+    .sa-kpis,
+    .sa-kpis.is-5,
+    .sa-kpis.is-4,
+    .sa-kpis.is-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .sa-row.is-2,
+    .sa-row.is-3,
+    .sa-row.is-4,
+    .sa-row-charts.is-3 { grid-template-columns: minmax(0, 1fr); }
+
+    .sa-locations { grid-template-columns: minmax(0, 1fr); }
+
+    .sa-row-charts.is-3 > :first-child { grid-column: auto; }
+
+    .sa-ring.od-services { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+    .sa-ring .od-service-list { width: 100%; }
+}
+
+@media (max-width: 479.98px) {
+    .sa-kpis,
+    .sa-kpis.is-5,
+    .sa-kpis.is-4,
+    .sa-kpis.is-3,
+    .sa-kpis.is-2 { grid-template-columns: minmax(0, 1fr); }
+}

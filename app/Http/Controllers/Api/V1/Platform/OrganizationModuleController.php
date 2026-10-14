@@ -50,10 +50,11 @@ class OrganizationModuleController extends BaseApiController
         Organization $organization,
     ): JsonResponse {
         $submitted = collect($request->validated('modules'))->keyBy('key');
+        $reason = $request->validated('reason');
 
         $ids = Module::whereIn('key', $submitted->keys())->pluck('id', 'key');
 
-        DB::transaction(function () use ($organization, $submitted, $ids) {
+        DB::transaction(function () use ($organization, $submitted, $ids, $reason) {
             foreach ($submitted as $key => $binding) {
                 $organization->moduleEntitlements()->updateOrCreate(
                     ['module_id' => $ids[$key]],
@@ -62,6 +63,7 @@ class OrganizationModuleController extends BaseApiController
                         'starts_at' => $binding['starts_at'] ?? null,
                         'expires_at' => $binding['expires_at'] ?? null,
                         'note' => $binding['note'] ?? null,
+                        ...($reason !== null ? ['reason' => $reason] : []),
                     ]
                 );
             }

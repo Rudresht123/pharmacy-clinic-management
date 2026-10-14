@@ -398,6 +398,255 @@ body {
 }
 
 /* ---------------------------------------------------------
+   Account menu — the avatar dropdown in the topbar
+   ---------------------------------------------------------
+   Its own classes rather than .dropdown-menu/.dropdown-item:
+   the menu sits inside .app-header, whose colour and the
+   .fw-semibold / .text-muted / .avatar inside it are repainted
+   for a dark or brand topbar, and all of that would bleed into
+   a white popover.
+   --------------------------------------------------------- */
+
+.acct-trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 8px 4px 4px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.acct-trigger:hover,
+.acct-trigger[aria-expanded='true'] {
+    background: var(--tb-hover-bg, var(--surface-3));
+}
+
+.acct-trigger:focus-visible {
+    outline: 2px solid rgba(var(--brand), 0.45);
+    outline-offset: 2px;
+}
+
+.acct-trigger .ti-chevron-down {
+    transition: transform 0.2s ease;
+}
+
+.acct-trigger[aria-expanded='true'] .ti-chevron-down {
+    transform: rotate(180deg);
+}
+
+.acct-trigger-photo {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    object-fit: cover;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.acct-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 1050;
+
+    width: 280px;
+    max-width: calc(100vw - 24px);
+    padding: 6px;
+
+    color: var(--ink-2);
+    background: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 16px 40px rgba(var(--brand), 0.14);
+
+    transform-origin: top right;
+    animation: acct-in 0.16s ease-out;
+}
+
+@keyframes acct-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px) scale(0.98);
+    }
+}
+
+.acct-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    /* Inset like .acct-sep, so the two rules are the same length. */
+    padding: 10px 6px 14px;
+    margin: 0 4px 6px;
+    border-bottom: 1px solid var(--line);
+}
+
+.acct-photo {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    object-fit: cover;
+    background: rgba(var(--brand), 0.1);
+    color: rgb(var(--brand));
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.acct-who,
+.acct-text {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.3;
+}
+
+.acct-who b,
+.acct-who small,
+.acct-text b,
+.acct-text small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.acct-who b {
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.acct-who small,
+.acct-text small {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.acct-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 10px;
+
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ink-2);
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.acct-item:hover,
+.acct-item:focus-visible {
+    background: var(--surface-3);
+    color: var(--ink-2);
+    outline: 0;
+}
+
+.acct-icon {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: rgba(var(--brand), 0.08);
+    color: rgb(var(--brand));
+    font-size: 18px;
+}
+
+.acct-text b {
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* The arrow only shows on the row under the pointer. */
+.acct-go {
+    flex: none;
+    color: var(--muted);
+    font-size: 16px;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease;
+}
+
+.acct-item:hover .acct-go,
+.acct-item:focus-visible .acct-go {
+    opacity: 1;
+    transform: none;
+}
+
+.acct-sep {
+    height: 1px;
+    margin: 6px 4px;
+    background: var(--line);
+}
+
+.acct-item--danger .acct-icon {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
+
+.acct-item--danger .acct-text b {
+    color: #dc3545;
+}
+
+.acct-item--danger:hover,
+.acct-item--danger:focus-visible {
+    background: rgba(220, 53, 69, 0.07);
+}
+
+[data-theme='dark'] .acct-menu {
+    background: var(--surface);
+    border-color: var(--line);
+}
+
+/* The accent is usually a deep colour that vanishes on a dark surface;
+   a stronger tint behind light ink keeps the initials and icons legible. */
+[data-theme='dark'] .acct-photo,
+[data-theme='dark'] .acct-icon {
+    background: rgba(var(--brand-2), 0.28);
+    color: var(--ink);
+}
+
+[data-theme='dark'] .acct-item--danger .acct-icon {
+    background: rgba(242, 109, 122, 0.14);
+}
+
+[data-theme='dark'] .acct-item--danger .acct-icon,
+[data-theme='dark'] .acct-item--danger .acct-text b {
+    color: #f26d7a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .acct-menu {
+        animation: none;
+    }
+
+    .acct-trigger .ti-chevron-down,
+    .acct-go {
+        transition: none;
+    }
+}
+
+/* ---------------------------------------------------------
    Content
    --------------------------------------------------------- */
 

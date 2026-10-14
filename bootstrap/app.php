@@ -13,6 +13,8 @@ use App\Http\Middleware\AdoptTokenUser;
 use App\Http\Middleware\AuthFromQueryString;
 use App\Http\Middleware\EnsurePortalPatient;
 use App\Http\Middleware\EnsureTenantCan;
+use App\Http\Middleware\EnsurePlatformRole;
+use App\Http\Middleware\EnsureSubscriptionAllowsAccess;
 use App\Http\Middleware\EnsureTenantHasModule;
 use App\Http\Middleware\ResolveActingBranch;
 use App\Http\Middleware\EnsureTenantUserIsOwner;
@@ -66,6 +68,13 @@ return Application::configure(basePath: dirname(__DIR__))
             EnsureFrontendRequestsAreStateful::class,
         ]);
 
+        /*
+         * The website's enquiry form carries no session to protect. Without
+         * this, a website served from a stateful origin (localhost:3000) is
+         * handed Sanctum's CSRF check and every submission answers 419.
+         */
+        $middleware->validateCsrfTokens(except: ['api/v1/website/*']);
+
         $middleware->alias([
             'resolve.tenant' => ResolveTenantFromSession::class,
 
@@ -98,6 +107,17 @@ return Application::configure(basePath: dirname(__DIR__))
             // Level three: their role holds this capability. Asks the two
             // above first — see App\Services\Permissions\Permission.
             'permission' => EnsureTenantCan::class,
+
+            /*
+             * The subscription lock: a lapsed or suspended organization gets
+             * 423 on everything but the few routes it needs to renew. Decided
+             * from the subscription's dates on every request. Unlisted in the
+             * priority list for the same reason as `module`.
+             */
+            'subscription' => EnsureSubscriptionAllowsAccess::class,
+
+            // Platform admin roles on the billing area — super admin always passes.
+            'platform.role' => EnsurePlatformRole::class,
 
             /*
              * The portal's answer to "whose data?": the signed-in login must be

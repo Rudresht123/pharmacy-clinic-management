@@ -9,6 +9,7 @@ use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Doctor;
 use App\Services\Opd\BookingService;
 use App\Services\Opd\OpdBoard;
+use App\Services\Opd\QueueSteps;
 use App\Services\Opd\VisitWorkflow;
 use App\Services\Tenancy\TenantBranchAccess;
 use Illuminate\Http\JsonResponse;
@@ -36,6 +37,7 @@ class AppointmentController extends BaseApiController
         private readonly BookingService $booking,
         private readonly VisitWorkflow $workflow,
         private readonly TenantBranchAccess $branches,
+        private readonly QueueSteps $steps,
     ) {}
 
     /**
@@ -168,8 +170,11 @@ class AppointmentController extends BaseApiController
     }
 
     /** Arrived. This is where the token is issued, and the queue joined. */
-    public function checkIn(Appointment $appointment): JsonResponse
+    public function checkIn(Request $request, Appointment $appointment): JsonResponse
     {
+        // The desk's, the doctor's or either — as this clinic has set it.
+        $this->steps->authorize($request->user(), QueueSteps::CHECK_IN, $appointment);
+
         return $this->move(
             $appointment,
             fn () => $this->booking->checkIn($appointment),
@@ -187,6 +192,8 @@ class AppointmentController extends BaseApiController
      */
     public function call(Request $request, Appointment $appointment): JsonResponse
     {
+        $this->steps->authorize($request->user(), QueueSteps::CALL, $appointment);
+
         return $this->move(
             $appointment,
             fn () => $this->workflow->call($appointment, $request->user()),

@@ -1,4 +1,5 @@
 import type { Timestamps } from '@/shared/types/api';
+import type { LocationSource } from '@/shared/geo/geocode';
 
 export interface OrganizationType extends Timestamps {
     id: number;
@@ -71,6 +72,16 @@ export interface Organization extends Timestamps {
     phone_number: string | null;
     address: string | null;
 
+    /** The profile's address detail and map pin — on the single record only. */
+    location?: {
+        postal_code: string | null;
+        city: string | null;
+        state_province: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        location_source: LocationSource | null;
+    };
+
     profile_image_id: number | null;
     profile_image_url: string;
 
@@ -102,6 +113,10 @@ export interface OrganizationFormValues {
     email: string;
     phone_number: string;
     address: string;
+    /** Saved on the organization's profile, with the map pin. */
+    postal_code: string;
+    city: string;
+    state_province: string;
     is_active: boolean;
     owner_restricted: boolean;
     profile_image?: FileList;

@@ -48,9 +48,13 @@ class VideoCallTest extends TenantTestCase
     /** @var array<string, string> doctor key => token */
     private array $doctorTokens = [];
 
+    private string $defaultGuard;
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->defaultGuard = (string) config('auth.defaults.guard');
 
         $this->artisan('modules:sync');
 
@@ -92,10 +96,20 @@ class VideoCallTest extends TenantTestCase
         Event::fake([VideoCallUpdated::class, VideoCallSignalled::class]);
     }
 
+    /**
+     * As a new request would find the app.
+     *
+     * `auth:tenant-api` makes the token guard the default for the rest of the
+     * process, and in a test the process is the whole test. Left that way,
+     * Sanctum's session check asks for a user before the tenant is connected,
+     * and a request after onTenant() — which disconnects — looks for tokens in
+     * no database at all. Every real request starts from the default guard.
+     */
     private function fresh(): void
     {
         $this->flushSession();
         $this->app['auth']->forgetGuards();
+        $this->app['auth']->setDefaultDriver($this->defaultGuard);
     }
 
     private function as(string $token): static
@@ -207,9 +221,9 @@ class VideoCallTest extends TenantTestCase
         // The patient's app, opening, finds the ring and the channel for the next one.
         $this->as($patient['token'])->getJson(self::PORTAL.'/video-calls/current')
             ->assertOk()
-            ->assertJsonPath('data.id', $callId)
-            ->assertJsonPath('data.side', 'patient')
-            ->assertJsonPath('meta.channel', "private-org.{$this->organization->uuid}.user.{$patient['login']}.calls");
+            ->assertJsonPath('data.call.id', $callId)
+            ->assertJsonPath('data.call.side', 'patient')
+            ->assertJsonPath('data.channel', "private-org.{$this->organization->uuid}.user.{$patient['login']}.calls");
 
         // The visit has not moved: ringing is not arriving.
         $this->assertSame(Appointment::STATUS_BOOKED, $this->visit($patient['visit'])->status);
@@ -245,7 +259,7 @@ class VideoCallTest extends TenantTestCase
 
         $this->asDoctor()->getJson(self::STAFF.'/video-calls/current')
             ->assertOk()
-            ->assertJsonPath('data', null);
+            ->assertJsonPath('data.call', null);
 
         // Hanging up is not finishing the consultation; the doctor still does that.
         $this->assertSame(Appointment::CONSULT_IN_PROGRESS, $this->visit($patient['visit'])->consultation_status);
@@ -288,12 +302,20 @@ class VideoCallTest extends TenantTestCase
             ],
         ])->assertCreated();
 
+        // A patient whose app was closed mid-call asks for a fresh offer.
+        $this->as($patient['token'])->postJson(self::PORTAL."/video-calls/{$callId}/signals", ['type' => 'restart'])
+            ->assertCreated();
+        $this->as($patient['token'])->postJson(self::PORTAL."/video-calls/{$callId}/signals", ['type' => 'restart', 'sdp' => 'x'])
+            ->assertUnprocessable();
+
         // Each side reads only what the OTHER sent, past where it got to.
         $this->asDoctor()->getJson(self::STAFF."/video-calls/{$callId}/signals?after={$offerId}")
             ->assertOk()
-            ->assertJsonCount(2, 'data')
+            ->assertJsonCount(3, 'data')
             ->assertJsonPath('data.0.type', 'answer')
-            ->assertJsonPath('data.1.candidates.0.sdp_mline_index', 0);
+            ->assertJsonPath('data.0.sdp', "v=0 answer\r\n")
+            ->assertJsonPath('data.1.candidates.0.sdp_mline_index', 0)
+            ->assertJsonPath('data.2.type', 'restart');
 
         // Malformed steps are refused rather than relayed.
         $this->asDoctor()->postJson(self::STAFF."/video-calls/{$callId}/signals", ['type' => 'offer'])

@@ -2,8 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Tenant\Doctor;
+use App\Models\Tenant\Location;
 use App\Models\Tenant\PersonalAccessToken;
 use App\Models\Tenant\User as TenantUser;
+use App\Observers\ResourceLimitObserver;
 use App\Observers\TenantUserDevicesObserver;
 use App\Services\Email\EmailManager;
 use App\Services\Permissions\Permission;
@@ -13,6 +16,8 @@ use App\Services\Portal\Otp\OtpSender;
 use App\Services\Push\FcmPushSender;
 use App\Services\Push\LogPushSender;
 use App\Services\Push\PushSender;
+use App\Services\Subscriptions\BillingSettings;
+use App\Services\Subscriptions\SubscriptionFacts;
 use App\Services\WhatsApp\WhatsAppManager;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Events\MigrationEnded;
@@ -57,6 +62,16 @@ class AppServiceProvider extends ServiceProvider
          */
         $this->app->scoped(WhatsAppManager::class);
         $this->app->scoped(EmailManager::class);
+
+        /*
+         * Subscriptions: one per request (or queued job), for the same reason.
+         * SubscriptionFacts memoizes each organization's current subscription
+         * and BillingSettings the settings row; a singleton would carry both
+         * from one request into the next on a worker, and a renewal would not
+         * be seen until the worker restarted.
+         */
+        $this->app->scoped(SubscriptionFacts::class);
+        $this->app->scoped(BillingSettings::class);
 
         /*
          * One per worker process: it holds the provisioning step whose
@@ -130,6 +145,14 @@ class AppServiceProvider extends ServiceProvider
          * a console command.
          */
         TenantUser::observe(TenantUserDevicesObserver::class);
+
+        /*
+         * The plan's branch, doctor and employee limits, on every path that
+         * can make one of these start counting — not only the forms.
+         */
+        Location::observe(ResourceLimitObserver::class);
+        Doctor::observe(ResourceLimitObserver::class);
+        TenantUser::observe(ResourceLimitObserver::class);
 
         /*
          * A new tenant's migrations, counted onto the provisioning step the

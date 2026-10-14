@@ -1,3 +1,5 @@
+import type { LocationSource } from '@/shared/geo/geocode';
+
 /**
  * Organisation setup, as GET /tenant/setup returns it.
  *
@@ -48,6 +50,10 @@ export interface SetupOrganization {
     city: string | null;
     state_province: string | null;
     postal_code: string | null;
+    /** The map pin — found from the address, or placed by hand. */
+    latitude: number | null;
+    longitude: number | null;
+    location_source: LocationSource | null;
 }
 
 export interface SetupStatus {

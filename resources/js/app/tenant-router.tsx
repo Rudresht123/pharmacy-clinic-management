@@ -35,6 +35,12 @@ const MyConsultationsPage = lazy(() => import('@/core/opd/pages/MyConsultationsP
 const SchedulesPage = lazy(() => import('@/core/doctors/pages/SchedulesPage'));
 const AvailabilityPage = lazy(() => import('@/core/availability/pages/AvailabilityPage'));
 const QueuePage = lazy(() => import('@/core/appointments/pages/QueuePage'));
+const RescheduleRequestsPage = lazy(
+    () => import('@/core/appointments/pages/RescheduleRequestsPage'),
+);
+const AppointmentSettingsPage = lazy(
+    () => import('@/core/appointments/pages/AppointmentSettingsPage'),
+);
 const OpdTodayPage = lazy(() => import('@/core/opd/pages/OpdTodayPage'));
 const MedicineListPage = lazy(() => import('@/core/medicines/pages/MedicineListPage'));
 const MedicineFormPage = lazy(() => import('@/core/medicines/pages/MedicineFormPage'));
@@ -347,6 +353,17 @@ export function TenantAppRoutes() {
                                 </Route>
 
                                 <Route
+                                    element={
+                                        <RequireCapability capability="appointments.reschedule" />
+                                    }
+                                >
+                                    <Route
+                                        path="/opd/reschedule-requests"
+                                        element={<RescheduleRequestsPage />}
+                                    />
+                                </Route>
+
+                                <Route
                                     element={<RequireCapability capability="appointments.view" />}
                                 >
                                     <Route path="/doctors" element={<DoctorListPage />} />
@@ -354,6 +371,10 @@ export function TenantAppRoutes() {
 
                                     <Route path="/opd" element={<OpdTodayPage />} />
                                     <Route path="/opd/queue" element={<QueuePage />} />
+                                    <Route
+                                        path="/settings/appointments"
+                                        element={<AppointmentSettingsPage />}
+                                    />
 
                                     {/*
                                         The old address. Anybody who bookmarked

@@ -297,6 +297,20 @@ export function tenantNavigation(
     }
 
     /*
+     * Who runs the queue — the desk, the doctor or either, step by step — and
+     * who hears about reschedule requests. Not every clinic has a
+     * receptionist.
+     */
+    if (hasModule('appointments') && can('appointments.settings')) {
+        settings.push({
+            label: 'Appointments',
+            to: '/settings/appointments',
+            icon: 'ti ti-calendar-cog',
+            match: '/settings/appointments',
+        });
+    }
+
+    /*
      * How the shop prices, rounds and warns.
      *
      * The condition is spelled out rather than reusing the `pharmacy` const
@@ -492,6 +506,20 @@ export function tenantNavigation(
                     icon: 'ti ti-list-check',
                     match: '/opd/queue',
                 },
+                /*
+                 * Patients asking, from the app, to move a booking. Whoever
+                 * answers them — the desk, by default.
+                 */
+                ...(can('appointments.reschedule')
+                    ? [
+                          {
+                              label: 'Reschedule requests',
+                              to: '/opd/reschedule-requests',
+                              icon: 'ti ti-calendar-repeat',
+                              match: '/opd/reschedule-requests',
+                          },
+                      ]
+                    : []),
                 {
                     label: 'Doctors',
                     to: '/doctors',

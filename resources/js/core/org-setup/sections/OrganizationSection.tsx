@@ -1,5 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useWatch } from 'react-hook-form';
 import { Button } from '@/shared/components/ui/Button';
+import { LocationPicker } from '@/shared/components/map/LocationPicker';
+import type { MapPoint } from '@/shared/geo/geocode';
 import { FormError, TextareaField, TextField } from '@/shared/components/form/Fields';
 import { useApiForm } from '@/shared/components/form/useApiForm';
 import { usePincodeAutofill } from '@/shared/geo/usePincodeAutofill';
@@ -80,7 +83,30 @@ export function OrganizationSection({ status, step, onDirty, nav }: SectionProps
         fills: { district: 'city', state: 'state_province' },
     });
 
-    useEffect(() => onDirty(isDirty), [isDirty, onDirty]);
+    const [address, postalCode, city, state] = useWatch({
+        control,
+        name: ['address', 'postal_code', 'city', 'state_province'],
+    });
+
+    // The map pin: the saved one until it is moved, found, or placed.
+    const savedPin = useMemo<MapPoint | null>(() => {
+        const { latitude, longitude, location_source } = status.organization;
+
+        return latitude != null && longitude != null
+            ? { latitude, longitude, source: location_source ?? 'address' }
+            : null;
+    }, [status.organization]);
+
+    const [movedPin, setMovedPin] = useState<MapPoint | null>(null);
+    const [pinUnsaved, setPinUnsaved] = useState(false);
+    const pin = movedPin ?? savedPin;
+
+    function setPin(point: MapPoint) {
+        setMovedPin(point);
+        setPinUnsaved(true);
+    }
+
+    useEffect(() => onDirty(isDirty || pinUnsaved), [isDirty, pinUnsaved, onDirty]);
 
     // The server's copy wins when it changes, unless somebody is typing.
     useEffect(() => {
@@ -89,10 +115,17 @@ export function OrganizationSection({ status, step, onDirty, nav }: SectionProps
     }, [initial]);
 
     async function persist(values: Values, then?: () => void) {
-        const result = await submit(values, (sent) => save.mutateAsync(sent));
+        const result = await submit(values, (sent) =>
+            save.mutateAsync({
+                ...sent,
+                // No pin, and the server looks the address up itself.
+                ...(pin ? { latitude: pin.latitude, longitude: pin.longitude, location_source: pin.source } : {}),
+            }),
+        );
 
         if (result) {
             reset(values);
+            setPinUnsaved(false);
             then?.();
         }
     }
@@ -269,6 +302,13 @@ export function OrganizationSection({ status, step, onDirty, nav }: SectionProps
                             />
                         </div>
                     </div>
+
+                    <LocationPicker
+                        base="/tenant/lookups"
+                        parts={{ address, city, state, pincode: postalCode }}
+                        value={pin}
+                        onChange={setPin}
+                    />
                 </SetupPanel>
             </form>
         </SectionShell>

@@ -27089,3 +27089,25 @@ fieldset:disabled .bset-method:not(.is-on):hover {
     .prov-head{ flex-wrap:wrap; }
     .prov-count{ width:100%; }
 }
+
+/* ---------------------------------------------------------------------------
+   Appointment settings — one question per row: what it is on the left, the
+   three answers on the right; stacked on a phone.
+--------------------------------------------------------------------------- */
+
+.as-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:12px 0;
+    border-top:1px solid var(--line);
+}
+
+.as-row:first-of-type{ border-top:0; padding-top:0; }
+
+.as-text{ min-width:0; }
+
+@media (max-width: 575.98px){
+    .as-row{ flex-direction:column; align-items:flex-start; }
+}

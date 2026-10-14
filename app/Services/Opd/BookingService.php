@@ -3,9 +3,11 @@
 namespace App\Services\Opd;
 
 use App\Models\Tenant\Appointment;
+use App\Models\Tenant\AutomationDelivery;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\User;
 use App\Services\Billing\BillingTriggerResolver;
+use App\Services\Communication\AppointmentReminders;
 use App\Services\Clinic\ClinicEvent;
 use App\Services\Clinic\ClinicEventDispatcher;
 use App\Support\Clinic\ClinicEvents;
@@ -296,6 +298,59 @@ class BookingService
         ])->save();
 
         $this->events()->dispatch(ClinicEvent::for(ClinicEvents::APPOINTMENT_CANCELLED, $appointment));
+
+        return $appointment;
+    }
+
+    /**
+     * Move a booking to another time — a reschedule, once the desk has said yes.
+     *
+     * Only a visit that has not started: once somebody has checked in they are
+     * in the building, and moving them is not a reschedule. The new time is
+     * held to the same rule as a fresh booking — inside one of the doctor's
+     * sittings, and free — so a reschedule can never double-book a slot the
+     * timetable would have refused. The slot's unique index settles a race.
+     *
+     * Reminders already sent for the old time are forgotten, so "your
+     * appointment is tomorrow" goes out again for the new one.
+     */
+    public function moveTo(Appointment $appointment, Carbon $date, int $locationId, string $slot): Appointment
+    {
+        if ($appointment->status !== Appointment::STATUS_BOOKED) {
+            throw new RuntimeException('This visit has already started, so it can no longer be moved.');
+        }
+
+        $doctor = Doctor::on('organization')->findOrFail($appointment->doctor_id);
+        $slot = substr($slot, 0, 5);
+
+        $session = $this->sessionOffering($doctor, $date, $locationId, $slot);
+
+        if (! $session) {
+            throw new RuntimeException('That time is not free with this doctor any more. Please choose another.');
+        }
+
+        try {
+            DB::connection('organization')->transaction(function () use ($appointment, $date, $locationId, $slot, $session) {
+                $appointment->forceFill([
+                    'appointment_date' => $date->toDateString(),
+                    'slot_at' => $slot,
+                    'location_id' => $locationId,
+                    'doctor_schedule_id' => $session['schedule_id'],
+                ])->save();
+
+                AutomationDelivery::query()
+                    ->whereIn('event_key', AppointmentReminders::RULES)
+                    ->where('subject_type', $appointment->getMorphClass())
+                    ->where('subject_id', $appointment->getKey())
+                    ->delete();
+            });
+        } catch (QueryException $exception) {
+            if (str_contains($exception->getMessage(), 'appointments_slot_unique')) {
+                throw new RuntimeException('That time was just booked by somebody else. Please choose another.');
+            }
+
+            throw $exception;
+        }
 
         return $appointment;
     }

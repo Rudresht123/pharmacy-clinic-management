@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\Tenant;
 
+use App\Services\Geo\OrganizationLocator;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -47,6 +48,9 @@ class UpdateSetupOrganizationRequest extends FormRequest
             'city' => ['required', 'string', 'max:100'],
             'state_province' => ['required', 'string', 'max:100'],
             'postal_code' => ['required', 'string', 'max:20', 'regex:/^[A-Za-z0-9][A-Za-z0-9 -]{2,9}$/'],
+
+            // The map pin — found from the address, or dragged onto the building.
+            ...OrganizationLocator::rules(),
         ];
     }
 

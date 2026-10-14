@@ -1,0 +1,154 @@
+/* =========================================================
+   Maps (.lp-) — the location picker on address forms
+   ---------------------------------------------------------
+   A real street map (Leaflet over CARTO/OpenStreetMap tiles)
+   with a pin that finds itself from the address and can be
+   dragged onto the building. Used by the super admin's
+   organization form and the organization's own setup.
+   ========================================================= */
+
+.lp {
+    margin-top: 4px;
+}
+
+/* Its own stacking context: Leaflet's panes reach z-index 1000. */
+.lp-map {
+    position: relative;
+    z-index: 0;
+    isolation: isolate;
+    height: 280px;
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--surface-2);
+    cursor: crosshair;
+}
+
+.lp-map .leaflet-control-attribution {
+    font-size: 10px;
+}
+
+.lp-foot {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-top: 8px;
+}
+
+.lp-note {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+.lp-note i {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    font-size: 15px;
+}
+
+.lp-note.is-warn { color: #b45309; }
+[data-theme='dark'] .lp-note.is-warn { color: #fcd34d; }
+
+.lp-spin { animation: lp-spin 0.9s linear infinite; }
+
+@keyframes lp-spin {
+    to { transform: rotate(360deg); }
+}
+
+.lp-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.lp-coords {
+    font-size: 11.5px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.lp-find {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 30px;
+    padding: 0 11px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.lp-find:hover:not(:disabled) { background: rgba(var(--brand), 0.06); }
+.lp-find:disabled { opacity: 0.6; cursor: default; }
+[data-theme='dark'] .lp-find { color: rgb(var(--brand-2)); }
+
+/* The pin: a teardrop in the brand colour with a white heart and a shadow. */
+.lp-pin {
+    background: none;
+    border: 0;
+}
+
+.lp-pin span {
+    position: absolute;
+    left: 3px;
+    top: 0;
+    width: 24px;
+    height: 24px;
+    border: 3px solid #ffffff;
+    border-radius: 50% 50% 50% 0;
+    background: rgb(var(--brand));
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.35);
+    transform: rotate(-45deg);
+    cursor: grab;
+}
+
+.lp-pin span::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #ffffff;
+    transform: translate(-50%, -50%);
+}
+
+.leaflet-dragging .lp-pin span { cursor: grabbing; }
+
+/*
+   Dark mode for OpenStreetMap's tiles, which come only in light: invert the
+   lightness, then turn the hues back round so water stays blue and parks
+   stay green. Only the tile layer — the pins and circles keep their colours.
+*/
+.leaflet-layer.is-dark-tiles {
+    filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.8);
+}
+
+/* Leaflet's controls on the dark theme. */
+[data-theme='dark'] .leaflet-bar a {
+    background: var(--surface);
+    border-bottom-color: var(--line);
+    color: var(--ink);
+}
+
+[data-theme='dark'] .leaflet-control-attribution {
+    background: rgba(22, 26, 43, 0.8);
+    color: var(--muted);
+}
+
+[data-theme='dark'] .leaflet-control-attribution a { color: var(--ink-3); }

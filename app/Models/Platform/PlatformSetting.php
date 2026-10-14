@@ -13,6 +13,9 @@ class PlatformSetting extends Model
     /** The mail relay every organization's email goes out through. */
     public const EMAIL = 'email.provider';
 
+    /** Where development phones find this server — see MobileServerAddress. */
+    public const MOBILE_SERVER = 'mobile.server';
+
     protected $fillable = [
         'key',
         'value',

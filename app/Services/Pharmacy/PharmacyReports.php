@@ -12,6 +12,7 @@ use App\Models\Tenant\StockInwardItem;
 use App\Models\Tenant\StoreMedicine;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Carbon;
 
 /**
@@ -80,19 +81,104 @@ class PharmacyReports
     }
 
     /**
+     * What each report's table may be narrowed by, beyond the dates and the
+     * search box — and what it may be sorted by, first entry the default.
+     * The controller validates against these; nothing else reaches a query.
+     */
+    public const FILTERS = [
+        self::SALES => ['status', 'method'],
+        self::PURCHASES => ['supplier_id', 'type'],
+        self::STOCK => ['category', 'level'],
+        self::EXPIRY => ['within'],
+        self::PROFIT => ['category'],
+        self::GST => ['rate'],
+    ];
+
+    public const SORTS = [
+        self::SALES => ['date', 'amount'],
+        self::PURCHASES => ['date', 'amount'],
+        self::STOCK => ['value', 'units', 'name'],
+        self::EXPIRY => ['expiry', 'value'],
+        self::PROFIT => ['margin', 'revenue', 'units', 'margin_percent'],
+        self::GST => ['tax', 'taxable'],
+    ];
+
+    /**
      * The rows behind it, a page at a time.
      *
+     * `$filters` holds this report's own narrowing (FILTERS) and an optional
+     * `sort` / `direction` (SORTS) — already validated by the controller.
+     *
+     * @param  array<string, mixed>  $filters
      * @return LengthAwarePaginator<int, mixed>
      */
-    public function rows(string $report, PharmacyStore $store, Carbon $from, Carbon $to, int $perPage, string $search = ''): LengthAwarePaginator
+    public function rows(string $report, PharmacyStore $store, Carbon $from, Carbon $to, int $perPage, string $search = '', array $filters = []): LengthAwarePaginator
     {
+        $direction = ($filters['direction'] ?? null) === 'asc' ? 'asc' : 'desc';
+        $sort = $filters['sort'] ?? self::SORTS[$report][0];
+
         return match ($report) {
-            self::SALES => $this->salesRows($store, $from, $to, $perPage, $search),
-            self::PURCHASES => $this->purchasesRows($store, $from, $to, $perPage, $search),
-            self::STOCK => $this->stockRows($store, $perPage, $search),
-            self::EXPIRY => $this->expiryRows($store, $perPage, $search),
-            self::PROFIT => $this->profitRows($store, $from, $to, $perPage, $search),
-            self::GST => $this->gstRows($store, $from, $to, $perPage),
+            self::SALES => $this->salesRows($store, $from, $to, $perPage, $search, $filters, $sort, $direction),
+            self::PURCHASES => $this->purchasesRows($store, $from, $to, $perPage, $search, $filters, $sort, $direction),
+            self::STOCK => $this->stockRows($store, $perPage, $search, $filters, $sort, $direction),
+            // Soonest first unless asked otherwise — the point of the list.
+            self::EXPIRY => $this->expiryRows($store, $perPage, $search, $filters, $sort, ($filters['direction'] ?? 'asc') === 'desc' ? 'desc' : 'asc'),
+            self::PROFIT => $this->profitRows($store, $from, $to, $perPage, $search, $filters, $sort, $direction),
+            self::GST => $this->gstRows($store, $from, $to, $perPage, $filters, $sort, $direction),
+        };
+    }
+
+    /**
+     * The choices each table's filters offer — only values that occur, so a
+     * dropdown never lists a supplier this counter has never bought from.
+     *
+     * @return array<string, list<array{value: string, label: string}>>
+     */
+    public function filterOptions(string $report, PharmacyStore $store, Carbon $from, Carbon $to): array
+    {
+        $categories = fn () => MedicineBatch::query()
+            ->where('medicine_batches.pharmacy_store_id', $store->id)
+            ->join('medicines', 'medicines.id', '=', 'medicine_batches.medicine_id')
+            ->selectRaw("DISTINCT COALESCE(NULLIF(medicines.category, ''), 'Uncategorised') AS category")
+            ->orderBy('category')
+            ->pluck('category')
+            ->map(fn ($category) => ['value' => (string) $category, 'label' => (string) $category])
+            ->all();
+
+        return match ($report) {
+            self::SALES => [
+                'method' => PharmacySalePayment::query()
+                    ->whereHas('sale', fn (Builder $sale) => $sale->where('pharmacy_store_id', $store->id))
+                    ->distinct()
+                    ->orderBy('method')
+                    ->pluck('method')
+                    ->map(fn ($method) => ['value' => (string) $method, 'label' => (string) $method])
+                    ->push(['value' => 'credit', 'label' => 'credit'])
+                    ->all(),
+            ],
+            self::PURCHASES => [
+                'supplier_id' => StockInward::query()
+                    ->where('stock_inwards.pharmacy_store_id', $store->id)
+                    ->join('suppliers', 'suppliers.id', '=', 'stock_inwards.supplier_id')
+                    ->selectRaw('DISTINCT suppliers.id, suppliers.name')
+                    ->orderBy('suppliers.name')
+                    ->get()
+                    ->map(fn ($row) => ['value' => (string) $row->id, 'label' => (string) $row->name])
+                    ->all(),
+            ],
+            self::STOCK, self::PROFIT => ['category' => $categories()],
+            self::GST => [
+                'rate' => $this->soldItems($store, $from, $to)
+                    ->distinct()
+                    ->orderBy('tax_rate')
+                    ->pluck('tax_rate')
+                    ->map(fn ($rate) => [
+                        'value' => (string) (float) $rate,
+                        'label' => rtrim(rtrim(number_format((float) $rate, 2), '0'), '.').'%',
+                    ])
+                    ->all(),
+            ],
+            default => [],
         };
     }
 
@@ -143,8 +229,11 @@ class PharmacyReports
         ];
     }
 
-    /** @return LengthAwarePaginator<int, PharmacySale> */
-    private function salesRows(PharmacyStore $store, Carbon $from, Carbon $to, int $perPage, string $search): LengthAwarePaginator
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return LengthAwarePaginator<int, PharmacySale>
+     */
+    private function salesRows(PharmacyStore $store, Carbon $from, Carbon $to, int $perPage, string $search, array $filters, string $sort, string $direction): LengthAwarePaginator
     {
         return $this->sales($store, $from, $to)
             ->with(['customer', 'payments'])
@@ -153,9 +242,18 @@ class PharmacyReports
                 fn (Builder $inner) => $inner
                     ->where('sale_number', 'ILIKE', "%{$search}%")
                     ->orWhere('walk_in_name', 'ILIKE', "%{$search}%")
+                    ->orWhere('walk_in_phone', 'ILIKE', "%{$search}%")
+                    ->orWhereHas('customer', fn (Builder $customer) => $customer
+                        ->where('name', 'ILIKE', "%{$search}%")
+                        ->orWhere('phone', 'ILIKE', "%{$search}%"))
             ))
-            ->orderByDesc('sale_date')
-            ->orderByDesc('id')
+            ->when($filters['status'] ?? null, fn (Builder $query, string $status) => $query->where('payment_status', $status))
+            ->when($filters['method'] ?? null, fn (Builder $query, string $method) => $method === 'credit'
+                // Credit is the absence of a tender, not one of them.
+                ? $query->whereDoesntHave('payments')
+                : $query->whereHas('payments', fn (Builder $payment) => $payment->where('method', $method)))
+            ->orderBy($sort === 'amount' ? 'total_amount' : 'sale_date', $direction)
+            ->orderBy('id', $direction)
             ->paginate($perPage)
             ->withQueryString();
     }
@@ -198,8 +296,11 @@ class PharmacyReports
         ];
     }
 
-    /** @return LengthAwarePaginator<int, StockInward> */
-    private function purchasesRows(PharmacyStore $store, Carbon $from, Carbon $to, int $perPage, string $search): LengthAwarePaginator
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return LengthAwarePaginator<int, StockInward>
+     */
+    private function purchasesRows(PharmacyStore $store, Carbon $from, Carbon $to, int $perPage, string $search, array $filters, string $sort, string $direction): LengthAwarePaginator
     {
         return $this->purchases($store, $from, $to)
             ->with('supplier')
@@ -208,9 +309,12 @@ class PharmacyReports
                 fn (Builder $inner) => $inner
                     ->where('inward_number', 'ILIKE', "%{$search}%")
                     ->orWhere('supplier_invoice_no', 'ILIKE', "%{$search}%")
+                    ->orWhereHas('supplier', fn (Builder $supplier) => $supplier->where('name', 'ILIKE', "%{$search}%"))
             ))
-            ->orderByDesc('received_date')
-            ->orderByDesc('id')
+            ->when($filters['supplier_id'] ?? null, fn (Builder $query, $supplier) => $query->where('supplier_id', (int) $supplier))
+            ->when($filters['type'] ?? null, fn (Builder $query, string $type) => $query->where('inward_type', $type))
+            ->orderBy($sort === 'amount' ? 'total_amount' : 'received_date', $direction)
+            ->orderBy('id', $direction)
             ->paginate($perPage)
             ->withQueryString();
     }
@@ -259,27 +363,55 @@ class PharmacyReports
         ];
     }
 
-    /** @return LengthAwarePaginator<int, mixed> */
-    private function stockRows(PharmacyStore $store, int $perPage, string $search): LengthAwarePaginator
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return LengthAwarePaginator<int, mixed>
+     */
+    private function stockRows(PharmacyStore $store, int $perPage, string $search, array $filters, string $sort, string $direction): LengthAwarePaginator
     {
+        // The store's own reorder level, where it keeps one, to say whether
+        // what is on the shelf is enough.
+        $level = 'COALESCE(MAX(levels.reorder_level), 0)';
+
         return $this->usable($store)
             ->join('medicines', 'medicines.id', '=', 'medicine_batches.medicine_id')
+            ->leftJoin('store_medicines AS levels', function (JoinClause $join) {
+                $join->on('levels.pharmacy_store_id', '=', 'medicine_batches.pharmacy_store_id')
+                    ->on('levels.medicine_id', '=', 'medicine_batches.medicine_id')
+                    ->whereNull('levels.deleted_at');
+            })
             ->selectRaw('medicine_batches.medicine_id')
             ->selectRaw('MAX(medicines.generic_name) AS generic_name, MAX(medicines.brand_name) AS brand_name')
             ->selectRaw('MAX(medicines.strength) AS strength, MAX(medicines.base_unit) AS base_unit')
             ->selectRaw("MAX(COALESCE(NULLIF(medicines.category, ''), 'Uncategorised')) AS category")
-            ->selectRaw('COUNT(*) AS batches, SUM(medicine_batches.quantity_available) AS units')
+            ->selectRaw('COUNT(DISTINCT medicine_batches.id) AS batches, SUM(medicine_batches.quantity_available) AS units')
             ->selectRaw('SUM(medicine_batches.quantity_available * medicine_batches.purchase_price) AS at_cost')
             ->selectRaw('SUM(medicine_batches.quantity_available * medicine_batches.mrp) AS at_mrp')
+            ->selectRaw("{$level} AS reorder_level")
             ->when($search !== '', fn (Builder $query) => $query->where(
                 fn (Builder $inner) => $inner
                     ->where('medicines.generic_name', 'ILIKE', "%{$search}%")
                     ->orWhere('medicines.brand_name', 'ILIKE', "%{$search}%")
             ))
+            ->when($filters['category'] ?? null, fn (Builder $query, string $category) => $this->inCategory($query, $category))
+            ->when(($filters['level'] ?? null) === 'low', fn (Builder $query) => $query->havingRaw("SUM(medicine_batches.quantity_available) <= {$level}"))
+            ->when(($filters['level'] ?? null) === 'ok', fn (Builder $query) => $query->havingRaw("SUM(medicine_batches.quantity_available) > {$level}"))
             ->groupBy('medicine_batches.medicine_id')
-            ->orderByDesc('at_cost')
+            ->when(
+                $sort === 'name',
+                fn (Builder $query) => $query->orderByRaw('MAX(COALESCE(medicines.brand_name, medicines.generic_name)) '.($direction === 'desc' ? 'DESC' : 'ASC')),
+                fn (Builder $query) => $query->orderBy($sort === 'units' ? 'units' : 'at_cost', $direction),
+            )
             ->paginate($perPage)
             ->withQueryString();
+    }
+
+    /** Medicines in one category — "Uncategorised" being those with none. */
+    private function inCategory(Builder $query, string $category): Builder
+    {
+        return $category === 'Uncategorised'
+            ? $query->where(fn (Builder $none) => $none->whereNull('medicines.category')->orWhere('medicines.category', ''))
+            : $query->where('medicines.category', $category);
     }
 
     /* ---------------------------------------------------------------------
@@ -327,11 +459,22 @@ class PharmacyReports
         ];
     }
 
-    /** @return LengthAwarePaginator<int, MedicineBatch> */
-    private function expiryRows(PharmacyStore $store, int $perPage, string $search): LengthAwarePaginator
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return LengthAwarePaginator<int, MedicineBatch>
+     */
+    private function expiryRows(PharmacyStore $store, int $perPage, string $search, array $filters, string $sort, string $direction): LengthAwarePaginator
     {
+        $today = Carbon::today();
+        $within = $filters['within'] ?? null;
+
         return $this->expiring($store)
             ->with('medicine')
+            // Already dead, or still sellable but going within so many days.
+            ->when($within === 'expired', fn (Builder $query) => $query->whereDate('expiry_date', '<=', $today->toDateString()))
+            ->when(in_array($within, ['30', '60', '90'], true), fn (Builder $query) => $query
+                ->whereDate('expiry_date', '>', $today->toDateString())
+                ->whereDate('expiry_date', '<=', $today->copy()->addDays((int) $within)->toDateString()))
             ->when($search !== '', fn (Builder $query) => $query->where(
                 fn (Builder $inner) => $inner
                     ->where('batch_number', 'ILIKE', "%{$search}%")
@@ -341,7 +484,12 @@ class PharmacyReports
                             ->orWhere('brand_name', 'ILIKE', "%{$search}%")
                     ))
             ))
-            ->orderBy('expiry_date')
+            ->when(
+                $sort === 'value',
+                fn (Builder $query) => $query->orderByRaw('quantity_available * purchase_price '.($direction === 'asc' ? 'ASC' : 'DESC')),
+                fn (Builder $query) => $query->orderBy('expiry_date', $direction),
+            )
+            ->orderBy('id')
             ->paginate($perPage)
             ->withQueryString();
     }
@@ -385,8 +533,11 @@ class PharmacyReports
         ];
     }
 
-    /** @return LengthAwarePaginator<int, mixed> */
-    private function profitRows(PharmacyStore $store, Carbon $from, Carbon $to, int $perPage, string $search): LengthAwarePaginator
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return LengthAwarePaginator<int, mixed>
+     */
+    private function profitRows(PharmacyStore $store, Carbon $from, Carbon $to, int $perPage, string $search, array $filters, string $sort, string $direction): LengthAwarePaginator
     {
         return $this->profitByMedicine($store, $from, $to)
             ->when($search !== '', fn (Builder $query) => $query->where(
@@ -394,7 +545,13 @@ class PharmacyReports
                     ->where('medicines.generic_name', 'ILIKE', "%{$search}%")
                     ->orWhere('medicines.brand_name', 'ILIKE', "%{$search}%")
             ))
-            ->orderByDesc('margin')
+            ->when($filters['category'] ?? null, fn (Builder $query, string $category) => $this->inCategory($query, $category))
+            ->when(
+                $sort === 'margin_percent',
+                // Margin over revenue, a line that earned nothing counted as nothing.
+                fn (Builder $query) => $query->orderByRaw('SUM(pharmacy_sale_items.taxable_amount * (pharmacy_sale_items.quantity - pharmacy_sale_items.returned_quantity)::numeric / pharmacy_sale_items.quantity - COALESCE(pharmacy_sale_items.unit_cost, 0) * (pharmacy_sale_items.quantity - pharmacy_sale_items.returned_quantity)) / NULLIF(SUM(pharmacy_sale_items.taxable_amount * (pharmacy_sale_items.quantity - pharmacy_sale_items.returned_quantity)::numeric / pharmacy_sale_items.quantity), 0) '.($direction === 'asc' ? 'ASC' : 'DESC').' NULLS LAST'),
+                fn (Builder $query) => $query->orderBy(in_array($sort, ['revenue', 'units'], true) ? $sort : 'margin', $direction),
+            )
             ->paginate($perPage)
             ->withQueryString();
     }
@@ -435,14 +592,18 @@ class PharmacyReports
         ];
     }
 
-    /** @return LengthAwarePaginator<int, mixed> */
-    private function gstRows(PharmacyStore $store, Carbon $from, Carbon $to, int $perPage): LengthAwarePaginator
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return LengthAwarePaginator<int, mixed>
+     */
+    private function gstRows(PharmacyStore $store, Carbon $from, Carbon $to, int $perPage, array $filters, string $sort, string $direction): LengthAwarePaginator
     {
         return $this->soldItems($store, $from, $to)
             ->selectRaw("COALESCE(NULLIF(hsn_code_snapshot, ''), '—') AS hsn, tax_rate")
             ->selectRaw('SUM(quantity - returned_quantity) AS units, SUM(taxable_amount * (quantity - returned_quantity)::numeric / quantity) AS taxable, SUM(tax_amount * (quantity - returned_quantity)::numeric / quantity) AS tax')
+            ->when(isset($filters['rate']), fn (Builder $query) => $query->where('tax_rate', (float) $filters['rate']))
             ->groupBy('hsn', 'tax_rate')
-            ->orderByDesc('tax')
+            ->orderBy($sort === 'taxable' ? 'taxable' : 'tax', $direction)
             ->paginate($perPage)
             ->withQueryString();
     }
@@ -560,14 +721,19 @@ class PharmacyReports
             ->whereBetween('received_date', [$from->copy()->toDateString(), $to->copy()->toDateString()]);
     }
 
-    /** What the counter could hand over today. */
+    /**
+     * What the counter could hand over today.
+     *
+     * Columns named by table: the stock table joins the store's own list,
+     * which has a `pharmacy_store_id` too.
+     */
     private function usable(PharmacyStore $store): Builder
     {
         return MedicineBatch::query()
-            ->where('pharmacy_store_id', $store->id)
-            ->where('status', MedicineBatch::ACTIVE)
-            ->whereDate('expiry_date', '>', Carbon::today())
-            ->where('quantity_available', '>', 0);
+            ->where('medicine_batches.pharmacy_store_id', $store->id)
+            ->where('medicine_batches.status', MedicineBatch::ACTIVE)
+            ->whereDate('medicine_batches.expiry_date', '>', Carbon::today())
+            ->where('medicine_batches.quantity_available', '>', 0);
     }
 
     /**
@@ -600,6 +766,7 @@ class PharmacyReports
             ->selectRaw('pharmacy_sale_items.medicine_id')
             ->selectRaw('MAX(medicines.generic_name) AS generic_name, MAX(medicines.brand_name) AS brand_name')
             ->selectRaw('MAX(medicines.strength) AS strength')
+            ->selectRaw("MAX(COALESCE(NULLIF(medicines.category, ''), 'Uncategorised')) AS category")
             ->selectRaw('SUM(pharmacy_sale_items.quantity - pharmacy_sale_items.returned_quantity) AS units')
             ->selectRaw('SUM(pharmacy_sale_items.taxable_amount * (pharmacy_sale_items.quantity - pharmacy_sale_items.returned_quantity)::numeric / pharmacy_sale_items.quantity) AS revenue')
             ->selectRaw('SUM(COALESCE(pharmacy_sale_items.unit_cost, 0) * (pharmacy_sale_items.quantity - pharmacy_sale_items.returned_quantity)) AS cost')

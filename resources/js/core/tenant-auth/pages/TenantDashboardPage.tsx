@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card } from '@/shared/components/ui/Card';
 import { ErrorState, LoadingBlock } from '@/shared/components/ui/Feedback';
 import { useConfigurableEntities } from '@/core/field-settings/api';
-import { useDashboard } from '@/core/dashboard/api';
+import { useDashboard, type DashboardRange } from '@/core/dashboard/api';
 import { dashboardPanels, Headline } from '@/core/dashboard/panels';
 import { branchPanels } from '@/core/dashboard/branch-panels';
+import { OrganizationDashboard } from '@/core/dashboard/organization/OrganizationDashboard';
+import { currentMonthWindow } from '@/core/billing/components/BillingWidgets';
 import { useTenantAuth } from '../TenantAuthProvider';
 
 /**
@@ -22,7 +24,15 @@ import { useTenantAuth } from '../TenantAuthProvider';
  */
 export default function TenantDashboardPage() {
     const { user, organization } = useTenantAuth();
-    const { data, isLoading, isError, refetch } = useDashboard();
+
+    /*
+     * The days the network view is about — this month until somebody picks
+     * another range. A branch's own day ignores it: the server reads its
+     * panels for today whatever the range says.
+     */
+    const [range, setRange] = useState<DashboardRange>(currentMonthWindow);
+
+    const { data, isLoading, isError, isFetching, isPlaceholderData, refetch } = useDashboard(range);
     const { data: entities } = useConfigurableEntities();
 
     const labels = useMemo(
@@ -58,6 +68,21 @@ export default function TenantDashboardPage() {
             <Card>
                 <ErrorState onRetry={() => refetch()} />
             </Card>
+        );
+    }
+
+    /*
+     * Head office's screen: the network, laid out as its own page rather
+     * than as a set of panels in the branch dashboard's columns.
+     */
+    if (data?.context === 'organization') {
+        return (
+            <OrganizationDashboard
+                data={data}
+                range={range}
+                onRange={setRange}
+                refreshing={isFetching && isPlaceholderData}
+            />
         );
     }
 

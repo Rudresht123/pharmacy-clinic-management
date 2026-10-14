@@ -210,6 +210,26 @@ class Organization extends Record
         return $this->hasMany(OrganizationStat::class);
     }
 
+    /** Every contract it has had, newest first. */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class)->latest('id');
+    }
+
+    /**
+     * The one in force. Ask App\Services\Subscriptions\EntitlementService
+     * what it allows — this row is the agreement, not the answer.
+     */
+    public function currentSubscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class)->where('is_current', true);
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | State

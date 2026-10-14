@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Api\V1\Platform;
 
+use App\Services\Geo\OrganizationLocator;
+use App\Services\Geo\PincodeLookup;
 use App\Support\Platform\OrganizationCode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -45,6 +47,13 @@ class UpdateOrganizationRequest extends FormRequest
             'email' => ['required', 'email', 'max:191'],
             'phone_number' => ['nullable', 'digits_between:10,15'],
             'address' => ['nullable', 'string', 'max:1000'],
+
+            // Where it is — saved on the profile, with the map pin.
+            'postal_code' => ['nullable', 'string', 'regex:'.PincodeLookup::PATTERN],
+            'city' => ['nullable', 'string', 'max:100'],
+            'state_province' => ['nullable', 'string', 'max:100'],
+            ...OrganizationLocator::rules(),
+
             'profile_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'is_active' => ['nullable', 'boolean'],
             'owner_restricted' => ['nullable', 'boolean'],

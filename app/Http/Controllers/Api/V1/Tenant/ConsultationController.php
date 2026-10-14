@@ -8,6 +8,7 @@ use App\Http\Resources\Tenant\AppointmentResource;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Consultation;
 use App\Models\Tenant\Doctor;
+use App\Services\Opd\QueueSteps;
 use App\Services\Opd\VisitWorkflow;
 use App\Services\Opd\WorkflowConflict;
 use Illuminate\Http\JsonResponse;
@@ -35,6 +36,7 @@ class ConsultationController extends BaseApiController
 {
     public function __construct(
         private readonly VisitWorkflow $workflow,
+        private readonly QueueSteps $steps,
     ) {}
 
     /** What has been written for this visit, if anything. */
@@ -170,21 +172,14 @@ class ConsultationController extends BaseApiController
     /**
      * Starting records nothing clinical — it just takes the patient in — so
      * it is not limited to the doctor the way writing one up is. The route's
-     * own `appointments.consult_start` permission already says who may call
-     * a patient through at all, per role, from Roles & Permissions; this only
-     * adds the one check a permission can't: a doctor may start their own
-     * patients and nobody else's.
+     * permission says who works the queue at all, per role, from Roles &
+     * Permissions; QueueSteps then says whether starting is the doctor's, the
+     * desk's or either's at this clinic (Appointment settings), and that a
+     * doctor starts only their own patients.
      */
     private function assertMayStart(Request $request, Appointment $appointment): void
     {
-        $user = $request->user();
-
-        if (
-            $user?->userable_type === Doctor::class
-            && (int) $user->userable_id !== (int) $appointment->doctor_id
-        ) {
-            abort(403, 'That visit belongs to another doctor.');
-        }
+        $this->steps->authorize($request->user(), QueueSteps::CONSULT_START, $appointment);
     }
 
     /**

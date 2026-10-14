@@ -21,7 +21,18 @@ class VideoCallSignal extends Model
 
     public const CANDIDATES = 'candidates';
 
-    public const TYPES = [self::OFFER, self::ANSWER, self::CANDIDATES];
+    /**
+     * "Start again from a fresh offer." Sent by a phone that has lost its end
+     * of the connection — the app was closed mid-call and reopened — since
+     * only the doctor's side makes offers, and the doctor's phone may not
+     * notice the patient has gone for half a minute.
+     */
+    public const RESTART = 'restart';
+
+    public const TYPES = [self::OFFER, self::ANSWER, self::CANDIDATES, self::RESTART];
+
+    /** The steps that carry a session description. */
+    public const WITH_SDP = [self::OFFER, self::ANSWER];
 
     public const UPDATED_AT = null;
 

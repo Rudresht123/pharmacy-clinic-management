@@ -7,6 +7,7 @@ use App\Models\Platform\Organization;
 use App\Models\Platform\PlatformSetting;
 use App\Models\Tenant\CommunicationChannel;
 use App\Models\Tenant\MessageLog;
+use App\Services\Subscriptions\CommunicationMetering;
 use Illuminate\Mail\Mailer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -70,6 +71,10 @@ class EmailManager
     {
         $organization = $this->organization();
 
+        // The subscription's say — this month's email allowance, a lapsed
+        // term. A refusal is logged as failed, with why, and goes no further.
+        $refused = app(CommunicationMetering::class)->gate($organization, CommunicationChannel::EMAIL, $extra);
+
         $log = MessageLog::query()->create($extra + [
             'channel' => CommunicationChannel::EMAIL,
             'provider' => 'smtp',
@@ -81,10 +86,16 @@ class EmailManager
             // patient's name in it, and a delivery log support staff can read
             // is not the place for it.
             'subject' => $message->subject,
-            'status' => MessageLog::QUEUED,
+            'status' => $refused === null ? MessageLog::QUEUED : MessageLog::FAILED,
+            'failure_reason' => $refused,
+            'failed_at' => $refused === null ? null : Carbon::now(),
             'scheduled_for' => Carbon::now(),
             'request_payload' => $message->toLogContext(),
         ]);
+
+        if ($refused !== null) {
+            return $log;
+        }
 
         $queue = config('email.queue');
 
@@ -408,6 +419,11 @@ class EmailManager
             'sent_at' => $result->success ? ($log->sent_at ?? $now) : $log->sent_at,
             'failed_at' => $result->success ? null : $now,
         ])->save();
+
+        // Accepted by the relay: charged once, against this row.
+        if ($result->success && $this->organization !== null) {
+            app(CommunicationMetering::class)->charge($this->organization, $log);
+        }
 
         return $result;
     }

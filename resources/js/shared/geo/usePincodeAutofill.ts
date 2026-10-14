@@ -8,7 +8,7 @@ import {
     type UseFormGetValues,
     type UseFormSetValue,
 } from 'react-hook-form';
-import { isPincode, usePincodeLookup, type PincodePlace } from './pincode';
+import { isPincode, usePincodeLookup, type LookupBase, type PincodePlace } from './pincode';
 
 /**
  * Which form field each part of India Post's answer goes into.
@@ -30,6 +30,8 @@ interface Options<T extends FieldValues> {
     /** The field the PIN code is typed into. */
     pincode: Path<T>;
     fills: PincodeFills;
+    /** The platform's lookups, on the super admin's screens. The workspace's by default. */
+    lookupBase?: LookupBase;
 }
 
 export interface PincodeAutofill {
@@ -69,11 +71,12 @@ export function usePincodeAutofill<T extends FieldValues>({
     getValues,
     pincode,
     fills,
+    lookupBase,
 }: Options<T>): PincodeAutofill {
     const value = useWatch({ control, name: pincode }) as unknown;
     const pin = typeof value === 'string' ? value.trim() : '';
 
-    const lookup = usePincodeLookup(pin);
+    const lookup = usePincodeLookup(pin, lookupBase);
 
     // What this hook last wrote into each field, so it can tell its own value
     // from one the user typed.

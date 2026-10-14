@@ -67,13 +67,9 @@ class SendPushMessage implements ShouldQueue
             return;
         }
 
-        $tenants->connect($organization->database_name);
-
-        try {
-            $this->send($organization, $devices, $sender);
-        } finally {
-            $tenants->disconnect();
-        }
+        // Left as found afterwards: disconnected on a worker, the request's
+        // own connection when run inline (see TenantConnectionService::run).
+        $tenants->run($organization->database_name, fn () => $this->send($organization, $devices, $sender));
     }
 
     private function send(Organization $organization, DeviceRegistry $devices, PushSender $sender): void

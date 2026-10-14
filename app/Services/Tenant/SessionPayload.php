@@ -9,7 +9,9 @@ use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\User;
 use App\Services\Modules\FeatureResolver;
+use App\Services\Opd\QueueSteps;
 use App\Services\Permissions\Permission;
+use App\Services\Subscriptions\EntitlementService;
 
 /**
  * Everything a client needs to know about a signed-in session.
@@ -27,6 +29,7 @@ class SessionPayload
         private readonly Permission $permission,
         private readonly OrganizationSetup $setup,
         private readonly FeatureResolver $features,
+        private readonly QueueSteps $queueSteps,
     ) {}
 
     /** @return array<string, mixed> */
@@ -120,6 +123,18 @@ class SessionPayload
             'capabilities' => $this->permission->capabilitiesFor($organization, $user),
 
             /*
+             * Which queue steps are this person's at this clinic — check in,
+             * call through, start the consultation — as the organization set
+             * them (Appointment settings: the desk, the doctor, or either).
+             * On top of `capabilities`, not instead: a button is drawn where
+             * both say yes, which is exactly when the server will accept it.
+             * Null for a patient and wherever appointments are not running.
+             */
+            'queue_steps' => $user->role !== User::PATIENT && in_array('appointments', $modules, true)
+                ? $this->queueSteps->forUser($user)
+                : null,
+
+            /*
              * Whether the owner has finished organisation setup. Until they
              * have, the client keeps the owner on the setup screen and tells
              * everybody else to wait — the workspace is not usable half set up.
@@ -135,6 +150,22 @@ class SessionPayload
              * nothing to show them and would otherwise read as broken.
              */
             'owner_restricted' => $organization->owner_restricted,
+
+            /*
+             * The organization's subscription: its status, days left, and
+             * whether it is locked — from the dates, as the server decides it.
+             * A locked session lands on the "subscription expired" page; the
+             * API refuses everything else with a 423 regardless, so this only
+             * decides which screen is shown, never what is allowed.
+             *
+             * `can_manage` is whether THIS person may open the subscription
+             * screens and renew: the owner, or a holder of
+             * `settings.subscription`. Patients never see it.
+             */
+            'subscription' => $user->role === User::PATIENT ? null : [
+                ...app(EntitlementService::class)->status($organization),
+                'can_manage' => $this->permission->allows($organization, $user, 'settings.subscription'),
+            ],
         ];
     }
 

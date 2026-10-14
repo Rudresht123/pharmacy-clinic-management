@@ -7,10 +7,13 @@ use App\Http\Concerns\HandlesTableQueries;
 use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Models\Tenant\PharmacySale;
 use App\Models\Tenant\PharmacyStore;
+use App\Models\Tenant\StockInward;
 use App\Services\Pharmacy\PharmacyReports;
+use App\Services\Pharmacy\Reports\ReportDashboards;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 
 /**
  * The pharmacy's reports, read either way.
@@ -34,6 +37,7 @@ class PharmacyReportController extends BaseApiController
 
     public function __construct(
         private readonly PharmacyReports $reports,
+        private readonly ReportDashboards $dashboards,
     ) {}
 
     public function summary(Request $request, PharmacyStore $store, string $report): JsonResponse
@@ -50,6 +54,16 @@ class PharmacyReportController extends BaseApiController
             // range for those rather than showing one that changes nothing.
             'dated' => in_array($report, PharmacyReports::DATED, true),
             ...$this->reports->summary($report, $store, $from, $to),
+
+            /*
+             * The reports screen's own dashboard — figures, two charts, two
+             * lists. Only when asked: the sales and goods-received lists read
+             * this same summary for their headline figures, and computing a
+             * dozen more queries for a page that draws none of them is waste.
+             */
+            ...($request->boolean('dashboard')
+                ? ['dashboard' => $this->dashboards->for($report, $store, $from, $to)]
+                : []),
         ]);
     }
 
@@ -59,6 +73,27 @@ class PharmacyReportController extends BaseApiController
 
         [$from, $to] = $this->window($request);
 
+        $filters = $request->validate([
+            'status' => ['nullable', Rule::in([PharmacySale::PAID, PharmacySale::PARTIAL, PharmacySale::UNPAID])],
+            'method' => ['nullable', 'string', 'max:30'],
+            'supplier_id' => ['nullable', 'integer'],
+            'type' => ['nullable', Rule::in(StockInward::TYPES)],
+            'category' => ['nullable', 'string', 'max:100'],
+            'level' => ['nullable', Rule::in(['low', 'ok'])],
+            'within' => ['nullable', Rule::in(['expired', '30', '60', '90'])],
+            'rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'sort' => ['nullable', Rule::in(PharmacyReports::SORTS[$report] ?? [])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+        ]);
+
+        // Only this report's own filters reach its query; another report's
+        // left in the address bar is ignored, not applied somewhere it means
+        // something else.
+        $filters = array_filter(
+            array_intersect_key($filters, array_flip([...(PharmacyReports::FILTERS[$report] ?? []), 'sort', 'direction'])),
+            fn ($value) => $value !== null && $value !== '',
+        );
+
         $page = $this->reports->rows(
             $report,
             $store,
@@ -66,6 +101,7 @@ class PharmacyReportController extends BaseApiController
             $to,
             $this->resolvePerPage($request),
             trim((string) $request->query('search', '')),
+            $filters,
         );
 
         return response()->json([
@@ -75,6 +111,9 @@ class PharmacyReportController extends BaseApiController
                 'last_page' => $page->lastPage(),
                 'per_page' => $page->perPage(),
                 'total' => $page->total(),
+                // What each of this table's filters can be set to.
+                // An object even when empty, so a reader can always key into it.
+                'filters' => (object) $this->reports->filterOptions($report, $store, $from, $to),
             ],
         ]);
     }
@@ -103,6 +142,8 @@ class PharmacyReportController extends BaseApiController
                 'paid' => (float) $row->paid_amount,
                 'due' => $row->amountDue(),
                 'tender' => $this->tender($row),
+                'status' => (string) $row->payment_status,
+                'phone' => $row->customer?->phone ?? $row->walk_in_phone,
             ],
 
             PharmacyReports::PURCHASES => [
@@ -113,6 +154,7 @@ class PharmacyReportController extends BaseApiController
                 'invoice' => $row->supplier_invoice_no,
                 'lines' => (int) ($row->items_count ?? 0),
                 'total' => (float) $row->total_amount,
+                'type' => (string) $row->inward_type,
             ],
 
             PharmacyReports::STOCK => [
@@ -124,6 +166,12 @@ class PharmacyReportController extends BaseApiController
                 'units' => (int) $row->units,
                 'at_cost' => (float) $row->at_cost,
                 'at_mrp' => (float) $row->at_mrp,
+                'reorder_level' => (int) ($row->reorder_level ?? 0),
+                // At or under the store's own reorder level is low; a store
+                // that set none has nothing to be under.
+                'status' => (int) ($row->reorder_level ?? 0) > 0 && (int) $row->units <= (int) $row->reorder_level
+                    ? 'low'
+                    : 'in_stock',
             ],
 
             PharmacyReports::EXPIRY => [
@@ -139,6 +187,7 @@ class PharmacyReportController extends BaseApiController
             PharmacyReports::PROFIT => [
                 'id' => (int) $row->medicine_id,
                 'item' => $this->itemName($row),
+                'category' => $row->category,
                 'units' => (int) $row->units,
                 'revenue' => (float) $row->revenue,
                 'cost' => (float) $row->cost,
@@ -155,6 +204,9 @@ class PharmacyReportController extends BaseApiController
                 'units' => (int) $row->units,
                 'taxable' => (float) $row->taxable,
                 'tax' => (float) $row->tax,
+                // Half central, half state, on a sale within the state.
+                'cgst' => round((float) $row->tax / 2, 2),
+                'sgst' => round((float) $row->tax / 2, 2),
             ],
         };
     }

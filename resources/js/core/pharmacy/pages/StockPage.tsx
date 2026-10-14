@@ -13,8 +13,8 @@ import { resolveErrorMessage } from '@/shared/api/http';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { ReasonDialog } from '@/core/medicines/components/ReasonDialog';
 import { NoStores, StorePicker, useChosenStore } from '../components/StorePicker';
-import { ReportSummaryView, ViewTabs, type PharmacyView } from '../components/ReportSummary';
-import { useReportSummary } from '../reports';
+import { ViewTabs, type PharmacyView } from '../components/ReportSummary';
+import { StoreReportDashboard } from '../components/reports/StoreReportDashboard';
 import { BatchStatusBadge, ExpiryNote } from '../components/BatchStatusBadge';
 import { AdjustDialog, TransferDialog } from '../components/StockDialogs';
 import {
@@ -91,7 +91,6 @@ export default function StockPage() {
      * opened differently depending on which screen you were on.
      */
     const [reading, setReading] = useState<PharmacyView>('dashboard');
-    const summary = useReportSummary(store?.id, 'stock', {});
     const [filters, setFilters] = useState<Record<string, string>>({ in_stock: '1' });
 
     const stockTable = useServerTable({ pageSize: 25 });
@@ -392,12 +391,7 @@ export default function StockPage() {
                     </div>
 
                     {reading === 'dashboard' ? (
-                        <ReportSummaryView
-                            summary={summary.data}
-                            isLoading={summary.isLoading}
-                            isError={summary.isError}
-                            onRetry={() => summary.refetch()}
-                        />
+                        <StoreReportDashboard storeId={store.id} report="stock" onShowTable={() => setReading('table')} />
                     ) : (
                     <>
                     <div className="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-3">

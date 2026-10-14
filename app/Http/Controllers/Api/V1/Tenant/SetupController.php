@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Http\Requests\Api\V1\Tenant\UpdateSetupOrganizationRequest;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\SetupStep;
+use App\Services\Geo\OrganizationLocator;
 use App\Services\Tenant\OrganizationSetup;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,6 +32,7 @@ class SetupController extends BaseApiController
 {
     public function __construct(
         private readonly OrganizationSetup $setup,
+        private readonly OrganizationLocator $locator,
     ) {}
 
     public function show(Request $request): JsonResponse
@@ -51,6 +53,9 @@ class SetupController extends BaseApiController
             $organization->update(Arr::only($data, UpdateSetupOrganizationRequest::ORGANIZATION_FIELDS));
             $organization->profile()->updateOrCreate([], Arr::only($data, UpdateSetupOrganizationRequest::PROFILE_FIELDS));
         });
+
+        // The map pin, or a lookup of the address once the answer has gone.
+        $this->locator->save($organization->fresh(), Arr::only($data, OrganizationLocator::FIELDS));
 
         return $this->ok($this->payload($organization), 'Organisation details saved');
     }
@@ -156,6 +161,9 @@ class SetupController extends BaseApiController
                 'city' => $profile?->city,
                 'state_province' => $profile?->state_province,
                 'postal_code' => $profile?->postal_code,
+                'latitude' => $profile?->latitude,
+                'longitude' => $profile?->longitude,
+                'location_source' => $profile?->location_source,
             ],
             'last_updated' => $lastUpdated?->toIso8601String(),
             ...$this->setup->status($organization),

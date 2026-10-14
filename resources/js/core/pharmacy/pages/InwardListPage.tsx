@@ -13,8 +13,8 @@ import { resolveErrorMessage } from '@/shared/api/http';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { ReasonDialog } from '@/core/medicines/components/ReasonDialog';
 import { NoStores, StorePicker, useChosenStore } from '../components/StorePicker';
-import { ReportSummaryView, ViewTabs, type PharmacyView } from '../components/ReportSummary';
-import { useReportSummary } from '../reports';
+import { ViewTabs, type PharmacyView } from '../components/ReportSummary';
+import { StoreReportDashboard } from '../components/reports/StoreReportDashboard';
 import {
     INWARD_TYPE_LABELS,
     useCancelInward,
@@ -59,8 +59,6 @@ export default function InwardListPage() {
         updated.set('view', next);
         setParams(updated, { replace: true });
     }
-
-    const summary = useReportSummary(store?.id, 'purchases', {});
 
     const table = useServerTable({ pageSize: 25, sort: 'created_at', direction: 'desc' });
     const { data: page, isLoading, isFetching, isError, refetch } = useInwards(store?.id, table.params);
@@ -192,13 +190,7 @@ export default function InwardListPage() {
                     </div>
 
                     {view === 'dashboard' ? (
-                        <ReportSummaryView
-                            summary={summary.data}
-                            isLoading={summary.isLoading}
-                            isError={summary.isError}
-                            onRetry={() => summary.refetch()}
-                            chartTitle="Bought in, day by day"
-                        />
+                        <StoreReportDashboard storeId={store.id} report="purchases" onShowTable={() => show('table')} />
                     ) : (
                     <Card>
                         <DataTable

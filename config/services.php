@@ -50,6 +50,21 @@ return [
     ],
 
     /*
+    | OpenStreetMap's Nominatim — an address to a point on the map.
+    |
+    | Free and keyless, under a usage policy: an honest user agent naming the
+    | application, and no more than one request a second. Organizations are
+    | located once when their address is saved and the answer is cached, so
+    | the platform stays far inside it.
+    */
+    'nominatim' => [
+        'url' => env('NOMINATIM_URL', 'https://nominatim.openstreetmap.org'),
+        'timeout' => (int) env('NOMINATIM_TIMEOUT', 15),
+        // Set NOMINATIM_USER_AGENT to include a real contact address in production.
+        'user_agent' => env('NOMINATIM_USER_AGENT', 'ZEVRO-HMS/1.0 (organization map)'),
+    ],
+
+    /*
     | Stand-in portraits for the demo doctors. See App\Console\Commands\SeedOpdDemoCommand.
     |
     | Demo data only — nothing the product does at runtime touches this. A
@@ -75,6 +90,22 @@ return [
     */
     'otp' => [
         'driver' => env('OTP_DRIVER', 'log'),
+    ],
+
+    /*
+    | Razorpay, for subscription payments. See App\Services\Subscriptions\Payments.
+    |
+    | Fallbacks only: the keys typed on the Super Admin's Billing Settings
+    | screen (stored encrypted) win over these. The webhook secret is the one
+    | set on the webhook in the Razorpay dashboard, pointed at
+    | POST /api/v1/webhooks/razorpay.
+    */
+    'razorpay' => [
+        'key_id' => env('RAZORPAY_KEY_ID'),
+        'key_secret' => env('RAZORPAY_KEY_SECRET'),
+        'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET'),
+        'base_url' => env('RAZORPAY_BASE_URL', 'https://api.razorpay.com/v1'),
+        'timeout' => (int) env('RAZORPAY_TIMEOUT', 15),
     ],
 
 ];

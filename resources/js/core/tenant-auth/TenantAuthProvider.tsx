@@ -15,6 +15,7 @@ import {
     type TenantBranch,
     type TenantSession,
     type RealtimeConfig,
+    type QueueStep,
 } from './api';
 import { setActiveBranchHeader, setUnauthenticatedHandler } from '@/shared/api/http';
 import { queryClient } from '@/shared/api/queryClient';
@@ -39,6 +40,13 @@ interface TenantAuthContextValue {
      * and has to be.
      */
     can(capability: string): boolean;
+    /**
+     * Whether a queue step — check in, call, start — is this person's at this
+     * clinic, as the organization set it (the desk, the doctor, or either).
+     * Asked alongside `can()`, never instead: a button needs both. True when
+     * the session said nothing, so an older server never hides a button.
+     */
+    queueStep(step: QueueStep): boolean;
     /**
      * Whether a module or derived feature is on where this person works — e.g.
      * `feature('opd_pharmacy_handoff')`. The server's answer (sold, on for the
@@ -127,6 +135,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
     const [organization, setOrganization] = useState<TenantOrganization | null>(null);
     const [modules, setModules] = useState<string[]>([]);
     const [capabilities, setCapabilities] = useState<string[]>([]);
+    const [queueSteps, setQueueSteps] = useState<Partial<Record<QueueStep, boolean>> | null>(null);
     const [features, setFeatures] = useState<Record<string, boolean>>({});
     const [realtime, setRealtime] = useState<RealtimeConfig>({ enabled: false });
     const [branches, setBranches] = useState<TenantBranch[]>([]);
@@ -147,6 +156,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         setOrganization(session.organization);
         setModules(session.modules ?? []);
         setCapabilities(session.capabilities ?? []);
+        setQueueSteps(session.queue_steps ?? null);
         setFeatures(session.features ?? {});
         setRealtime(session.realtime ?? { enabled: false });
         setBranches(session.branches ?? []);
@@ -161,6 +171,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         setOrganization(null);
         setModules([]);
         setCapabilities([]);
+        setQueueSteps(null);
         setFeatures({});
         setRealtime({ enabled: false });
 
@@ -228,6 +239,11 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         [capabilities],
     );
 
+    const queueStep = useCallback(
+        (step: QueueStep) => queueSteps?.[step] ?? true,
+        [queueSteps],
+    );
+
     const feature = useCallback((key: string) => features[key] === true, [features]);
 
     const markSetupCompleted = useCallback(() => setSetupCompleted(true), []);
@@ -243,6 +259,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
 
         setModules(session.modules ?? []);
         setCapabilities(session.capabilities ?? []);
+        setQueueSteps(session.queue_steps ?? null);
         setFeatures(session.features ?? {});
         setRealtime(session.realtime ?? { enabled: false });
         setDoctorId(session.doctor_id ?? null);
@@ -258,6 +275,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         tenantAuthApi.me().then((session) => {
             setModules(session.modules ?? []);
             setCapabilities(session.capabilities ?? []);
+            setQueueSteps(session.queue_steps ?? null);
             setFeatures(session.features ?? {});
             setRealtime(session.realtime ?? { enabled: false });
             setActive(session.active_branch ?? null);
@@ -274,6 +292,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             modules,
             capabilities,
             can,
+            queueStep,
             feature,
             realtime,
             branches,
@@ -296,6 +315,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             modules,
             capabilities,
             can,
+            queueStep,
             feature,
             realtime,
             branches,

@@ -2,6 +2,10 @@
 
 use App\Http\Controllers\Api\V1\Onboarding\OrganizationSetupController;
 use App\Http\Controllers\Api\V1\Platform\AuditController;
+use App\Http\Controllers\Api\V1\Platform\DashboardController as PlatformDashboardController;
+use App\Http\Controllers\Api\V1\Website\EnquiryController as WebsiteEnquiryController;
+use App\Http\Controllers\Api\V1\Webhooks\RazorpayWebhookController;
+use App\Http\Controllers\Api\V1\Lookups\GeocodeController;
 use App\Http\Controllers\Api\V1\Platform\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Platform\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Platform\ModuleController;
@@ -9,7 +13,9 @@ use App\Http\Controllers\Api\V1\Platform\OrganizationController;
 use App\Http\Controllers\Api\V1\Platform\OrganizationModuleController;
 use App\Http\Controllers\Api\V1\Platform\OrganizationTypeController;
 use App\Http\Controllers\Api\V1\Platform\MessagingSettingsController;
+use App\Http\Controllers\Api\V1\Platform\MobileAppSettingsController;
 use App\Http\Controllers\Api\V1\Tenant\AppointmentController;
+use App\Http\Controllers\Api\V1\Tenant\AppointmentSettingController;
 use App\Http\Controllers\Api\V1\Tenant\AutomationRuleController;
 use App\Http\Controllers\Api\V1\Tenant\BillableServiceController;
 use App\Http\Controllers\Api\V1\Tenant\BillingNumberingController;
@@ -63,6 +69,7 @@ use App\Http\Controllers\Api\V1\Tenant\PharmacySettingController;
 use App\Http\Controllers\Api\V1\Tenant\PharmacyStoreController;
 use App\Http\Controllers\Api\V1\Tenant\PincodeController;
 use App\Http\Controllers\Api\V1\Tenant\PrescriptionController;
+use App\Http\Controllers\Api\V1\Tenant\RescheduleRequestController;
 use App\Http\Controllers\Api\V1\Tenant\RoleController;
 use App\Http\Controllers\Api\V1\Tenant\SetupController;
 use App\Http\Controllers\Api\V1\Tenant\StockAdjustmentController;
@@ -96,6 +103,23 @@ use Illuminate\Support\Facades\Route;
 |   /api/v1/tenant/portal/*        a patient's own data (routes/api/v1/portal.php)
 |
 */
+
+/*
+| Public — the marketing website's demo and trial forms --------------------
+*/
+Route::post('website/enquiries', [WebsiteEnquiryController::class, 'store'])
+    ->middleware('throttle:5,1')
+    ->name('website.enquiries.store');
+
+// Pricing, plans and self sign-up for the website (routes/api/v1/website.php).
+Route::prefix('website')->name('website.')->group(__DIR__.'/v1/website.php');
+
+/*
+| Payment gateway callbacks — authenticated by signature, not by session.
+*/
+Route::post('webhooks/razorpay', RazorpayWebhookController::class)
+    ->middleware('throttle:120,1')
+    ->name('webhooks.razorpay');
 
 /*
 | Public — organization owner completing their invitation ------------------
@@ -139,6 +163,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::post('auth/confirm-password', [PasswordController::class, 'confirm']);
         Route::put('auth/password', [PasswordController::class, 'update']);
+
+        // The platform at a glance — the first screen after signing in.
+        Route::get('dashboard', [PlatformDashboardController::class, 'index'])->name('dashboard');
+
+        // The same address lookups the workspace has, for the organization form.
+        Route::get('lookups/pincode/{pincode}', [PincodeController::class, 'show'])
+            ->where('pincode', '[1-9][0-9]{5}')
+            ->middleware('throttle:60,1')
+            ->name('lookups.pincode');
+        Route::get('lookups/geocode', [GeocodeController::class, 'show'])
+            ->middleware('throttle:30,1')
+            ->name('lookups.geocode');
 
         /*
         | The module catalogue, with adoption. Read-only: it mirrors
@@ -218,6 +254,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
             ->name('messaging.update');
         Route::post('messaging/{channel}/test', [MessagingSettingsController::class, 'test'])
             ->name('messaging.test');
+
+        /*
+        | Where development phones find this server. Published to Firebase so
+        | a phone can read it even when the laptop's address has changed.
+        */
+        Route::get('mobile-app', [MobileAppSettingsController::class, 'show'])->name('mobile-app.show');
+        Route::put('mobile-app', [MobileAppSettingsController::class, 'update'])->name('mobile-app.update');
+
+        /*
+        | Billing — plans, prices, subscriptions, invoices. Its own file, with
+        | its own role gates (routes/api/v1/billing.php).
+        */
+        Route::prefix('billing')->name('billing.')->group(__DIR__.'/v1/billing.php');
     });
 });
 
@@ -297,14 +346,25 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
      * it would have meant every future gate being added in two places -- which
      * is how one of them ends up missing.
      */
+    /*
+     * `subscription` closes the door on an organization whose subscription
+     * has lapsed or been suspended — 423 on everything except signing out,
+     * the guides and the subscription screens. See
+     * App\Http\Middleware\EnsureSubscriptionAllowsAccess.
+     */
     Route::middleware([
         'resolve.tenant',
         'resolve.tenant.header',
         'auth:web,tenant-api',
         'tenant.actor',
         'branch',
+        'subscription',
     ])->group(function () {
         Route::get('auth/me', [TenantAuthController::class, 'me'])->name('auth.me');
+
+        // The organization's own subscription — reachable while locked, so a
+        // locked organization can renew (routes/api/v1/subscription.php).
+        Route::prefix('subscription')->name('subscription.')->group(__DIR__.'/v1/subscription.php');
         Route::delete('auth/token', [TenantAuthController::class, 'revokeToken'])
             ->name('auth.token.revoke');
         Route::put('auth/profile', [TenantAuthController::class, 'updateProfile']);
@@ -335,6 +395,12 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         | on its own capability and narrowed to their branches.
         */
         Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+        // One card re-asked with its own filter. Gated inside, the same way
+        // as the panel on the full dashboard — see DashboardSummary::panel().
+        Route::get('dashboard/{panel}', [DashboardController::class, 'panel'])
+            ->where('panel', '[a-z_]+')
+            ->name('dashboard.panel');
         Route::post('auth/logout', [TenantAuthController::class, 'logout']);
 
         /*
@@ -363,6 +429,11 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             ->where('pincode', '[1-9][0-9]{5}')
             ->middleware('throttle:60,1')
             ->name('lookups.pincode');
+
+        // An address to a map pin. Tighter: each miss is a request to OpenStreetMap.
+        Route::get('lookups/geocode', [GeocodeController::class, 'show'])
+            ->middleware('throttle:30,1')
+            ->name('lookups.geocode');
 
         /*
         | Locations.
@@ -1240,9 +1311,14 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('appointments.consultation.show');
                 Route::put('appointments/{appointment}/consultation', [ConsultationController::class, 'save'])
                     ->name('appointments.consultation.save');
-                Route::post('appointments/{appointment}/consultation/start', [ConsultationController::class, 'start'])
-                    ->name('appointments.consultation.start');
             });
+
+            // Taking the patient in records nothing clinical, so a clinic may
+            // give it to the desk (Appointment settings). Whoever works the
+            // queue reaches the controller; QueueSteps decides.
+            Route::post('appointments/{appointment}/consultation/start', [ConsultationController::class, 'start'])
+                ->middleware('permission:appointments.consult_start,appointments.queue')
+                ->name('appointments.consultation.start');
 
             Route::middleware('permission:appointments.consult_complete')->group(function () {
                 Route::post('appointments/{appointment}/consultation/complete', [ConsultationController::class, 'complete'])
@@ -1291,6 +1367,34 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 Route::post('appointments/{appointment}/no-show', [AppointmentController::class, 'noShow'])
                     ->name('appointments.no-show');
             });
+
+            /*
+            | Patients' requests to move a booking, and the desk's answers.
+            | The patient's half is in routes/api/v1/portal.php.
+            */
+            Route::middleware('permission:appointments.reschedule')
+                ->prefix('reschedule-requests')
+                ->name('reschedule-requests.')
+                ->group(function () {
+                    Route::get('/', [RescheduleRequestController::class, 'index'])->name('index');
+                    Route::get('count', [RescheduleRequestController::class, 'count'])->name('count');
+                    Route::post('{rescheduleRequest}/approve', [RescheduleRequestController::class, 'approve'])
+                        ->whereNumber('rescheduleRequest')->name('approve');
+                    Route::post('{rescheduleRequest}/reject', [RescheduleRequestController::class, 'reject'])
+                        ->whereNumber('rescheduleRequest')->name('reject');
+                });
+
+            /*
+            | How appointments run here: who hears about reschedule requests,
+            | who checks in, calls and starts. Read by every screen that
+            | draws those buttons; changed by whoever holds the setting.
+            */
+            Route::get('appointment-settings', [AppointmentSettingController::class, 'show'])
+                ->middleware('permission:appointments.view,appointments.queue,appointments.consult_start')
+                ->name('appointment-settings.show');
+            Route::put('appointment-settings', [AppointmentSettingController::class, 'update'])
+                ->middleware('permission:appointments.settings')
+                ->name('appointment-settings.update');
 
             /*
             | Who the doctors are changes rarely; when they sit changes every

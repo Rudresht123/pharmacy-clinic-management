@@ -338,6 +338,144 @@ class PharmacyReportsTest extends TenantTestCase
         $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/medicines")->assertForbidden();
     }
 
+    /** @return array<string, mixed> the dashboard block of one report */
+    private function dashboard(string $report): array
+    {
+        return $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/{$report}/summary?dashboard=1")
+            ->assertOk()
+            ->json('data.dashboard');
+    }
+
+    /** @param  array<string, mixed>  $dashboard */
+    private function kpi(array $dashboard, string $key): float
+    {
+        return (float) collect($dashboard['kpis'])->firstWhere('key', $key)['value'];
+    }
+
+    /**
+     * The reports screen's dashboard: asked for, never sent unasked — the
+     * sales and goods-received lists read the same summary and draw none of
+     * it — and the same shape for all six.
+     */
+    public function test_every_report_has_a_dashboard_when_asked(): void
+    {
+        $this->stock('P1', now()->addYear()->toDateString());
+        $this->sell();
+
+        $this->assertArrayNotHasKey('dashboard', $this->summary('sales'));
+
+        foreach (['sales', 'purchases', 'stock', 'expiry', 'profit', 'gst'] as $report) {
+            $dashboard = $this->dashboard($report);
+
+            $this->assertCount(4, $dashboard['kpis'], "{$report} should have four figures");
+            $this->assertCount(2, $dashboard['charts'], "{$report} should have two charts");
+            $this->assertCount(2, $dashboard['tables'], "{$report} should have two lists");
+        }
+    }
+
+    /** The dashboard's figures are the report's own, not a second definition. */
+    public function test_the_sales_dashboard_adds_up(): void
+    {
+        $this->stock('P1', now()->addYear()->toDateString());
+
+        $this->sell(10, 'cash');
+        $this->sell(20, 'upi');
+
+        $sales = $this->dashboard('sales');
+
+        $this->assertEqualsWithDelta(336, $this->kpi($sales, 'net_sales'), 0.01);
+        // ₹300 of goods against ₹210 of stock.
+        $this->assertEqualsWithDelta(90, $this->kpi($sales, 'gross_profit'), 0.01);
+        $this->assertEqualsWithDelta(700, $this->kpi($sales, 'purchases'), 0.01);
+
+        // How it was paid adds up to what was sold.
+        $tenders = collect($sales['charts'][1]['rows'])->pluck('value', 'key');
+        $this->assertEqualsWithDelta(112, $tenders['cash'], 0.01);
+        $this->assertEqualsWithDelta(224, $tenders['upi'], 0.01);
+
+        $top = $sales['tables'][0]['rows'][0];
+        $this->assertSame(30, $top['units']);
+        $this->assertEqualsWithDelta(100, $top['share'], 0.01);
+        $this->assertSame('10 Tablets', $top['pack']);
+
+        $this->assertCount(2, $sales['tables'][1]['rows']);
+        $this->assertSame('paid', $sales['tables'][1]['rows'][0]['status']);
+
+        $profit = $this->dashboard('profit');
+        $this->assertEqualsWithDelta(300, $this->kpi($profit, 'revenue'), 0.01);
+        $this->assertEqualsWithDelta(210, $this->kpi($profit, 'cogs'), 0.01);
+        $this->assertEqualsWithDelta(90, $this->kpi($profit, 'gross_profit'), 0.01);
+
+        $gst = $this->dashboard('gst');
+        $this->assertEqualsWithDelta(36, $this->kpi($gst, 'total_gst'), 0.01);
+        $this->assertEqualsWithDelta(18, $this->kpi($gst, 'cgst'), 0.01);
+        $this->assertEqualsWithDelta(336, $gst['tables'][0]['total']['total'], 0.01);
+    }
+
+    /** The table can be narrowed by what each report is about, and sorted. */
+    public function test_the_tables_filter_and_sort(): void
+    {
+        $this->stock('P1', now()->addYear()->toDateString());
+
+        $this->sell(10, 'cash');
+        $this->sell(20, 'upi');
+
+        $this->assertCount(1, $this->rows('sales', 'method=upi'));
+        $this->assertCount(2, $this->rows('sales', 'status=paid'));
+        $this->assertCount(0, $this->rows('sales', 'status=unpaid'));
+        $this->assertSame([112.0, 224.0], array_map('floatval', array_column($this->rows('sales', 'sort=amount&direction=asc'), 'total')));
+
+        // A filter that belongs to another report is ignored, not applied.
+        $this->assertCount(2, $this->rows('sales', 'category=Analgesic'));
+
+        // And the choices each filter offers come back with the rows.
+        $methods = array_column(
+            $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/sales")->json('meta.filters.method'),
+            'value',
+        );
+        $this->assertSame(['cash', 'upi', 'credit'], $methods);
+
+        // 70 tablets left against a reorder level of 100: low.
+        $this->putJson("/api/v1/tenant/pharmacy-stores/{$this->store}/medicines", [
+            'medicines' => [['medicine_id' => $this->otc, 'minimum_stock_level' => 0, 'reorder_level' => 100]],
+        ])->assertOk();
+
+        $low = $this->rows('stock', 'level=low');
+        $this->assertCount(1, $low);
+        $this->assertSame('low', $low[0]['status']);
+        $this->assertSame(100, $low[0]['reorder_level']);
+        $this->assertCount(0, $this->rows('stock', 'level=ok'));
+        $this->assertCount(1, $this->rows('stock', 'category=Analgesic'));
+        $this->assertCount(0, $this->rows('stock', 'category=Antibiotic'));
+
+        $this->assertCount(1, $this->rows('gst', 'rate=12'));
+        $this->assertCount(0, $this->rows('gst', 'rate=5'));
+
+        // Only real choices: a sort a report does not offer is refused.
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/stock?sort=amount")->assertUnprocessable();
+        $this->getJson("/api/v1/tenant/pharmacy-stores/{$this->store}/reports/sales?status=lost")->assertUnprocessable();
+    }
+
+    public function test_expiry_can_be_narrowed_to_what_has_expired(): void
+    {
+        $this->stock('SHORT', now()->addDays(20)->toDateString(), packs: 2);
+        $this->stock('LATER', now()->addDays(80)->toDateString(), packs: 2);
+
+        $this->assertCount(1, $this->rows('expiry', 'within=30'));
+        $this->assertCount(2, $this->rows('expiry', 'within=90'));
+        $this->assertCount(0, $this->rows('expiry', 'within=expired'));
+
+        $this->travel(25)->days();
+
+        $expired = $this->rows('expiry', 'within=expired');
+        $this->assertCount(1, $expired);
+        $this->assertSame('SHORT', $expired[0]['batch']);
+
+        $dashboard = $this->dashboard('expiry');
+        $this->assertSame(1.0, $this->kpi($dashboard, 'expired_items'));
+        $this->assertSame('SHORT', $dashboard['tables'][1]['rows'][0]['batch']);
+    }
+
     /** Sold separately: an organization without the module reaches no report at all. */
     public function test_reports_are_refused_without_their_own_module(): void
     {

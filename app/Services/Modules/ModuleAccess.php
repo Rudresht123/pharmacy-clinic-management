@@ -5,8 +5,8 @@ namespace App\Services\Modules;
 use App\Models\Platform\Module;
 use App\Models\Platform\Organization;
 use App\Models\Platform\OrganizationModule;
+use App\Services\Subscriptions\SubscriptionFacts;
 use App\Support\Modules\ModuleRegistry;
-use Illuminate\Support\Collection;
 
 /**
  * What an organization can actually use, right now.
@@ -19,26 +19,105 @@ use Illuminate\Support\Collection;
  */
 class ModuleAccess
 {
+    public function __construct(
+        private readonly ?SubscriptionFacts $subscriptions = null,
+    ) {}
+
     /**
      * The module keys this organization may use.
      *
-     * Core modules are always in the list and never have a row: every
-     * organization has them by virtue of being one.
+     * THE PRECEDENCE, first match wins — the one place it is decided:
+     *
+     *   1. Core modules: always on. They never have a row.
+     *   2. (The subscription LOCK is not decided here. A locked organization
+     *      is stopped by the `subscription` middleware before any module is
+     *      asked about, whatever this list says.)
+     *   3. A Super Admin's manual binding in `organization_modules`, while it
+     *      is in force by its own dates — switched on is ON even when the plan
+     *      does not include it (a complimentary grant); switched off is OFF
+     *      even when the plan includes it (an explicit revoke).
+     *   4. The subscription: its plan snapshot's modules plus bought module
+     *      add-ons.
+     *   5. Otherwise off.
+     *
+     * A module retired from the catalogue (`modules.is_active` false) is off
+     * whatever grants it.
+     *
+     * An organization on Complimentary has no plan modules, so for it this is
+     * exactly what it always was: core plus its live bindings.
      *
      * @return list<string>
      */
     public function enabled(Organization $organization): array
     {
-        $bound = $this->liveEntitlements($organization)
-            ->map(fn (OrganizationModule $entitlement) => $entitlement->module?->key)
-            ->filter()
-            ->all();
+        $keys = ModuleRegistry::coreKeys();
+        $planned = $this->facts()->modules($organization);
 
-        $keys = array_values(array_unique([...ModuleRegistry::coreKeys(), ...$bound]));
+        $bindings = $organization->moduleEntitlements()->with('module')->get()
+            ->filter(fn (OrganizationModule $binding) => $binding->module !== null)
+            ->keyBy(fn (OrganizationModule $binding) => $binding->module->key);
+
+        $retired = Module::query()->where('is_active', false)->pluck('key')->all();
+
+        foreach (ModuleRegistry::keys() as $key) {
+            if (in_array($key, $keys, true) || in_array($key, $retired, true)) {
+                continue;
+            }
+
+            /** @var OrganizationModule|null $binding */
+            $binding = $bindings->get($key);
+
+            $on = $binding !== null && $binding->inForce()
+                ? $binding->is_enabled
+                : in_array($key, $planned, true);
+
+            if ($on) {
+                $keys[] = $key;
+            }
+        }
 
         // Registry order, so a sidebar built from this is stable rather than
         // ordered by whenever somebody happened to buy each module.
-        return array_values(array_intersect(ModuleRegistry::keys(), $keys));
+        return array_values(array_intersect(ModuleRegistry::keys(), array_unique($keys)));
+    }
+
+    /**
+     * Where each module's standing comes from, for the screens that explain
+     * it: core, manual_grant, manual_revoke, plan, addon, or off.
+     *
+     * @return array<string, string>
+     */
+    public function sources(Organization $organization): array
+    {
+        $subscription = $this->facts()->subscription($organization);
+        $snapshot = $subscription?->snapshotModules() ?? [];
+        $planned = $this->facts()->modules($organization);
+
+        $bindings = $organization->moduleEntitlements()->with('module')->get()
+            ->filter(fn (OrganizationModule $binding) => $binding->module !== null)
+            ->keyBy(fn (OrganizationModule $binding) => $binding->module->key);
+
+        $sources = [];
+
+        foreach (ModuleRegistry::all() as $module) {
+            $key = $module['key'];
+            $binding = $bindings->get($key);
+
+            $sources[$key] = match (true) {
+                $module['is_core'] => 'core',
+                $binding !== null && $binding->inForce() => $binding->is_enabled ? 'manual_grant' : 'manual_revoke',
+                in_array($key, $snapshot, true) => 'plan',
+                in_array($key, $planned, true) => 'addon',
+                default => 'off',
+            };
+        }
+
+        return $sources;
+    }
+
+    private function facts(): SubscriptionFacts
+    {
+        return $this->subscriptions ?? app(SubscriptionFacts::class);
     }
 
     public function has(Organization $organization, string $moduleKey): bool
@@ -76,21 +155,6 @@ class ModuleAccess
     }
 
     /**
-     * Bindings that are switched on, started and unexpired.
-     *
-     * @return Collection<int, OrganizationModule>
-     */
-    private function liveEntitlements(Organization $organization): Collection
-    {
-        return $organization->moduleEntitlements()
-            ->with('module')
-            ->get()
-            ->filter(fn (OrganizationModule $entitlement) => $entitlement->isLive()
-                && $entitlement->module?->is_active)
-            ->values();
-    }
-
-    /**
      * The catalogue with each row's standing for this organization, for the
      * binding screen.
      *
@@ -99,11 +163,13 @@ class ModuleAccess
     public function overview(Organization $organization): array
     {
         $bindings = $organization->moduleEntitlements()->get()->keyBy('module_id');
+        $enabled = $this->enabled($organization);
+        $sources = $this->sources($organization);
 
         return Module::available()
             ->orderBy('sort_order')
             ->get()
-            ->map(function (Module $module) use ($bindings) {
+            ->map(function (Module $module) use ($bindings, $enabled, $sources) {
                 $binding = $bindings->get($module->id);
 
                 return [
@@ -117,7 +183,12 @@ class ModuleAccess
                     // Core modules read as active with no binding behind them,
                     // which is exactly what they are.
                     'state' => $module->is_core ? 'core' : ($binding?->state() ?? 'unbound'),
-                    'is_live' => $module->is_core || (bool) $binding?->isLive(),
+
+                    // What the organization actually gets, after the plan and
+                    // any override — and where that answer came from.
+                    'is_live' => in_array($module->key, $enabled, true),
+                    'source' => $sources[$module->key] ?? 'off',
+                    'reason' => $binding?->reason,
 
                     'starts_at' => $binding?->starts_at?->toDateString(),
                     'expires_at' => $binding?->expires_at?->toDateString(),

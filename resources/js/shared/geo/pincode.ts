@@ -37,12 +37,20 @@ export function isPincode(value: unknown): value is string {
  * from "could not ask", which it must: the first means the code is wrong, the
  * second means type the address by hand.
  */
-export async function lookupPincode(pincode: string): Promise<PincodePlace | null> {
+/**
+ * Where the lookups live: the workspace's, or the platform's for the super
+ * admin's organization form. Same answers either way.
+ */
+export type LookupBase = '/tenant/lookups' | '/admin/lookups';
+
+export async function lookupPincode(
+    pincode: string,
+    base: LookupBase = '/tenant/lookups',
+): Promise<PincodePlace | null> {
     try {
-        const { data } = await http.get<ApiResponse<PincodePlace>>(
-            `/tenant/lookups/pincode/${pincode}`,
-            { silent: true },
-        );
+        const { data } = await http.get<ApiResponse<PincodePlace>>(`${base}/pincode/${pincode}`, {
+            silent: true,
+        });
 
         return data.data;
     } catch (error) {
@@ -61,12 +69,12 @@ export async function lookupPincode(pincode: string): Promise<PincodePlace | nul
  * Kept for the whole session: a PIN code does not change while somebody is
  * filling in a form, and the server caches it for a month anyway.
  */
-export function usePincodeLookup(pincode: string | null | undefined) {
+export function usePincodeLookup(pincode: string | null | undefined, base: LookupBase = '/tenant/lookups') {
     const pin = (pincode ?? '').trim();
 
     return useQuery({
         queryKey: ['geo', 'pincode', pin],
-        queryFn: () => lookupPincode(pin),
+        queryFn: () => lookupPincode(pin, base),
         enabled: isPincode(pin),
         staleTime: Infinity,
         gcTime: 30 * 60 * 1000,

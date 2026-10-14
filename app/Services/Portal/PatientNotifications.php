@@ -57,6 +57,39 @@ class PatientNotifications
         );
     }
 
+    /** The clinic said yes: the visit is at the new time now. */
+    public function rescheduleApproved(Appointment $appointment): void
+    {
+        $this->write(
+            $appointment,
+            'appointment_rescheduled',
+            'Appointment rescheduled',
+            sprintf(
+                'Your appointment with %s is now on %s%s.',
+                $appointment->doctor?->name ?? 'your doctor',
+                $appointment->appointment_date?->format('d M Y') ?? 'the new date',
+                $appointment->slot_at ? ' at '.date('g:i A', strtotime((string) $appointment->slot_at)) : '',
+            ),
+        );
+    }
+
+    /** The clinic said no: the visit stays where it was. */
+    public function rescheduleRejected(Appointment $appointment, ?string $note): void
+    {
+        $this->write(
+            $appointment,
+            'appointment_reschedule_rejected',
+            'Reschedule not possible',
+            trim(sprintf(
+                'Your appointment with %s stays on %s%s. %s',
+                $appointment->doctor?->name ?? 'your doctor',
+                $appointment->appointment_date?->format('d M Y') ?? 'its date',
+                $appointment->slot_at ? ' at '.date('g:i A', strtotime((string) $appointment->slot_at)) : '',
+                $note ? 'The clinic says: '.$note : '',
+            )),
+        );
+    }
+
     private function write(Appointment $appointment, string $type, string $title, string $body): void
     {
         /*

@@ -3,6 +3,7 @@
 namespace App\Services\WhatsApp\Webhooks;
 
 use App\Models\Tenant\MessageLog;
+use App\Services\Subscriptions\CommunicationMetering;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -94,7 +95,33 @@ class WhatsAppEventRecorder
                 : $log->failure_reason,
         ], static fn ($value) => $value !== null))->save();
 
+        $this->meter($log, $status);
+
         return true;
+    }
+
+    /**
+     * The receipt's word on billing: a message the provider reports failed is
+     * un-charged (once, if it was charged); one it reports sent or delivered
+     * is charged if the send path has not already done it. Both idempotent —
+     * receipts repeat.
+     */
+    private function meter(MessageLog $log, string $status): void
+    {
+        $metering = app(CommunicationMetering::class);
+        $organization = $metering->currentOrganization();
+
+        if ($organization === null) {
+            return;
+        }
+
+        if ($status === MessageLog::FAILED) {
+            $metering->failed($organization, $log);
+
+            return;
+        }
+
+        $metering->charge($organization, $log);
     }
 
     /** Whether the new status is further along than the one recorded. */

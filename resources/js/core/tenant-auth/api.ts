@@ -78,6 +78,9 @@ export interface RealtimeConfig {
     auth_endpoint?: string;
 }
 
+/** The queue's three steps, as the server names them. */
+export type QueueStep = 'check_in' | 'call' | 'consult_start';
+
 export interface TenantSession {
     user: TenantUser;
     organization: TenantOrganization;
@@ -120,6 +123,14 @@ export interface TenantSession {
      * because they bypass roles; a member of staff gets the intersection.
      */
     capabilities: string[];
+
+    /**
+     * Which queue steps are this person's at this clinic — the organization
+     * chooses the desk, the doctor or either for each (Appointment settings).
+     * On top of `capabilities`: a button needs both. Null for a patient and
+     * where appointments are not running.
+     */
+    queue_steps?: Record<QueueStep, boolean> | null;
 
     /**
      * The same answer as `modules`, as an on/off map — every module, plus the

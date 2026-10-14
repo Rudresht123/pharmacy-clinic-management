@@ -101,6 +101,7 @@ class RoleTemplates
                     'appointments.book',
                     'appointments.queue',
                     'appointments.cancel',
+                    'appointments.reschedule',
                     /*
                      * Not `appointments.doctors` — a doctor is the
                      * organization's, taken on once and possibly shared
@@ -272,6 +273,8 @@ class RoleTemplates
                     'appointments.view',
                     'appointments.book',
                     'appointments.queue',
+                    // Patients' requests to move a booking land at the desk.
+                    'appointments.reschedule',
                     'laboratory.view',
                     'documents.view',
                     'documents.upload',

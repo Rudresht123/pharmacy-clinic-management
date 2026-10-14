@@ -62,10 +62,11 @@ class VideoCallController extends BaseApiController
         $me = $this->participant($request);
         $call = $this->calls->current($me);
 
-        return $this->ok(
-            $call ? $this->calls->describeFor($me, $call) : null,
-            meta: ['channel' => $this->calls->channelFor($this->organization($request), $me)],
-        );
+        // Both inside `data`: the phone's client keeps `data` and drops the rest.
+        return $this->ok([
+            'channel' => $this->calls->channelFor($this->organization($request), $me),
+            'call' => $call ? $this->calls->describeFor($me, $call) : null,
+        ]);
     }
 
     public function show(Request $request, int $call): JsonResponse
@@ -116,15 +117,18 @@ class VideoCallController extends BaseApiController
 
     /**
      * Hand one step of the WebRTC handshake to the other phone: an `offer` or
-     * `answer` with its `sdp`, or a batch of ICE `candidates`.
+     * `answer` with its `sdp`, a batch of ICE `candidates`, or a `restart`
+     * asking for a fresh offer.
      */
     public function signal(Request $request, int $call): JsonResponse
     {
+        $withSdp = in_array($request->input('type'), VideoCallSignal::WITH_SDP, true);
+
         $validated = $request->validate([
             'type' => ['required', Rule::in(VideoCallSignal::TYPES)],
             'sdp' => [
-                Rule::requiredIf(fn () => $request->input('type') !== VideoCallSignal::CANDIDATES),
-                Rule::prohibitedIf(fn () => $request->input('type') === VideoCallSignal::CANDIDATES),
+                Rule::requiredIf($withSdp),
+                Rule::prohibitedIf(! $withSdp),
                 'string',
                 'max:'.self::MAX_SDP,
             ],
@@ -142,13 +146,19 @@ class VideoCallController extends BaseApiController
 
         $me = $this->participant($request);
 
-        $payload = $validated['type'] === VideoCallSignal::CANDIDATES
-            ? ['candidates' => array_map(fn (array $candidate) => [
+        $payload = match (true) {
+            $validated['type'] === VideoCallSignal::CANDIDATES => ['candidates' => array_map(fn (array $candidate) => [
                 'candidate' => $candidate['candidate'],
                 'sdp_mid' => $candidate['sdp_mid'] ?? null,
                 'sdp_mline_index' => $candidate['sdp_mline_index'] ?? null,
-            ], $validated['candidates'])]
-            : ['sdp' => $validated['sdp']];
+            ], $validated['candidates'])],
+
+            // Every SDP line ends in CRLF, the last one too. TrimStrings has
+            // just taken that one off, and a strict parser refuses the result.
+            $withSdp => ['sdp' => rtrim($validated['sdp'], "\r\n")."\r\n"],
+
+            default => [],
+        };
 
         $signal = $this->calls->signal(
             $this->organization($request),

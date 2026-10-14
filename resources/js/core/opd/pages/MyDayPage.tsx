@@ -42,7 +42,7 @@ function spoken(value: string): string {
  * from memory.
  */
 export default function MyDayPage() {
-    const { activeBranch, can } = useTenantAuth();
+    const { activeBranch, can, queueStep } = useTenantAuth();
 
     const { data, isLoading, isError, refetch } = useMyDay(activeBranch);
 
@@ -299,7 +299,8 @@ export default function MyDayPage() {
                                                         a second queue screen.
                                                     */}
                                                     {row.available?.consult_start &&
-                                                        can('appointments.consult_start') && (
+                                                        can('appointments.consult_start') &&
+                                                        queueStep('consult_start') && (
                                                             <button
                                                                 type="button"
                                                                 className="md-call"
@@ -377,7 +378,8 @@ export default function MyDayPage() {
                                                         row.consultation_status !== 'completed' &&
                                                         (row.status === 'checked_in' ||
                                                             row.status === 'booked') &&
-                                                        can('appointments.consult_start') && (
+                                                        can('appointments.consult_start') &&
+                                                        queueStep('consult_start') && (
                                                             <button
                                                                 type="button"
                                                                 className="md-call"

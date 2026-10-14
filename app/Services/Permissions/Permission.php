@@ -137,6 +137,9 @@ class Permission
         'pharmacy.view',
 
         'settings.manage', 'settings.audit',
+
+        // The account holder renews the account, however narrowly capped.
+        'settings.subscription',
     ];
 
     /**

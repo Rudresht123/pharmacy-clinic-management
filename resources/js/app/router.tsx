@@ -16,6 +16,9 @@ const AuditLogPage = lazy(() => import('@/core/audit/pages/AuditLogPage'));
 const MessagingSettingsPage = lazy(
     () => import('@/core/messaging/pages/MessagingSettingsPage'),
 );
+const MobileAppSettingsPage = lazy(
+    () => import('@/core/mobile-app/pages/MobileAppSettingsPage'),
+);
 const OrganizationListPage = lazy(() => import('@/core/organizations/pages/OrganizationListPage'));
 const OrganizationFormPage = lazy(() => import('@/core/organizations/pages/OrganizationFormPage'));
 const OrganizationDetailPage = lazy(
@@ -84,6 +87,7 @@ export function AppRoutes() {
 
                             <Route path="/modules" element={<ModuleAccessPage />} />
                             <Route path="/messaging" element={<MessagingSettingsPage />} />
+                            <Route path="/mobile-app" element={<MobileAppSettingsPage />} />
 
                             <Route path="/audit" element={<AuditLogPage />} />
 

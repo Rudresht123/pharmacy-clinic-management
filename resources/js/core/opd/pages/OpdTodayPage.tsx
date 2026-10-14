@@ -4,6 +4,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { DonutChart } from '@/shared/components/ui/DonutChart';
 import { LoadingBlock, ErrorState, EmptyState, NoResultsState } from '@/shared/components/ui/Feedback';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
+import type { QueueStep } from '@/core/tenant-auth/api';
 import { useEntityLabel } from '@/core/field-settings/api';
 import { BookDialog } from '@/core/appointments/components/BookDialog';
 import { useMoveAppointment } from '@/core/appointments/api';
@@ -148,6 +149,8 @@ const MOVES: Record<
         icon: string;
         action: 'check-in' | 'call';
         needs: string;
+        /** Whose step it is at this clinic — the desk, the doctor, or either. */
+        step: QueueStep;
         available: 'check_in' | 'call';
     }
 > = {
@@ -156,6 +159,7 @@ const MOVES: Record<
         icon: 'ti ti-login',
         action: 'check-in',
         needs: 'appointments.queue',
+        step: 'check_in',
         available: 'check_in',
     },
     call: {
@@ -163,6 +167,7 @@ const MOVES: Record<
         icon: 'ti ti-bell-ringing',
         action: 'call',
         needs: 'appointments.queue',
+        step: 'call',
         available: 'call',
     },
 };
@@ -282,7 +287,7 @@ const ACTIVITY: Record<string, { tone: string; verb: string }> = {
  */
 export default function OpdTodayPage() {
     const navigate = useNavigate();
-    const { can, user } = useTenantAuth();
+    const { can, queueStep, user } = useTenantAuth();
     const patients = useEntityLabel('customer');
     const context = useOpdContext();
 
@@ -818,7 +823,8 @@ export default function OpdTodayPage() {
                                                     const next = Object.keys(MOVES).find(
                                                         (key) =>
                                                             row.available?.[MOVES[key].available] &&
-                                                            can(MOVES[key].needs),
+                                                            can(MOVES[key].needs) &&
+                                                            queueStep(MOVES[key].step),
                                                     );
 
                                                     return (

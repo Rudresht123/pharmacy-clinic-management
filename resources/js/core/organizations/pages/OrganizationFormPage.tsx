@@ -1,5 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useWatch } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
+import { LocationPicker } from '@/shared/components/map/LocationPicker';
+import type { MapPoint } from '@/shared/geo/geocode';
+import { usePincodeAutofill } from '@/shared/geo/usePincodeAutofill';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -27,6 +31,9 @@ const EMPTY: OrganizationFormValues = {
     email: '',
     phone_number: '',
     address: '',
+    postal_code: '',
+    city: '',
+    state_province: '',
     is_active: true,
     owner_restricted: false,
 
@@ -69,9 +76,44 @@ export default function OrganizationFormPage() {
         handleSubmit,
         reset,
         getValues,
+        setValue,
         submit,
         formState: { errors, isSubmitting },
     } = useApiForm<OrganizationFormValues>({ defaultValues: EMPTY });
+
+    // A 6-digit PIN code fills the city and state, never over what was typed.
+    const autofill = usePincodeAutofill({
+        control,
+        setValue,
+        getValues,
+        pincode: 'postal_code',
+        fills: { district: 'city', state: 'state_province' },
+        lookupBase: '/admin/lookups',
+    });
+
+    const [address, postalCode, city, state] = useWatch({
+        control,
+        name: ['address', 'postal_code', 'city', 'state_province'],
+    });
+
+    /*
+     * The map pin: the saved one until somebody moves it. Held beside the
+     * form rather than in it — it is a point, not a field anybody types.
+     */
+    const savedPin = useMemo<MapPoint | null>(() => {
+        const location = organization?.location;
+
+        return location?.latitude != null && location.longitude != null
+            ? {
+                  latitude: location.latitude,
+                  longitude: location.longitude,
+                  source: location.location_source ?? 'address',
+              }
+            : null;
+    }, [organization]);
+
+    const [movedPin, setPin] = useState<MapPoint | null>(null);
+    const pin = movedPin ?? savedPin;
 
     // Populate once the record arrives.
     useEffect(() => {
@@ -85,6 +127,9 @@ export default function OrganizationFormPage() {
                 email: organization.email ?? '',
                 phone_number: organization.phone_number ?? '',
                 address: organization.address ?? '',
+                postal_code: organization.location?.postal_code ?? '',
+                city: organization.location?.city ?? '',
+                state_province: organization.location?.state_province ?? '',
                 is_active: organization.is_active,
                 owner_restricted: organization.owner_restricted,
                 legal_name: organization.legal_name ?? '',
@@ -102,6 +147,8 @@ export default function OrganizationFormPage() {
         const payload = toFormData({
             ...rest,
             ...(!isEdit ? { password, password_confirmation } : {}),
+            // No pin, and the server looks the address up itself.
+            ...(pin ? { latitude: pin.latitude, longitude: pin.longitude, location_source: pin.source } : {}),
             profile_image: profile_image?.[0],
         });
 
@@ -241,14 +288,58 @@ export default function OrganizationFormPage() {
                                         : 'This email address is the login ID for the organization.'
                                 }
                             />
+                        </Card>
 
+                        <Card
+                            title="Address & Location"
+                            icon="ti ti-map-pin"
+                            description="The PIN code fills the city and state, and drops the pin on the map."
+                        >
                             <TextareaField
                                 name="address"
-                                label="Address"
+                                label="Street Address"
                                 register={register}
                                 errors={errors}
-                                rows={3}
-                                placeholder="Shop 14, MG Road, Bengaluru 560001"
+                                rows={2}
+                                placeholder="Shop 14, MG Road"
+                            />
+
+                            <div className="row">
+                                <div className="col-md-4">
+                                    <TextField
+                                        name="postal_code"
+                                        label="PIN Code"
+                                        type="tel"
+                                        register={register}
+                                        errors={errors}
+                                        autoComplete="postal-code"
+                                        placeholder="560001"
+                                        hint={
+                                            autofill.isLoading
+                                                ? 'Looking the code up…'
+                                                : autofill.notFound
+                                                  ? 'No such PIN code.'
+                                                  : autofill.failed
+                                                    ? 'Could not look the code up — type the city and state.'
+                                                    : autofill.place
+                                                      ? 'City and state filled in from the code.'
+                                                      : '6 digits — fills the city and state.'
+                                        }
+                                    />
+                                </div>
+                                <div className="col-md-4">
+                                    <TextField name="city" label="City" register={register} errors={errors} />
+                                </div>
+                                <div className="col-md-4">
+                                    <TextField name="state_province" label="State" register={register} errors={errors} />
+                                </div>
+                            </div>
+
+                            <LocationPicker
+                                base="/admin/lookups"
+                                parts={{ address, city, state, pincode: postalCode }}
+                                value={pin}
+                                onChange={setPin}
                             />
                         </Card>
 

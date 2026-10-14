@@ -24,6 +24,8 @@ class OrganizationModule extends Record
         'starts_at',
         'expires_at',
         'note',
+        // Why a Super Admin switched this on or off — it overrides the plan.
+        'reason',
     ];
 
     protected function casts(): array
@@ -53,6 +55,23 @@ class OrganizationModule extends Record
 
         // Compared to the end of the day it names: a subscription paid up to
         // the 30th is not over on the morning of the 30th.
+        return $this->expires_at === null || $this->expires_at->endOfDay()->isFuture();
+    }
+
+    /**
+     * Whether this binding is in force by its dates — switched on OR off.
+     *
+     * With plans, a binding is a Super Admin's override of what the plan
+     * says, in either direction, and it overrides only while its own dates
+     * hold: a grant that has lapsed, or one not yet started, falls back to
+     * the plan rather than to "off". See ModuleAccess::enabled().
+     */
+    public function inForce(): bool
+    {
+        if ($this->starts_at !== null && $this->starts_at->isFuture()) {
+            return false;
+        }
+
         return $this->expires_at === null || $this->expires_at->endOfDay()->isFuture();
     }
 

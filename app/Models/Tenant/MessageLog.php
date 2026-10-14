@@ -78,6 +78,8 @@ class MessageLog extends Model
         'sent_at',
         'delivered_at',
         'read_at',
+        // Set at creation when the subscription refuses the send outright.
+        'failed_at',
         'created_by',
     ];
 

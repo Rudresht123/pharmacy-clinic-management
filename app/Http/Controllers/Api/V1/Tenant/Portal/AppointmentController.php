@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Api\V1\Tenant\Portal;
 use App\Http\Requests\Api\V1\Tenant\Portal\BookAppointmentRequest;
 use App\Http\Resources\Tenant\Portal\PortalAppointmentResource;
 use App\Models\Tenant\Appointment;
+use App\Models\Tenant\Location;
+use App\Services\Opd\RescheduleRequests;
 use App\Services\Permissions\Permission;
+use App\Services\Portal\BookableDoctors;
 use App\Services\Portal\PatientAppointments;
 use App\Services\Portal\PatientNotifications;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -25,6 +28,7 @@ class AppointmentController extends PortalController
         private readonly PatientAppointments $appointments,
         private readonly PatientNotifications $notifications,
         private readonly Permission $permission,
+        private readonly RescheduleRequests $reschedules,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -86,5 +90,53 @@ class AppointmentController extends PortalController
         $this->notifications->appointmentCancelled($cancelled);
 
         return $this->ok(PortalAppointmentResource::make($cancelled), 'Appointment cancelled');
+    }
+
+    /**
+     * Ask to move one of their own bookings. The clinic answers; until then
+     * the appointment stays where it is. Asking again replaces the request.
+     */
+    public function reschedule(Request $request, int $appointment): JsonResponse
+    {
+        $validated = $request->validate([
+            'appointment_date' => [
+                'required', 'date_format:Y-m-d', 'after_or_equal:today',
+                'before_or_equal:'.now()->addDays(BookableDoctors::DAYS_AHEAD)->toDateString(),
+            ],
+            'slot_at' => ['required', 'date_format:H:i'],
+            'location_id' => ['nullable', 'integer', Rule::exists(Location::class, 'id')->whereNull('deleted_at')],
+            'reason' => ['nullable', 'string', 'max:191'],
+        ]);
+
+        try {
+            $this->reschedules->request($this->organization($request), $this->patient($request), $appointment, $validated);
+        } catch (ModelNotFoundException) {
+            return $this->fail('That appointment was not found.', 404);
+        } catch (RuntimeException $exception) {
+            return $this->fail($exception->getMessage(), 422);
+        }
+
+        return $this->ok($this->fresh($appointment), 'Request sent. The clinic will confirm the new time.');
+    }
+
+    /** Take back a request the clinic has not answered yet. */
+    public function withdrawReschedule(Request $request, int $appointment): JsonResponse
+    {
+        try {
+            $this->reschedules->withdraw($this->patient($request), $appointment);
+        } catch (RuntimeException $exception) {
+            return $this->fail($exception->getMessage(), 422);
+        }
+
+        return $this->ok($this->fresh($appointment), 'Request withdrawn');
+    }
+
+    private function fresh(int $appointment): PortalAppointmentResource
+    {
+        return PortalAppointmentResource::make(
+            Appointment::query()
+                ->with(['doctor.photograph', 'location', 'liveVideoCall', 'latestRescheduleRequest'])
+                ->findOrFail($appointment),
+        );
     }
 }

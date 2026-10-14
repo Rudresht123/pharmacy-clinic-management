@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\Platform;
 
 use App\Models\Platform\Organization;
+use App\Services\Geo\OrganizationLocator;
+use App\Services\Geo\PincodeLookup;
 use App\Support\Platform\OrganizationCode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -48,6 +50,13 @@ class StoreOrganizationRequest extends FormRequest
             ],
             'phone_number' => ['nullable', 'digits_between:10,15'],
             'address' => ['nullable', 'string', 'max:1000'],
+
+            // Where it is — saved on the profile, with the map pin.
+            'postal_code' => ['nullable', 'string', 'regex:'.PincodeLookup::PATTERN],
+            'city' => ['nullable', 'string', 'max:100'],
+            'state_province' => ['nullable', 'string', 'max:100'],
+            ...OrganizationLocator::rules(),
+
             'profile_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'is_active' => ['nullable', 'boolean'],
         ];
@@ -70,6 +79,7 @@ class StoreOrganizationRequest extends FormRequest
             'password.required' => 'An owner account password is required.',
             'password.confirmed' => 'The password confirmation does not match.',
             'phone_number.digits_between' => 'The phone number must be between 10 and 15 digits.',
+            'postal_code.regex' => 'Enter a 6-digit PIN code.',
             'profile_image.max' => 'The organization logo may not exceed 2 MB.',
         ];
     }

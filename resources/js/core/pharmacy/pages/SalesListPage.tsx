@@ -13,8 +13,8 @@ import { resolveErrorMessage } from '@/shared/api/http';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { ReasonDialog } from '@/core/medicines/components/ReasonDialog';
 import { NoStores, StorePicker, useChosenStore } from '../components/StorePicker';
-import { ReportSummaryView, ViewTabs, type PharmacyView } from '../components/ReportSummary';
-import { useReportSummary } from '../reports';
+import { ViewTabs, type PharmacyView } from '../components/ReportSummary';
+import { StoreReportDashboard } from '../components/reports/StoreReportDashboard';
 import { PAYMENT_STATUS_LABELS, useCancelSale, useSale, useSales, type Sale } from '../sales';
 import { CollectSaleDialog, ReturnSaleDialog } from '../components/SaleMoneyDialogs';
 import { SaleBillView } from '../components/SaleBillView';
@@ -63,8 +63,6 @@ export default function SalesListPage() {
         updated.set('view', next);
         setParams(updated, { replace: true });
     }
-
-    const summary = useReportSummary(store?.id, 'sales', {});
 
     const table = useServerTable({ pageSize: 25, sort: 'sale_date', direction: 'desc' });
     const { data: page, isLoading, isFetching, isError, refetch } = useSales(store?.id, table.params);
@@ -207,13 +205,7 @@ export default function SalesListPage() {
                     </div>
 
                     {view === 'dashboard' ? (
-                        <ReportSummaryView
-                            summary={summary.data}
-                            isLoading={summary.isLoading}
-                            isError={summary.isError}
-                            onRetry={() => summary.refetch()}
-                            chartTitle="Takings, day by day"
-                        />
+                        <StoreReportDashboard storeId={store.id} report="sales" onShowTable={() => show('table')} />
                     ) : (
                     <Card>
                         <DataTable

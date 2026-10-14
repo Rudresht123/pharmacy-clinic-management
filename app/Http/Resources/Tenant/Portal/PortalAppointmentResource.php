@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Tenant\Portal;
 
+use App\Models\Tenant\AppointmentRescheduleRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -39,6 +40,30 @@ class PortalAppointmentResource extends JsonResource
             'video_call' => $this->whenLoaded('liveVideoCall', fn () => $this->liveVideoCall && ! $this->liveVideoCall->ringHasLapsed()
                 ? ['id' => $this->liveVideoCall->id, 'status' => $this->liveVideoCall->status]
                 : null),
+
+            /*
+             * Their latest request to move this visit, whatever became of it —
+             * "waiting for the clinic" while pending, the clinic's answer
+             * after. Withdrawn ones are nobody's business but their own, and
+             * the card says nothing about them.
+             */
+            'reschedule_request' => $this->whenLoaded('latestRescheduleRequest', function () {
+                $request = $this->latestRescheduleRequest;
+
+                if ($request === null || $request->status === AppointmentRescheduleRequest::WITHDRAWN) {
+                    return null;
+                }
+
+                return [
+                    'id' => $request->id,
+                    'status' => $request->status,
+                    'requested_date' => $request->requested_date?->toDateString(),
+                    'requested_slot_at' => AppointmentRescheduleRequest::hhmm($request->requested_slot_at),
+                    'reason' => $request->reason,
+                    'decision_note' => $request->decision_note,
+                    'decided_at' => $request->decided_at?->toIso8601String(),
+                ];
+            }),
 
             'doctor' => $this->whenLoaded('doctor', fn () => [
                 'id' => $this->doctor?->id,

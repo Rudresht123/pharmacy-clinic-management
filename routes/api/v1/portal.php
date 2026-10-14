@@ -48,6 +48,9 @@ Route::middleware([
     'tenant.actor',
     'branch',
     'portal.patient',
+    // A clinic whose subscription has lapsed: the patient keeps reading
+    // their own records, and can no longer book, message or call.
+    'subscription:portal',
 ])->group(function () {
     Route::get('home', [HomeController::class, 'show'])->name('home');
 
@@ -76,6 +79,15 @@ Route::middleware([
             Route::post('appointments/{appointment}/cancel', [AppointmentController::class, 'cancel'])
                 ->whereNumber('appointment')
                 ->name('appointments.cancel');
+
+            // ...and ask to move it. The desk answers; until then nothing moves.
+            Route::post('appointments/{appointment}/reschedule', [AppointmentController::class, 'reschedule'])
+                ->whereNumber('appointment')
+                ->middleware('throttle:10,1')
+                ->name('appointments.reschedule');
+            Route::delete('appointments/{appointment}/reschedule', [AppointmentController::class, 'withdrawReschedule'])
+                ->whereNumber('appointment')
+                ->name('appointments.reschedule.withdraw');
         });
 
         Route::get('appointments', [AppointmentController::class, 'index'])

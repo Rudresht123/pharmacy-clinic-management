@@ -1,0 +1,848 @@
+/* =========================================================
+   Pharmacy reports (.phr-)
+   ---------------------------------------------------------
+   Sales, purchases, stock, expiry, profit and GST — each a
+   dashboard (four figures, two charts, two short lists) and
+   a table (filtered, sorted, a page at a time).
+
+   Plain white cards in the theme's own style, as every
+   other screen: colour only where it carries meaning — icon
+   tiles, chart marks, statuses, up and down. Active tabs and
+   toggles take the brand colour. Charts and their tooltips
+   come from dashboard.css (.od-), shared with the
+   organisation dashboard.
+   ========================================================= */
+
+.phr-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.phr-refreshing {
+    opacity: 0.65;
+    transition: opacity 0.2s ease;
+}
+
+/* --- header controls ------------------------------------- */
+
+.phr-head-controls {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.phr-head-controls .ph-store-picker {
+    width: 270px;
+}
+
+.phr-range {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.phr-range-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 168px;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    background: var(--surface);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.phr-range-button > span { flex: 1 1 auto; text-align: left; }
+.phr-range-button i { font-size: 15px; color: var(--muted); }
+.phr-range-button:hover:not(:disabled) { border-color: rgba(var(--brand), 0.35); }
+
+.phr-range-button:disabled {
+    background: var(--surface-2);
+    color: var(--muted);
+    cursor: not-allowed;
+}
+
+.phr-range-pop {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: 170px 250px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: 0 16px 40px rgba(var(--brand), 0.16);
+    overflow: hidden;
+}
+
+.phr-range-pop ul {
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    border-right: 1px solid var(--line);
+}
+
+.phr-range-pop ul button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 13px;
+    color: var(--ink-2);
+    text-align: left;
+    cursor: pointer;
+}
+
+.phr-range-pop ul button:hover { background: var(--surface-3); }
+
+.phr-range-pop ul button.is-active {
+    background: rgba(var(--brand), 0.08);
+    font-weight: 600;
+    color: rgb(var(--brand));
+}
+
+.phr-range-custom {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+}
+
+.phr-range-custom > span {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.phr-range-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.phr-range-custom .btn { align-self: flex-end; }
+
+/* --- report tabs and the view switch --------------------- */
+
+.phr-tabs,
+.phr-views {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.phr-tabs button {
+    padding: 8px 20px;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.phr-views button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 16px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.phr-views button i { font-size: 15px; }
+
+.phr-tabs button:hover,
+.phr-views button:hover {
+    border-color: rgba(var(--brand), 0.35);
+    color: rgb(var(--brand));
+}
+
+.phr-tabs button.is-active,
+.phr-views button.is-active {
+    border-color: rgb(var(--brand));
+    background: rgb(var(--brand));
+    color: rgb(var(--brand-fg));
+}
+
+.phr-tabs button:focus-visible,
+.phr-views button:focus-visible,
+.phr-range-button:focus-visible,
+.phr-view-all:focus-visible,
+.phr-sort:focus-visible {
+    outline: 2px solid rgba(var(--brand), 0.4);
+    outline-offset: 2px;
+}
+
+/* --- the dashboard --------------------------------------- */
+
+.phr-dash {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.phr-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.phr-charts {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: stretch;
+}
+
+/* Every card in a row the same height, always — a short list does not make
+   a short card beside a long one. */
+.phr-lists {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+}
+
+/* The list's frame runs to the foot of its card, so the shorter of two lists
+   ends level with the longer rather than leaving a blank strip under it. */
+.phr-list .phr-table-wrap,
+.phr-list .od-nothing {
+    flex: 1 1 auto;
+}
+
+.phr-card,
+.phr-kpi {
+    min-width: 0;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+[data-theme='dark'] .phr-card,
+[data-theme='dark'] .phr-kpi {
+    background: var(--surface);
+    border-color: var(--line);
+}
+
+/* A figure. */
+.phr-kpi {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 16px;
+}
+
+.phr-kpi-icon {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    font-size: 22px;
+}
+
+.phr-kpi-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.phr-kpi-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-3);
+}
+
+.phr-kpi-label i { font-size: 14px; color: var(--muted); cursor: help; }
+
+.phr-kpi-value {
+    font-size: 23px;
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.phr-kpi-value small {
+    margin-left: 3px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.phr-kpi-change,
+.phr-kpi-hint {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* The comparison may drop to its own line on a narrow card rather than run
+   under the bars beside it. */
+.phr-kpi-change {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0 3px;
+    font-weight: 700;
+}
+
+.phr-kpi-change i { font-size: 14px; }
+.phr-kpi-change span { font-weight: 400; color: var(--muted); white-space: nowrap; }
+.phr-kpi-change.is-good { color: #16a34a; }
+.phr-kpi-change.is-bad { color: #dc2626; }
+.phr-kpi-hint.is-warn { color: #d97706; }
+.phr-kpi-hint.is-bad { color: #dc2626; }
+
+[data-theme='dark'] .phr-kpi-change.is-good { color: #4ade80; }
+[data-theme='dark'] .phr-kpi-change.is-bad,
+[data-theme='dark'] .phr-kpi-hint.is-bad { color: #f87171; }
+[data-theme='dark'] .phr-kpi-hint.is-warn { color: #fbbf24; }
+
+.phr-spark {
+    flex: 0 0 auto;
+    align-self: center;
+    width: 50px;
+    height: 34px;
+}
+
+/* A card's heading: icon tile, title and line under it, controls on the right. */
+.phr-card {
+    display: flex;
+    flex-direction: column;
+    padding: 16px 18px 18px;
+}
+
+.phr-card-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.phr-card-icon {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(var(--brand), 0.08);
+    color: rgb(var(--brand));
+    font-size: 19px;
+}
+
+[data-theme='dark'] .phr-card-icon {
+    background: rgba(var(--brand-2), 0.16);
+    color: rgb(var(--brand-2));
+}
+
+.phr-card-title { min-width: 0; }
+
+.phr-card-title h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.phr-card-title p {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.phr-card-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-left: auto;
+}
+
+.phr-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    color: var(--ink-3);
+}
+
+.phr-legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.phr-legend li span {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+/* The comparison's key: smaller and quieter, as its line is. */
+.phr-legend li.is-dashed span {
+    width: 6px;
+    height: 6px;
+    opacity: 0.6;
+}
+
+.phr-view-all {
+    padding: 6px 14px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.phr-view-all:hover {
+    border-color: rgba(var(--brand), 0.35);
+    background: rgba(var(--brand), 0.05);
+}
+
+[data-theme='dark'] .phr-view-all { color: rgb(var(--brand-2)); }
+
+/* --- a ring and its legend ------------------------------- */
+
+.phr-donut {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    align-items: center;
+    gap: 18px;
+}
+
+.phr-donut .od-ring { width: 150px; }
+
+/* The wide slot has room for a bigger ring. */
+.phr-chart.is-wide .phr-donut { grid-template-columns: 170px minmax(0, 1fr); gap: 28px; }
+.phr-chart.is-wide .phr-donut .od-ring { width: 170px; }
+
+.phr-donut-legend {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.phr-donut-legend li {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 4px;
+    border-bottom: 1px solid var(--line);
+    font-size: 12.5px;
+    transition: background-color 0.15s ease;
+}
+
+.phr-donut-legend li:last-child { border-bottom: 0; }
+.phr-donut-legend li.is-active { background: var(--surface-3); }
+
+.phr-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.phr-donut-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink-2);
+}
+
+.phr-donut-share {
+    min-width: 32px;
+    text-align: right;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.phr-donut-legend b {
+    text-align: right;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- counts as bars -------------------------------------- */
+
+.phr-meter {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 16px;
+    margin: 0;
+    padding: 0 4px;
+    list-style: none;
+}
+
+.phr-meter li {
+    display: grid;
+    grid-template-columns: 24px 110px minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: 12px;
+    font-size: 12.5px;
+    color: var(--ink-2);
+}
+
+.phr-meter-track {
+    height: 10px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    overflow: hidden;
+}
+
+.phr-meter-track span {
+    display: block;
+    height: 100%;
+    min-width: 4px;
+    border-radius: 999px;
+}
+
+.phr-meter b {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
+
+/* --- tables ---------------------------------------------- */
+
+/* Inset in its card in a frame of its own, like every table in the app. */
+.phr-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    transition: opacity 0.2s ease;
+}
+
+.phr-table-wrap.is-busy { opacity: 0.55; }
+
+.phr-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12.5px;
+}
+
+.phr-table th {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.phr-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-2);
+    vertical-align: middle;
+}
+
+.phr-table tbody tr:last-child td { border-bottom: 0; }
+.phr-table tbody tr:hover td { background: var(--surface-2); }
+
+.phr-table .is-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.phr-table .is-rank { width: 44px; }
+
+/* Quiet columns — a pack size, a batch number — never break mid-value. */
+.phr-table td.is-quiet { white-space: nowrap; }
+
+.phr-table tfoot td {
+    border-top: 1px solid var(--line-2);
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.phr-table.is-full td { padding: 11px 12px; }
+
+.phr-rank {
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: rgba(var(--brand), 0.07);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: rgb(var(--brand));
+}
+
+[data-theme='dark'] .phr-rank {
+    background: rgba(var(--brand-2), 0.16);
+    color: rgb(var(--brand-2));
+}
+
+.phr-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.phr-badge.is-good { background: #e3f7ea; color: #15803d; }
+.phr-badge.is-warn { background: #fff1d9; color: #b45309; }
+.phr-badge.is-bad { background: #fdecec; color: #dc2626; }
+.phr-badge.is-muted { background: var(--surface-3); color: var(--ink-3); }
+
+[data-theme='dark'] .phr-badge.is-good { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+[data-theme='dark'] .phr-badge.is-warn { background: rgba(245, 158, 11, 0.16); color: #fcd34d; }
+[data-theme='dark'] .phr-badge.is-bad { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+
+.phr-when,
+.phr-stacked {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+
+.phr-when { white-space: nowrap; }
+
+.phr-when small,
+.phr-stacked small {
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.phr-stacked b {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.phr-muted { color: var(--muted); }
+.phr-up { color: #16a34a; font-weight: 600; }
+.phr-down { color: #dc2626; font-weight: 600; }
+
+[data-theme='dark'] .phr-up { color: #4ade80; }
+[data-theme='dark'] .phr-down { color: #f87171; }
+
+.phr-pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 6px;
+    background: var(--surface-3);
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--ink-2);
+    white-space: nowrap;
+}
+
+.phr-days { font-weight: 600; }
+.phr-days.is-soon { color: #d97706; }
+
+.phr-margin {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.phr-margin-bar {
+    width: 54px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    overflow: hidden;
+}
+
+.phr-margin-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--od-green);
+}
+
+/* --- the table view's toolbar and footer ----------------- */
+
+.phr-rows { padding-top: 14px; }
+
+.phr-tools {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.phr-search {
+    position: relative;
+    flex: 0 1 280px;
+    min-width: 200px;
+}
+
+.phr-search i {
+    position: absolute;
+    top: 50%;
+    left: 11px;
+    transform: translateY(-50%);
+    font-size: 15px;
+    color: var(--muted);
+}
+
+/* Named in full: the theme's own .form-control padding otherwise wins and
+   the placeholder runs under the magnifier. */
+.phr-tools .phr-search input.form-control {
+    height: 36px;
+    padding-left: 34px;
+    border-radius: 9px;
+    font-size: 13px;
+}
+
+.phr-search i { z-index: 1; pointer-events: none; }
+
+.phr-filter select { width: 180px; height: 36px; }
+
+.phr-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+    cursor: pointer;
+}
+
+.phr-clear:hover { background: rgba(var(--brand), 0.06); }
+
+.phr-count {
+    margin-left: auto;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+.phr-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+
+.phr-sort i { font-size: 13px; opacity: 0.6; }
+.phr-sort:hover { color: var(--ink); }
+
+.phr-sort.is-active {
+    font-weight: 600;
+    color: rgb(var(--brand));
+}
+
+.phr-sort.is-active i { opacity: 1; }
+
+.is-num .phr-sort { flex-direction: row; }
+
+.phr-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.phr-per-page {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+/* The shared pagination sits in this footer rather than under a table of
+   its own, so it drops its own rule and padding. */
+.phr-foot .dt-foot {
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.phr-per-page select { width: 76px; }
+
+.od-nothing.is-short { min-height: 120px; }
+
+/* --- narrower screens ------------------------------------ */
+
+@media (max-width: 1199.98px) {
+    .phr-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .phr-charts,
+    .phr-lists { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 767.98px) {
+    .phr-head-controls { width: 100%; }
+    .phr-head-controls .ph-store-picker,
+    .phr-range { flex: 1 1 100%; width: auto; }
+
+    .phr-range-pop { grid-template-columns: minmax(0, 1fr); left: 0; right: auto; }
+    .phr-range-pop ul { border-right: 0; border-bottom: 1px solid var(--line); }
+
+    .phr-donut { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+    .phr-donut-legend { width: 100%; }
+
+    .phr-search { flex: 1 1 100%; }
+    .phr-filter { flex: 1 1 45%; }
+    .phr-filter select { width: 100%; }
+}
+
+@media (max-width: 575.98px) {
+    .phr-kpis { grid-template-columns: minmax(0, 1fr); }
+}

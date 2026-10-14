@@ -192,6 +192,19 @@ class ModuleRegistry
                 'capabilities' => [
                     ['key' => 'settings.manage', 'name' => 'Change field settings and naming', 'scope' => self::SCOPE_ORGANIZATION],
                     ['key' => 'settings.audit', 'name' => 'Read the organization-wide activity log', 'scope' => self::SCOPE_ORGANIZATION],
+
+                    /*
+                     * The organization's own account with the platform: its
+                     * plan, usage, invoices, and renewing or buying add-ons.
+                     * The owner always has it; this lets them name a billing
+                     * contact who is not an owner. Organization-scoped — a
+                     * subscription has no branch.
+                     *
+                     * The one capability still usable while the subscription
+                     * is locked: renewing is how a locked organization gets
+                     * back in.
+                     */
+                    ['key' => 'settings.subscription', 'name' => 'View and renew the subscription, and buy add-ons', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             /*
@@ -337,6 +350,21 @@ class ModuleRegistry
                     ['key' => 'appointments.consult_complete', 'name' => 'Complete and reopen a consultation', 'scope' => self::SCOPE_BRANCH],
 
                     ['key' => 'appointments.cancel', 'name' => 'Cancel and mark no-shows', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * A patient asks from the app to move a booking; the desk
+                     * says yes (to that time or another) or no. The desk's,
+                     * because the desk knows what the timetable does not —
+                     * the doctor running late that day, a patient moved twice
+                     * already.
+                     */
+                    ['key' => 'appointments.reschedule', 'name' => 'Approve or reject patients\' reschedule requests', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * How appointments behave across the organization — today,
+                     * who is told when a patient asks to reschedule.
+                     */
+                    ['key' => 'appointments.settings', 'name' => 'Change appointment settings', 'scope' => self::SCOPE_ORGANIZATION],
 
                     /*
                      * A doctor writing to their own patients, and reading what

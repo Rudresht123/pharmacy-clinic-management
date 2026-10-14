@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { http } from '@/shared/api/http';
 import { resourceKey } from '@/shared/hooks/useResource';
 import type { ApiResponse } from '@/shared/types/api';
@@ -11,6 +11,135 @@ export interface DashboardScope {
     branch_id: number | null;
     branch_name: string | null;
     city: string | null;
+    /** The days every period figure is about, and what they are compared with. */
+    window?: { from: string; to: string; compare: string };
+    /** The branches a card's "All Branches" filter may narrow to. */
+    options?: { id: number; name: string }[];
+}
+
+/* --- the network view ------------------------------------------------ */
+
+/** The organization's size, for the banner. A null count is one they may not see. */
+export interface NetworkOverview {
+    since: string | null;
+    branches: number | null;
+    doctors: number | null;
+    staff: number | null;
+}
+
+export interface KpiCard {
+    key: 'patients' | 'appointments' | 'revenue' | 'purchases' | 'profit';
+    label: string;
+    value: number;
+    /** Null when the period before had nothing to compare with. */
+    change: number | null;
+    money?: boolean;
+    hint?: string;
+    series: number[];
+}
+
+export interface RevenuePoint {
+    key: string;
+    label: string;
+    title: string;
+    opd: number;
+    pharmacy: number;
+    laboratory: number;
+    procedures: number;
+    total: number;
+}
+
+export type Granularity = 'daily' | 'weekly' | 'monthly';
+
+export interface RevenueOverviewPanel {
+    granularity: Granularity;
+    location_id: number | null;
+    series: RevenuePoint[];
+}
+
+export interface BranchPerformanceRow {
+    id: number;
+    name: string;
+    city: string | null;
+    is_active: boolean;
+    patients: number;
+    /** Null where the caller may not see appointments or money. */
+    appointments: number | null;
+    revenue: number | null;
+    profit: number | null;
+    growth: number | null;
+}
+
+export interface BranchPerformancePanel {
+    total: number;
+    rows: BranchPerformanceRow[];
+}
+
+export interface VisitPoint {
+    key: string;
+    label: string;
+    title: string;
+    new: number;
+    returning: number;
+}
+
+export interface VisitTrendsPanel {
+    granularity: 'day' | 'month';
+    location_id: number | null;
+    series: VisitPoint[];
+    new: number;
+    returning: number;
+}
+
+export type ServicePeriod = 'this_month' | 'last_month' | 'this_year';
+
+export interface TopServicesPanel {
+    period: ServicePeriod;
+    total: number;
+    rows: { key: string; label: string; amount: number; share: number }[];
+}
+
+export interface StockAlertRow {
+    key: string;
+    name: string;
+    branch: string | null;
+    quantity: number;
+    unit: string;
+    status: 'expired' | 'out' | 'low';
+    expiry_date: string | null;
+}
+
+export interface StockAlertsPanel {
+    counts: { expired: number; out: number; low: number };
+    rows: StockAlertRow[];
+}
+
+export interface PnlFigure {
+    value: number;
+    change: number | null;
+    series: number[];
+}
+
+export type PnlPeriod = 'this_year' | 'last_year';
+
+export interface ProfitLossPanel {
+    period: PnlPeriod;
+    /** The months the three series run over, in order. */
+    months: { key: string; label: string; title: string }[];
+    revenue: PnlFigure;
+    expenses: PnlFigure;
+    profit: PnlFigure;
+}
+
+export interface BranchActivityEntry {
+    id: number;
+    event: string;
+    entity_type: string;
+    text: string;
+    detail?: string | null;
+    branch: string | null;
+    actor_name: string | null;
+    created_at: string | null;
 }
 
 /** A branch's own day. */
@@ -177,6 +306,10 @@ export interface PlanPanel {
     /** Only in demo mode — the software has no subscription tiers. */
     name?: string;
     blurb?: string;
+    /** Only in demo mode, with `name`. */
+    valid_until?: string | null;
+    trial_ends_at?: string | null;
+    since?: string | null;
 }
 
 export interface ActivityEntry {
@@ -228,15 +361,35 @@ export interface DashboardSummary {
     revenue?: RevenuePanel;
     tasks?: TaskRow[];
     activity?: ActivityEntry[];
+
+    /* --- the network view --------------------------------------------- */
+    overview?: NetworkOverview;
+    kpis?: KpiCard[];
+    revenue_overview?: RevenueOverviewPanel;
+    branch_performance?: BranchPerformancePanel;
+    visit_trends?: VisitTrendsPanel;
+    top_services?: TopServicesPanel;
+    stock_alerts?: StockAlertsPanel;
+    profit_loss?: ProfitLossPanel;
+    branch_activity?: BranchActivityEntry[];
+
     /** True while the screen is filled with sample figures — see config/hms.php. */
     demo?: boolean;
 }
 
-export function useDashboard() {
+/** The days the network view is about. Left out, the server uses this month. */
+export interface DashboardRange {
+    from: string;
+    to: string;
+}
+
+export function useDashboard(range?: DashboardRange) {
     return useQuery({
-        queryKey: resourceKey('tenant/dashboard'),
+        queryKey: resourceKey('tenant/dashboard', range ?? {}),
         queryFn: async (): Promise<DashboardSummary> => {
-            const { data } = await http.get<ApiResponse<DashboardSummary>>('/tenant/dashboard');
+            const { data } = await http.get<ApiResponse<DashboardSummary>>('/tenant/dashboard', {
+                params: range,
+            });
 
             return data.data;
         },
@@ -245,5 +398,36 @@ export function useDashboard() {
          * minute-old count of who is waiting is worse than no count.
          */
         staleTime: 30 * 1000,
+        // A new range repaints the figures in place rather than blanking the
+        // screen to a spinner while it loads.
+        placeholderData: keepPreviousData,
+    });
+}
+
+/**
+ * One card re-asked with its own filter — the revenue chart by week, the
+ * visit chart for one branch.
+ *
+ * Only runs once the card's filter differs from what the full dashboard was
+ * asked with: until then the card reads the panel that arrived with the rest
+ * of the screen, and this costs nothing.
+ */
+export function useDashboardPanel<T>(
+    panel: 'revenue_overview' | 'visit_trends' | 'top_services' | 'profit_loss',
+    params: Record<string, string | number | undefined>,
+    enabled: boolean,
+) {
+    return useQuery({
+        queryKey: resourceKey(`tenant/dashboard/${panel}`, params),
+        queryFn: async (): Promise<T> => {
+            const { data } = await http.get<ApiResponse<T>>(`/tenant/dashboard/${panel}`, {
+                params,
+            });
+
+            return data.data;
+        },
+        enabled,
+        staleTime: 30 * 1000,
+        placeholderData: keepPreviousData,
     });
 }

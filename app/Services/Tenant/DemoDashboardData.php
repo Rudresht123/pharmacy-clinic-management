@@ -101,6 +101,260 @@ class DemoDashboardData
             'insights' => $this->insights(),
             'plan' => $this->plan(),
             'activity' => $this->activity(),
+
+            // The network view's own panels.
+            'overview' => $this->overview(),
+            'kpis' => $this->kpis(),
+            'revenue_overview' => $this->revenueOverview('monthly', null),
+            'branch_performance' => $this->branchPerformance(),
+            'visit_trends' => $this->visitTrends(null),
+            'top_services' => $this->topServices('this_month'),
+            'stock_alerts' => $this->stockAlerts(),
+            'profit_loss' => $this->profitLoss('this_year'),
+            'branch_activity' => $this->branchActivity(),
+        ];
+    }
+
+    /**
+     * One card's sample figures, re-asked with its own filter.
+     *
+     * Without this, touching a filter on a demo screen would swap invented
+     * figures for real ones mid-demonstration. Null for a panel there is no
+     * sample of, which lets the real answer through.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>|null
+     */
+    public function panel(string $panel, array $options): ?array
+    {
+        return match ($panel) {
+            'revenue_overview' => $this->revenueOverview(
+                $options['granularity'] ?? 'monthly',
+                $options['location_id'] ?? null,
+            ),
+            'visit_trends' => $this->visitTrends($options['location_id'] ?? null),
+            'top_services' => $this->topServices($options['period'] ?? 'this_month'),
+            'profit_loss' => $this->profitLoss($options['period'] ?? 'this_year'),
+            default => null,
+        };
+    }
+
+    /* ---------------------------------------------------------------------
+     | The network view
+     |------------------------------------------------------------------- */
+
+    /** @return array<string, mixed> */
+    private function overview(): array
+    {
+        return ['since' => '2024-01-15', 'branches' => 4, 'doctors' => 28, 'staff' => 54];
+    }
+
+    /**
+     * A month that climbs, with a weekly wobble — the shape a sparkline is
+     * for. Deterministic, so the screen looks the same on every load.
+     *
+     * @return list<float>
+     */
+    private function climb(float $start, float $end, int $points, float $wobble = 0.12): array
+    {
+        $out = [];
+
+        for ($i = 0; $i < $points; $i++) {
+            $base = $start + (($end - $start) * $i / max($points - 1, 1));
+            $out[] = round($base * (1 + $wobble * sin($i * 1.7)), 2);
+        }
+
+        return $out;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function kpis(): array
+    {
+        $days = (int) now()->daysInMonth;
+
+        return [
+            ['key' => 'patients', 'label' => 'Total Patients', 'value' => 12842, 'change' => 18, 'series' => $this->climb(30, 62, $days)],
+            ['key' => 'appointments', 'label' => 'Total Appointments', 'value' => 4521, 'change' => 12, 'series' => $this->climb(110, 180, $days)],
+            ['key' => 'revenue', 'label' => 'Total Revenue', 'value' => 874320, 'money' => true, 'change' => 15, 'series' => $this->climb(21000, 36000, $days, 0.2)],
+            ['key' => 'purchases', 'label' => 'Total Purchases', 'value' => 412560, 'money' => true, 'change' => 8, 'series' => $this->climb(9000, 17000, $days, 0.25)],
+            ['key' => 'profit', 'label' => 'Net Profit', 'value' => 461760, 'money' => true, 'change' => 22, 'hint' => 'Revenue less stock purchases', 'series' => $this->climb(11000, 20000, $days, 0.18)],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function revenueOverview(string $granularity, ?int $branch): array
+    {
+        $end = now();
+
+        [$count, $label, $title, $step] = match ($granularity) {
+            'daily' => [
+                (int) $end->daysInMonth,
+                fn ($d) => $d->format('j M'),
+                fn ($d) => $d->format('j M Y'),
+                fn ($d, $i) => $d->copy()->startOfMonth()->addDays($i),
+            ],
+            'weekly' => [
+                12,
+                fn ($d) => $d->format('j M'),
+                fn ($d) => 'Week of '.$d->format('j M Y'),
+                fn ($d, $i) => $d->copy()->startOfWeek()->subWeeks(11 - $i),
+            ],
+            default => [
+                12,
+                fn ($d) => $d->format('M'),
+                fn ($d) => $d->format('M Y'),
+                fn ($d, $i) => $d->copy()->startOfMonth()->subMonthsNoOverflow(11 - $i),
+            ],
+        };
+
+        // A single branch is a share of the network, not a different shape.
+        $scale = ($branch === null ? 1 : 0.38) * match ($granularity) {
+            'daily' => 1 / 30,
+            'weekly' => 1 / 4.3,
+            default => 1,
+        };
+
+        // December of the reference: OPD 62,430 · Pharmacy 78,560 · Lab
+        // 28,450 · Procedures 31,900, reached by a steady climb.
+        $series = [];
+
+        for ($i = 0; $i < $count; $i++) {
+            $at = $step($end, $i);
+            $growth = (0.14 + 0.86 * ($i / max($count - 1, 1))) * (1 + 0.08 * sin($i * 2.1)) * $scale;
+
+            $point = [
+                'key' => $granularity === 'monthly' ? $at->format('Y-m') : $at->toDateString(),
+                'label' => $label($at),
+                'title' => $title($at),
+                'opd' => round(62430 * $growth, 2),
+                'pharmacy' => round(78560 * $growth, 2),
+                'laboratory' => round(28450 * $growth, 2),
+                'procedures' => round(31900 * $growth, 2),
+            ];
+
+            $point['total'] = round($point['opd'] + $point['pharmacy'] + $point['laboratory'] + $point['procedures'], 2);
+            $series[] = $point;
+        }
+
+        return ['granularity' => $granularity, 'location_id' => $branch, 'series' => $series];
+    }
+
+    /** @return array<string, mixed> */
+    private function branchPerformance(): array
+    {
+        return [
+            'total' => 4,
+            'rows' => [
+                ['id' => 1, 'name' => 'Main Branch (City)', 'city' => 'Gurugram', 'is_active' => true, 'patients' => 3842, 'appointments' => 1521, 'revenue' => 341220, 'profit' => 182450, 'growth' => 18],
+                ['id' => 2, 'name' => 'East Branch', 'city' => 'Noida', 'is_active' => true, 'patients' => 2846, 'appointments' => 1042, 'revenue' => 198560, 'profit' => 104320, 'growth' => 12],
+                ['id' => 3, 'name' => 'West Branch', 'city' => 'Delhi', 'is_active' => true, 'patients' => 2412, 'appointments' => 856, 'revenue' => 164320, 'profit' => 86540, 'growth' => 8],
+                ['id' => 4, 'name' => 'North Branch', 'city' => 'Faridabad', 'is_active' => true, 'patients' => 1742, 'appointments' => 612, 'revenue' => 128440, 'profit' => 68450, 'growth' => 15],
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function visitTrends(?int $branch): array
+    {
+        $start = now()->startOfMonth();
+        $scale = $branch === null ? 1 : 0.4;
+        $series = [];
+
+        for ($day = 0; $day < (int) $start->daysInMonth; $day++) {
+            $date = $start->copy()->addDays($day);
+            $sunday = $date->dayOfWeek === Carbon::SUNDAY;
+
+            $series[] = [
+                'key' => $date->toDateString(),
+                'label' => $date->format('j M'),
+                'title' => $date->format('j M Y'),
+                'new' => (int) round(($sunday ? 22 : 48 + (($day * 7) % 30)) * $scale),
+                'returning' => (int) round(($sunday ? 30 : 64 + (($day * 11) % 52)) * $scale),
+            ];
+        }
+
+        return [
+            'granularity' => 'day',
+            'location_id' => $branch,
+            'series' => $series,
+            'new' => array_sum(array_column($series, 'new')),
+            'returning' => array_sum(array_column($series, 'returning')),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function topServices(string $period): array
+    {
+        $scale = match ($period) {
+            'last_month' => 0.87,
+            'this_year' => 8.26,
+            default => 1,
+        };
+
+        $rows = [
+            ['key' => 'consultation', 'label' => 'Consultation', 'amount' => 279780],
+            ['key' => 'pharmacy', 'label' => 'Pharmacy Sales', 'amount' => 244810],
+            ['key' => 'laboratory', 'label' => 'Laboratory Tests', 'amount' => 157380],
+            ['key' => 'procedures', 'label' => 'Procedures', 'amount' => 104920],
+            ['key' => 'others', 'label' => 'Others', 'amount' => 87430],
+        ];
+
+        $total = array_sum(array_column($rows, 'amount')) * $scale;
+
+        return [
+            'period' => $period,
+            'total' => round($total, 2),
+            'rows' => array_map(fn (array $row) => [
+                ...$row,
+                'amount' => round($row['amount'] * $scale, 2),
+                'share' => round(($row['amount'] * $scale / $total) * 100, 1),
+            ], $rows),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function stockAlerts(): array
+    {
+        return [
+            'counts' => ['expired' => 1, 'out' => 0, 'low' => 9],
+            'rows' => [
+                ['key' => 'demo-1', 'name' => 'Paracetamol 500mg', 'branch' => 'Main Branch (City)', 'quantity' => 12, 'unit' => 'strips', 'status' => 'low', 'expiry_date' => null],
+                ['key' => 'demo-2', 'name' => 'Amoxicillin 250mg', 'branch' => 'East Branch', 'quantity' => 5, 'unit' => 'strips', 'status' => 'low', 'expiry_date' => null],
+                ['key' => 'demo-3', 'name' => 'Cetirizine 10mg', 'branch' => 'West Branch', 'quantity' => 18, 'unit' => 'strips', 'status' => 'expired', 'expiry_date' => now()->subDays(15)->toDateString()],
+                ['key' => 'demo-4', 'name' => 'Vitamin D3', 'branch' => 'North Branch', 'quantity' => 8, 'unit' => 'strips', 'status' => 'low', 'expiry_date' => null],
+                ['key' => 'demo-5', 'name' => 'ORS Powder', 'branch' => 'Main Branch (City)', 'quantity' => 3, 'unit' => 'packs', 'status' => 'low', 'expiry_date' => null],
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function profitLoss(string $period): array
+    {
+        $months = $period === 'last_year' ? 12 : (int) now()->month;
+        $scale = $period === 'last_year' ? 0.82 : 1;
+        $year = $period === 'last_year' ? now()->subYear()->startOfYear() : now()->startOfYear();
+
+        return [
+            'period' => $period,
+            'months' => array_map(function (int $i) use ($year) {
+                $month = $year->copy()->addMonthsNoOverflow($i);
+
+                return ['key' => $month->format('Y-m'), 'label' => $month->format('M'), 'title' => $month->format('M Y')];
+            }, range(0, $months - 1)),
+            'revenue' => ['value' => round(7218450 * $scale, 2), 'change' => 18, 'series' => $this->climb(380000, 760000, $months, 0.1)],
+            'expenses' => ['value' => round(3824680 * $scale, 2), 'change' => 6, 'series' => $this->climb(260000, 360000, $months, 0.14)],
+            'profit' => ['value' => round(3393770 * $scale, 2), 'change' => 26, 'series' => $this->climb(120000, 400000, $months, 0.12)],
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function branchActivity(): array
+    {
+        return [
+            ['id' => 1, 'event' => 'milestone', 'entity_type' => 'Invoice', 'text' => 'Main Branch crossed ₹3L revenue this month', 'detail' => null, 'branch' => 'Main Branch (City)', 'actor_name' => null, 'created_at' => now()->subHours(2)->toIso8601String()],
+            ['id' => 2, 'event' => 'created', 'entity_type' => 'Doctor', 'text' => 'New doctor added at East Branch', 'detail' => null, 'branch' => 'East Branch', 'actor_name' => null, 'created_at' => now()->subHours(5)->toIso8601String()],
+            ['id' => 3, 'event' => 'created', 'entity_type' => 'StockInward', 'text' => 'North Branch pharmacy stock updated', 'detail' => null, 'branch' => 'North Branch', 'actor_name' => null, 'created_at' => now()->subDay()->toIso8601String()],
+            ['id' => 4, 'event' => 'milestone', 'entity_type' => 'Appointment', 'text' => 'West Branch completed 500+ appointments', 'detail' => null, 'branch' => 'West Branch', 'actor_name' => null, 'created_at' => now()->subDay()->subHours(3)->toIso8601String()],
         ];
     }
 
@@ -243,10 +497,13 @@ class DemoDashboardData
     private function plan(): array
     {
         return [
-            'name' => 'Pro Plan',
+            'name' => 'Professional Plan',
             'blurb' => 'Manage unlimited branches and staff.',
             'modules' => 5,
             'names' => ['branches', 'people', 'customers', 'settings', 'appointments'],
+            'valid_until' => now()->addYear()->endOfYear()->toDateString(),
+            'trial_ends_at' => null,
+            'since' => '2024-01-15',
         ];
     }
 

@@ -74,15 +74,10 @@ class SendEmailMessage implements ShouldQueue
             return;
         }
 
-        $tenants->connect($organization->database_name);
-
-        try {
-            $this->send($email->forOrganization($organization));
-        } finally {
-            // Always, so the next job on this worker cannot inherit the
-            // connection and read the wrong clinic's rows.
-            $tenants->disconnect();
-        }
+        // Left as found afterwards: disconnected on a worker, so the next job
+        // cannot read the wrong clinic's rows; the request's own connection
+        // when run inline (see TenantConnectionService::run).
+        $tenants->run($organization->database_name, fn () => $this->send($email->forOrganization($organization)));
     }
 
     private function send(EmailManager $email): void

@@ -8,6 +8,7 @@ import { LoadingBlock, ErrorState, EmptyState } from '@/shared/components/ui/Fee
 import { Pagination } from '@/shared/components/ui/Pagination';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
+import type { QueueStep } from '@/core/tenant-auth/api';
 import { useEntityLabel } from '@/core/field-settings/api';
 import { useOpdContext } from '@/core/opd/useOpdContext';
 import { OpdToolbar } from '@/core/opd/components/OpdToolbar';
@@ -15,6 +16,7 @@ import { StatusBadge, WaitBadge } from '@/core/opd/components/Badges';
 import { WaitTrend, type WaitPoint } from '../components/WaitTrend';
 import { BookDialog } from '../components/BookDialog';
 import { useMoveAppointment, useQueue } from '../api';
+import { usePendingRescheduleCount } from '../reschedule';
 import { deskStatus } from '../workflow';
 import type { Appointment, AppointmentStatus } from '../types';
 
@@ -52,6 +54,8 @@ const ACTIONS: Record<
         icon: string;
         action: 'check-in' | 'call' | 'cancel' | 'no-show';
         needs: string;
+        /** The queue step it is, when the clinic decides whose that is. */
+        step?: QueueStep;
         available: keyof Appointment['available'];
         danger?: boolean;
     }
@@ -61,6 +65,7 @@ const ACTIONS: Record<
         icon: 'ti ti-login',
         action: 'check-in',
         needs: 'appointments.queue',
+        step: 'check_in',
         available: 'check_in',
     },
     call: {
@@ -68,6 +73,7 @@ const ACTIONS: Record<
         icon: 'ti ti-bell-ringing',
         action: 'call',
         needs: 'appointments.queue',
+        step: 'call',
         available: 'call',
     },
     'no-show': {
@@ -174,7 +180,8 @@ function ageFrom(dob: string | null | undefined): number | null {
  */
 export default function QueuePage() {
     const confirm = useConfirm();
-    const { can, doctorId: mine } = useTenantAuth();
+    const { can, queueStep, doctorId: mine } = useTenantAuth();
+    const { data: pendingReschedules = 0 } = usePendingRescheduleCount(can('appointments.reschedule'));
     const patients = useEntityLabel('customer');
 
     const context = useOpdContext();
@@ -347,7 +354,11 @@ export default function QueuePage() {
         const allowed = Object.keys(ACTIONS).filter((key) => {
             const action = ACTIONS[key];
 
-            return row.available?.[action.available] && can(action.needs);
+            return (
+                row.available?.[action.available] &&
+                can(action.needs) &&
+                (!action.step || queueStep(action.step))
+            );
         });
 
         return {
@@ -573,7 +584,7 @@ export default function QueuePage() {
                             somebody does by hand every time, only slower and
                             occasionally wrong.
                         */}
-                        {can('appointments.queue') && isToday && (
+                        {can('appointments.queue') && queueStep('call') && isToday && (
                             <Button
                                 icon="ti ti-bell-ringing"
                                 disabled={!nextUp || move.isPending}
@@ -585,6 +596,25 @@ export default function QueuePage() {
                     </div>
                 }
             />
+
+            {/*
+                Patients asking from the app to move a booking. Here, where the
+                desk spends its day, rather than only on its own page — a
+                request nobody sees is one nobody answers.
+            */}
+            {pendingReschedules > 0 && (
+                <Link
+                    to="/opd/reschedule-requests"
+                    className="alert alert-warning d-flex align-items-center gap-2 mt-3 mb-0 text-decoration-none"
+                >
+                    <i className="ti ti-calendar-repeat" aria-hidden="true" />
+                    <span>
+                        {pendingReschedules} reschedule request{pendingReschedules === 1 ? '' : 's'} waiting
+                        for an answer
+                    </span>
+                    <i className="ti ti-arrow-right ms-auto" aria-hidden="true" />
+                </Link>
+            )}
 
             {/*
                 The day in six figures, in the same cards the department board

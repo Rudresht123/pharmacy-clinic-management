@@ -5,6 +5,7 @@ namespace App\Services\Tenant;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\ActivityLog;
 use App\Models\Tenant\Appointment;
+use App\Models\Tenant\BranchMembership;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Location;
@@ -38,10 +39,22 @@ use Illuminate\Support\Carbon;
  */
 class DashboardSummary
 {
+    /**
+     * The panels a card's own filter may re-ask for, and what each accepts.
+     * Anything else about a panel is fixed by the window it was asked over.
+     */
+    public const FILTERABLE = [
+        'revenue_overview' => ['granularity', 'location_id'],
+        'visit_trends' => ['location_id'],
+        'top_services' => ['period'],
+        'profit_loss' => ['period'],
+    ];
+
     public function __construct(
         private readonly Permission $permission,
         private readonly TenantBranchAccess $branches,
         private readonly ModuleAccess $modules,
+        private readonly OrganizationDashboard $network,
     ) {}
 
     /**
@@ -56,16 +69,22 @@ class DashboardSummary
      *               branch, so the dashboard is not the one screen where a
      *               module gate gets skipped.
      *   capability  what the caller must hold to see it at all.
-     *   resolve     how to build it, given the branches they can see.
+     *   context     optional — 'organization' for a panel only the network
+     *               view draws. Computed nowhere else: a branch dashboard
+     *               never shows it, so it never pays for it either.
+     *   resolve     how to build it, given the branches they can see and —
+     *               for a FILTERABLE panel — the filters its card sent.
      *
      * Inventory, billing and the rest arrive as further entries when their
      * modules do. Nothing else in this class changes, and a client that has not
      * been taught the new key simply does not render it.
      *
-     * @return list<array{key: string, module: string|null, capability: string|null, resolve: callable}>
+     * @return list<array{key: string, module: string|null, capability: string|null, context?: string, resolve: callable}>
      */
-    private function panels(Organization $organization, User $user): array
+    private function panels(Organization $organization, User $user, DashboardWindow $window): array
     {
+        $can = fn (string $capability) => $this->permission->allows($organization, $user, $capability);
+
         return [
             [
                 'key' => 'headline',
@@ -180,7 +199,166 @@ class DashboardSummary
                 'capability' => 'customers.view',
                 'resolve' => fn (?array $allowed) => [],
             ],
+
+            /*
+             * The network view — head office's dashboard. What the
+             * organization earned and spent, branch against branch, and what
+             * its shelves need. See OrganizationDashboard for what each
+             * figure means; money panels are `billing.finance`, the same
+             * capability the Finance screen reads money under.
+             */
+            [
+                'key' => 'overview',
+                'context' => 'organization',
+                'module' => null,
+                'capability' => null,
+                'resolve' => fn (?array $allowed) => $this->network->overview($organization, $user, $allowed, [
+                    'branches' => $can('branches.view'),
+                    'doctors' => $can('appointments.view'),
+                    'staff' => $can('people.view'),
+                ]),
+            ],
+            [
+                /*
+                 * Ungated as a panel, gated card by card — like `headline`,
+                 * somebody holding only patients gets one card rather than
+                 * five, four of which would read zero.
+                 */
+                'key' => 'kpis',
+                'context' => 'organization',
+                'module' => null,
+                'capability' => null,
+                'resolve' => fn (?array $allowed) => $this->network->kpis($window, $allowed, [
+                    'patients' => $can('customers.view'),
+                    'appointments' => $can('appointments.view'),
+                    'revenue' => $can('billing.finance'),
+                    'purchases' => $can('billing.finance')
+                        && $this->permission->hasModule($organization, 'pharmacy', $this->permission->branchFor($user)),
+                ]),
+            ],
+            [
+                'key' => 'revenue_overview',
+                'context' => 'organization',
+                'module' => 'billing',
+                'capability' => 'billing.finance',
+                'resolve' => fn (?array $allowed, array $options = []) => $this->network->revenueOverview(
+                    $window,
+                    $allowed,
+                    $options['granularity'] ?? 'monthly',
+                    $options['location_id'] ?? null,
+                ),
+            ],
+            [
+                'key' => 'branch_performance',
+                'context' => 'organization',
+                'module' => null,
+                'capability' => 'branches.view',
+                'resolve' => fn (?array $allowed) => $this->network->branchPerformance($window, $allowed, [
+                    'appointments' => $can('appointments.view'),
+                    'money' => $can('billing.finance'),
+                ]),
+            ],
+            [
+                'key' => 'visit_trends',
+                'context' => 'organization',
+                'module' => 'appointments',
+                'capability' => 'appointments.view',
+                'resolve' => fn (?array $allowed, array $options = []) => $this->network->visitTrends(
+                    $window,
+                    $allowed,
+                    $options['location_id'] ?? null,
+                ),
+            ],
+            [
+                'key' => 'top_services',
+                'context' => 'organization',
+                'module' => 'billing',
+                'capability' => 'billing.finance',
+                'resolve' => fn (?array $allowed, array $options = []) => $this->network->topServices(
+                    $allowed,
+                    $options['period'] ?? 'this_month',
+                ),
+            ],
+            [
+                'key' => 'stock_alerts',
+                'context' => 'organization',
+                'module' => 'pharmacy',
+                'capability' => 'pharmacy.view',
+                'resolve' => fn (?array $allowed) => $this->network->stockAlerts($allowed),
+            ],
+            [
+                'key' => 'profit_loss',
+                'context' => 'organization',
+                'module' => 'billing',
+                'capability' => 'billing.finance',
+                'resolve' => fn (?array $allowed, array $options = []) => $this->network->profitLoss(
+                    $allowed,
+                    $options['period'] ?? 'this_year',
+                ),
+            ],
+            [
+                'key' => 'branch_activity',
+                'context' => 'organization',
+                'module' => null,
+                'capability' => 'settings.audit',
+                'resolve' => fn (?array $allowed) => $this->network->branchActivity(),
+            ],
         ];
+    }
+
+    /**
+     * Whether one panel may be built for this person, here.
+     *
+     * One test, asked by `for()`, `permittedKeys()` and `panel()` alike, so
+     * re-asking a card with its own filter cannot reach a panel the full
+     * dashboard would have withheld.
+     *
+     * @param  array<string, mixed>  $panel
+     */
+    private function visible(Organization $organization, User $user, array $panel, ?int $branch): bool
+    {
+        if (isset($panel['context']) && $panel['context'] !== ($branch === null ? 'organization' : 'branch')) {
+            return false;
+        }
+
+        $moduleRunning = $panel['module'] === null
+            || $this->permission->hasModule($organization, $panel['module'], $branch);
+
+        if (! $moduleRunning) {
+            return false;
+        }
+
+        return $panel['capability'] === null
+            || $this->permission->allows($organization, $user, $panel['capability']);
+    }
+
+    /**
+     * One panel on its own, re-asked with its card's filters — the revenue
+     * chart by week, the visit chart for one branch.
+     *
+     * Null when there is no such panel or this person may not see it here;
+     * the caller answers both the same way, so asking cannot be used to find
+     * out which panels exist for somebody else.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>|null
+     */
+    public function panel(
+        Organization $organization,
+        User $user,
+        string $key,
+        DashboardWindow $window,
+        array $options,
+    ): ?array {
+        $branch = $this->permission->branchFor($user);
+
+        foreach ($this->panels($organization, $user, $window) as $panel) {
+            if ($panel['key'] === $key && $this->visible($organization, $user, $panel, $branch)) {
+                return ($panel['resolve'])($this->branches->allowed($user), $options);
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -245,14 +423,9 @@ class DashboardSummary
         $branch = $this->permission->branchFor($user);
         $keys = [];
 
-        foreach ($this->panels($organization, $user) as $panel) {
-            $moduleRunning = $panel['module'] === null
-                || $this->permission->hasModule($organization, $panel['module'], $branch);
-
-            $permitted = $panel['capability'] === null
-                || $this->permission->allows($organization, $user, $panel['capability']);
-
-            if ($moduleRunning && $permitted) {
+        // Never resolved here, so the window is never read — any will do.
+        foreach ($this->panels($organization, $user, new DashboardWindow) as $panel) {
+            if ($this->visible($organization, $user, $panel, $branch)) {
                 $keys[] = $panel['key'];
             }
         }
@@ -261,8 +434,10 @@ class DashboardSummary
     }
 
     /** @return array<string, mixed> */
-    public function for(Organization $organization, User $user): array
+    public function for(Organization $organization, User $user, ?DashboardWindow $window = null): array
     {
+        $window ??= new DashboardWindow;
+
         /*
          * Null means every branch — the owner, and head office. A list means
          * exactly those. The distinction matters more than it looks: `[]` is
@@ -288,28 +463,31 @@ class DashboardSummary
                 'branch_id' => $branch,
                 'branch_name' => $branch ? Location::find($branch)?->name : null,
                 'city' => $branch ? Location::find($branch)?->city : null,
+
+                // The days every period figure is about, and what they are
+                // compared with.
+                'window' => $window->toArray(),
+
+                /*
+                 * The branches a card's "All Branches" filter may narrow to —
+                 * exactly the ones this person can see, so the list is not a
+                 * second request needing a capability of its own.
+                 */
+                'options' => $this->scopeToBranches(Location::query(), 'id', $allowed)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (Location $location) => ['id' => $location->id, 'name' => $location->name])
+                    ->all(),
             ],
         ];
 
-        foreach ($this->panels($organization, $user) as $panel) {
-            $moduleRunning = $panel['module'] === null
-                || $this->permission->hasModule($organization, $panel['module'], $branch);
-
-            if (! $moduleRunning) {
-                continue;
-            }
-
-            $permitted = $panel['capability'] === null
-                || $this->permission->allows($organization, $user, $panel['capability']);
-
-            if (! $permitted) {
-                continue;
-            }
-
+        foreach ($this->panels($organization, $user, $window) as $panel) {
             // Built only once it is known to be visible: a panel the caller
             // may not see costs no queries, and cannot reach the response to
             // be hidden by the client.
-            $summary[$panel['key']] = ($panel['resolve'])($allowed);
+            if ($this->visible($organization, $user, $panel, $branch)) {
+                $summary[$panel['key']] = ($panel['resolve'])($allowed);
+            }
         }
 
         return $summary;
@@ -534,7 +712,7 @@ class DashboardSummary
 
         $staffCounts = $branches->isEmpty()
             ? collect()
-            : \App\Models\Tenant\BranchMembership::query()
+            : BranchMembership::query()
                 ->selectRaw('location_id, COUNT(DISTINCT user_id) AS total')
                 ->whereIn('location_id', $branches->pluck('id'))
                 ->groupBy('location_id')
@@ -837,6 +1015,10 @@ class DashboardSummary
         return [
             'modules' => count($enabled),
             'names' => $enabled,
+            // The closest true things to a plan's dates: when a trial runs
+            // out, and since when the organization has been live.
+            'trial_ends_at' => $organization->trial_ends_at?->toDateString(),
+            'since' => ($organization->activated_at ?? $organization->created_at)?->toDateString(),
         ];
     }
 

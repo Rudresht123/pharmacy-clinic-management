@@ -9,9 +9,11 @@ use App\Http\Requests\Api\V1\Platform\UpdateOrganizationRequest;
 use App\Http\Resources\Platform\OrganizationResource;
 use App\Models\Platform\Organization;
 use App\Repositories\Platform\Contracts\OrganizationRepositoryInterface;
+use App\Services\Geo\OrganizationLocator;
 use App\Services\Platform\OrganizationProvisioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 
 /**
  * Organizations — Build Spec §19.
@@ -28,6 +30,7 @@ class OrganizationController extends BaseApiController
     public function __construct(
         private readonly OrganizationRepositoryInterface $organizations,
         private readonly OrganizationProvisioningService $provisioning,
+        private readonly OrganizationLocator $locator,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -73,21 +76,26 @@ class OrganizationController extends BaseApiController
     {
         return $this->ok(
             OrganizationResource::make(
-                $organization->load(['organizationType', 'tenantDatabase.dbCluster', 'migrationState'])
+                $organization->load(['organizationType', 'tenantDatabase.dbCluster', 'migrationState', 'profile'])
             )
         );
     }
 
     public function store(StoreOrganizationRequest $request): JsonResponse
     {
+        $data = $request->validatedForCreation();
+
         try {
             $organization = $this->provisioning->provision(
-                $request->validatedForCreation(),
+                Arr::except($data, OrganizationLocator::FIELDS),
                 $request->file('profile_image'),
             );
         } catch (\Throwable $e) {
             return $this->failFromThrowable($e, 'Failed to create organization.');
         }
+
+        // The address detail and map pin live on the profile, not the row.
+        $this->locator->save($organization, Arr::only($data, OrganizationLocator::FIELDS));
 
         /*
          * Created, and being built. The database, schema and owner login are
@@ -117,6 +125,9 @@ class OrganizationController extends BaseApiController
     ): JsonResponse {
         $data = $request->validatedForUpdate();
 
+        $this->locator->save($organization, Arr::only($data, OrganizationLocator::FIELDS));
+        $data = Arr::except($data, OrganizationLocator::FIELDS);
+
         if ($request->hasFile('profile_image')) {
             $previousImageId = $organization->profile_image;
 
@@ -131,7 +142,7 @@ class OrganizationController extends BaseApiController
         $organization = $this->organizations->update($organization, $data);
 
         return $this->ok(
-            OrganizationResource::make($organization->load('organizationType')),
+            OrganizationResource::make($organization->load(['organizationType', 'profile'])),
             'Organization updated successfully.'
         );
     }

@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api\V1\Platform;
 
 use App\Models\Platform\Module;
+use App\Models\Platform\Organization;
+use App\Services\Subscriptions\SubscriptionFacts;
 use App\Support\Modules\ModuleRegistry;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -58,7 +60,31 @@ class UpdateOrganizationModulesRequest extends FormRequest
             'modules.*.expires_at' => ['nullable', 'date', 'after_or_equal:modules.*.starts_at'],
 
             'modules.*.note' => ['nullable', 'string', 'max:255'],
+
+            /*
+             * Why. Required once the organization is on a real plan: its
+             * modules then come from the plan, and every row sent here is a
+             * Super Admin OVERRIDING it — on or off — which somebody will
+             * later have to explain. On Complimentary (every organization
+             * that predates plans) these rows are still how modules are
+             * sold, exactly as before, and the reason stays optional.
+             */
+            'reason' => [$this->onRealPlan() ? 'required' : 'nullable', 'string', 'min:5', 'max:500'],
         ];
+    }
+
+    /** On a plan whose modules these rows override, rather than Complimentary. */
+    public function onRealPlan(): bool
+    {
+        $organization = $this->route('organization');
+
+        if (! $organization instanceof Organization) {
+            return false;
+        }
+
+        $subscription = app(SubscriptionFacts::class)->subscription($organization);
+
+        return $subscription !== null && ! $subscription->isComplimentary();
     }
 
     /**
@@ -73,11 +99,26 @@ class UpdateOrganizationModulesRequest extends FormRequest
     {
         return [
             function (Validator $validator) {
-                $enabled = collect($this->input('modules', []))
-                    ->filter(fn ($binding) => is_array($binding)
-                        && is_string($binding['key'] ?? null)
-                        && filter_var($binding['is_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN))
-                    ->pluck('key')
+                $bindings = collect($this->input('modules', []))
+                    ->filter(fn ($binding) => is_array($binding) && is_string($binding['key'] ?? null));
+
+                $isOn = fn ($binding) => filter_var($binding['is_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+                /*
+                 * What the organization would run: the plan's modules, plus
+                 * what is switched on here, minus what is switched off here.
+                 * A module this turns on can lean on one the plan includes —
+                 * and turning off one the plan includes can strand another.
+                 */
+                $organization = $this->route('organization');
+                $planned = $organization instanceof Organization
+                    ? app(SubscriptionFacts::class)->modules($organization)
+                    : [];
+
+                $enabled = collect($planned)
+                    ->merge($bindings->filter($isOn)->pluck('key'))
+                    ->diff($bindings->reject($isOn)->pluck('key'))
+                    ->unique()
                     ->values()
                     ->all();
 

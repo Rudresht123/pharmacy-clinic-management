@@ -50,8 +50,10 @@ export function Header({
 
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const triggerRef = useRef<HTMLButtonElement>(null);
 
-    // Close the dropdown on any outside click.
+    // Close the dropdown on any outside click, or on Escape — which hands
+    // focus back to the avatar so a keyboard user isn't dropped on <body>.
     useEffect(() => {
         if (!menuOpen) {
             return;
@@ -63,9 +65,20 @@ export function Header({
             }
         }
 
-        document.addEventListener('mousedown', onClick);
+        function onKey(event: KeyboardEvent) {
+            if (event.key === 'Escape') {
+                setMenuOpen(false);
+                triggerRef.current?.focus();
+            }
+        }
 
-        return () => document.removeEventListener('mousedown', onClick);
+        document.addEventListener('mousedown', onClick);
+        document.addEventListener('keydown', onKey);
+
+        return () => {
+            document.removeEventListener('mousedown', onClick);
+            document.removeEventListener('keydown', onKey);
+        };
     }, [menuOpen]);
 
     async function handleLogout() {
@@ -128,25 +141,20 @@ export function Header({
                     <i className="ti ti-settings fs-20" />
                 </button>
 
-                <div className="dropdown" ref={menuRef}>
+                <div className="position-relative" ref={menuRef}>
                     <button
+                        ref={triggerRef}
                         type="button"
-                        className="btn border-0 d-flex align-items-center gap-2 px-2"
+                        className="acct-trigger"
                         onClick={() => setMenuOpen((open) => !open)}
                         aria-expanded={menuOpen}
+                        aria-controls="account-menu"
+                        aria-label="Account menu"
                     >
                         {user?.avatar_url ? (
-                            <img
-                                src={user.avatar_url}
-                                alt=""
-                                className="rounded-circle"
-                                style={{ width: 34, height: 34, objectFit: 'cover' }}
-                            />
+                            <img src={user.avatar_url} alt="" className="acct-trigger-photo" />
                         ) : (
-                            <span
-                                className="avatar rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
-                                style={{ width: 34, height: 34, fontSize: 13, fontWeight: 600 }}
-                            >
+                            <span className="avatar acct-trigger-photo bg-primary text-white">
                                 {user ? initials(user.name) : '?'}
                             </span>
                         )}
@@ -160,47 +168,76 @@ export function Header({
                     </button>
 
                     {menuOpen && (
-                        <div
-                            className="dropdown-menu dropdown-menu-end show mt-1"
-                            style={{ right: 0 }}
-                        >
+                        <div className="acct-menu" id="account-menu">
+                            {/* Who this is — the trigger hides the name and
+                                email below md, so a phone sees them here. */}
+                            <div className="acct-head">
+                                {user?.avatar_url ? (
+                                    <img src={user.avatar_url} alt="" className="acct-photo" />
+                                ) : (
+                                    <span className="acct-photo">
+                                        {user ? initials(user.name) : '?'}
+                                    </span>
+                                )}
+
+                                <span className="acct-who">
+                                    <b title={user?.name}>{user?.name}</b>
+                                    <small title={user?.email}>{user?.email}</small>
+                                </span>
+                            </div>
+
                             {profileTo && (
                                 <Link
                                     to={profileTo}
-                                    className="dropdown-item"
+                                    className="acct-item"
                                     onClick={() => setMenuOpen(false)}
                                 >
-                                    <i className="ti ti-user-circle me-1 align-middle" />
-                                    <span className="align-middle">My Profile</span>
+                                    <span className="acct-icon">
+                                        <i className="ti ti-user-circle" />
+                                    </span>
+                                    <span className="acct-text">
+                                        <b>My Profile</b>
+                                        <small>Your details and password</small>
+                                    </span>
+                                    <i className="ti ti-chevron-right acct-go" />
                                 </Link>
                             )}
 
                             {onLock && (
                                 <button
                                     type="button"
-                                    className="dropdown-item"
+                                    className="acct-item"
                                     onClick={() => {
                                         setMenuOpen(false);
                                         onLock();
                                     }}
                                 >
-                                    <i className="ti ti-lock me-1 align-middle" />
-                                    <span className="align-middle">Lock Screen</span>
+                                    <span className="acct-icon">
+                                        <i className="ti ti-lock" />
+                                    </span>
+                                    <span className="acct-text">
+                                        <b>Lock Screen</b>
+                                        <small>Step away without signing out</small>
+                                    </span>
+                                    <i className="ti ti-chevron-right acct-go" />
                                 </button>
                             )}
 
-                            <div
-                                className={profileTo || onLock ? 'pt-2 mt-2 border-top' : undefined}
+                            {(profileTo || onLock) && <div className="acct-sep" />}
+
+                            <button
+                                type="button"
+                                className="acct-item acct-item--danger"
+                                onClick={handleLogout}
                             >
-                                <button
-                                    type="button"
-                                    className="dropdown-item text-danger"
-                                    onClick={handleLogout}
-                                >
-                                    <i className="ti ti-logout me-1 fs-17 align-middle" />
-                                    <span className="align-middle">Log Out</span>
-                                </button>
-                            </div>
+                                <span className="acct-icon">
+                                    <i className="ti ti-logout" />
+                                </span>
+                                <span className="acct-text">
+                                    <b>Log Out</b>
+                                    <small>End this session</small>
+                                </span>
+                            </button>
                         </div>
                     )}
                 </div>

@@ -7,6 +7,7 @@ use App\Models\Platform\Organization;
 use App\Models\Platform\PlatformSetting;
 use App\Models\Tenant\CommunicationChannel;
 use App\Models\Tenant\MessageLog;
+use App\Services\Subscriptions\CommunicationMetering;
 use App\Services\WhatsApp\Providers\LogWhatsAppProvider;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -106,13 +107,20 @@ class WhatsAppManager
     {
         $organization = $this->organization();
 
+        // The subscription's say: this month's WhatsApp allowance, overage,
+        // a lapsed term. A refusal is still logged — as failed, with why —
+        // so the clinic can see the message did not go and the reason.
+        $refused = app(CommunicationMetering::class)->gate($organization, 'whatsapp', $extra);
+
         $log = MessageLog::query()->create($extra + [
             'channel' => 'whatsapp',
             'provider' => $this->providerKey(),
             'customer_id' => $customerId,
             'recipient' => $message->normalizedPhone(),
             'template_name' => $message->template,
-            'status' => MessageLog::QUEUED,
+            'status' => $refused === null ? MessageLog::QUEUED : MessageLog::FAILED,
+            'failure_reason' => $refused,
+            'failed_at' => $refused === null ? null : Carbon::now(),
             'scheduled_for' => Carbon::now(),
 
             // The keys but never the values. A delivery log is read by
@@ -122,6 +130,10 @@ class WhatsAppManager
                 ? $message->toLogContext()
                 : null,
         ]);
+
+        if ($refused !== null) {
+            return $log;
+        }
 
         $queue = config('whatsapp.queue');
 
@@ -336,6 +348,12 @@ class WhatsAppManager
                 ? $this->redact($response->raw)
                 : null,
         ])->save();
+
+        // Accepted by the provider: charged once, against this row. A retry of
+        // the same row arrives at the same usage record and adds nothing.
+        if ($response->success && $this->organization !== null) {
+            app(CommunicationMetering::class)->charge($this->organization, $log);
+        }
 
         return $response;
     }
