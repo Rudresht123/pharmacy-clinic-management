@@ -1,0 +1,1094 @@
+name: 'Tenant > Users, Roles & Permissions'
+description: ''
+endpoints:
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/users/fields
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        The field definitions the form and table render from — the code
+        registry with this organization's own preferences applied, plus any
+        fields it added itself.
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/users
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/users/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the user.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/tenant/users/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the user.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: 'api/v1/tenant/users/{user_id}/branches'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Where somebody works — the whole set, replaced in one write.'
+      description: |-
+        Separate from `update`, which is about who they are. Moving somebody
+        between branches is organization-level work, and folding it into the
+        ordinary edit would have handed it to every branch manager holding
+        `people.edit`.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      user_id:
+        custom: []
+        name: user_id
+        description: 'The ID of the user.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      user_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      branches:
+        custom: []
+        name: branches
+        description: ''
+        required: false
+        example: null
+        type: 'object[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'branches[].location_id':
+        custom: []
+        name: 'branches[].location_id'
+        description: 'Must match an existing stored value.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'branches[].role_id':
+        custom: []
+        name: 'branches[].role_id'
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'branches[].is_primary':
+        custom: []
+        name: 'branches[].is_primary'
+        description: ''
+        required: false
+        example: true
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      branches:
+        -
+          location_id: 16
+          role_id: 16
+          is_primary: true
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/users/{user_id}/permissions'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'What this person holds, where it comes from, and what was taken off.'
+      description: |-
+        Three lists rather than one, because the screen has to show the role's
+        defaults as the thing being edited AGAINST — a flat list of effective
+        capabilities cannot say which ticks are the role and which are this
+        person.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      user_id:
+        custom: []
+        name: user_id
+        description: 'The ID of the user.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      user_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: 'api/v1/tenant/users/{user_id}/permissions'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: "Replace what is taken off this person, at this actor's scope."
+      description: |-
+        The whole set in one write, like a doctor's week and a person's
+        branches: "which capabilities are denied" is a fact about the set, and a
+        per-row endpoint would let half a change land.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      user_id:
+        custom: []
+        name: user_id
+        description: 'The ID of the user.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      user_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      denied:
+        custom: []
+        name: denied
+        description: 'Must not be greater than 100 characters.'
+        required: false
+        example:
+          - b
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      denied:
+        - b
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/roles/grantable
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'The pool this organization may hand out, grouped by module.'
+      description: |-
+        The role screen renders from this rather than from a list in the client,
+        so a capability belonging to a module the organization was never sold
+        cannot be ticked — it is not offered at all, which is the honest way to
+        present something that does not exist here.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/roles/templates
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Somewhere to start, when writing a role.'
+      description: |-
+        The same library the seeder uses, so what an owner is offered here and
+        what a new organization is given on day one cannot drift apart. It used
+        to live in the front-end bundle, which meant two lists that agreed only
+        as long as somebody remembered to edit both.
+
+        Narrowed to what is grantable WHERE THIS PERSON IS, for the same reason
+        `grantable()` is: a branch writing its own roles can only draw on what
+        the owner switched on there.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/roles/{role_id}/members'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Who actually holds this role.'
+      description: |-
+        "4 members" is the number somebody reads before deciding to narrow a
+        role, and the four names are what they need before deciding whether
+        they dare. Kept to this endpoint rather than folded into `show`, which
+        the editor calls on every selection.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      role_id:
+        custom: []
+        name: role_id
+        description: 'The ID of the role.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      role_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/roles
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/roles/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the role.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/tenant/roles
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      name:
+        custom: []
+        name: name
+        description: 'Must not be greater than 60 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      scope:
+        custom: []
+        name: scope
+        description: ''
+        required: false
+        example: organization
+        type: string
+        enumValues:
+          - organization
+          - branch
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      description:
+        custom: []
+        name: description
+        description: 'Must not be greater than 255 characters.'
+        required: false
+        example: 'Et animi quos velit et fugiat.'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      icon:
+        custom: []
+        name: icon
+        description: ''
+        required: false
+        example: 'ti ti-nurse'
+        type: string
+        enumValues:
+          - 'ti ti-shield-lock'
+          - 'ti ti-users'
+          - 'ti ti-headset'
+          - 'ti ti-stethoscope'
+          - 'ti ti-nurse'
+          - 'ti ti-pill'
+          - 'ti ti-briefcase'
+          - 'ti ti-receipt'
+          - 'ti ti-cash'
+          - 'ti ti-clipboard-list'
+          - 'ti ti-microscope'
+          - 'ti ti-eye'
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      capabilities:
+        custom: []
+        name: capabilities
+        description: 'Must not be greater than 100 characters.'
+        required: false
+        example:
+          - d
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      locked:
+        custom: []
+        name: locked
+        description: 'Must not be greater than 100 characters.'
+        required: false
+        example:
+          - l
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      name: b
+      scope: organization
+      description: 'Et animi quos velit et fugiat.'
+      icon: 'ti ti-nurse'
+      capabilities:
+        - d
+      locked:
+        - l
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+      - PATCH
+    uri: 'api/v1/tenant/roles/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the role.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      name:
+        custom: []
+        name: name
+        description: 'Must not be greater than 60 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      scope:
+        custom: []
+        name: scope
+        description: ''
+        required: false
+        example: organization
+        type: string
+        enumValues:
+          - organization
+          - branch
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      description:
+        custom: []
+        name: description
+        description: 'Must not be greater than 255 characters.'
+        required: false
+        example: 'Et animi quos velit et fugiat.'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      icon:
+        custom: []
+        name: icon
+        description: ''
+        required: false
+        example: 'ti ti-eye'
+        type: string
+        enumValues:
+          - 'ti ti-shield-lock'
+          - 'ti ti-users'
+          - 'ti ti-headset'
+          - 'ti ti-stethoscope'
+          - 'ti ti-nurse'
+          - 'ti ti-pill'
+          - 'ti ti-briefcase'
+          - 'ti ti-receipt'
+          - 'ti ti-cash'
+          - 'ti ti-clipboard-list'
+          - 'ti ti-microscope'
+          - 'ti ti-eye'
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      capabilities:
+        custom: []
+        name: capabilities
+        description: 'Must not be greater than 100 characters.'
+        required: false
+        example:
+          - d
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      locked:
+        custom: []
+        name: locked
+        description: 'Must not be greater than 100 characters.'
+        required: false
+        example:
+          - l
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      name: b
+      scope: organization
+      description: 'Et animi quos velit et fugiat.'
+      icon: 'ti ti-eye'
+      capabilities:
+        - d
+      locked:
+        - l
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/tenant/roles/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the role.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/locations/{location_id}/roles/{role_id}/permissions'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'What this branch may change about this role, and what it has changed.'
+      description: |-
+        Three lists rather than a matrix: what the organization grants, what this
+        branch has removed, and what it may not remove. The screen already knows
+        how to group capabilities by module — it draws the pool from `grantable`
+        like every other permission screen — so sending a second, differently
+        shaped copy of the same vocabulary would be two sources to keep in step.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      location_id:
+        custom: []
+        name: location_id
+        description: 'The ID of the location.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      role_id:
+        custom: []
+        name: role_id
+        description: 'The ID of the role.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      location_id: 16
+      role_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: 'api/v1/tenant/locations/{location_id}/roles/{role_id}/permissions'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: "Replace this branch's decisions about this role, in one write."
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      location_id:
+        custom: []
+        name: location_id
+        description: 'The ID of the location.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      role_id:
+        custom: []
+        name: role_id
+        description: 'The ID of the role.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      location_id: 16
+      role_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      capabilities:
+        custom: []
+        name: capabilities
+        description: 'Must not be greater than 100 characters.'
+        required: false
+        example:
+          - b
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      capabilities:
+        - b
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/users/{user_id}/effective-permissions'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Users, Roles & Permissions'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      user_id:
+        custom: []
+        name: user_id
+        description: 'The ID of the user.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      user_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null

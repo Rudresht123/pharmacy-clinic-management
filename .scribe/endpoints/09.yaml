@@ -1,19 +1,21 @@
-name: 'Patient Portal > Home'
+name: 'Platform > Audit'
 description: ''
 endpoints:
   -
     custom: []
     httpMethods:
       - GET
-    uri: api/v1/tenant/portal/home
+    uri: api/v1/admin/audit
     metadata:
       custom: []
-      groupName: 'Patient Portal > Home'
+      groupName: 'Platform > Audit'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: ''
-      description: ''
+      title: 'The whole log, newest first.'
+      description: |-
+        Answers "who did what, when" across the platform. One organization's
+        own story is a different question and has its own endpoint below.
       authenticated: true
       deprecated: false
     headers:
@@ -22,6 +24,93 @@ endpoints:
       Accept: application/json
     urlParameters: []
     cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/admin/audit/filters
+    metadata:
+      custom: []
+      groupName: 'Platform > Audit'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'The values the filters offer, taken from what is actually in the log.'
+      description: |-
+        A hardcoded list would offer entity types nobody has ever touched and
+        miss the one somebody is looking for.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/admin/organizations/{organization_uuid}/history'
+    metadata:
+      custom: []
+      groupName: 'Platform > Audit'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Everything that has happened to one organization.'
+      description: |-
+        Scoped by `organization_id` rather than by entity, so assigning a
+        module — which writes a row about the binding, not about the
+        organization — appears here alongside a rename.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      organization_uuid:
+        custom: []
+        name: organization_uuid
+        description: ''
+        required: true
+        example: 01M3FCCA8K9WJW60JG1H92S2H3
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      organization_uuid: 01M3FCCA8K9WJW60JG1H92S2H3
     queryParameters: []
     cleanQueryParameters: []
     bodyParameters: []

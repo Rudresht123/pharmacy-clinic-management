@@ -15,6 +15,7 @@ use App\Services\Messaging\Participant;
 use App\Services\Opd\BookingService;
 use App\Services\Opd\VisitWorkflow;
 use App\Services\Push\PushManager;
+use App\Services\Subscriptions\UsageMeter;
 use App\Services\Tenancy\TenantConnectionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -91,6 +92,14 @@ class VideoCalls
             throw new HttpException(422, $visit->status === Appointment::STATUS_CANCELLED
                 ? 'This visit was cancelled.'
                 : 'This visit was marked as a no-show.');
+        }
+
+        // The subscription's say: video consultation in the plan, and minutes
+        // left this month (or overage allowed). Asked before the phone rings.
+        $allowed = app(UsageMeter::class)->authorize($organization, 'video');
+
+        if (! $allowed->allowed) {
+            throw new HttpException($allowed->reason === 'feature' ? 403 : 422, (string) $allowed->message);
         }
 
         $patient = $visit->customer()->first();
@@ -466,9 +475,42 @@ class VideoCalls
             return $locked;
         });
 
+        $this->meter($organization, $closed);
+
         $this->tell($organization, $closed, $this->everyoneOn($closed));
 
         return $closed;
+    }
+
+    /**
+     * Bill a call that was answered: whole minutes from answer to hang-up,
+     * rounded up, at least one. Keyed on the call, so a second "end" — from
+     * the other phone, or a retry — records nothing new. A ring nobody
+     * answered costs nothing.
+     */
+    private function meter(Organization $organization, VideoCall $call): void
+    {
+        if ($call->status !== VideoCall::ENDED || $call->answered_at === null || $call->ended_at === null) {
+            return;
+        }
+
+        $minutes = max(1, (int) ceil($call->answered_at->diffInSeconds($call->ended_at) / 60));
+
+        try {
+            app(UsageMeter::class)->record(
+                $organization,
+                'video',
+                'video_call',
+                (int) $call->getKey(),
+                $minutes,
+                meta: ['appointment' => $call->appointment_id],
+                occurredAt: $call->ended_at,
+            );
+        } catch (\Throwable $e) {
+            // The call is over either way; a ledger fault is reported, never
+            // thrown at the doctor hanging up.
+            report($e);
+        }
     }
 
     /** A ring nobody answered in time, closed as missed. */

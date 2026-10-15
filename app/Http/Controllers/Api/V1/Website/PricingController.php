@@ -28,7 +28,7 @@ use Illuminate\Validation\Rule;
  *
  * Amounts are paise (integers): ₹1,499 is 149900.
  *
- * @group Website › Pricing
+ * @group Website > Pricing
  *
  * @unauthenticated
  */
@@ -39,13 +39,25 @@ class PricingController extends BaseApiController
         private readonly BillingSettings $settings,
     ) {}
 
-    /** Every plan on the website. */
+    /**
+     * Every plan on the website.
+     *
+     * Published and public only, in Super Admin's order. Amounts are paise.
+     *
+     * @response 200 {"data":[{"slug":"growth","name":"Growth","description":"For a busy clinic","currency":"INR","monthly_price":149900,"annual_price":1499000,"annual_saving":299800,"trial_days":14,"limits":{"branches":3,"doctors":10,"employees":25},"quotas":{"whatsapp_messages":500,"sms_messages":0,"emails":2000,"video_minutes":120,"video_sessions":null},"modules":[{"key":"appointments","name":"Appointments"}],"features":["video_consultation","mobile_app"],"highlights":["Unlimited patients","WhatsApp reminders"]}]}
+     */
     public function plans(): JsonResponse
     {
         return $this->ok($this->cached('plans', fn () => $this->catalog->websitePlans()->map(fn (Plan $p) => $this->planPayload($p))->values()->all()));
     }
 
-    /** One plan, by its slug. */
+    /**
+     * One plan, by its slug.
+     *
+     * @urlParam slug string required The plan's address. Example: growth
+     *
+     * @response 404 {"message":"No such plan."}
+     */
     public function plan(string $slug): JsonResponse
     {
         $plan = $this->cached("plan:{$slug}", function () use ($slug) {
@@ -81,7 +93,13 @@ class PricingController extends BaseApiController
         return $this->ok($this->cached('addons', fn () => $this->catalog->websiteAddons()->map(fn (Addon $a) => $this->addonPayload($a))->values()->all()));
     }
 
-    /** Everything a pricing page needs, in one call. */
+    /**
+     * Everything a pricing page needs, in one call: plans, add-ons, the tax
+     * rule, and the names of every limit and feature. `version` changes
+     * whenever Super Admin changes any price.
+     *
+     * @response 200 {"data":{"currency":"INR","tax":{"mode":"exclusive","rate_bp":1800,"label":"GST"},"plans":[{"slug":"growth","name":"Growth","monthly_price":149900,"annual_price":1499000}],"addons":[{"key":"extra_doctor","name":"Extra doctor","kind":"resource","target":"doctors","unit_quantity":1,"billing":"recurring","currency":"INR","monthly_price":49900,"annual_price":499000}],"features":[{"key":"video_consultation","name":"Video consultation"}],"limits":[{"key":"doctors","name":"Doctors","unit":null}],"version":7}}
+     */
     public function pricing(): JsonResponse
     {
         return $this->ok($this->cached('pricing', fn () => [
@@ -101,7 +119,14 @@ class PricingController extends BaseApiController
 
     /**
      * What a choice would cost — computed here, so the website never
-     * multiplies a price itself.
+     * multiplies a price itself. Any price sent is ignored.
+     *
+     * @bodyParam plan string required The plan's slug. Example: growth
+     * @bodyParam billing_cycle string required monthly or annual. Example: monthly
+     * @bodyParam addons object Add-on key => quantity. Example: {"extra_doctor": 2}
+     * @bodyParam modules string[] Module keys to add. Example: ["laboratory"]
+     *
+     * @response 200 {"data":{"currency":"INR","lines":[{"type":"plan","ref":"growth","description":"Growth plan — monthly","quantity":1,"unit_price":149900,"amount":149900}],"subtotal":149900,"tax_mode":"exclusive","tax_rate_bp":1800,"tax_label":"GST","tax":26982,"total":176882}}
      */
     public function quote(Request $request): JsonResponse
     {

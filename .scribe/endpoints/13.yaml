@@ -1,18 +1,18 @@
-name: 'Patient Portal > Prescriptions'
+name: 'Platform > Mobile app'
 description: ''
 endpoints:
   -
     custom: []
     httpMethods:
       - GET
-    uri: api/v1/tenant/portal/prescriptions
+    uri: api/v1/admin/mobile-app
     metadata:
       custom: []
-      groupName: 'Patient Portal > Prescriptions'
+      groupName: 'Platform > Mobile app'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: ''
+      title: "The saved address, whether it reached Firebase, and this computer's own addresses."
       description: ''
       authenticated: true
       deprecated: false
@@ -39,15 +39,15 @@ endpoints:
   -
     custom: []
     httpMethods:
-      - GET
-    uri: 'api/v1/tenant/portal/prescriptions/{id}'
+      - PUT
+    uri: api/v1/admin/mobile-app
     metadata:
       custom: []
-      groupName: 'Patient Portal > Prescriptions'
+      groupName: 'Platform > Mobile app'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: ''
+      title: 'Save and publish. A blank address clears it.'
       description: ''
       authenticated: true
       deprecated: false
@@ -55,24 +55,24 @@ endpoints:
       Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
-    urlParameters:
-      id:
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      address:
         custom: []
-        name: id
-        description: 'The ID of the prescription.'
-        required: true
-        example: architecto
+        name: address
+        description: 'Must not be greater than 255 characters.'
+        required: false
+        example: b
         type: string
         enumValues: []
         exampleWasSpecified: false
-        nullable: false
+        nullable: true
         deprecated: false
-    cleanUrlParameters:
-      id: architecto
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
+    cleanBodyParameters:
+      address: b
     fileParameters: []
     responses: []
     responseFields: []

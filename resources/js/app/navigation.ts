@@ -99,6 +99,24 @@ export const navigation: NavSection[] = [
         ],
     },
     {
+        // What the platform sells and who is paying for what. Reading is
+        // open to billing, operations and support; changing it is billing's.
+        title: 'Billing',
+        items: [
+            { label: 'Overview', to: '/billing/overview', icon: 'ti ti-crown', match: '/billing/overview' },
+            {
+                label: 'Subscriptions',
+                to: '/billing/subscriptions',
+                icon: 'ti ti-users-group',
+                match: ['/billing/subscriptions', '/billing/organizations'],
+            },
+            { label: 'Plans', to: '/billing/plans', icon: 'ti ti-stack-2', match: '/billing/plans' },
+            { label: 'Pricing', to: '/billing/pricing', icon: 'ti ti-tag', match: '/billing/pricing' },
+            { label: 'Invoices', to: '/billing/invoices', icon: 'ti ti-receipt', match: '/billing/invoices' },
+            { label: 'Settings', to: '/billing/settings', icon: 'ti ti-settings', match: '/billing/settings' },
+        ],
+    },
+    {
         title: 'Account',
         items: [{ label: 'My Profile', to: '/profile', icon: 'ti ti-user-circle' }],
     },

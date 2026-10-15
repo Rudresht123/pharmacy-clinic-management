@@ -125,6 +125,12 @@ export function OrganizationHero({ organization }: { organization: Organization 
                     </Button>
                 )}
 
+                {/* Its plan, term, usage, invoices and the billing levers. */}
+                <Link to={`/billing/organizations/${organization.uuid}`} className="btn btn-light">
+                    <i className="ti ti-crown me-1" />
+                    Subscription
+                </Link>
+
                 <Link to={`/organizations/${organization.uuid}/edit`} className="btn btn-primary">
                     <i className="ti ti-edit me-1" />
                     Edit

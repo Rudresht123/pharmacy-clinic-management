@@ -29,6 +29,10 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('platform.role:billing,ops,support')->group(function () {
     Route::get('overview', [SubscriptionController::class, 'overview'])->name('overview');
     Route::get('subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
+    Route::get('subscriptions/insights', [SubscriptionController::class, 'insights'])->name('subscriptions.insights');
+    Route::get('plans/summary', [PlanController::class, 'summary'])->name('plans.summary');
+    Route::get('pricing/insights', [PlanController::class, 'pricing'])->name('pricing.insights');
+    Route::get('invoices/insights', [SubscriptionInvoiceController::class, 'insights'])->name('invoices.insights');
 
     Route::get('settings', [BillingSettingsController::class, 'show'])->name('settings.show');
 

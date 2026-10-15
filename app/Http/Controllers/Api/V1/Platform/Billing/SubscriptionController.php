@@ -8,10 +8,8 @@ use App\Http\Resources\Platform\Billing\SubscriptionResource;
 use App\Models\Platform\Organization;
 use App\Models\Platform\Subscription;
 use App\Models\Platform\SubscriptionEvent;
-use App\Models\Platform\SubscriptionInvoice;
-use App\Models\Platform\SubscriptionPayment;
 use App\Models\Platform\SubscriptionReminderDelivery;
-use App\Models\Platform\UsageRecord;
+use App\Services\Subscriptions\BillingAnalytics;
 use App\Services\Subscriptions\SubscriptionClock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -79,62 +77,43 @@ class SubscriptionController extends BaseApiController
     }
 
     /**
-     * The platform overview: counts by effective status, expiring this week,
-     * monthly recurring revenue, this month's revenue, usage cost and margin.
-     * Figures come from the subscriptions, invoices, payments and usage
-     * ledger — never a sample.
+     * The platform overview for a date range (default: this month): revenue,
+     * active subscriptions, invoices, pending and overdue — each against the
+     * previous period of the same length — plus the revenue trend, revenue by
+     * plan, subscription status and the latest invoices. All counted from the
+     * records; a chart with nothing behind it comes back empty.
      */
-    public function overview(): JsonResponse
+    public function overview(Request $request, BillingAnalytics $analytics): JsonResponse
     {
+        $request->validate([
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ]);
+
+        $from = $request->query('from') ? Carbon::parse($request->query('from'))->startOfDay() : Carbon::now()->startOfMonth();
+        $to = $request->query('to') ? Carbon::parse($request->query('to'))->endOfDay() : Carbon::now()->endOfMonth();
+
         $current = Subscription::query()->where('is_current', true)->get();
-        $counts = $current->groupBy(fn (Subscription $s) => $this->clock->status($s))->map->count();
-
-        $mrr = $current
-            ->filter(fn (Subscription $s) => ! $s->isComplimentary() && ! $this->clock->isLocked($s)
-                && $this->clock->status($s) !== Subscription::TRIAL)
-            ->sum(fn (Subscription $s) => $s->billing_cycle === Subscription::ANNUAL
-                ? intdiv($s->snapshotPrice(), 12)
-                : $s->snapshotPrice());
-
-        $monthStart = Carbon::now()->startOfMonth();
-
-        $collected = SubscriptionPayment::query()
-            ->where('status', SubscriptionPayment::CAPTURED)
-            ->where('verified_at', '>=', $monthStart)
-            ->sum('amount');
-
-        $usage = UsageRecord::query()->where('occurred_at', '>=', $monthStart)->get(['status', 'provider_cost_e4', 'charge_paise']);
-        $sign = fn (UsageRecord $r) => $r->status === UsageRecord::REVERSED ? -1 : 1;
-        $providerCost = intdiv($usage->sum(fn ($r) => $sign($r) * $r->provider_cost_e4) + 50, 100);
-        $usageRevenue = $usage->sum(fn ($r) => $sign($r) * $r->charge_paise);
 
         return $this->ok([
-            'counts' => [
-                'organizations' => Organization::query()->count(),
-                'without_subscription' => Organization::query()->whereDoesntHave('subscriptions', fn ($q) => $q->where('is_current', true))->count(),
-                'by_status' => $counts,
+            ...$analytics->overview($from, $to),
+            'attention' => [
                 'locked' => $current->filter(fn (Subscription $s) => $this->clock->isLocked($s))->count(),
-                'complimentary' => $current->filter->isComplimentary()->count(),
-                'expiring_7_days' => $current->filter(fn (Subscription $s) => $s->expires_at !== null
-                    && $s->expires_at->isFuture() && $s->expires_at <= now()->addDays(7))->count(),
-            ],
-            'revenue' => [
-                'mrr' => $mrr,
-                'collected_this_month' => (int) $collected,
-                'outstanding' => (int) SubscriptionInvoice::query()->where('status', SubscriptionInvoice::ISSUED)->sum('total'),
-                'usage_revenue_this_month' => (int) $usageRevenue,
-                'usage_provider_cost_this_month' => $providerCost,
-                'usage_gross_margin_this_month' => (int) $usageRevenue - $providerCost,
-            ],
-            'reminders' => [
-                'failed_last_7_days' => SubscriptionReminderDelivery::query()
+                'without_subscription' => Organization::query()->whereDoesntHave('subscriptions', fn ($q) => $q->where('is_current', true))->count(),
+                'failed_reminders' => SubscriptionReminderDelivery::query()
                     ->where('status', SubscriptionReminderDelivery::FAILED)
                     ->where('created_at', '>=', now()->subDays(7))->count(),
             ],
             'recent_events' => SubscriptionEventResource::collection(
-                SubscriptionEvent::query()->with('organization:id,organization_name')->latest('occurred_at')->limit(15)->get()
+                SubscriptionEvent::query()->with('organization:id,organization_name')->latest('occurred_at')->limit(10)->get()
             ),
             'currency' => 'INR',
         ]);
+    }
+
+    /** Tiles, growth over twelve months, and the spread across plans. */
+    public function insights(BillingAnalytics $analytics): JsonResponse
+    {
+        return $this->ok($analytics->subscriptions());
     }
 }

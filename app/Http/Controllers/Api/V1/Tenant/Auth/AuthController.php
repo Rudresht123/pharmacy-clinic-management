@@ -9,7 +9,9 @@ use App\Models\Tenant\File as TenantFile;
 use App\Models\Tenant\PersonalAccessToken;
 use App\Models\Tenant\User as TenantUser;
 use App\Services\Push\DeviceRegistry;
+use App\Services\Subscriptions\EntitlementService;
 use App\Services\Tenant\SessionPayload;
+use App\Support\Subscriptions\Entitlements;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -89,6 +91,12 @@ class AuthController extends BaseApiController
     public function token(LoginRequest $request, SessionPayload $session): JsonResponse
     {
         [$organization, $user] = $request->authenticateStateless();
+
+        // The app is a feature of the organization's plan. Every organization
+        // that predates plans has it (Complimentary includes every feature).
+        if (! app(EntitlementService::class)->hasFeature($organization, Entitlements::MOBILE_APP)) {
+            return $this->fail('The mobile app is not part of your organization\'s plan. Sign in on the web instead.', 403);
+        }
 
         // One token per device name, replaced on each sign-in — see
         // SessionPayload::withToken, which the patient sign-in shares.

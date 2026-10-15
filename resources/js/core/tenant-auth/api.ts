@@ -1,5 +1,6 @@
 import { ensureCsrfCookie, http } from '@/shared/api/http';
 import type { ApiResponse } from '@/shared/types/api';
+import type { SubscriptionStatus } from '@/core/subscription/types';
 
 /** The one role distinction that exists on the tenant side so far. */
 export type TenantUserRole = 'owner' | 'staff';
@@ -166,6 +167,14 @@ export interface TenantSession {
      * the dashboard, which would have nothing to show them.
      */
     owner_restricted?: boolean;
+
+    /**
+     * The organization's subscription — status, days left, whether it is
+     * locked — as the server enforces it. Null for a patient. A locked
+     * session lands on the subscription-expired page; the API refuses
+     * everything else with a 423 regardless.
+     */
+    subscription?: SubscriptionStatus | null;
 }
 
 export interface TenantLoginPayload {

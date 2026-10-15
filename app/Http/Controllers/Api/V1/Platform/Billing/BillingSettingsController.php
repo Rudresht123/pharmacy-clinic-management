@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\V1\Platform\Billing;
 use App\Http\Controllers\Api\V1\BaseApiController;
 use App\Models\Platform\Plan;
 use App\Services\Subscriptions\BillingSettings;
+use App\Services\Subscriptions\InvoiceService;
+use App\Services\Subscriptions\Payments\RazorpayGateway;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -59,6 +61,8 @@ class BillingSettingsController extends BaseApiController
             'settings' => $settings->all(),
             'secrets' => $settings->secretsPresent(),
             'webhook_url' => url('/api/v1/webhooks/razorpay'),
+            'next_invoice_number' => app(InvoiceService::class)->peekNumber(),
+            'online_ready' => app(RazorpayGateway::class)->configured(),
             'defaults' => BillingSettings::DEFAULTS,
         ];
     }

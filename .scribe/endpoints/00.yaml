@@ -1,71 +1,33 @@
-name: Onboarding
+name: Website
 description: ''
 endpoints:
   -
     custom: []
     httpMethods:
-      - GET
-    uri: 'api/v1/organization-setup/{token}'
-    metadata:
-      custom: []
-      groupName: Onboarding
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: 'Validate the token and return just enough to render the setup form.'
-      description: ''
-      authenticated: false
-      deprecated: false
-    headers:
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters:
-      token:
-        custom: []
-        name: token
-        description: ''
-        required: true
-        example: architecto
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-    cleanUrlParameters:
-      token: architecto
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth: []
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
       - POST
-    uri: 'api/v1/organization-setup/{token}'
+    uri: api/v1/website/enquiries
     metadata:
       custom: []
-      groupName: Onboarding
+      groupName: Website
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
       title: ''
       description: ''
-      authenticated: false
+      authenticated: true
       deprecated: false
     headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
-    urlParameters:
-      token:
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      type:
         custom: []
-        name: token
+        name: type
         description: ''
         required: true
         example: architecto
@@ -74,40 +36,98 @@ endpoints:
         exampleWasSpecified: false
         nullable: false
         deprecated: false
-    cleanUrlParameters:
-      token: architecto
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters:
-      admin_name:
+      name:
         custom: []
-        name: admin_name
-        description: 'Must not be greater than 191 characters.'
+        name: name
+        description: 'Must not be greater than 150 characters.'
         required: true
-        example: b
+        example: 'n'
         type: string
         enumValues: []
         exampleWasSpecified: false
         nullable: false
         deprecated: false
-      password:
+      organization_name:
         custom: []
-        name: password
-        description: ''
+        name: organization_name
+        description: 'Must not be greater than 191 characters.'
+        required: false
+        example: g
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      email:
+        custom: []
+        name: email
+        description: 'Must be a valid email address. Must not be greater than 191 characters.'
         required: true
-        example: '|]|{+-'
+        example: rowan.gulgowski@example.com
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      phone:
+        custom: []
+        name: phone
+        description: 'Must not be greater than 30 characters.'
+        required: false
+        example: d
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      interest:
+        custom: []
+        name: interest
+        description: 'Must not be greater than 191 characters.'
+        required: false
+        example: l
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      message:
+        custom: []
+        name: message
+        description: 'Must not be greater than 2000 characters.'
+        required: false
+        example: j
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      website:
+        custom: []
+        name: website
+        description: ''
+        required: false
+        example: null
         type: string
         enumValues: []
         exampleWasSpecified: false
         nullable: false
         deprecated: false
     cleanBodyParameters:
-      admin_name: b
-      password: '|]|{+-'
+      type: architecto
+      name: 'n'
+      organization_name: g
+      email: rowan.gulgowski@example.com
+      phone: d
+      interest: l
+      message: j
     fileParameters: []
     responses: []
     responseFields: []
-    auth: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
     controller: null
     method: null
     route: null

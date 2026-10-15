@@ -4,9 +4,11 @@ namespace App\Console\Commands;
 
 use App\Models\Platform\Subscription;
 use App\Services\Subscriptions\BillingSettings;
+use App\Services\Subscriptions\InvoiceService;
 use App\Services\Subscriptions\SubscriptionClock;
 use App\Services\Subscriptions\SubscriptionLifecycle;
 use App\Services\Subscriptions\SubscriptionNotifier;
+use App\Services\Subscriptions\UsageBalances;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -40,6 +42,8 @@ class ProcessSubscriptionsCommand extends Command
         SubscriptionClock $clock,
         SubscriptionNotifier $notifier,
         BillingSettings $settings,
+        InvoiceService $invoices,
+        UsageBalances $balances,
     ): int {
         $dry = (bool) $this->option('dry-run');
         $failed = 0;
@@ -55,7 +59,7 @@ class ProcessSubscriptionsCommand extends Command
             $query->whereHas('organization', fn ($q) => $q->where('uuid', $uuid));
         }
 
-        $query->chunkById(200, function ($subscriptions) use ($lifecycle, $clock, $notifier, $settings, $dry, &$failed, &$moved, &$reminded) {
+        $query->chunkById(200, function ($subscriptions) use ($lifecycle, $clock, $notifier, $settings, $invoices, $balances, $dry, &$failed, &$moved, &$reminded) {
             foreach ($subscriptions as $subscription) {
                 /** @var Subscription $subscription */
                 $name = $subscription->organization?->organization_name ?? "#{$subscription->organization_id}";
@@ -85,6 +89,8 @@ class ProcessSubscriptionsCommand extends Command
                     if ($kind !== null) {
                         $reminded += $notifier->remind($subscription->refresh(), $kind);
                     }
+
+                    $this->invoiceWhatIsDue($subscription->refresh(), $invoices, $balances, $settings);
                 } catch (Throwable $e) {
                     report($e);
                     $this->error("{$name}: {$e->getMessage()}");
@@ -96,6 +102,34 @@ class ProcessSubscriptionsCommand extends Command
         $this->info(($dry ? '[dry run] ' : '')."{$moved} transition(s), {$reminded} reminder(s) sent, {$failed} failure(s).");
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * Invoices that are due by the calendar, each issued once:
+     *
+     *   the renewal invoice, `renewal_invoice_days` before the term ends —
+     *     not for complimentary or cancelled subscriptions;
+     *   last month's overage, once the month has closed.
+     */
+    private function invoiceWhatIsDue(Subscription $subscription, InvoiceService $invoices, UsageBalances $balances, BillingSettings $settings): void
+    {
+        $organization = $subscription->organization;
+
+        if ($organization === null) {
+            return;
+        }
+
+        $lead = (int) $settings->get('renewal_invoice_days');
+
+        if (! $subscription->isComplimentary()
+            && $subscription->cancelled_at === null
+            && $subscription->next_renewal_at !== null
+            && $subscription->next_renewal_at <= now()->addDays($lead)) {
+            $invoices->renewalInvoice($subscription);
+        }
+
+        [$thisMonth] = $balances->period($organization);
+        $invoices->overageInvoice($organization, $balances->period($organization, $thisMonth->copy()->subDay())[0]);
     }
 
     /** The one reminder this subscription is due now, if any. */

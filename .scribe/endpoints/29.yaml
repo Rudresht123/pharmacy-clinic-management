@@ -1,56 +1,30 @@
-name: 'Tenant > Audit History'
+name: 'Tenant > Locations & Branches'
 description: ''
 endpoints:
   -
     custom: []
     httpMethods:
       - GET
-    uri: 'api/v1/tenant/history/{entity}/{id}'
+    uri: api/v1/tenant/locations/fields
     metadata:
       custom: []
-      groupName: 'Tenant > Audit History'
+      groupName: 'Tenant > Locations & Branches'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: "One record's own story."
-      description: |-
-        Open to anybody signed in, unlike the whole log: somebody who can
-        already see a customer can reasonably ask who last changed their phone
-        number. The entity type comes from the URL and is matched against what
-        is in the log rather than a hardcoded list, so a newly tracked model
-        needs no change here.
+      title: |-
+        The field definitions the form and table render from — the code
+        registry with this organization's own preferences applied, plus any
+        fields it added itself.
+      description: ''
       authenticated: true
       deprecated: false
     headers:
       Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
-    urlParameters:
-      entity:
-        custom: []
-        name: entity
-        description: ''
-        required: true
-        example: architecto
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-      id:
-        custom: []
-        name: id
-        description: 'The ID of the {entity}.'
-        required: true
-        example: '564'
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-    cleanUrlParameters:
-      entity: architecto
-      id: '564'
+    urlParameters: []
+    cleanUrlParameters: []
     queryParameters: []
     cleanQueryParameters: []
     bodyParameters: []
@@ -69,10 +43,10 @@ endpoints:
     custom: []
     httpMethods:
       - GET
-    uri: api/v1/tenant/history
+    uri: api/v1/tenant/locations
     metadata:
       custom: []
-      groupName: 'Tenant > Audit History'
+      groupName: 'Tenant > Locations & Branches'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
@@ -104,14 +78,14 @@ endpoints:
     custom: []
     httpMethods:
       - GET
-    uri: api/v1/tenant/history-filters
+    uri: 'api/v1/tenant/locations/{id}'
     metadata:
       custom: []
-      groupName: 'Tenant > Audit History'
+      groupName: 'Tenant > Locations & Branches'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: 'The filter values that actually occur, not a hardcoded list.'
+      title: ''
       description: ''
       authenticated: true
       deprecated: false
@@ -119,8 +93,403 @@ endpoints:
       Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the location.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/tenant/locations/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Locations & Branches'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the location.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/tenant/locations/{location_id}/logo'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Locations & Branches'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: "This branch's letterhead mark."
+      description: |-
+        UPLOADED WHEREVER IT IS BEING LOOKED AT, which in practice is the
+        document template editor — sending somebody to another screen to change
+        a logo they are staring at is a round trip that teaches nothing. What it
+        writes is still the branch's own record, not a copy kept on the
+        template: one mark, every document, changed once.
+
+        SVG IS EXCLUDED DELIBERATELY. It is a document that can carry script,
+        and a letterhead needs no vectors — the same line DoctorController draws
+        for a portrait.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: multipart/form-data
+      Accept: application/json
+    urlParameters:
+      location_id:
+        custom: []
+        name: location_id
+        description: 'The ID of the location.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      location_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      logo:
+        custom: []
+        name: logo
+        description: 'Must be an image. Must not be greater than 4096 kilobytes.'
+        required: true
+        example: null
+        type: file
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters: []
+    fileParameters:
+      logo: null
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/tenant/locations/{location_id}/logo'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Locations & Branches'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: "Drop it, and fall back to the organisation's mark."
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      location_id:
+        custom: []
+        name: location_id
+        description: 'The ID of the location.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      location_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: 'api/v1/tenant/locations/{location_id}/manager'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Locations & Branches'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      location_id:
+        custom: []
+        name: location_id
+        description: 'The ID of the location.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      location_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      user_id:
+        custom: []
+        name: user_id
+        description: ''
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      role_id:
+        custom: []
+        name: role_id
+        description: |-
+          *
+           * Optional. An organization that renamed or rewrote its manager
+           * role says so here; everybody else gets the seeded one. Branch
+           * scope is checked below rather than in the rule, so the message
+           * can say why.
+           */.
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      user_id: 16
+      role_id: 16
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/tenant/locations/{location_id}/manager'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Locations & Branches'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Leave the branch unmanaged, which is how every branch starts.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      location_id:
+        custom: []
+        name: location_id
+        description: 'The ID of the location.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      location_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/locations/{location_id}/modules'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Locations & Branches'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'The switchable modules for this branch, each with its standing.'
+      description: |-
+        A module the organization has switched off for itself is still listed,
+        as off with `organization_enabled: false`, so the screen can say why
+        rather than the module silently vanishing from the branch.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      location_id:
+        custom: []
+        name: location_id
+        description: 'The ID of the location.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      location_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: 'api/v1/tenant/locations/{location_id}/modules'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Locations & Branches'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      location_id:
+        custom: []
+        name: location_id
+        description: 'The ID of the location.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      location_id: 16
     queryParameters: []
     cleanQueryParameters: []
     bodyParameters: []

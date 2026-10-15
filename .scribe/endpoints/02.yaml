@@ -1,127 +1,391 @@
-name: 'Platform > Audit'
+name: 'Website > Sign-up'
 description: ''
 endpoints:
   -
     custom: []
     httpMethods:
       - GET
-    uri: api/v1/admin/audit
+    uri: 'api/v1/website/registration-status/{reference}'
     metadata:
       custom: []
-      groupName: 'Platform > Audit'
+      groupName: 'Website > Sign-up'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: 'The whole log, newest first.'
-      description: |-
-        Answers "who did what, when" across the platform. One organization's
-        own story is a different question and has its own endpoint below.
-      authenticated: true
+      title: 'Where a registration has got to — poll it after registering or paying.'
+      description: ''
+      authenticated: false
       deprecated: false
     headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - GET
-    uri: api/v1/admin/audit/filters
-    metadata:
-      custom: []
-      groupName: 'Platform > Audit'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: 'The values the filters offer, taken from what is actually in the log.'
-      description: |-
-        A hardcoded list would offer entity types nobody has ever touched and
-        miss the one somebody is looking for.
-      authenticated: true
-      deprecated: false
-    headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - GET
-    uri: 'api/v1/admin/organizations/{organization_uuid}/history'
-    metadata:
-      custom: []
-      groupName: 'Platform > Audit'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: 'Everything that has happened to one organization.'
-      description: |-
-        Scoped by `organization_id` rather than by entity, so assigning a
-        module — which writes a row about the binding, not about the
-        organization — appears here alongside a rename.
-      authenticated: true
-      deprecated: false
-    headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
     urlParameters:
-      organization_uuid:
+      reference:
         custom: []
-        name: organization_uuid
+        name: reference
         description: ''
         required: true
-        example: 01M3FCCA8K9WJW60JG1H92S2H3
+        example: 01JB6Z3Q8K4V2M9X0R7T5W1Y3H
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      reference: 01JB6Z3Q8K4V2M9X0R7T5W1Y3H
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"data":{"reference":"01JB6Z3Q8K4V2M9X0R7T5W1Y3H","status":"active","plan":"Growth","trial":false,"total":176882,"currency":"INR","workspace":{"subdomain":"sunrise","login_url":"https://sunrise.zevro.in/login"},"message":"Your workspace is ready. Check your email to set your password."}}'
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/website/registrations
+    metadata:
+      custom: []
+      groupName: 'Website > Sign-up'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Register a clinic.'
+      description: |-
+        Send an `Idempotency-Key` header unique to this sign-up; repeating the
+        request with the same key returns the same registration. A trial is set
+        up straight away; a paid plan waits at `pending_payment` for checkout.
+      authenticated: false
+      deprecated: false
+    headers:
+      Idempotency-Key: 3f1c9a52-7d0e-4c1b-9f6e-2a8e0d1b7c44
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      plan:
+        custom: []
+        name: plan
+        description: ''
+        required: true
+        example: growth
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      billing_cycle:
+        custom: []
+        name: billing_cycle
+        description: ''
+        required: true
+        example: monthly
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      start_trial:
+        custom: []
+        name: start_trial
+        description: ''
+        required: false
+        example: true
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      organization_name:
+        custom: []
+        name: organization_name
+        description: ''
+        required: true
+        example: 'Sunrise Clinic'
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      contact_name:
+        custom: []
+        name: contact_name
+        description: ''
+        required: true
+        example: 'Dr. Mehta'
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      email:
+        custom: []
+        name: email
+        description: ''
+        required: true
+        example: owner@sunrise.example
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      phone:
+        custom: []
+        name: phone
+        description: ''
+        required: false
+        example: '9876543210'
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: true
+        deprecated: false
+      subdomain:
+        custom: []
+        name: subdomain
+        description: 'The workspace address.'
+        required: true
+        example: sunrise
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      organization_type_id:
+        custom: []
+        name: organization_type_id
+        description: ''
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      addons:
+        custom: []
+        name: addons
+        description: 'Must be at least 0. Must not be greater than 1000.'
+        required: false
+        example:
+          - 22
+        type: 'integer[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      modules:
+        custom: []
+        name: modules
+        description: 'Must not be greater than 60 characters.'
+        required: false
+        example:
+          - g
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      website:
+        custom: []
+        name: website
+        description: 'A honeypot, as on the enquiry form: people never see it.'
+        required: false
+        example: null
         type: string
         enumValues: []
         exampleWasSpecified: false
         nullable: false
         deprecated: false
-    cleanUrlParameters:
-      organization_uuid: 01M3FCCA8K9WJW60JG1H92S2H3
+    cleanBodyParameters:
+      plan: growth
+      billing_cycle: monthly
+      start_trial: true
+      organization_name: 'Sunrise Clinic'
+      contact_name: 'Dr. Mehta'
+      email: owner@sunrise.example
+      phone: '9876543210'
+      subdomain: sunrise
+      organization_type_id: 16
+      addons:
+        - 22
+      modules:
+        - g
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 201
+        content: '{"data":{"reference":"01JB6Z3Q8K4V2M9X0R7T5W1Y3H","status":"provisioning","plan":"Growth","trial":true,"total":176882,"currency":"INR","workspace":null,"message":"Setting up your workspace. We will email you when it is ready."},"message":"Your trial is being set up."}'
+        headers: []
+        description: ''
+      -
+        custom: []
+        status: 422
+        content: '{"message":"The given data was invalid.","errors":{"subdomain":["That address is taken. Choose another."]}}'
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/website/checkout
+    metadata:
+      custom: []
+      groupName: 'Website > Sign-up'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'The invoice and Razorpay order for a registration waiting on payment.'
+      description: |-
+        Open Razorpay Checkout with `checkout.key_id`, `checkout.order_id` and
+        `checkout.amount`, then send its result to checkout/verify.
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
     queryParameters: []
     cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
+    bodyParameters:
+      reference:
+        custom: []
+        name: reference
+        description: ''
+        required: true
+        example: 01JB6Z3Q8K4V2M9X0R7T5W1Y3H
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      reference: 01JB6Z3Q8K4V2M9X0R7T5W1Y3H
     fileParameters: []
-    responses: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"data":{"invoice":"01JB6Z4A1B2C3D4E5F6G7H8J9K","total":176882,"checkout":{"gateway":"razorpay","key_id":"rzp_live_xxx","order_id":"order_O1a2B3c4D5","amount":176882,"currency":"INR","invoice":"01JB6Z4A1B2C3D4E5F6G7H8J9K","description":"Invoice ZV-2026-000042","prefill":{"name":"Sunrise Clinic","email":"owner@sunrise.example","contact":"9876543210"}}}}'
+        headers: []
+        description: ''
     responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/website/checkout/verify
+    metadata:
+      custom: []
+      groupName: 'Website > Sign-up'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        The browser's checkout callback — verified against Razorpay (signature,
+        and Razorpay's own record of the payment) before anything happens. The
+        webhook confirms it too, so a closed tab never loses a payment.
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      reference:
+        custom: []
+        name: reference
+        description: 'Must be 26 characters.'
+        required: true
+        example: bngzmiyvdljnikhwaykcmyuwpw
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      razorpay_order_id:
+        custom: []
+        name: razorpay_order_id
+        description: 'Must not be greater than 80 characters.'
+        required: true
+        example: l
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      razorpay_payment_id:
+        custom: []
+        name: razorpay_payment_id
+        description: 'Must not be greater than 80 characters.'
+        required: true
+        example: v
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      razorpay_signature:
+        custom: []
+        name: razorpay_signature
+        description: 'Must not be greater than 200 characters.'
+        required: true
+        example: q
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      reference: bngzmiyvdljnikhwaykcmyuwpw
+      razorpay_order_id: l
+      razorpay_payment_id: v
+      razorpay_signature: q
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"data":{"reference":"01JB6Z3Q8K4V2M9X0R7T5W1Y3H","status":"provisioning","workspace":null},"message":"Payment received. Setting up your workspace."}'
+        headers: []
+        description: ''
+      -
+        custom: []
+        status: 422
+        content: '{"message":"The given data was invalid.","errors":{"payment":["The payment could not be verified."]}}'
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
     controller: null
     method: null
     route: null

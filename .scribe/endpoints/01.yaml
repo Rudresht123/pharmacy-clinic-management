@@ -1,75 +1,21 @@
-name: 'Platform > Authentication'
+name: 'Website > Pricing'
 description: ''
 endpoints:
   -
     custom: []
     httpMethods:
-      - POST
-    uri: api/v1/admin/auth/login
+      - GET
+    uri: api/v1/website/pricing
     metadata:
       custom: []
-      groupName: 'Platform > Authentication'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: ''
-      description: ''
-      authenticated: false
-      deprecated: false
-    headers:
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters:
-      email:
-        custom: []
-        name: email
-        description: 'Must be a valid email address.'
-        required: true
-        example: gbailey@example.net
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-      password:
-        custom: []
-        name: password
-        description: ''
-        required: true
-        example: '|]|{+-'
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-    cleanBodyParameters:
-      email: gbailey@example.net
-      password: '|]|{+-'
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth: []
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - POST
-    uri: api/v1/admin/auth/forgot-password
-    metadata:
-      custom: []
-      groupName: 'Platform > Authentication'
+      groupName: 'Website > Pricing'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
       title: |-
-        Email a reset link. The response is identical whether or not the
-        address exists, so this cannot be used to enumerate administrators.
+        Everything a pricing page needs, in one call: plans, add-ons, the tax
+        rule, and the names of every limit and feature. `version` changes
+        whenever Super Admin changes any price.
       description: ''
       authenticated: false
       deprecated: false
@@ -80,22 +26,16 @@ endpoints:
     cleanUrlParameters: []
     queryParameters: []
     cleanQueryParameters: []
-    bodyParameters:
-      email:
-        custom: []
-        name: email
-        description: 'Must be a valid email address.'
-        required: true
-        example: gbailey@example.net
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-    cleanBodyParameters:
-      email: gbailey@example.net
+    bodyParameters: []
+    cleanBodyParameters: []
     fileParameters: []
-    responses: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"data":{"currency":"INR","tax":{"mode":"exclusive","rate_bp":1800,"label":"GST"},"plans":[{"slug":"growth","name":"Growth","monthly_price":149900,"annual_price":1499000}],"addons":[{"key":"extra_doctor","name":"Extra doctor","kind":"resource","target":"doctors","unit_quantity":1,"billing":"recurring","currency":"INR","monthly_price":49900,"annual_price":499000}],"features":[{"key":"video_consultation","name":"Video consultation"}],"limits":[{"key":"doctors","name":"Doctors","unit":null}],"version":7}}'
+        headers: []
+        description: ''
     responseFields: []
     auth: []
     controller: null
@@ -104,15 +44,101 @@ endpoints:
   -
     custom: []
     httpMethods:
-      - POST
-    uri: api/v1/admin/auth/reset-password
+      - GET
+    uri: api/v1/website/plans
     metadata:
       custom: []
-      groupName: 'Platform > Authentication'
+      groupName: 'Website > Pricing'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: ''
+      title: 'Every plan on the website.'
+      description: "Published and public only, in Super Admin's order. Amounts are paise."
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"data":[{"slug":"growth","name":"Growth","description":"For a busy clinic","currency":"INR","monthly_price":149900,"annual_price":1499000,"annual_saving":299800,"trial_days":14,"limits":{"branches":3,"doctors":10,"employees":25},"quotas":{"whatsapp_messages":500,"sms_messages":0,"emails":2000,"video_minutes":120,"video_sessions":null},"modules":[{"key":"appointments","name":"Appointments"}],"features":["video_consultation","mobile_app"],"highlights":["Unlimited patients","WhatsApp reminders"]}]}'
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/website/plans/{slug}'
+    metadata:
+      custom: []
+      groupName: 'Website > Pricing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'One plan, by its slug.'
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      slug:
+        custom: []
+        name: slug
+        description: "The plan's address."
+        required: true
+        example: growth
+        type: string
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      slug: growth
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses:
+      -
+        custom: []
+        status: 404
+        content: '{"message":"No such plan."}'
+        headers: []
+        description: ''
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/website/modules
+    metadata:
+      custom: []
+      groupName: 'Website > Pricing'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Modules, with an add-on price where one is public.'
       description: ''
       authenticated: false
       deprecated: false
@@ -123,44 +149,8 @@ endpoints:
     cleanUrlParameters: []
     queryParameters: []
     cleanQueryParameters: []
-    bodyParameters:
-      token:
-        custom: []
-        name: token
-        description: ''
-        required: true
-        example: architecto
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-      email:
-        custom: []
-        name: email
-        description: 'Must be a valid email address.'
-        required: true
-        example: zbailey@example.net
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-      password:
-        custom: []
-        name: password
-        description: ''
-        required: true
-        example: architecto
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-    cleanBodyParameters:
-      token: architecto
-      email: zbailey@example.net
-      password: architecto
+    bodyParameters: []
+    cleanBodyParameters: []
     fileParameters: []
     responses: []
     responseFields: []
@@ -172,21 +162,18 @@ endpoints:
     custom: []
     httpMethods:
       - GET
-    uri: api/v1/admin/auth/me
+    uri: api/v1/website/addons
     metadata:
       custom: []
-      groupName: 'Platform > Authentication'
+      groupName: 'Website > Pricing'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: |-
-        The SPA calls this on boot to decide between the panel and the login
-        screen, and reads `roles` from it to shape the navigation.
+      title: ''
       description: ''
-      authenticated: true
+      authenticated: false
       deprecated: false
     headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
     urlParameters: []
@@ -198,10 +185,7 @@ endpoints:
     fileParameters: []
     responses: []
     responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    auth: []
     controller: null
     method: null
     route: null
@@ -209,150 +193,20 @@ endpoints:
     custom: []
     httpMethods:
       - POST
-    uri: api/v1/admin/auth/logout
+    uri: api/v1/website/quote
     metadata:
       custom: []
-      groupName: 'Platform > Authentication'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: ''
-      description: ''
-      authenticated: true
-      deprecated: false
-    headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - PUT
-    uri: api/v1/admin/auth/profile
-    metadata:
-      custom: []
-      groupName: 'Platform > Authentication'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: ''
-      description: ''
-      authenticated: true
-      deprecated: false
-    headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters:
-      name:
-        custom: []
-        name: name
-        description: 'Must not be greater than 120 characters.'
-        required: true
-        example: b
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-      email:
-        custom: []
-        name: email
-        description: 'Must be a valid email address. Must not be greater than 190 characters.'
-        required: true
-        example: zbailey@example.net
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-    cleanBodyParameters:
-      name: b
-      email: zbailey@example.net
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - POST
-    uri: api/v1/admin/auth/confirm-password
-    metadata:
-      custom: []
-      groupName: 'Platform > Authentication'
+      groupName: 'Website > Pricing'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
       title: |-
-        Re-confirm the current password — used by the lock screen and, later,
-        before destructive actions in the Danger Zone.
+        What a choice would cost — computed here, so the website never
+        multiplies a price itself. Any price sent is ignored.
       description: ''
-      authenticated: true
+      authenticated: false
       deprecated: false
     headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - PUT
-    uri: api/v1/admin/auth/password
-    metadata:
-      custom: []
-      groupName: 'Platform > Authentication'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: ''
-      description: ''
-      authenticated: true
-      deprecated: false
-    headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
     urlParameters: []
@@ -360,38 +214,69 @@ endpoints:
     queryParameters: []
     cleanQueryParameters: []
     bodyParameters:
-      current_password:
+      plan:
         custom: []
-        name: current_password
-        description: ''
+        name: plan
+        description: "The plan's slug."
         required: true
-        example: architecto
+        example: growth
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
-      password:
+      billing_cycle:
         custom: []
-        name: password
-        description: ''
+        name: billing_cycle
+        description: 'monthly or annual.'
         required: true
-        example: architecto
+        example: monthly
         type: string
         enumValues: []
-        exampleWasSpecified: false
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      addons:
+        custom: []
+        name: addons
+        description: 'Add-on key => quantity.'
+        required: false
+        example:
+          extra_doctor: 2
+        type: object
+        enumValues: []
+        exampleWasSpecified: true
+        nullable: false
+        deprecated: false
+      modules:
+        custom: []
+        name: modules
+        description: 'Module keys to add.'
+        required: false
+        example:
+          - laboratory
+        type: 'string[]'
+        enumValues: []
+        exampleWasSpecified: true
         nullable: false
         deprecated: false
     cleanBodyParameters:
-      current_password: architecto
-      password: architecto
+      plan: growth
+      billing_cycle: monthly
+      addons:
+        extra_doctor: 2
+      modules:
+        - laboratory
     fileParameters: []
-    responses: []
+    responses:
+      -
+        custom: []
+        status: 200
+        content: '{"data":{"currency":"INR","lines":[{"type":"plan","ref":"growth","description":"Growth plan — monthly","quantity":1,"unit_price":149900,"amount":149900}],"subtotal":149900,"tax_mode":"exclusive","tax_rate_bp":1800,"tax_label":"GST","tax":26982,"total":176882}}'
+        headers: []
+        description: ''
     responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    auth: []
     controller: null
     method: null
     route: null

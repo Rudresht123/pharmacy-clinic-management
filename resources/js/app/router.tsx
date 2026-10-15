@@ -19,6 +19,15 @@ const MessagingSettingsPage = lazy(
 const MobileAppSettingsPage = lazy(
     () => import('@/core/mobile-app/pages/MobileAppSettingsPage'),
 );
+const BillingOverviewPage = lazy(() => import('@/core/billing-admin/pages/BillingOverviewPage'));
+const BillingPlansPage = lazy(() => import('@/core/billing-admin/pages/PlansPage'));
+const BillingPricingPage = lazy(() => import('@/core/billing-admin/pages/PricingPage'));
+const BillingSubscriptionsPage = lazy(() => import('@/core/billing-admin/pages/SubscriptionsPage'));
+const BillingOrganizationPage = lazy(
+    () => import('@/core/billing-admin/pages/OrganizationSubscriptionPage'),
+);
+const BillingInvoicesPage = lazy(() => import('@/core/billing-admin/pages/InvoicesPage'));
+const BillingSettingsPage = lazy(() => import('@/core/billing-admin/pages/BillingSettingsPage'));
 const OrganizationListPage = lazy(() => import('@/core/organizations/pages/OrganizationListPage'));
 const OrganizationFormPage = lazy(() => import('@/core/organizations/pages/OrganizationFormPage'));
 const OrganizationDetailPage = lazy(
@@ -88,6 +97,16 @@ export function AppRoutes() {
                             <Route path="/modules" element={<ModuleAccessPage />} />
                             <Route path="/messaging" element={<MessagingSettingsPage />} />
                             <Route path="/mobile-app" element={<MobileAppSettingsPage />} />
+
+                            {/* Billing — plans, prices, subscriptions, invoices. */}
+                            <Route path="/billing" element={<Navigate to="/billing/overview" replace />} />
+                            <Route path="/billing/overview" element={<BillingOverviewPage />} />
+                            <Route path="/billing/plans" element={<BillingPlansPage />} />
+                            <Route path="/billing/pricing" element={<BillingPricingPage />} />
+                            <Route path="/billing/subscriptions" element={<BillingSubscriptionsPage />} />
+                            <Route path="/billing/organizations/:uuid" element={<BillingOrganizationPage />} />
+                            <Route path="/billing/invoices" element={<BillingInvoicesPage />} />
+                            <Route path="/billing/settings" element={<BillingSettingsPage />} />
 
                             <Route path="/audit" element={<AuditLogPage />} />
 

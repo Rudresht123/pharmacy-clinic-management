@@ -356,6 +356,17 @@ export function tenantNavigation(
         });
     }
 
+    if (can('settings.subscription')) {
+        organization.push({
+            // The organization's own plan, usage, invoices and renewal —
+            // the owner's, and a billing contact's if they name one.
+            label: 'Subscription',
+            to: '/subscription',
+            icon: 'ti ti-crown',
+            match: '/subscription',
+        });
+    }
+
     /* --- a doctor's own section ------------------------------------------ */
 
     /*

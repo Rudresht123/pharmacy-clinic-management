@@ -48,3 +48,7 @@ Schedule::command('communication:send-reminders')->everyFiveMinutes()->withoutOv
 | status down and sends the emails, each exactly once.
 */
 Schedule::command('subscriptions:process')->hourly()->withoutOverlapping()->onOneServer();
+
+// Last month's usage ledger against each clinic's own records — a report for a
+// person to read; it changes nothing.
+Schedule::command('subscriptions:reconcile-usage')->monthlyOn(2, '03:00')->withoutOverlapping()->onOneServer();

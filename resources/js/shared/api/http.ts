@@ -91,6 +91,19 @@ export function setUnauthenticatedHandler(handler: () => void): void {
     onUnauthenticated = handler;
 }
 
+/**
+ * A 423 from the subscription lock: the organization's subscription has
+ * lapsed or been suspended (`subscription_locked`), or grace is read-only
+ * (`subscription_read_only`). The handler receives the subscription the
+ * server sent, so the tenant app can switch to the expired page at once —
+ * the same answer every other request would now get.
+ */
+let onSubscriptionLocked: ((code: string, subscription: unknown) => void) | null = null;
+
+export function setSubscriptionLockedHandler(handler: (code: string, subscription: unknown) => void): void {
+    onSubscriptionLocked = handler;
+}
+
 declare module 'axios' {
     interface AxiosRequestConfig {
         /**
@@ -124,6 +137,20 @@ http.interceptors.response.use(
             onUnauthenticated?.();
 
             return Promise.reject(error);
+        }
+
+        if (status === 423) {
+            const body = error.response?.data as { code?: string; subscription?: unknown } | undefined;
+
+            if (body?.code === 'subscription_locked' || body?.code === 'subscription_read_only') {
+                onSubscriptionLocked?.(body.code, body.subscription);
+
+                // The expired page explains a lock; a toast on top would only
+                // repeat it on every request the page had in flight.
+                if (body.code === 'subscription_locked') {
+                    return Promise.reject(error);
+                }
+            }
         }
 
         // 422 is expected — forms render those inline via useApiForm. A

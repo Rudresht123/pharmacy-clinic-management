@@ -1,33 +1,132 @@
-name: 'Platform > Messaging Settings'
+name: 'Platform > Authentication'
 description: ''
 endpoints:
   -
     custom: []
     httpMethods:
-      - GET
-    uri: 'api/v1/admin/messaging/{channel}'
+      - POST
+    uri: api/v1/admin/auth/login
     metadata:
       custom: []
-      groupName: 'Platform > Messaging Settings'
+      groupName: 'Platform > Authentication'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: 'What is configured, and what is still missing.'
-      description: |-
-        Returns the SHAPE of the credentials and never their contents. A secret
-        comes back as `is_set: true` and nothing more — an administrator needs
-        to know whether a token is present, not what it is, and a secret that
-        reaches the browser is a secret in somebody's devtools and browser cache.
-      authenticated: true
+      title: ''
+      description: ''
+      authenticated: false
       deprecated: false
     headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
-    urlParameters:
-      channel:
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      email:
         custom: []
-        name: channel
+        name: email
+        description: 'Must be a valid email address.'
+        required: true
+        example: gbailey@example.net
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      password:
+        custom: []
+        name: password
+        description: ''
+        required: true
+        example: '|]|{+-'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      email: gbailey@example.net
+      password: '|]|{+-'
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/admin/auth/forgot-password
+    metadata:
+      custom: []
+      groupName: 'Platform > Authentication'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        Email a reset link. The response is identical whether or not the
+        address exists, so this cannot be used to enumerate administrators.
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      email:
+        custom: []
+        name: email
+        description: 'Must be a valid email address.'
+        required: true
+        example: gbailey@example.net
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      email: gbailey@example.net
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/admin/auth/reset-password
+    metadata:
+      custom: []
+      groupName: 'Platform > Authentication'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: false
+      deprecated: false
+    headers:
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      token:
+        custom: []
+        name: token
         description: ''
         required: true
         example: architecto
@@ -36,8 +135,97 @@ endpoints:
         exampleWasSpecified: false
         nullable: false
         deprecated: false
-    cleanUrlParameters:
-      channel: architecto
+      email:
+        custom: []
+        name: email
+        description: 'Must be a valid email address.'
+        required: true
+        example: zbailey@example.net
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      password:
+        custom: []
+        name: password
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      token: architecto
+      email: zbailey@example.net
+      password: architecto
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth: []
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/admin/auth/me
+    metadata:
+      custom: []
+      groupName: 'Platform > Authentication'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        The SPA calls this on boot to decide between the panel and the login
+        screen, and reads `roles` from it to shape the navigation.
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/admin/auth/logout
+    metadata:
+      custom: []
+      groupName: 'Platform > Authentication'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
     queryParameters: []
     cleanQueryParameters: []
     bodyParameters: []
@@ -56,68 +244,51 @@ endpoints:
     custom: []
     httpMethods:
       - PUT
-    uri: 'api/v1/admin/messaging/{channel}'
+    uri: api/v1/admin/auth/profile
     metadata:
       custom: []
-      groupName: 'Platform > Messaging Settings'
+      groupName: 'Platform > Authentication'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: 'Save the provider and its credentials.'
-      description: |-
-        A blank secret MEANS "leave it alone". Without that rule, opening this
-        screen to correct a host name and saving would wipe the password, and
-        every clinic on the platform would stop sending at once.
+      title: ''
+      description: ''
       authenticated: true
       deprecated: false
     headers:
       Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
-    urlParameters:
-      channel:
-        custom: []
-        name: channel
-        description: ''
-        required: true
-        example: architecto
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-    cleanUrlParameters:
-      channel: architecto
+    urlParameters: []
+    cleanUrlParameters: []
     queryParameters: []
     cleanQueryParameters: []
     bodyParameters:
-      provider_key:
+      name:
         custom: []
-        name: provider_key
-        description: ''
+        name: name
+        description: 'Must not be greater than 120 characters.'
         required: true
-        example: architecto
+        example: b
         type: string
         enumValues: []
         exampleWasSpecified: false
         nullable: false
         deprecated: false
-      credentials:
+      email:
         custom: []
-        name: credentials
-        description: 'Must not be greater than 500 characters.'
-        required: false
-        example:
-          - 'n'
-        type: 'string[]'
+        name: email
+        description: 'Must be a valid email address. Must not be greater than 190 characters.'
+        required: true
+        example: zbailey@example.net
+        type: string
         enumValues: []
         exampleWasSpecified: false
-        nullable: true
+        nullable: false
         deprecated: false
     cleanBodyParameters:
-      provider_key: architecto
-      credentials:
-        - 'n'
+      name: b
+      email: zbailey@example.net
     fileParameters: []
     responses: []
     responseFields: []
@@ -132,29 +303,152 @@ endpoints:
     custom: []
     httpMethods:
       - POST
-    uri: 'api/v1/admin/messaging/{channel}/test'
+    uri: api/v1/admin/auth/avatar
     metadata:
       custom: []
-      groupName: 'Platform > Messaging Settings'
+      groupName: 'Platform > Authentication'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: "Whether the platform's credentials actually work."
+      title: "Replace the admin's profile photo."
       description: |-
-        Answers with the normalized result and NOTHING ELSE. A provider's own
-        error text is for the server log: a Digiware URL carries its token in
-        the query string, and an SMTP failure quotes the transport DSN, which
-        carries the password.
+        Its own endpoint rather than a field on [updateProfile], for the same
+        reason DoctorController::uploadPhoto is its own: a file is not a value
+        that belongs in a JSON body, and re-sending it on every profile save
+        would upload the same image again.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: multipart/form-data
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      avatar:
+        custom: []
+        name: avatar
+        description: 'Must be an image. Must not be greater than 2048 kilobytes.'
+        required: true
+        example: null
+        type: file
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters: []
+    fileParameters:
+      avatar: null
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: api/v1/admin/auth/avatar
+    metadata:
+      custom: []
+      groupName: 'Platform > Authentication'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Remove it, leaving the admin.'
+      description: ''
       authenticated: true
       deprecated: false
     headers:
       Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
-    urlParameters:
-      channel:
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/admin/auth/confirm-password
+    metadata:
+      custom: []
+      groupName: 'Platform > Authentication'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        Re-confirm the current password — used by the lock screen and, later,
+        before destructive actions in the Danger Zone.
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: api/v1/admin/auth/password
+    metadata:
+      custom: []
+      groupName: 'Platform > Authentication'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      current_password:
         custom: []
-        name: channel
+        name: current_password
         description: ''
         required: true
         example: architecto
@@ -163,12 +457,20 @@ endpoints:
         exampleWasSpecified: false
         nullable: false
         deprecated: false
-    cleanUrlParameters:
-      channel: architecto
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
+      password:
+        custom: []
+        name: password
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      current_password: architecto
+      password: architecto
     fileParameters: []
     responses: []
     responseFields: []

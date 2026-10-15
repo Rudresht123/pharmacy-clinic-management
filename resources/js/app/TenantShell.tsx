@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { SubscriptionBanner } from '@/core/subscription/components/SubscriptionBanner';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { BranchSwitcher } from '@/core/tenant-auth/BranchSwitcher';
@@ -104,6 +105,7 @@ export function TenantShell() {
                 )
             }
             headerSearch={<PatientSearch />}
+            contentBanner={<SubscriptionBanner />}
             sidebarExtra={<BranchSwitcher />}
             sidebarHelp={
                 <a

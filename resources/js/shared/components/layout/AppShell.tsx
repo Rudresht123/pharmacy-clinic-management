@@ -32,6 +32,11 @@ interface AppShellProps {
      * across, and a tenant's search is over its own patients.
      */
     headerSearch?: React.ReactNode;
+    /**
+     * A notice above every page's content — the tenant's subscription
+     * warning (expiring soon, in grace). Nothing when there is nothing to say.
+     */
+    contentBanner?: React.ReactNode;
 }
 
 /**
@@ -55,6 +60,7 @@ export function AppShell({
     sidebarHelp,
     sidebarExtra,
     headerSearch,
+    contentBanner,
 }: AppShellProps) {
     const { settings, update } = useAppSettings();
 
@@ -121,6 +127,7 @@ export function AppShell({
             />
 
             <main className="app-content">
+                {contentBanner}
                 <Outlet />
             </main>
 

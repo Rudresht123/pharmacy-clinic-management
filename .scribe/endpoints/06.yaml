@@ -1,22 +1,25 @@
-name: 'Tenant > Branding & Workspace'
+name: 'Platform > Dashboard'
 description: ''
 endpoints:
   -
     custom: []
     httpMethods:
       - GET
-    uri: api/v1/tenant/branding
+    uri: api/v1/admin/dashboard
     metadata:
       custom: []
-      groupName: 'Tenant > Branding & Workspace'
+      groupName: 'Platform > Dashboard'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: ''
+      title: |-
+        Real figures only. A panel with nothing behind it yet comes back null
+        and the screen shows it empty — see PlatformDashboard.
       description: ''
-      authenticated: false
+      authenticated: true
       deprecated: false
     headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
     urlParameters: []
@@ -28,50 +31,10 @@ endpoints:
     fileParameters: []
     responses: []
     responseFields: []
-    auth: []
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - GET
-    uri: 'api/v1/tenant/workspace/{code}'
-    metadata:
-      custom: []
-      groupName: 'Tenant > Branding & Workspace'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: ''
-      description: ''
-      authenticated: false
-      deprecated: false
-    headers:
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters:
-      code:
-        custom: []
-        name: code
-        description: ''
-        required: true
-        example: architecto
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-    cleanUrlParameters:
-      code: architecto
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
     controller: null
     method: null
     route: null

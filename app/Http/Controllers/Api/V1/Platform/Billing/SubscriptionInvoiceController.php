@@ -9,6 +9,7 @@ use App\Models\Platform\Subscription;
 use App\Models\Platform\SubscriptionInvoice;
 use App\Models\Platform\SubscriptionPayment;
 use App\Services\Subscriptions\Actor;
+use App\Services\Subscriptions\BillingAnalytics;
 use App\Services\Subscriptions\InvoiceService;
 use App\Services\Subscriptions\Payments\PaymentService;
 use Illuminate\Http\JsonResponse;
@@ -30,19 +31,38 @@ use Illuminate\Validation\Rule;
  */
 class SubscriptionInvoiceController extends BaseApiController
 {
+    /**
+     * Filters: `status` (paid, pending, overdue, void — or the stored issued,
+     * draft), `organization` (uuid), `search` (invoice number or organization
+     * name), `from` / `to` (issue date).
+     */
     public function index(Request $request): JsonResponse
     {
         $request->validate([
-            'status' => ['nullable', Rule::in(['draft', 'issued', 'paid', 'void'])],
+            'status' => ['nullable', Rule::in(['draft', 'issued', 'paid', 'void', 'pending', 'overdue'])],
             'organization' => ['nullable', 'string'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'search' => ['nullable', 'string', 'max:100'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:500'],
         ]);
+
+        $status = $request->query('status');
 
         $page = SubscriptionInvoice::query()
             ->with(['organization:id,uuid,organization_name', 'payments'])
-            ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+            ->where('status', '!=', SubscriptionInvoice::DRAFT)
+            ->when($status === 'pending', fn ($q) => $q->where('status', SubscriptionInvoice::ISSUED)
+                ->where(fn ($q) => $q->whereNull('due_at')->orWhere('due_at', '>=', now())))
+            ->when($status === 'overdue', fn ($q) => $q->where('status', SubscriptionInvoice::ISSUED)->where('due_at', '<', now()))
+            ->when(in_array($status, ['draft', 'issued', 'paid', 'void'], true), fn ($q) => $q->where('status', $status))
             ->when($request->query('organization'), fn ($q, $uuid) => $q->whereHas('organization', fn ($o) => $o->where('uuid', $uuid)))
-            ->latest('id')
+            ->when($request->query('search'), fn ($q, $term) => $q->where(fn ($q) => $q
+                ->where('number', 'ilike', "%{$term}%")
+                ->orWhereHas('organization', fn ($o) => $o->where('organization_name', 'ilike', "%{$term}%"))))
+            ->when($request->query('from'), fn ($q, $from) => $q->where('issued_at', '>=', Carbon::parse($from)->startOfDay()))
+            ->when($request->query('to'), fn ($q, $to) => $q->where('issued_at', '<=', Carbon::parse($to)->endOfDay()))
+            ->latest('issued_at')->latest('id')
             ->paginate((int) $request->query('per_page', 25));
 
         return $this->ok(
@@ -50,6 +70,12 @@ class SubscriptionInvoiceController extends BaseApiController
             null,
             ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'per_page' => $page->perPage(), 'total' => $page->total()],
         );
+    }
+
+    /** Tiles, status split, six-month trend and how money arrives. */
+    public function insights(BillingAnalytics $analytics): JsonResponse
+    {
+        return $this->ok($analytics->invoices());
     }
 
     public function show(SubscriptionInvoice $invoice): JsonResponse
@@ -115,6 +141,24 @@ class SubscriptionInvoiceController extends BaseApiController
             ] : null,
             'kind' => $invoice->kind,
             'status' => $invoice->status,
+
+            // What the list shows: an unpaid invoice past its due date is overdue.
+            'display_status' => match (true) {
+                $invoice->status === SubscriptionInvoice::ISSUED && $invoice->due_at?->isPast() => 'overdue',
+                $invoice->status === SubscriptionInvoice::ISSUED => 'pending',
+                default => $invoice->status,
+            },
+            'payment_mode' => ($captured = $invoice->payments->firstWhere('status', SubscriptionPayment::CAPTURED))
+                ? ($captured->method === SubscriptionPayment::MANUAL
+                    ? 'Bank transfer'
+                    : match ($captured->payload['method'] ?? null) {
+                        'upi' => 'UPI',
+                        'card' => 'Card',
+                        'netbanking' => 'Net banking',
+                        'wallet' => 'Wallet',
+                        default => 'Online',
+                    })
+                : null,
             'currency' => $invoice->currency,
             'lines' => $invoice->lines,
             'subtotal' => $invoice->subtotal,

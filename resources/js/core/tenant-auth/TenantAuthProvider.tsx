@@ -17,7 +17,12 @@ import {
     type RealtimeConfig,
     type QueueStep,
 } from './api';
-import { setActiveBranchHeader, setUnauthenticatedHandler } from '@/shared/api/http';
+import {
+    setActiveBranchHeader,
+    setSubscriptionLockedHandler,
+    setUnauthenticatedHandler,
+} from '@/shared/api/http';
+import type { SubscriptionStatus } from '@/core/subscription/types';
 import { queryClient } from '@/shared/api/queryClient';
 import { disconnectRealtime } from '@/shared/realtime/echo';
 
@@ -101,6 +106,13 @@ interface TenantAuthContextValue {
      */
     ownerRestricted: boolean;
 
+    /**
+     * The organization's subscription, as the server enforces it: status,
+     * days left, locked or not. Null for nobody signed in (and for a session
+     * from an older server, which then never locks anybody out by mistake).
+     */
+    subscription: SubscriptionStatus | null;
+
     /** Called when the setup has just been completed, so the workspace opens without a reload. */
     markSetupCompleted(): void;
 
@@ -148,6 +160,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
     // True until told otherwise, so a session without the flag never locks anybody out.
     const [setupCompleted, setSetupCompleted] = useState(true);
     const [ownerRestricted, setOwnerRestricted] = useState(false);
+    const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
     const [initialising, setInitialising] = useState(true);
 
     /** One place that takes a session in, so the fields cannot be set in three different ways. */
@@ -164,6 +177,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         setDoctorId(session.doctor_id ?? null);
         setSetupCompleted(session.setup_completed ?? true);
         setOwnerRestricted(session.owner_restricted ?? false);
+        setSubscription(session.subscription ?? null);
     }, []);
 
     const clear = useCallback(() => {
@@ -182,6 +196,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         setDoctorId(null);
         setSetupCompleted(true);
         setOwnerRestricted(false);
+        setSubscription(null);
     }, []);
 
     useEffect(() => {
@@ -213,6 +228,24 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             queryClient.clear();
         });
     }, [clear]);
+
+    /*
+     * A 423 from anywhere: the subscription locked while this tab was open
+     * (its grace ran out mid-shift). Take the server's account of it, and the
+     * guard swaps the screen for the expired page — no reload, no waiting for
+     * the next `me`.
+     */
+    useEffect(() => {
+        setSubscriptionLockedHandler((_code, next) => {
+            if (next && typeof next === 'object') {
+                setSubscription((current) => ({
+                    ...(current ?? {}),
+                    ...(next as SubscriptionStatus),
+                    can_manage: current?.can_manage,
+                }));
+            }
+        });
+    }, []);
 
     const login = useCallback(
         async (payload: TenantLoginPayload) => {
@@ -265,6 +298,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
         setDoctorId(session.doctor_id ?? null);
         setSetupCompleted(session.setup_completed ?? true);
         setOwnerRestricted(session.owner_restricted ?? false);
+        setSubscription(session.subscription ?? null);
     }, []);
 
     const setActiveBranch = useCallback((branchId: number | null) => {
@@ -282,6 +316,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             setDoctorId(session.doctor_id ?? null);
             setSetupCompleted(session.setup_completed ?? true);
             setOwnerRestricted(session.owner_restricted ?? false);
+            setSubscription(session.subscription ?? null);
         });
     }, []);
 
@@ -301,6 +336,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             doctorId,
             setupCompleted,
             ownerRestricted,
+            subscription,
             markSetupCompleted,
             setActiveBranch,
             initialising,
@@ -324,6 +360,7 @@ export function TenantAuthProvider({ children }: { children: ReactNode }) {
             doctorId,
             setupCompleted,
             ownerRestricted,
+            subscription,
             markSetupCompleted,
             setActiveBranch,
             initialising,

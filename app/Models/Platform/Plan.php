@@ -50,6 +50,22 @@ class Plan extends Record
         'highlights',
     ];
 
+    /**
+     * The column defaults, mirrored — so a plan just created, and not yet
+     * re-read, already answers 0 for days and prices rather than null.
+     */
+    protected $attributes = [
+        'status' => self::DRAFT,
+        'is_public' => false,
+        'is_system' => false,
+        'sort_order' => 0,
+        'currency' => 'INR',
+        'monthly_price' => 0,
+        'annual_price' => 0,
+        'trial_days' => 0,
+        'grace_days' => 0,
+    ];
+
     protected function casts(): array
     {
         return [

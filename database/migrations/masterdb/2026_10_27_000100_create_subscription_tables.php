@@ -97,7 +97,7 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_rules_check CHECK ("
+            'ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_rules_check CHECK ('
             ."status IN ('trial', 'active', 'past_due', 'grace', 'expired', 'suspended', 'cancelled') AND "
             ."billing_cycle IN ('monthly', 'annual', 'complimentary') AND "
             ."payment_status IN ('none', 'pending', 'paid', 'failed', 'waived'))"
@@ -144,7 +144,7 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE subscription_items ADD CONSTRAINT subscription_items_rules_check CHECK ("
+            'ALTER TABLE subscription_items ADD CONSTRAINT subscription_items_rules_check CHECK ('
             ."type IN ('module', 'addon', 'override') AND "
             ."billing IN ('recurring', 'one_time', 'free') AND "
             ."status IN ('active', 'pending', 'ended', 'cancelled'))"

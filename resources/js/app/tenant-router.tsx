@@ -69,6 +69,8 @@ const BillingSettingsPage = lazy(() => import('@/core/billing/pages/BillingSetti
 const DocumentTemplatesPage = lazy(() => import('@/core/documents/pages/DocumentTemplatesPage'));
 const DocumentAutomationPage = lazy(() => import('@/core/documents/pages/DocumentAutomationPage'));
 const GuidesPage = lazy(() => import('@/core/guides/pages/GuidesPage'));
+const SubscriptionPage = lazy(() => import('@/core/subscription/pages/SubscriptionPage'));
+const SubscriptionLockedPage = lazy(() => import('@/core/subscription/pages/SubscriptionLockedPage'));
 const GuidePage = lazy(() => import('@/core/guides/pages/GuidePage'));
 const WhatsAppPage = lazy(() => import('@/core/communication/pages/WhatsAppPage'));
 const EmailPage = lazy(() => import('@/core/communication/pages/EmailPage'));
@@ -115,12 +117,27 @@ function SetupPending() {
  * owner is taken to the setup screen from anywhere else, everybody else is
  * told to wait. The server's session says whether it is finished.
  */
+/**
+ * What stays open while the subscription is locked: renewing it, one's own
+ * account, and the guides. The API answers 423 to everything else anyway.
+ */
+const OPEN_WHEN_LOCKED = [/^\/subscription(\/|$)/, /^\/profile(\/|$)/, /^\/guide(\/|$)/] as const;
+
 function TenantProtectedRoute() {
-    const { isAuthenticated, setupCompleted, user } = useTenantAuth();
+    const { isAuthenticated, setupCompleted, user, subscription } = useTenantAuth();
     const location = useLocation();
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    }
+
+    /*
+     * A locked subscription: the expired page instead of the workspace. Not
+     * the lock itself — the server refuses every request with a 423 — but the
+     * explanation, so nobody is left staring at error states.
+     */
+    if (subscription?.locked && !OPEN_WHEN_LOCKED.some((path) => path.test(location.pathname))) {
+        return <SubscriptionLockedPage />;
     }
 
     if (!setupCompleted) {
@@ -246,6 +263,11 @@ export function TenantAppRoutes() {
                             {/* How the software works — open to everybody
                                 signed in; a guide holds nothing to gate. */}
                             <Route path="/guide" element={<GuidesPage />} />
+
+                            {/* The organization's own subscription — the owner
+                                and billing contacts; the page and its API
+                                both say so to anybody else. Open while locked. */}
+                            <Route path="/subscription" element={<SubscriptionPage />} />
                             <Route path="/guide/:slug" element={<GuidePage />} />
 
                             {/*

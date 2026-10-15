@@ -1,0 +1,558 @@
+/* =========================================================
+   Super Admin billing — the six screens (overview, subscriptions,
+   plans, pricing, invoices, settings).
+
+   Prefix .sxa- (checked unused). White cards with the house
+   brand-tinted shadow; colour only on icons, chips, chart marks
+   and accents — never a tinted card. Rows of cards are one height.
+   ========================================================= */
+
+.sxa-kpis {
+    display: grid;
+    grid-template-columns: repeat(var(--sxa-cols, 5), minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+    align-items: stretch;
+}
+
+@media (max-width: 1199.98px) {
+    .sxa-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767.98px) {
+    .sxa-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 479.98px) {
+    .sxa-kpis { grid-template-columns: minmax(0, 1fr); }
+}
+
+.sxa-kpi {
+    --sxa-tone: var(--brand);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    height: 100%;
+    padding: 16px;
+    text-align: left;
+    background: #fff;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(var(--brand), 0.06), 0 12px 32px rgba(var(--brand), 0.1);
+    color: var(--ink-2);
+}
+
+.sxa-kpi.is-link { cursor: pointer; }
+.sxa-kpi.is-link:hover { box-shadow: 0 0 0 2px rgba(var(--brand), 0.15), 0 12px 32px rgba(var(--brand), 0.12); }
+.sxa-kpi:disabled { opacity: 1; }
+
+.sxa-kpi[data-tone='emerald'] { --sxa-tone: 5, 150, 105; }
+.sxa-kpi[data-tone='violet'] { --sxa-tone: 124, 58, 237; }
+.sxa-kpi[data-tone='sky'] { --sxa-tone: 2, 132, 199; }
+.sxa-kpi[data-tone='amber'] { --sxa-tone: 217, 119, 6; }
+.sxa-kpi[data-tone='rose'] { --sxa-tone: 225, 29, 72; }
+.sxa-kpi[data-tone='indigo'] { --sxa-tone: var(--brand); }
+
+.sxa-kpi-icon {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: rgb(var(--sxa-tone));
+    background: rgba(var(--sxa-tone), 0.12);
+}
+
+.sxa-kpi-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.sxa-kpi-label {
+    font-size: 12.5px;
+    color: var(--ink-3);
+}
+
+.sxa-kpi-value {
+    margin-top: 2px;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--ink);
+    white-space: nowrap;
+}
+
+.sxa-kpi-change,
+.sxa-kpi-hint {
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.sxa-kpi-change.is-good { color: rgb(5, 150, 105); }
+.sxa-kpi-change.is-bad { color: rgb(225, 29, 72); }
+.sxa-kpi-change small { font-weight: 500; color: var(--muted); }
+.sxa-kpi-hint { font-weight: 500; color: var(--muted); }
+
+/* Chart rows: a wide card and a narrow one, or three — one height each. */
+.sxa-split,
+.sxa-three {
+    display: grid;
+    gap: 20px;
+    margin-bottom: 20px;
+    align-items: stretch;
+}
+
+.sxa-split { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); }
+.sxa-three { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr); }
+
+@media (max-width: 1199.98px) {
+    .sxa-split,
+    .sxa-three { grid-template-columns: minmax(0, 1fr); }
+}
+
+.sxa-split > .card,
+.sxa-three > .card,
+.sxa-chart {
+    height: 100%;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sxa-chart > .card-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.sxa-chart > .card-body > :last-child {
+    flex: 1 1 auto;
+}
+
+.sxa-chart-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    margin-bottom: 14px;
+}
+
+.sxa-chart-head h6 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.sxa-chart-side {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+}
+
+.sxa-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--ink-3);
+}
+
+.sxa-legend i {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.sxa-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+    text-decoration: none;
+}
+
+/* Tables sit inset in their card, in their own rounded frame; rows keep
+   their bottom lines; no lines between columns. */
+.sxa-table {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow-x: auto;
+    flex: 1 1 auto;
+}
+
+.sxa-table.is-fetching { opacity: 0.6; }
+
+.sxa-table .table { margin: 0; }
+
+.sxa-table thead th {
+    background: transparent;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-transform: none;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+    padding: 11px 14px;
+}
+
+.sxa-table tbody td {
+    padding: 11px 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-2);
+    font-size: 13.5px;
+}
+
+.sxa-table tbody tr:last-child td { border-bottom: 0; }
+.sxa-table tbody td b { color: var(--ink); }
+
+.sxa-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.sxa-filters .form-select {
+    width: auto;
+    min-width: 160px;
+}
+
+.sxa-search {
+    position: relative;
+    flex: 1 1 240px;
+    max-width: 360px;
+}
+
+.sxa-search i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+}
+
+.sxa-search .form-control { padding-left: 34px; }
+
+.sxa-range {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--ink-2);
+}
+
+.sxa-range input {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 13px;
+    padding: 4px 0;
+    outline: none;
+}
+
+.sxa-range i { color: var(--muted); }
+
+.sxa-pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+/* Grouped bars. */
+.sxa-bars {
+    position: relative;
+    min-height: 200px;
+}
+
+.sxa-bars svg {
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+    display: block;
+    overflow: visible;
+}
+
+.sxa-grid { stroke: var(--line); stroke-dasharray: 3 4; }
+.sxa-axis { font-size: 11px; fill: var(--muted); }
+.sxa-hit { fill: transparent; }
+.sxa-hit.is-on { fill: rgba(var(--brand), 0.05); }
+
+.sxa-tip {
+    position: absolute;
+    top: 6px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(var(--brand), 0.18);
+    font-size: 12px;
+    color: var(--ink-2);
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 2;
+}
+
+.sxa-tip b { color: var(--ink); }
+.sxa-tip i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+
+/* Plan cards: white; the accent on the top edge, the name, the checks. */
+.sxa-plans {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 20px;
+    align-items: stretch;
+}
+
+.sxa-plan {
+    --sxa-accent: var(--brand);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 22px 20px 18px;
+    background: #fff;
+    border: 1px solid transparent;
+    border-top: 4px solid rgb(var(--sxa-accent));
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(var(--brand), 0.06), 0 12px 32px rgba(var(--brand), 0.1);
+}
+
+.sxa-plan[data-accent="emerald"] { --sxa-accent: 5, 150, 105; }
+.sxa-plan[data-accent="violet"] { --sxa-accent: 124, 58, 237; }
+.sxa-plan[data-accent="amber"] { --sxa-accent: 217, 119, 6; }
+.sxa-plan[data-accent="sky"] { --sxa-accent: 2, 132, 199; }
+.sxa-plan[data-accent="rose"] { --sxa-accent: 225, 29, 72; }
+.sxa-plan[data-accent="indigo"] { --sxa-accent: var(--brand); }
+.sxa-plan[data-accent="muted"] { --sxa-accent: 120, 128, 155; }
+
+.sxa-plan.is-popular { box-shadow: 0 0 0 2px rgba(var(--sxa-accent), 0.35), 0 12px 32px rgba(var(--brand), 0.12); }
+
+.sxa-plan-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    background: rgb(var(--sxa-accent));
+}
+
+.sxa-plan header h5 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 800;
+    color: rgb(var(--sxa-accent));
+}
+
+.sxa-plan header p {
+    margin: 2px 0 0;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+.sxa-plan-price b {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--ink);
+}
+
+.sxa-plan-price span {
+    margin-left: 2px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.sxa-plan ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1 1 auto;
+}
+
+.sxa-plan li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13px;
+    color: var(--ink-2);
+}
+
+.sxa-plan li i { color: rgb(var(--sxa-accent)); margin-top: 2px; }
+
+.sxa-plan-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+    color: var(--ink-3);
+}
+
+.sxa-plan-meta b { color: rgb(var(--sxa-accent)); }
+
+.sxa-plan-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.sxa-plan-actions > .btn:first-child { flex: 1 1 100%; }
+
+.sxa-save {
+    margin-left: 4px;
+    font-weight: 600;
+    color: rgb(5, 150, 105);
+}
+
+.sx-cycle button.is-on .sxa-save { color: #d1fae5; }
+
+/* Settings: sections, the form, the preview — one height. */
+.sxa-settings {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 20px;
+    align-items: stretch;
+}
+
+@media (max-width: 1199.98px) {
+    .sxa-settings { grid-template-columns: minmax(0, 1fr); }
+}
+
+.sxa-settings > .card { height: 100%; margin-bottom: 0; }
+
+.sxa-settings-nav nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sxa-settings-nav button {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    text-align: left;
+    color: var(--ink-2);
+}
+
+.sxa-settings-nav button i {
+    font-size: 18px;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+.sxa-settings-nav button b {
+    display: block;
+    font-size: 13.5px;
+    color: var(--ink);
+}
+
+.sxa-settings-nav button small {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.sxa-settings-nav button.is-on { background: rgba(var(--brand), 0.08); }
+
+.sxa-settings-nav button.is-on i,
+.sxa-settings-nav button.is-on b { color: rgb(var(--brand)); }
+
+.sxa-settings-title {
+    margin: 0 0 16px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.sxa-invoice {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.sxa-invoice-head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+}
+
+.sxa-invoice-mark {
+    flex: 0 0 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.1);
+}
+
+.sxa-invoice-head b { display: block; color: var(--ink); }
+.sxa-invoice-head small { display: block; color: var(--muted); white-space: pre-line; }
+
+.sxa-invoice-band {
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.08);
+    margin-bottom: 10px;
+}
+
+.sxa-invoice dl { margin: 0 0 10px; }
+
+.sxa-invoice dl div {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 4px 0;
+    font-size: 13px;
+    border-bottom: 1px dashed var(--line);
+}
+
+.sxa-invoice dt { font-weight: 500; color: var(--muted); }
+.sxa-invoice dd { margin: 0; font-weight: 600; color: var(--ink); }
+
+/* Dark mode: the border comes back, the shadow goes. */
+[data-theme="dark"] .sxa-kpi,
+[data-theme="dark"] .sxa-plan,
+[data-theme="dark"] .sxa-tip {
+    background: var(--surface);
+    border-color: var(--line);
+    box-shadow: none;
+}
+
+[data-theme="dark"] .sxa-plan { border-top-color: rgb(var(--sxa-accent)); }

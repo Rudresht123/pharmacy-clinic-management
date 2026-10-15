@@ -1,86 +1,14 @@
-name: 'Tenant > Customers'
+name: 'Tenant > Devices & Push'
 description: ''
 endpoints:
   -
     custom: []
     httpMethods:
-      - GET
-    uri: api/v1/tenant/customers/fields
+      - POST
+    uri: api/v1/tenant/portal/devices
     metadata:
       custom: []
-      groupName: 'Tenant > Customers'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: 'The field definitions the form and table render from.'
-      description: ''
-      authenticated: true
-      deprecated: false
-    headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - GET
-    uri: api/v1/tenant/customers/stats
-    metadata:
-      custom: []
-      groupName: 'Tenant > Customers'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: 'The counts the list screen leads with.'
-      description: |-
-        Separate from index() because that answers one page at a time, and a
-        total across every page is a different question.
-      authenticated: true
-      deprecated: false
-    headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - GET
-    uri: api/v1/tenant/customers
-    metadata:
-      custom: []
-      groupName: 'Tenant > Customers'
+      groupName: 'Tenant > Devices & Push'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
@@ -96,55 +24,56 @@ endpoints:
     cleanUrlParameters: []
     queryParameters: []
     cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - GET
-    uri: 'api/v1/tenant/customers/{id}'
-    metadata:
-      custom: []
-      groupName: 'Tenant > Customers'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: ''
-      description: ''
-      authenticated: true
-      deprecated: false
-    headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters:
-      id:
+    bodyParameters:
+      device_id:
         custom: []
-        name: id
-        description: 'The ID of the customer.'
+        name: device_id
+        description: 'Must not be greater than 191 characters.'
         required: true
-        example: 16
-        type: integer
+        example: b
+        type: string
         enumValues: []
         exampleWasSpecified: false
         nullable: false
         deprecated: false
-    cleanUrlParameters:
-      id: 16
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
+      fcm_token:
+        custom: []
+        name: fcm_token
+        description: 'Must not be greater than 512 characters.'
+        required: true
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      platform:
+        custom: []
+        name: platform
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      app_version:
+        custom: []
+        name: app_version
+        description: 'Must not be greater than 40 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      device_id: b
+      fcm_token: 'n'
+      platform: architecto
+      app_version: 'n'
     fileParameters: []
     responses: []
     responseFields: []
@@ -159,10 +88,10 @@ endpoints:
     custom: []
     httpMethods:
       - DELETE
-    uri: 'api/v1/tenant/customers/{id}'
+    uri: 'api/v1/tenant/portal/devices/{deviceId}'
     metadata:
       custom: []
-      groupName: 'Tenant > Customers'
+      groupName: 'Tenant > Devices & Push'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
@@ -175,19 +104,19 @@ endpoints:
       Content-Type: application/json
       Accept: application/json
     urlParameters:
-      id:
+      deviceId:
         custom: []
-        name: id
-        description: 'The ID of the customer.'
+        name: deviceId
+        description: ''
         required: true
-        example: 16
-        type: integer
+        example: '-O6q59DhBKW5kqwGwAGGAjq9nMqFa4Tqt2eE3zzKrx43.zqL_5NypsHncizoeRTv0CiLTv3-fn6twloFMGS8SQO2V336tWSR_GPSD_8VKKq5pI.q4Ktndz8jmbMdQJSR61wz0zPHFKH1zEeuVg12jPiFKk9nzhMIMj2ue4mAozMCnT.OqZS6'
+        type: string
         enumValues: []
         exampleWasSpecified: false
         nullable: false
         deprecated: false
     cleanUrlParameters:
-      id: 16
+      deviceId: '-O6q59DhBKW5kqwGwAGGAjq9nMqFa4Tqt2eE3zzKrx43.zqL_5NypsHncizoeRTv0CiLTv3-fn6twloFMGS8SQO2V336tWSR_GPSD_8VKKq5pI.q4Ktndz8jmbMdQJSR61wz0zPHFKH1zEeuVg12jPiFKk9nzhMIMj2ue4mAozMCnT.OqZS6'
     queryParameters: []
     cleanQueryParameters: []
     bodyParameters: []
@@ -206,22 +135,139 @@ endpoints:
     custom: []
     httpMethods:
       - GET
-    uri: 'api/v1/tenant/customers/{customer_id}/visits'
+    uri: api/v1/tenant/portal/devices/test-push
     metadata:
       custom: []
-      groupName: 'Tenant > Customers'
+      groupName: 'Tenant > Devices & Push'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: 'Everything that has happened to this patient, and what it adds up to.'
-      description: |-
-        Appointments and what was written up at each, together — they are read
-        as one thing ("what happened on the 12th"), and separating them would
-        mean a screen joining two lists by date to put them back.
-
-        The summary beside them is derived from the same rows rather than stored:
-        a "total visits" column would be a number that drifts the first time an
-        appointment is cancelled.
+      title: |-
+        One canned push to whoever is signed in, on their own registered
+        phones — nothing to type, nothing to pick. Hitting this is how a
+        person checks the whole chain actually reaches their phone: the
+        server is on the real driver, their device is registered, and
+        Firebase delivers to it. Self-targeted, so it needs no permission
+        beyond being signed in, the same as registering the device did.
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/tenant/devices
+    metadata:
+      custom: []
+      groupName: 'Tenant > Devices & Push'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      device_id:
+        custom: []
+        name: device_id
+        description: 'Must not be greater than 191 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      fcm_token:
+        custom: []
+        name: fcm_token
+        description: 'Must not be greater than 512 characters.'
+        required: true
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      platform:
+        custom: []
+        name: platform
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      app_version:
+        custom: []
+        name: app_version
+        description: 'Must not be greater than 40 characters.'
+        required: false
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      device_id: b
+      fcm_token: 'n'
+      platform: architecto
+      app_version: 'n'
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/tenant/devices/{deviceId}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Devices & Push'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
       authenticated: true
       deprecated: false
     headers:
@@ -229,10 +275,261 @@ endpoints:
       Content-Type: application/json
       Accept: application/json
     urlParameters:
-      customer_id:
+      deviceId:
         custom: []
-        name: customer_id
-        description: 'The ID of the customer.'
+        name: deviceId
+        description: ''
+        required: true
+        example: '-O6q59DhBKW5kqwGwAGGAjq9nMqFa4Tqt2eE3zzKrx43.zqL_5NypsHncizoeRTv0CiLTv3-fn6twloFMGS8SQO2V336tWSR_GPSD_8VKKq5pI.q4Ktndz8jmbMdQJSR61wz0zPHFKH1zEeuVg12jPiFKk9nzhMIMj2ue4mAozMCnT.OqZS6'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      deviceId: '-O6q59DhBKW5kqwGwAGGAjq9nMqFa4Tqt2eE3zzKrx43.zqL_5NypsHncizoeRTv0CiLTv3-fn6twloFMGS8SQO2V336tWSR_GPSD_8VKKq5pI.q4Ktndz8jmbMdQJSR61wz0zPHFKH1zEeuVg12jPiFKk9nzhMIMj2ue4mAozMCnT.OqZS6'
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/devices/test-push
+    metadata:
+      custom: []
+      groupName: 'Tenant > Devices & Push'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        One canned push to whoever is signed in, on their own registered
+        phones — nothing to type, nothing to pick. Hitting this is how a
+        person checks the whole chain actually reaches their phone: the
+        server is on the real driver, their device is registered, and
+        Firebase delivers to it. Self-targeted, so it needs no permission
+        beyond being signed in, the same as registering the device did.
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/communication/push/devices
+    metadata:
+      custom: []
+      groupName: 'Tenant > Devices & Push'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        A page of this clinic's phones, newest activity first, with who each
+        one belongs to — and the totals the figures above the list read.
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      audience:
+        custom: []
+        name: audience
+        description: ''
+        required: false
+        example: null
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      platform:
+        custom: []
+        name: platform
+        description: ''
+        required: false
+        example: null
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      status:
+        custom: []
+        name: status
+        description: ''
+        required: false
+        example: null
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      search:
+        custom: []
+        name: search
+        description: 'Must not be greater than 100 characters.'
+        required: false
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      per_page:
+        custom: []
+        name: per_page
+        description: 'Must be at least 1. Must not be greater than 50.'
+        required: false
+        example: 22
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      days:
+        custom: []
+        name: days
+        description: ''
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      search: b
+      per_page: 22
+      days: 16
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: api/v1/tenant/communication/push/recipients
+    metadata:
+      custom: []
+      groupName: 'Tenant > Devices & Push'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        The people a notification can be sent to right now: anybody in this
+        clinic with at least one live phone. What the "Send to" picker lists.
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      search:
+        custom: []
+        name: search
+        description: 'Must not be greater than 100 characters.'
+        required: false
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+    cleanBodyParameters:
+      search: b
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: api/v1/tenant/communication/push/send
+    metadata:
+      custom: []
+      groupName: 'Tenant > Devices & Push'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'A notification to one person, typed here rather than from a template.'
+      description: |-
+        Only to somebody in this clinic with a live phone, and only while the
+        channel is switched on — unless it is the sender's own phone, which is
+        how somebody checks the wiring before switching it on. Logged as a test
+        so it never counts towards the channel's figures.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters: []
+    cleanUrlParameters: []
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      user_id:
+        custom: []
+        name: user_id
+        description: ''
         required: true
         example: 16
         type: integer
@@ -240,8 +537,78 @@ endpoints:
         exampleWasSpecified: false
         nullable: false
         deprecated: false
+      title:
+        custom: []
+        name: title
+        description: 'Must not be greater than 120 characters.'
+        required: true
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      body:
+        custom: []
+        name: body
+        description: 'Must not be greater than 500 characters.'
+        required: true
+        example: g
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      user_id: 16
+      title: 'n'
+      body: g
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/tenant/communication/push/devices/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Devices & Push'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        Stop sending to one phone. Deactivated rather than deleted: the row is
+        how support answers "why did my notifications stop", and the app puts
+        it back on its own the next time somebody signs in there.
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the device.'
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
     cleanUrlParameters:
-      customer_id: 16
+      id: architecto
     queryParameters: []
     cleanQueryParameters: []
     bodyParameters: []

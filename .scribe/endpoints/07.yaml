@@ -1,172 +1,50 @@
-name: 'Tenant > Authentication'
+name: 'Tenant > Lookups'
 description: ''
 endpoints:
   -
     custom: []
     httpMethods:
-      - POST
-    uri: api/v1/tenant/auth/login
+      - GET
+    uri: 'api/v1/admin/lookups/pincode/{pincode}'
     metadata:
       custom: []
-      groupName: 'Tenant > Authentication'
+      groupName: 'Tenant > Lookups'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
       title: ''
       description: ''
-      authenticated: false
+      authenticated: true
       deprecated: false
     headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
+    urlParameters:
+      pincode:
+        custom: []
+        name: pincode
+        description: 'The pincode.'
+        required: true
+        example: '364255'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      pincode: '364255'
     queryParameters: []
     cleanQueryParameters: []
-    bodyParameters:
-      subdomain:
-        custom: []
-        name: subdomain
-        description: ''
-        required: false
-        example: architecto
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: true
-        deprecated: false
-      email:
-        custom: []
-        name: email
-        description: 'Must be a valid email address.'
-        required: true
-        example: zbailey@example.net
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-      password:
-        custom: []
-        name: password
-        description: ''
-        required: true
-        example: '|]|{+-'
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-      device_name:
-        custom: []
-        name: device_name
-        description: 'Must not be greater than 120 characters.'
-        required: false
-        example: v
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: true
-        deprecated: false
-    cleanBodyParameters:
-      subdomain: architecto
-      email: zbailey@example.net
-      password: '|]|{+-'
-      device_name: v
+    bodyParameters: []
+    cleanBodyParameters: []
     fileParameters: []
     responses: []
     responseFields: []
-    auth: []
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - POST
-    uri: api/v1/tenant/auth/token
-    metadata:
-      custom: []
-      groupName: 'Tenant > Authentication'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: 'Sign in and get a token, for clients that cannot hold a session.'
-      description: |-
-        The browser SPA uses [login] and a cookie. A phone is launched from an
-        icon with no cookie and no subdomain, so it carries a token instead and
-        names its organization in an `X-Organization` header on every later
-        request. The token is created in that organization's own database, which
-        is what makes the header safe to accept: pointed at another
-        organization, it finds that organization's token table, where this token
-        does not exist.
-
-        The credential check, the rate limit and the lifecycle rules are the same
-        ones [login] uses -- LoginRequest owns both paths so they cannot drift.
-        The only difference is that no session is written.
-      authenticated: false
-      deprecated: false
-    headers:
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters:
-      subdomain:
-        custom: []
-        name: subdomain
-        description: ''
-        required: false
-        example: architecto
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: true
-        deprecated: false
-      email:
-        custom: []
-        name: email
-        description: 'Must be a valid email address.'
-        required: true
-        example: zbailey@example.net
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-      password:
-        custom: []
-        name: password
-        description: ''
-        required: true
-        example: '|]|{+-'
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-      device_name:
-        custom: []
-        name: device_name
-        description: 'Must not be greater than 120 characters.'
-        required: false
-        example: v
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: true
-        deprecated: false
-    cleanBodyParameters:
-      subdomain: architecto
-      email: zbailey@example.net
-      password: '|]|{+-'
-      device_name: v
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
     controller: null
     method: null
     route: null
@@ -174,10 +52,10 @@ endpoints:
     custom: []
     httpMethods:
       - GET
-    uri: api/v1/tenant/auth/me
+    uri: 'api/v1/tenant/lookups/pincode/{pincode}'
     metadata:
       custom: []
-      groupName: 'Tenant > Authentication'
+      groupName: 'Tenant > Lookups'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
@@ -189,80 +67,20 @@ endpoints:
       Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - DELETE
-    uri: api/v1/tenant/auth/token
-    metadata:
-      custom: []
-      groupName: 'Tenant > Authentication'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: 'Give up the token this request arrived with.'
-      description: |-
-        Only that one. Signing out on a phone must not sign the same person out
-        of the front desk's tablet.
-      authenticated: true
-      deprecated: false
-    headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - POST
-    uri: api/v1/tenant/auth/logout
-    metadata:
-      custom: []
-      groupName: 'Tenant > Authentication'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: ''
-      description: ''
-      authenticated: true
-      deprecated: false
-    headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters: []
-    cleanUrlParameters: []
+    urlParameters:
+      pincode:
+        custom: []
+        name: pincode
+        description: 'The pincode.'
+        required: true
+        example: '364255'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      pincode: '364255'
     queryParameters: []
     cleanQueryParameters: []
     bodyParameters: []

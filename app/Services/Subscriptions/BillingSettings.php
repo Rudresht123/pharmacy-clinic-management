@@ -63,13 +63,33 @@ class BillingSettings
         'default_trial_plan_id' => null,
 
         'invoice_prefix' => 'ZV',
+
+        // Invoice numbers run in a series per financial year; 4 = April, as
+        // in India. The year in a number is the year the series began.
+        'fiscal_year_start' => 4,
+
+        // Where the platform's own invoice dates are written.
+        'timezone' => 'Asia/Kolkata',
         'seller' => [
             'name' => null,
             'gstin' => null,
             'address' => null,
             'email' => null,
+            'phone' => null,
         ],
     ];
+
+    /**
+     * The year an invoice series belongs to: the year the current financial
+     * year began. With an April start, 15 February 2027 is in the 2026 series.
+     */
+    public function seriesYear(?\DateTimeInterface $at = null): int
+    {
+        $local = \Illuminate\Support\Carbon::instance($at ?? now())->setTimezone((string) $this->get('timezone'));
+        $start = (int) $this->get('fiscal_year_start');
+
+        return (int) $local->month >= $start ? (int) $local->year : (int) $local->year - 1;
+    }
 
     /** @var array<string, mixed>|null */
     private ?array $cached = null;
@@ -199,6 +219,7 @@ class BillingSettings
         $s['gateways'] = array_values(array_unique((array) $s['gateways']));
         $s['renewal_invoice_days'] = (int) $s['renewal_invoice_days'];
         $s['warning_days'] = (int) $s['warning_days'];
+        $s['fiscal_year_start'] = (int) $s['fiscal_year_start'];
         $s['default_trial_plan_id'] = $s['default_trial_plan_id'] === null || $s['default_trial_plan_id'] === ''
             ? null
             : (int) $s['default_trial_plan_id'];
@@ -245,6 +266,14 @@ class BillingSettings
 
         if ((int) $s['warning_days'] < 0 || (int) $s['warning_days'] > 60) {
             $errors['warning_days'] = 'The warning window must be between 0 and 60 days.';
+        }
+
+        if ((int) $s['fiscal_year_start'] < 1 || (int) $s['fiscal_year_start'] > 12) {
+            $errors['fiscal_year_start'] = 'Choose the month the financial year starts.';
+        }
+
+        if (! in_array((string) $s['timezone'], timezone_identifiers_list(), true)) {
+            $errors['timezone'] = 'Choose a timezone.';
         }
 
         if (! preg_match('/^[A-Z0-9-]{1,10}$/', (string) $s['invoice_prefix'])) {

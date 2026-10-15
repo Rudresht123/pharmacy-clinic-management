@@ -66,7 +66,7 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE public_registrations ADD CONSTRAINT public_registrations_status_check CHECK ("
+            'ALTER TABLE public_registrations ADD CONSTRAINT public_registrations_status_check CHECK ('
             ."status IN ('pending_payment', 'paid', 'provisioning', 'active', 'failed', 'cancelled'))"
         );
 
@@ -126,7 +126,7 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE subscription_invoices ADD CONSTRAINT subscription_invoices_rules_check CHECK ("
+            'ALTER TABLE subscription_invoices ADD CONSTRAINT subscription_invoices_rules_check CHECK ('
             ."kind IN ('new', 'renewal', 'upgrade', 'addon', 'overage', 'manual') AND "
             ."status IN ('draft', 'issued', 'paid', 'void') AND "
             ."tax_mode IN ('exclusive', 'inclusive', 'none'))"
@@ -174,7 +174,7 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE subscription_payments ADD CONSTRAINT subscription_payments_rules_check CHECK ("
+            'ALTER TABLE subscription_payments ADD CONSTRAINT subscription_payments_rules_check CHECK ('
             ."method IN ('razorpay', 'manual') AND "
             ."status IN ('created', 'captured', 'failed', 'refunded'))"
         );

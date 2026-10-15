@@ -26,7 +26,7 @@ use Illuminate\Validation\ValidationException;
  * server-side (the checkout signature plus Razorpay's own record, or the
  * webhook). The browser saying "paid" changes nothing.
  *
- * @group Website › Sign-up
+ * @group Website > Sign-up
  *
  * @unauthenticated
  */
@@ -36,6 +36,27 @@ class SignupController extends BaseApiController
         private readonly PublicSignup $signup,
     ) {}
 
+    /**
+     * Register a clinic.
+     *
+     * Send an `Idempotency-Key` header unique to this sign-up; repeating the
+     * request with the same key returns the same registration. A trial is set
+     * up straight away; a paid plan waits at `pending_payment` for checkout.
+     *
+     * @header Idempotency-Key 3f1c9a52-7d0e-4c1b-9f6e-2a8e0d1b7c44
+     *
+     * @bodyParam plan string required Example: growth
+     * @bodyParam billing_cycle string required Example: monthly
+     * @bodyParam start_trial boolean Example: true
+     * @bodyParam organization_name string required Example: Sunrise Clinic
+     * @bodyParam contact_name string required Example: Dr. Mehta
+     * @bodyParam email string required Example: owner@sunrise.example
+     * @bodyParam phone string Example: 9876543210
+     * @bodyParam subdomain string required The workspace address. Example: sunrise
+     *
+     * @response 201 {"data":{"reference":"01JB6Z3Q8K4V2M9X0R7T5W1Y3H","status":"provisioning","plan":"Growth","trial":true,"total":176882,"currency":"INR","workspace":null,"message":"Setting up your workspace. We will email you when it is ready."},"message":"Your trial is being set up."}
+     * @response 422 {"message":"The given data was invalid.","errors":{"subdomain":["That address is taken. Choose another."]}}
+     */
     public function store(Request $request): JsonResponse
     {
         $key = trim((string) $request->header('Idempotency-Key', ''));
@@ -69,12 +90,27 @@ class SignupController extends BaseApiController
             : 'Registered. Continue to payment.');
     }
 
+    /**
+     * Where a registration has got to — poll it after registering or paying.
+     *
+     * @urlParam reference string required Example: 01JB6Z3Q8K4V2M9X0R7T5W1Y3H
+     *
+     * @response 200 {"data":{"reference":"01JB6Z3Q8K4V2M9X0R7T5W1Y3H","status":"active","plan":"Growth","trial":false,"total":176882,"currency":"INR","workspace":{"subdomain":"sunrise","login_url":"https://sunrise.zevro.in/login"},"message":"Your workspace is ready. Check your email to set your password."}}
+     */
     public function status(string $reference): JsonResponse
     {
         return $this->ok($this->signup->status($this->registration($reference)));
     }
 
-    /** The invoice and Razorpay order for a registration waiting on payment. */
+    /**
+     * The invoice and Razorpay order for a registration waiting on payment.
+     * Open Razorpay Checkout with `checkout.key_id`, `checkout.order_id` and
+     * `checkout.amount`, then send its result to checkout/verify.
+     *
+     * @bodyParam reference string required Example: 01JB6Z3Q8K4V2M9X0R7T5W1Y3H
+     *
+     * @response 200 {"data":{"invoice":"01JB6Z4A1B2C3D4E5F6G7H8J9K","total":176882,"checkout":{"gateway":"razorpay","key_id":"rzp_live_xxx","order_id":"order_O1a2B3c4D5","amount":176882,"currency":"INR","invoice":"01JB6Z4A1B2C3D4E5F6G7H8J9K","description":"Invoice ZV-2026-000042","prefill":{"name":"Sunrise Clinic","email":"owner@sunrise.example","contact":"9876543210"}}}}
+     */
     public function checkout(Request $request, PaymentService $payments): JsonResponse
     {
         $data = $request->validate(['reference' => ['required', 'string', 'size:26']]);
@@ -82,7 +118,14 @@ class SignupController extends BaseApiController
         return $this->ok($this->signup->checkout($this->registration($data['reference']), $payments));
     }
 
-    /** The browser's checkout callback — verified against Razorpay before anything happens. */
+    /**
+     * The browser's checkout callback — verified against Razorpay (signature,
+     * and Razorpay's own record of the payment) before anything happens. The
+     * webhook confirms it too, so a closed tab never loses a payment.
+     *
+     * @response 200 {"data":{"reference":"01JB6Z3Q8K4V2M9X0R7T5W1Y3H","status":"provisioning","workspace":null},"message":"Payment received. Setting up your workspace."}
+     * @response 422 {"message":"The given data was invalid.","errors":{"payment":["The payment could not be verified."]}}
+     */
     public function verify(Request $request, PaymentService $payments): JsonResponse
     {
         $data = $request->validate([

@@ -229,13 +229,25 @@ class InvoiceService
         return $invoice;
     }
 
+    /** What the next invoice will be numbered — for the settings preview. Takes nothing. */
+    public function peekNumber(): string
+    {
+        return $this->numberAfterLast();
+    }
+
     /** The next number in this year's series, under a lock. */
     private function nextNumber(): string
     {
         DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ['subscription-invoice-number']);
 
+        return $this->numberAfterLast();
+    }
+
+    private function numberAfterLast(): string
+    {
         $prefix = (string) $this->settings->get('invoice_prefix');
-        $series = $prefix.'-'.Carbon::now()->format('Y').'-';
+        // One series per financial year (Billing Settings), e.g. ZV-2026-000001.
+        $series = $prefix.'-'.$this->settings->seriesYear().'-';
 
         $last = SubscriptionInvoice::query()
             ->where('number', 'like', $series.'%')

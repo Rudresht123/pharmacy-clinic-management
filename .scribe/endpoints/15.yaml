@@ -1,23 +1,22 @@
-name: 'Tenant > Guides'
+name: 'Tenant > Branding & Workspace'
 description: ''
 endpoints:
   -
     custom: []
     httpMethods:
       - GET
-    uri: api/v1/tenant/guides
+    uri: api/v1/tenant/branding
     metadata:
       custom: []
-      groupName: 'Tenant > Guides'
+      groupName: 'Tenant > Branding & Workspace'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
       title: ''
       description: ''
-      authenticated: true
+      authenticated: false
       deprecated: false
     headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
     urlParameters: []
@@ -29,10 +28,7 @@ endpoints:
     fileParameters: []
     responses: []
     responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    auth: []
     controller: null
     method: null
     route: null
@@ -40,35 +36,34 @@ endpoints:
     custom: []
     httpMethods:
       - GET
-    uri: 'api/v1/tenant/guides/{slug}'
+    uri: 'api/v1/tenant/workspace/{code}'
     metadata:
       custom: []
-      groupName: 'Tenant > Guides'
+      groupName: 'Tenant > Branding & Workspace'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
       title: ''
       description: ''
-      authenticated: true
+      authenticated: false
       deprecated: false
     headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
       Content-Type: application/json
       Accept: application/json
     urlParameters:
-      slug:
+      code:
         custom: []
-        name: slug
-        description: 'The slug of the guide.'
+        name: code
+        description: ''
         required: true
-        example: 3cljska
+        example: architecto
         type: string
         enumValues: []
         exampleWasSpecified: false
         nullable: false
         deprecated: false
     cleanUrlParameters:
-      slug: 3cljska
+      code: architecto
     queryParameters: []
     cleanQueryParameters: []
     bodyParameters: []
@@ -76,57 +71,7 @@ endpoints:
     fileParameters: []
     responses: []
     responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
-    controller: null
-    method: null
-    route: null
-  -
-    custom: []
-    httpMethods:
-      - GET
-    uri: 'api/v1/tenant/guides/{slug}/pdf'
-    metadata:
-      custom: []
-      groupName: 'Tenant > Guides'
-      groupDescription: ''
-      subgroup: ''
-      subgroupDescription: ''
-      title: ''
-      description: ''
-      authenticated: true
-      deprecated: false
-    headers:
-      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
-      Content-Type: application/json
-      Accept: application/json
-    urlParameters:
-      slug:
-        custom: []
-        name: slug
-        description: 'The slug of the guide.'
-        required: true
-        example: 3cljska
-        type: string
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-    cleanUrlParameters:
-      slug: 3cljska
-    queryParameters: []
-    cleanQueryParameters: []
-    bodyParameters: []
-    cleanBodyParameters: []
-    fileParameters: []
-    responses: []
-    responseFields: []
-    auth:
-      - headers
-      - Authorization
-      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    auth: []
     controller: null
     method: null
     route: null

@@ -10,9 +10,11 @@ use App\Models\Tenant\Customer;
 use App\Repositories\Tenant\Contracts\CustomerRepositoryInterface;
 use App\Services\Permissions\Permission;
 use App\Services\Portal\PatientOtp;
+use App\Services\Subscriptions\EntitlementService;
 use App\Services\Tenant\PatientAccountProvisioner;
 use App\Services\Tenant\SessionPayload;
 use App\Support\Phone;
+use App\Support\Subscriptions\Entitlements;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -124,6 +126,14 @@ class SignInController extends BaseApiController
         if (! $permission->hasModule($organization, 'appointments')) {
             throw ValidationException::withMessages([
                 'clinic' => "This clinic doesn't take bookings through the app yet.",
+            ]);
+        }
+
+        // The app is a feature of the clinic's plan (every existing clinic
+        // has it on Complimentary).
+        if (! app(EntitlementService::class)->hasFeature($organization, Entitlements::MOBILE_APP)) {
+            throw ValidationException::withMessages([
+                'clinic' => "This clinic doesn't offer the mobile app.",
             ]);
         }
 

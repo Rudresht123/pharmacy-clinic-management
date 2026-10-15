@@ -1,14 +1,14 @@
-name: 'Tenant > Module Settings'
+name: 'Tenant > Pharmacy > Medicines'
 description: ''
 endpoints:
   -
     custom: []
     httpMethods:
       - GET
-    uri: api/v1/tenant/module-locks
+    uri: api/v1/tenant/medicines/fields
     metadata:
       custom: []
-      groupName: 'Tenant > Module Settings'
+      groupName: 'Tenant > Pharmacy > Medicines'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
@@ -39,16 +39,20 @@ endpoints:
   -
     custom: []
     httpMethods:
-      - PUT
-    uri: api/v1/tenant/module-locks
+      - GET
+    uri: api/v1/tenant/medicines/overview
     metadata:
       custom: []
-      groupName: 'Tenant > Module Settings'
+      groupName: 'Tenant > Pharmacy > Medicines'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: 'Replace the list of compulsory modules in one write.'
-      description: ''
+      title: 'The catalogue at a glance: what is in it, and what kind of thing it is.'
+      description: |-
+        Counts, never money — a catalogue entry has no value until a batch of
+        it is on a shelf, and that is the stock report's question. The shape is
+        the one every pharmacy dashboard uses, so the same screen component
+        draws this as draws sales or stock.
       authenticated: true
       deprecated: false
     headers:
@@ -59,22 +63,8 @@ endpoints:
     cleanUrlParameters: []
     queryParameters: []
     cleanQueryParameters: []
-    bodyParameters:
-      modules:
-        custom: []
-        name: modules
-        description: ''
-        required: false
-        example:
-          - architecto
-        type: 'string[]'
-        enumValues: []
-        exampleWasSpecified: false
-        nullable: false
-        deprecated: false
-    cleanBodyParameters:
-      modules:
-        - architecto
+    bodyParameters: []
+    cleanBodyParameters: []
     fileParameters: []
     responses: []
     responseFields: []
@@ -89,14 +79,14 @@ endpoints:
     custom: []
     httpMethods:
       - GET
-    uri: api/v1/tenant/module-settings
+    uri: api/v1/tenant/medicines
     metadata:
       custom: []
-      groupName: 'Tenant > Module Settings'
+      groupName: 'Tenant > Pharmacy > Medicines'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: "The sold, switchable modules, each with the organisation's answer."
+      title: ''
       description: ''
       authenticated: true
       deprecated: false
@@ -123,19 +113,16 @@ endpoints:
   -
     custom: []
     httpMethods:
-      - PUT
-    uri: api/v1/tenant/module-settings
+      - GET
+    uri: api/v1/tenant/medicines/removed
     metadata:
       custom: []
-      groupName: 'Tenant > Module Settings'
+      groupName: 'Tenant > Pharmacy > Medicines'
       groupDescription: ''
       subgroup: ''
       subgroupDescription: ''
-      title: 'Switch modules on or off for the whole organisation.'
-      description: |-
-        `{"modules": {"pharmacy": false}}` — only the modules named change, so a
-        client that knows about two modules cannot switch off a third it has
-        never heard of by leaving it out.
+      title: 'What has been removed, newest first, with who removed it and why.'
+      description: ''
       authenticated: true
       deprecated: false
     headers:
@@ -146,22 +133,921 @@ endpoints:
     cleanUrlParameters: []
     queryParameters: []
     cleanQueryParameters: []
-    bodyParameters:
-      modules:
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/tenant/medicines/{medicine_id}/restore'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Bring a removed medicine back, with a reason.'
+      description: |-
+        Refused when a live medicine has taken its identity or its code since
+        — restoring it would create the duplicate the catalogue refuses.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      medicine_id:
         custom: []
-        name: modules
-        description: ''
+        name: medicine_id
+        description: 'The ID of the medicine.'
         required: true
-        example:
-          - true
-        type: 'boolean[]'
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      medicine_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      reason:
+        custom: []
+        name: reason
+        description: 'Must not be greater than 500 characters.'
+        required: true
+        example: b
+        type: string
         enumValues: []
         exampleWasSpecified: false
         nullable: false
         deprecated: false
     cleanBodyParameters:
-      modules:
-        - true
+      reason: b
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/medicines/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the medicine.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/medicines/{medicine_id}/availability'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'One medicine, at every operational store the caller works at.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      medicine_id:
+        custom: []
+        name: medicine_id
+        description: 'The ID of the medicine.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      medicine_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/tenant/medicines/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Remove a medicine, with a reason.'
+      description: |-
+        Deactivating is the everyday tool; removing takes it out of every
+        working screen, and is refused while any store holds stock of it.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the medicine.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      reason:
+        custom: []
+        name: reason
+        description: 'Must not be greater than 500 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      reason: b
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PUT
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/medicines'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Set the levels for the medicines sent; others are left alone.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      medicines:
+        custom: []
+        name: medicines
+        description: 'Must have at least 1 items. Must not have more than 200 items.'
+        required: true
+        example:
+          - []
+        type: 'object[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'medicines[].medicine_id':
+        custom: []
+        name: 'medicines[].medicine_id'
+        description: 'Must match an existing stored value.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'medicines[].reorder_level':
+        custom: []
+        name: 'medicines[].reorder_level'
+        description: 'Must be at least 0. Must not be greater than 10000000.'
+        required: true
+        example: 22
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'medicines[].minimum_stock_level':
+        custom: []
+        name: 'medicines[].minimum_stock_level'
+        description: 'Must be at least 0. Must not be greater than 10000000.'
+        required: true
+        example: 7
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      'medicines[].maximum_stock_level':
+        custom: []
+        name: 'medicines[].maximum_stock_level'
+        description: 'Must not be greater than 10000000.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'medicines[].preferred_supplier_id':
+        custom: []
+        name: 'medicines[].preferred_supplier_id'
+        description: 'Must match an existing stored value.'
+        required: false
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: true
+        deprecated: false
+      'medicines[].is_active':
+        custom: []
+        name: 'medicines[].is_active'
+        description: ''
+        required: false
+        example: false
+        type: boolean
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      medicines:
+        -
+          medicine_id: 16
+          reorder_level: 22
+          minimum_stock_level: 7
+          maximum_stock_level: 16
+          preferred_supplier_id: 16
+          is_active: false
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/medicines/{storeMedicine_id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'The store stops stocking this medicine, with a reason.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      storeMedicine_id:
+        custom: []
+        name: storeMedicine_id
+        description: 'The ID of the storeMedicine.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+      storeMedicine_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      reason:
+        custom: []
+        name: reason
+        description: 'Must not be greater than 500 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      reason: b
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/medicines'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/availability'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'What one store holds of the given medicines.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      medicine_ids:
+        custom: []
+        name: medicine_ids
+        description: ''
+        required: false
+        example:
+          - 16
+        type: 'integer[]'
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      medicine_ids:
+        - 16
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/stock'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: |-
+        Stock per medicine: on hand, how much of it can actually be dispensed,
+        the next expiry, and whether it is at or below its reorder level.
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/categories'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'The categories this store actually stocks.'
+      description: |-
+        Scoped to the store rather than the whole catalogue: a counter's chips
+        should not offer "Veterinary" to a shop that has never carried any, and
+        a chip that always returns nothing is a chip people learn to distrust.
+
+        Its own endpoint because the list is not page-scoped — it has to describe
+        the whole shelf, not the eight items currently on screen.
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/pharmacy-stores/{store_id}/batches'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      store_id:
+        custom: []
+        name: store_id
+        description: 'The ID of the store.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      store_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - GET
+    uri: 'api/v1/tenant/batches/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the batch.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters: []
+    cleanBodyParameters: []
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - PATCH
+    uri: 'api/v1/tenant/batches/{batch_id}/status'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: 'Block, recall or unblock, with a reason.'
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      batch_id:
+        custom: []
+        name: batch_id
+        description: 'The ID of the batch.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      batch_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      status:
+        custom: []
+        name: status
+        description: ''
+        required: true
+        example: architecto
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+      reason:
+        custom: []
+        name: reason
+        description: 'Must not be greater than 500 characters.'
+        required: true
+        example: 'n'
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      status: architecto
+      reason: 'n'
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - DELETE
+    uri: 'api/v1/tenant/batches/{id}'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      id:
+        custom: []
+        name: id
+        description: 'The ID of the batch.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      reason:
+        custom: []
+        name: reason
+        description: 'Must not be greater than 500 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      reason: b
+    fileParameters: []
+    responses: []
+    responseFields: []
+    auth:
+      - headers
+      - Authorization
+      - 'Bearer 6g43cv8PD1aE5beadkZfhV6'
+    controller: null
+    method: null
+    route: null
+  -
+    custom: []
+    httpMethods:
+      - POST
+    uri: 'api/v1/tenant/batches/{batch_id}/restore'
+    metadata:
+      custom: []
+      groupName: 'Tenant > Pharmacy > Medicines'
+      groupDescription: ''
+      subgroup: ''
+      subgroupDescription: ''
+      title: ''
+      description: ''
+      authenticated: true
+      deprecated: false
+    headers:
+      Authorization: 'Bearer {YOUR_SANCTUM_TOKEN}'
+      Content-Type: application/json
+      Accept: application/json
+    urlParameters:
+      batch_id:
+        custom: []
+        name: batch_id
+        description: 'The ID of the batch.'
+        required: true
+        example: 16
+        type: integer
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanUrlParameters:
+      batch_id: 16
+    queryParameters: []
+    cleanQueryParameters: []
+    bodyParameters:
+      reason:
+        custom: []
+        name: reason
+        description: 'Must not be greater than 500 characters.'
+        required: true
+        example: b
+        type: string
+        enumValues: []
+        exampleWasSpecified: false
+        nullable: false
+        deprecated: false
+    cleanBodyParameters:
+      reason: b
     fileParameters: []
     responses: []
     responseFields: []

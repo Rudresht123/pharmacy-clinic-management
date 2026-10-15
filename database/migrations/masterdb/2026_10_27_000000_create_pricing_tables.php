@@ -180,7 +180,7 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE addons ADD CONSTRAINT addons_rules_check CHECK ("
+            'ALTER TABLE addons ADD CONSTRAINT addons_rules_check CHECK ('
             ."kind IN ('resource', 'credits', 'feature') AND "
             ."billing IN ('recurring', 'one_time') AND "
             ."status IN ('draft', 'published', 'unpublished', 'archived'))"
@@ -238,7 +238,7 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE usage_rates ADD CONSTRAINT usage_rates_rules_check CHECK ("
+            'ALTER TABLE usage_rates ADD CONSTRAINT usage_rates_rules_check CHECK ('
             ."channel IN ('whatsapp', 'sms', 'email', 'video') AND "
             ."billing_unit IN ('message', 'segment', 'email', 'minute', 'session') AND "
             ."overage_policy IN ('block', 'allow') AND "

@@ -108,7 +108,7 @@ class SubscriptionLifecycle
             ];
 
             if ($trial) {
-                $ends = $this->clock->endOfDayAfter($start, $plan->trial_days - 1, $timezone);
+                $ends = $this->clock->endOfDayAfter($start, (int) $plan->trial_days - 1, $timezone);
 
                 $attributes += [
                     'status' => Subscription::TRIAL,
@@ -132,7 +132,7 @@ class SubscriptionLifecycle
                 $attributes += [
                     'status' => Subscription::ACTIVE,
                     'expires_at' => $expires,
-                    'grace_ends_at' => $this->graceEnd($expires, $plan->grace_days, $timezone),
+                    'grace_ends_at' => $this->graceEnd($expires, (int) $plan->grace_days, $timezone),
                     'current_period_end' => $expires,
                     'next_renewal_at' => $expires,
                     'payment_status' => $options['payment_status'] ?? Subscription::PAYMENT_PENDING,

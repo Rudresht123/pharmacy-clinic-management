@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\Platform\Billing\SavePlanRequest;
 use App\Http\Resources\Platform\Billing\PlanResource;
 use App\Models\Platform\Module;
 use App\Models\Platform\Plan;
+use App\Services\Subscriptions\BillingAnalytics;
 use App\Services\Subscriptions\BillingSettings;
 use App\Services\Subscriptions\PricingCatalog;
 use Illuminate\Http\JsonResponse;
@@ -45,6 +46,18 @@ class PlanController extends BaseApiController
             ->get();
 
         return $this->ok(PlanResource::collection($plans));
+    }
+
+    /** Totals for the plans screen: plans, active subscriptions, MRR, average value, most popular. */
+    public function summary(BillingAnalytics $analytics): JsonResponse
+    {
+        return $this->ok($analytics->plans());
+    }
+
+    /** Revenue against renewals already due, and revenue by module — for the pricing screen. */
+    public function pricing(BillingAnalytics $analytics): JsonResponse
+    {
+        return $this->ok($analytics->pricing());
     }
 
     public function show(Plan $plan): JsonResponse
