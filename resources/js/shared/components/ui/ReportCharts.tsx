@@ -62,24 +62,52 @@ function niceScale(max: number, ticks = 5): { top: number; step: number } {
  * labels stay the size they were set at instead of widening with the card.
  */
 function useWidth<T extends HTMLElement>() {
+    const [ref, size] = useSize<T>();
+
+    return [ref, size.width] as const;
+}
+
+/** How wide and how tall a box is, kept current. */
+function useSize<T extends HTMLElement>() {
     const ref = useRef<T>(null);
-    const [width, setWidth] = useState(0);
+    const [size, setSize] = useState({ width: 0, height: 0 });
 
     useEffect(() => {
         const node = ref.current;
 
         if (!node) return;
 
-        setWidth(Math.floor(node.getBoundingClientRect().width));
+        const rect = node.getBoundingClientRect();
 
-        const observer = new ResizeObserver(([entry]) => setWidth(Math.floor(entry.contentRect.width)));
+        setSize({ width: Math.floor(rect.width), height: Math.floor(rect.height) });
+
+        const observer = new ResizeObserver(([entry]) =>
+            setSize({ width: Math.floor(entry.contentRect.width), height: Math.floor(entry.contentRect.height) }),
+        );
 
         observer.observe(node);
 
         return () => observer.disconnect();
     }, []);
 
-    return [ref, width] as const;
+    return [ref, size] as const;
+}
+
+/**
+ * The box a chart draws in. Normally exactly `height` tall; with `fill`, at
+ * least that and as much more as its card has spare, so a chart beside a
+ * taller card grows to meet it rather than leaving a gap under itself.
+ */
+function useChartBox(height: number, fill: boolean) {
+    const [ref, size] = useSize<HTMLDivElement>();
+
+    return {
+        ref,
+        width: size.width,
+        height: fill ? Math.max(size.height, height) : height,
+        className: `od-chart${fill ? ' is-fill' : ''}`,
+        style: fill ? { minHeight: height } : { height },
+    };
 }
 
 /** A useId that is also a valid SVG `url(#…)` reference. */
@@ -119,16 +147,21 @@ export interface StackPoint {
 export function StackedColumns({
     points,
     series,
-    height = 240,
+    height: minHeight = 240,
     format,
     axis,
     totalLine,
     overlay,
     maxBar = 28,
+    tipTotal,
+    fill = false,
 }: {
     points: StackPoint[];
     series: StackSeries[];
+    /** The chart's height — with `fill`, the least it will be. */
     height?: number;
+    /** Grow into whatever height the card has spare. */
+    fill?: boolean;
     /** How a value reads in the hover card. */
     format: (value: number) => string;
     /** How a value reads on the axis. */
@@ -141,8 +174,14 @@ export function StackedColumns({
      */
     overlay?: { label: string; color: string; values: number[] };
     maxBar?: number;
+    /**
+     * List the parts in the hover card in series order, then their sum
+     * under this name — for a stack whose parts are read as a breakdown.
+     */
+    tipTotal?: string;
 }) {
-    const [box, width] = useWidth<HTMLDivElement>();
+    const chart = useChartBox(minHeight, fill);
+    const { width, height } = chart;
     const [hovered, setHovered] = useState<number | null>(null);
     const clipBase = useSvgId('od-col');
 
@@ -176,7 +215,7 @@ export function StackedColumns({
     const flip = hovered !== null && centre(hovered) > width * 0.62;
 
     return (
-        <div className="od-chart" ref={box} style={{ height }} onMouseLeave={() => setHovered(null)}>
+        <div className={chart.className} ref={chart.ref} style={chart.style} onMouseLeave={() => setHovered(null)}>
             {width > 0 && (
                 <svg width={width} height={height} role="img" aria-label={`${series.map((s) => s.label).join(', ')} by period`}>
                     <defs>
@@ -349,14 +388,227 @@ export function StackedColumns({
                             </div>
                         )}
 
-                        {/* Top of the stack first, the order the eye meets them. */}
-                        {[...series.keys()].reverse().map((part) => (
+                        {/* Top of the stack first, the order the eye meets them —
+                            or, read as a breakdown, the series' own order. */}
+                        {(tipTotal ? [...series.keys()] : [...series.keys()].reverse()).map((part) => (
                             <div key={series[part].label}>
                                 <dt>
                                     <span style={{ background: series[part].color }} />
                                     {series[part].label}
                                 </dt>
                                 <dd>{format(active.values[part])}</dd>
+                            </div>
+                        ))}
+
+                        {tipTotal && (
+                            <div className="od-tip-total">
+                                <dt>{tipTotal}</dt>
+                                <dd>{format(totals[hovered])}</dd>
+                            </div>
+                        )}
+                    </dl>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------------------ */
+/*  Columns side by side, with a line                                       */
+/* ------------------------------------------------------------------------ */
+
+/** A column with its top corners rounded and its foot square on the axis. */
+function columnPath(x: number, width: number, from: number, to: number, radius: number): string {
+    const top = Math.min(from, to);
+    const bottom = Math.max(from, to);
+    const r = Math.min(radius, width / 2, bottom - top);
+
+    // A column below the axis is rounded at its foot instead.
+    if (to > from) {
+        return `M${x} ${top} H${x + width} V${bottom - r} Q${x + width} ${bottom} ${x + width - r} ${bottom} H${x + r} Q${x} ${bottom} ${x} ${bottom - r} Z`;
+    }
+
+    return `M${x} ${bottom} V${top + r} Q${x} ${top} ${x + r} ${top} H${x + width - r} Q${x + width} ${top} ${x + width} ${top + r} V${bottom} Z`;
+}
+
+/**
+ * Two or three measures per period as columns standing side by side, with a
+ * further one drawn as a line over them — revenue and expenses as columns,
+ * what was left as the line. One axis for all of them, so they must share
+ * units; it runs below zero when the line does, a month at a loss drawn under
+ * a solid zero line.
+ */
+export function GroupedColumns({
+    points,
+    bars,
+    line,
+    height: minHeight = 240,
+    format,
+    axis,
+    maxBar = 18,
+    fill = false,
+}: {
+    points: { key: string; label: string; title: string }[];
+    bars: { label: string; color: string; values: number[] }[];
+    line?: { label: string; color: string; values: number[] };
+    /** The chart's height — with `fill`, the least it will be. */
+    height?: number;
+    format: (value: number) => string;
+    axis: (value: number) => string;
+    maxBar?: number;
+    /** Grow into whatever height the card has spare. */
+    fill?: boolean;
+}) {
+    const chart = useChartBox(minHeight, fill);
+    const { width, height } = chart;
+    const [hovered, setHovered] = useState<number | null>(null);
+
+    const values = [...bars.flatMap((bar) => bar.values), ...(line?.values ?? [])];
+    const low = Math.min(...values, 0);
+    const high = Math.max(...values, 0);
+
+    const { step } = niceScale(high - low || 1, 4);
+    const floor = Math.floor(low / step) * step;
+    const ceiling = Math.max(Math.ceil(high / step) * step, floor + step);
+
+    const pad = { left: 46, right: 10, top: 12, bottom: 26 };
+    const plotWidth = Math.max(width - pad.left - pad.right, 10);
+    const plotHeight = height - pad.top - pad.bottom;
+    const slot = plotWidth / Math.max(points.length, 1);
+    const gap = 3;
+    const bar = Math.max(Math.min((slot * 0.62 - gap * (bars.length - 1)) / Math.max(bars.length, 1), maxBar), 3);
+    const group = bar * bars.length + gap * (bars.length - 1);
+
+    const y = (value: number) => pad.top + plotHeight - ((value - floor) / (ceiling - floor)) * plotHeight;
+    const centre = (index: number) => pad.left + slot * (index + 0.5);
+
+    const ticks = Array.from({ length: Math.round((ceiling - floor) / step) + 1 }, (_, index) => floor + index * step);
+
+    const labelWidth = Math.max(...points.map((point) => point.label.length), 1) * 6.4 + 12;
+    const every = Math.max(Math.ceil(points.length / Math.max(Math.floor(plotWidth / labelWidth), 1)), 1);
+    const last = points.length - 1;
+    const showLabel = (index: number) => index === last || (index % every === 0 && last - index >= every);
+
+    const active = hovered === null ? null : points[hovered];
+    const flip = hovered !== null && centre(hovered) > width * 0.62;
+
+    return (
+        <div className={chart.className} ref={chart.ref} style={chart.style} onMouseLeave={() => setHovered(null)}>
+            {width > 0 && (
+                <svg
+                    width={width}
+                    height={height}
+                    role="img"
+                    aria-label={`${[...bars.map((b) => b.label), ...(line ? [line.label] : [])].join(', ')} by period`}
+                >
+                    {ticks.map((tick) => (
+                        <g key={tick}>
+                            <line
+                                className={tick === 0 && floor < 0 ? 'od-zero' : 'od-grid'}
+                                x1={pad.left}
+                                x2={width - pad.right}
+                                y1={y(tick)}
+                                y2={y(tick)}
+                            />
+                            <text className="od-axis" x={pad.left - 10} y={y(tick) + 4} textAnchor="end">
+                                {tick < 0 ? `−${axis(-tick)}` : axis(tick)}
+                            </text>
+                        </g>
+                    ))}
+
+                    {hovered !== null && (
+                        <rect
+                            className="od-band"
+                            x={pad.left + slot * hovered + 2}
+                            y={pad.top}
+                            width={Math.max(slot - 4, 0)}
+                            height={plotHeight}
+                            rx={6}
+                        />
+                    )}
+
+                    {points.map((point, index) => (
+                        <g key={point.key} className={hovered !== null && hovered !== index ? 'is-dimmed' : undefined}>
+                            {bars.map((series, which) =>
+                                series.values[index] ? (
+                                    <path
+                                        key={series.label}
+                                        d={columnPath(
+                                            centre(index) - group / 2 + which * (bar + gap),
+                                            bar,
+                                            y(0),
+                                            y(series.values[index]),
+                                            3,
+                                        )}
+                                        style={{ fill: series.color }}
+                                    />
+                                ) : null,
+                            )}
+                        </g>
+                    ))}
+
+                    {line && (
+                        <g className="od-total">
+                            <path
+                                d={line.values
+                                    .map((value, index) => `${index === 0 ? 'M' : 'L'}${centre(index)} ${y(value)}`)
+                                    .join(' ')}
+                                style={{ stroke: line.color }}
+                            />
+                            {line.values.map((value, index) => (
+                                <circle
+                                    key={points[index]?.key ?? index}
+                                    cx={centre(index)}
+                                    cy={y(value)}
+                                    r={hovered === index ? 4.5 : 3.2}
+                                    style={{ stroke: line.color }}
+                                />
+                            ))}
+                        </g>
+                    )}
+
+                    {points.map((point, index) =>
+                        showLabel(index) ? (
+                            <text key={point.key} className="od-axis" x={centre(index)} y={height - 7} textAnchor="middle">
+                                {point.label}
+                            </text>
+                        ) : null,
+                    )}
+
+                    {points.map((point, index) => (
+                        <rect
+                            key={point.key}
+                            className="od-hit"
+                            x={pad.left + slot * index}
+                            y={pad.top}
+                            width={slot}
+                            height={plotHeight}
+                            onMouseEnter={() => setHovered(index)}
+                        />
+                    ))}
+                </svg>
+            )}
+
+            {active && hovered !== null && (
+                <div
+                    className="od-tip"
+                    role="status"
+                    style={{
+                        left: flip ? centre(hovered) - 14 : centre(hovered) + 14,
+                        top: pad.top,
+                        transform: flip ? 'translateX(-100%)' : undefined,
+                    }}
+                >
+                    <b>{active.title}</b>
+
+                    <dl>
+                        {[...bars, ...(line ? [line] : [])].map((series) => (
+                            <div key={series.label}>
+                                <dt>
+                                    <span style={{ background: series.color }} />
+                                    {series.label}
+                                </dt>
+                                <dd>{format(series.values[hovered] ?? 0)}</dd>
                             </div>
                         ))}
                     </dl>

@@ -306,24 +306,47 @@ class DoctorRecords
      * plus those days. Storing a due date would be storing something already
      * known, and it would go stale the moment the visit was corrected.
      *
-     * Nothing here says whether they actually came back; that needs the return
-     * visit to point at the one it follows, which no column does yet. So this
-     * is "who was asked back", and it says so.
+     * Whether they came back is read off the appointments: the first visit to
+     * this doctor on a later day that they actually turned up to. No column
+     * ties a return visit to the one it follows, so a patient who came back
+     * for something else counts too — for "did they come back", that is the
+     * right answer anyway.
      *
      * @return list<array<string, mixed>>
      */
     public function followUps(Doctor $doctor): array
     {
-        $rows = Consultation::on('organization')
+        $written = Consultation::on('organization')
             ->with(['customer', 'appointment'])
             ->where('doctor_id', $doctor->id)
             ->whereNotNull('follow_up_days')
             ->orderByDesc('created_at')
             ->limit(300)
-            ->get()
-            ->map(function (Consultation $row) {
+            ->get();
+
+        // Every visit these patients turned up to with this doctor, oldest first.
+        $visits = Appointment::on('organization')
+            ->where('doctor_id', $doctor->id)
+            ->whereIn('customer_id', $written->pluck('customer_id')->unique()->values())
+            ->whereNotIn('status', [
+                Appointment::STATUS_BOOKED,
+                Appointment::STATUS_CANCELLED,
+                Appointment::STATUS_NO_SHOW,
+            ])
+            ->orderBy('appointment_date')
+            ->get(['customer_id', 'appointment_date'])
+            ->groupBy('customer_id');
+
+        $rows = $written
+            ->map(function (Consultation $row) use ($visits) {
                 $seenOn = $row->appointment?->appointment_date ?? $row->created_at;
                 $due = $seenOn?->copy()->addDays((int) $row->follow_up_days);
+
+                $returned = $seenOn
+                    ? $visits->get($row->customer_id)?->first(
+                        fn (Appointment $visit) => $visit->appointment_date->toDateString() > $seenOn->toDateString(),
+                    )
+                    : null;
 
                 return [
                     'id' => $row->id,
@@ -335,9 +358,15 @@ class DoctorRecords
                     // that makes a list of these worth reading.
                     'due_in' => $due ? (int) now()->startOfDay()->diffInDays($due->startOfDay(), false) : null,
 
+                    // Null until they come back; a date once they have.
+                    'returned_on' => $returned?->appointment_date->toDateString(),
+
                     'customer_id' => $row->customer_id,
                     'customer_name' => $row->customer?->name,
                     'customer_code' => $row->customer?->code,
+                    'age' => $row->customer?->date_of_birth?->age,
+                    'gender' => $row->customer?->gender,
+                    'phone' => $row->customer?->phone,
 
                     'chief_complaint' => $row->chief_complaint,
                     'diagnoses' => $row->diagnoses ?? [],

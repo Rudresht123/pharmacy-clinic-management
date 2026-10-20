@@ -45,9 +45,10 @@ class DashboardSummary
      */
     public const FILTERABLE = [
         'revenue_overview' => ['granularity', 'location_id'],
-        'visit_trends' => ['location_id'],
+        'visit_trends' => ['period', 'location_id'],
         'top_services' => ['period'],
         'profit_loss' => ['period'],
+        'pharmacy_inventory' => ['location_id'],
     ];
 
     public function __construct(
@@ -72,8 +73,9 @@ class DashboardSummary
      *   context     optional — 'organization' for a panel only the network
      *               view draws. Computed nowhere else: a branch dashboard
      *               never shows it, so it never pays for it either.
-     *   resolve     how to build it, given the branches they can see and —
-     *               for a FILTERABLE panel — the filters its card sent.
+     *   resolve     how to build it, given the branches it is about and —
+     *               for a FILTERABLE panel — the filters its card sent. On a
+     *               branch dashboard that is the one branch being stood in.
      *
      * Inventory, billing and the rest arrive as further entries when their
      * modules do. Nothing else in this class changes, and a client that has not
@@ -201,15 +203,16 @@ class DashboardSummary
             ],
 
             /*
-             * The network view — head office's dashboard. What the
-             * organization earned and spent, branch against branch, and what
-             * its shelves need. See OrganizationDashboard for what each
-             * figure means; money panels are `billing.finance`, the same
-             * capability the Finance screen reads money under.
+             * The dashboard's own cards — head office's network, or one
+             * branch's. What was earned and spent, who came and who is due
+             * back, and what the shelves need. A branch dashboard gets the
+             * same screen about its own branch; only the branch-against-
+             * branch table is the network's alone. See OrganizationDashboard
+             * for what each figure means; money panels are `billing.finance`,
+             * the same capability the Finance screen reads money under.
              */
             [
                 'key' => 'overview',
-                'context' => 'organization',
                 'module' => null,
                 'capability' => null,
                 'resolve' => fn (?array $allowed) => $this->network->overview($organization, $user, $allowed, [
@@ -225,7 +228,6 @@ class DashboardSummary
                  * five, four of which would read zero.
                  */
                 'key' => 'kpis',
-                'context' => 'organization',
                 'module' => null,
                 'capability' => null,
                 'resolve' => fn (?array $allowed) => $this->network->kpis($window, $allowed, [
@@ -238,7 +240,6 @@ class DashboardSummary
             ],
             [
                 'key' => 'revenue_overview',
-                'context' => 'organization',
                 'module' => 'billing',
                 'capability' => 'billing.finance',
                 'resolve' => fn (?array $allowed, array $options = []) => $this->network->revenueOverview(
@@ -260,18 +261,16 @@ class DashboardSummary
             ],
             [
                 'key' => 'visit_trends',
-                'context' => 'organization',
                 'module' => 'appointments',
                 'capability' => 'appointments.view',
                 'resolve' => fn (?array $allowed, array $options = []) => $this->network->visitTrends(
-                    $window,
                     $allowed,
+                    $options['period'] ?? 'this_month',
                     $options['location_id'] ?? null,
                 ),
             ],
             [
                 'key' => 'top_services',
-                'context' => 'organization',
                 'module' => 'billing',
                 'capability' => 'billing.finance',
                 'resolve' => fn (?array $allowed, array $options = []) => $this->network->topServices(
@@ -280,15 +279,16 @@ class DashboardSummary
                 ),
             ],
             [
-                'key' => 'stock_alerts',
-                'context' => 'organization',
+                'key' => 'pharmacy_inventory',
                 'module' => 'pharmacy',
                 'capability' => 'pharmacy.view',
-                'resolve' => fn (?array $allowed) => $this->network->stockAlerts($allowed),
+                'resolve' => fn (?array $allowed, array $options = []) => $this->network->pharmacyInventory(
+                    $allowed,
+                    $options['location_id'] ?? null,
+                ),
             ],
             [
                 'key' => 'profit_loss',
-                'context' => 'organization',
                 'module' => 'billing',
                 'capability' => 'billing.finance',
                 'resolve' => fn (?array $allowed, array $options = []) => $this->network->profitLoss(
@@ -298,10 +298,26 @@ class DashboardSummary
             ],
             [
                 'key' => 'branch_activity',
-                'context' => 'organization',
                 'module' => null,
                 'capability' => 'settings.audit',
-                'resolve' => fn (?array $allowed) => $this->network->branchActivity(),
+                'resolve' => fn (?array $allowed) => $this->network->branchActivity(
+                    $this->permission->branchFor($user),
+                ),
+            ],
+            [
+                /*
+                 * Who was asked back and has not come. The patient list's
+                 * capability; the reason beside each name is a diagnosis,
+                 * so it is filled in only for somebody who reads clinical
+                 * notes.
+                 */
+                'key' => 'follow_ups',
+                'module' => 'appointments',
+                'capability' => 'customers.view',
+                'resolve' => fn (?array $allowed) => $this->network->followUps(
+                    $allowed,
+                    $can('prescriptions.view') || $can('appointments.consult_start'),
+                ),
             ],
         ];
     }
@@ -351,10 +367,11 @@ class DashboardSummary
         array $options,
     ): ?array {
         $branch = $this->permission->branchFor($user);
+        $scope = $this->scopeFor($user, $branch);
 
         foreach ($this->panels($organization, $user, $window) as $panel) {
             if ($panel['key'] === $key && $this->visible($organization, $user, $panel, $branch)) {
-                return ($panel['resolve'])($this->branches->allowed($user), $options);
+                return ($panel['resolve'])($scope, $options);
             }
         }
 
@@ -443,8 +460,8 @@ class DashboardSummary
          * exactly those. The distinction matters more than it looks: `[]` is
          * "no branches", which is a real and different answer from "all".
          */
-        $allowed = $this->branches->allowed($user);
         $branch = $this->permission->branchFor($user);
+        $allowed = $this->scopeFor($user, $branch);
 
         $summary = [
             /*
@@ -491,6 +508,21 @@ class DashboardSummary
         }
 
         return $summary;
+    }
+
+    /**
+     * The branches a dashboard is about.
+     *
+     * Standing in a branch, that branch and no other — even for somebody who
+     * works at several, or an owner who has switched into one: the branch
+     * dashboard answers about where they are. Otherwise every branch they
+     * may see, which for the owner and head office is the whole network.
+     *
+     * @return list<int>|null
+     */
+    private function scopeFor(User $user, ?int $branch): ?array
+    {
+        return $branch === null ? $this->branches->allowed($user) : [$branch];
     }
 
     private function scopeLabel(?array $allowed): string

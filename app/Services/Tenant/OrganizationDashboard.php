@@ -5,6 +5,7 @@ namespace App\Services\Tenant;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\ActivityLog;
 use App\Models\Tenant\Appointment;
+use App\Models\Tenant\Consultation;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\Invoice;
@@ -345,7 +346,8 @@ class OrganizationDashboard
      |===================================================================== */
 
     /**
-     * Visits in the window, new against returning.
+     * Visits over a named period, new against returning, with the three
+     * totals over the chart each against the period before.
      *
      * A visit is a patient who actually came — checked in or further along.
      * A booking still waiting, a cancellation and a no-show are not visits.
@@ -355,30 +357,21 @@ class OrganizationDashboard
      * day. Nothing stores it, so it is worked out here in the same query
      * rather than a second definition drifting from the first.
      *
+     * The card picks its own period, as Top Services does, rather than
+     * following the page's range: its header carries the choice.
+     *
      * @return array<string, mixed>
      */
-    public function visitTrends(DashboardWindow $window, ?array $allowed, ?int $branch): array
+    public function visitTrends(?array $allowed, string $period, ?int $branch): array
     {
+        [$from, $to] = $this->period($period);
+
+        $window = new DashboardWindow($from, $to);
+        $previous = $window->previous();
         $unit = $window->days() > self::DAILY_LIMIT ? 'month' : 'day';
 
-        $rows = $this->scoped(Appointment::query(), 'location_id', $allowed)
-            ->when($branch !== null, fn (Builder $q) => $q->where('location_id', $branch))
-            ->whereNotIn('status', [
-                Appointment::STATUS_BOOKED,
-                Appointment::STATUS_CANCELLED,
-                Appointment::STATUS_NO_SHOW,
-            ])
-            ->whereBetween('appointment_date', [$window->from->toDateString(), $window->to->toDateString()])
+        $rows = $this->visits($window->from, $window->to, $allowed, $branch)
             ->selectRaw($this->bucket('appointment_date', $unit).' AS bucket')
-            ->selectRaw('COUNT(*) AS visits')
-            ->selectRaw(
-                'SUM(CASE WHEN NOT EXISTS ('
-                .'SELECT 1 FROM appointments AS prev'
-                .' WHERE prev.customer_id = appointments.customer_id'
-                .' AND prev.appointment_date < appointments.appointment_date'
-                .' AND prev.deleted_at IS NULL'
-                .') THEN 1 ELSE 0 END) AS new_visits'
-            )
             ->groupBy('bucket')
             ->get()
             ->keyBy('bucket');
@@ -391,13 +384,56 @@ class OrganizationDashboard
             return [...$bucket, 'new' => $new, 'returning' => $visits - $new];
         }, $this->buckets($window->from, $window->to, $unit));
 
+        $new = array_sum(array_column($points, 'new'));
+        $returning = array_sum(array_column($points, 'returning'));
+
+        $before = $this->visits($previous->from, $previous->to, $allowed, $branch)->first();
+        $visitsBefore = (int) ($before->visits ?? 0);
+        $newBefore = (int) ($before->new_visits ?? 0);
+
         return [
+            'period' => $period,
             'granularity' => $unit,
             'location_id' => $branch,
+            'compare' => match ($period) {
+                'this_year' => 'vs last year',
+                'last_month' => 'vs month before',
+                default => 'vs last month',
+            },
             'series' => $points,
-            'new' => array_sum(array_column($points, 'new')),
-            'returning' => array_sum(array_column($points, 'returning')),
+            'new' => $new,
+            'returning' => $returning,
+            'totals' => [
+                'visits' => ['value' => $new + $returning, 'change' => $this->change($new + $returning, $visitsBefore)],
+                'new' => ['value' => $new, 'change' => $this->change($new, $newBefore)],
+                'returning' => ['value' => $returning, 'change' => $this->change($returning, $visitsBefore - $newBefore)],
+            ],
         ];
+    }
+
+    /**
+     * Visits between two days, counted and split new / returning — grouped
+     * further by whoever asks.
+     */
+    private function visits(Carbon $from, Carbon $to, ?array $allowed, ?int $branch): Builder
+    {
+        return $this->scoped(Appointment::query(), 'location_id', $allowed)
+            ->when($branch !== null, fn (Builder $q) => $q->where('location_id', $branch))
+            ->whereNotIn('status', [
+                Appointment::STATUS_BOOKED,
+                Appointment::STATUS_CANCELLED,
+                Appointment::STATUS_NO_SHOW,
+            ])
+            ->whereBetween('appointment_date', [$from->toDateString(), $to->toDateString()])
+            ->selectRaw('COUNT(*) AS visits')
+            ->selectRaw(
+                'SUM(CASE WHEN NOT EXISTS ('
+                .'SELECT 1 FROM appointments AS prev'
+                .' WHERE prev.customer_id = appointments.customer_id'
+                .' AND prev.appointment_date < appointments.appointment_date'
+                .' AND prev.deleted_at IS NULL'
+                .') THEN 1 ELSE 0 END) AS new_visits'
+            );
     }
 
     /* =====================================================================
@@ -419,7 +455,7 @@ class OrganizationDashboard
         $labels = [
             'consultation' => 'Consultation',
             'pharmacy' => 'Pharmacy Sales',
-            'laboratory' => 'Laboratory Tests',
+            'laboratory' => 'Lab Tests',
             'procedures' => 'Procedures',
             'others' => 'Others',
         ];
@@ -446,40 +482,57 @@ class OrganizationDashboard
     }
 
     /* =====================================================================
-     | Pharmacy stock alerts
+     | Pharmacy inventory
      |===================================================================== */
 
+    /** How far ahead "expiring" looks — the span the card's tile names. */
+    private const EXPIRY_DAYS = 30;
+
+    /** How many lines the low-stock table carries; it scrolls past five. */
+    private const LOW_ROWS = 8;
+
+    /** Categories the stock ring names before the rest become "Others". */
+    private const CATEGORIES = 5;
+
     /**
-     * What the network's shelves need somebody to act on.
+     * The shelves at a glance: four counts, the lines running low, and the
+     * stock on hand split by category.
      *
-     * Expired stock still on a shelf comes first — it must not be sold and is
-     * already money lost — then what has run out, then what is running low.
      * "Low" is the store's own reorder level, the same test the pharmacy's
-     * own dashboard uses, and "usable" stock is active and in date.
+     * own dashboard uses, and stock counts only while it is usable — active
+     * and in date. Out of stock is the bottom of low stock rather than a
+     * separate set, so the low tile counts what is running out but not yet
+     * gone, and no medicine is counted on both tiles.
      *
      * @return array<string, mixed>
      */
-    public function stockAlerts(?array $allowed): array
+    public function pharmacyInventory(?array $allowed, ?int $branch): array
     {
         $stores = $this->scoped(PharmacyStore::query(), 'location_id', $allowed)
+            ->when($branch !== null, fn (Builder $q) => $q->where('location_id', $branch))
             ->with('location:id,name')
             ->get(['id', 'name', 'location_id'])
             ->keyBy('id');
 
+        $panel = [
+            'location_id' => $branch,
+            'expiry_days' => self::EXPIRY_DAYS,
+            'counts' => ['low' => 0, 'expiring' => 0, 'out' => 0, 'medicines' => 0],
+            'rows' => [],
+            'units' => 0,
+            'categories' => [],
+        ];
+
         if ($stores->isEmpty()) {
-            return ['counts' => ['expired' => 0, 'out' => 0, 'low' => 0], 'rows' => []];
+            return $panel;
         }
 
         $today = Carbon::today()->toDateString();
         $storeIds = $stores->keys()->all();
 
-        $expired = MedicineBatch::query()
-            ->whereIn('pharmacy_store_id', $storeIds)
-            ->whereIn('status', [MedicineBatch::ACTIVE, MedicineBatch::EXPIRED])
-            ->where('quantity_available', '>', 0)
-            ->whereDate('expiry_date', '<=', $today);
-
-        $levels = StoreMedicine::query()
+        // Every line a store keeps at or under its reorder level — what is
+        // left of it in usable stock, emptiest first.
+        $short = StoreMedicine::query()
             ->leftJoin('medicine_batches AS stock', function (JoinClause $join) use ($today) {
                 $join->on('stock.pharmacy_store_id', '=', 'store_medicines.pharmacy_store_id')
                     ->on('stock.medicine_id', '=', 'store_medicines.medicine_id')
@@ -492,74 +545,169 @@ class OrganizationDashboard
             ->select('store_medicines.pharmacy_store_id', 'store_medicines.medicine_id', 'store_medicines.reorder_level')
             ->selectRaw('COALESCE(SUM(stock.quantity_available), 0) AS on_hand')
             ->groupBy('store_medicines.id', 'store_medicines.pharmacy_store_id', 'store_medicines.medicine_id', 'store_medicines.reorder_level')
-            ->havingRaw('COALESCE(SUM(stock.quantity_available), 0) <= store_medicines.reorder_level');
-
-        $counts = (new StoreMedicine)->getConnection()->query()
-            ->fromSub($levels->toBase(), 'levels')
-            ->selectRaw('COUNT(*) AS short, COUNT(*) FILTER (WHERE on_hand = 0) AS empty')
-            ->first();
-
-        $expiredRows = (clone $expired)
-            ->with('medicine')
-            ->orderBy('expiry_date')
-            ->orderBy('id')
-            ->limit(self::ROWS)
-            ->get();
-
-        $shortRows = (clone $levels)
+            ->havingRaw('COALESCE(SUM(stock.quantity_available), 0) <= store_medicines.reorder_level')
             ->orderByRaw('COALESCE(SUM(stock.quantity_available), 0) ASC')
             ->orderBy('store_medicines.medicine_id')
-            ->limit(self::ROWS)
             ->get();
 
+        $out = $short->filter(fn ($row) => (int) $row->on_hand === 0)->count();
+
+        $panel['counts'] = [
+            'low' => $short->count() - $out,
+            'expiring' => MedicineBatch::query()
+                ->whereIn('pharmacy_store_id', $storeIds)
+                ->where('status', MedicineBatch::ACTIVE)
+                ->where('quantity_available', '>', 0)
+                ->whereDate('expiry_date', '>', $today)
+                ->whereDate('expiry_date', '<=', Carbon::today()->addDays(self::EXPIRY_DAYS)->toDateString())
+                ->count(),
+            'out' => $out,
+            'medicines' => StoreMedicine::query()
+                ->whereIn('pharmacy_store_id', $storeIds)
+                ->where('is_active', true)
+                ->distinct()
+                ->count('medicine_id'),
+        ];
+
+        $lines = $short->take(self::LOW_ROWS);
+
         $medicines = Medicine::withTrashed()
-            ->whereIn('id', $shortRows->pluck('medicine_id'))
-            ->get(['id', 'generic_name', 'brand_name', 'strength', 'dosage_form', 'base_unit'])
+            ->whereIn('id', $lines->pluck('medicine_id'))
+            ->get(['id', 'generic_name', 'brand_name', 'strength'])
             ->keyBy('id');
 
-        $where = fn (int $storeId) => $stores->get($storeId)?->location?->name
-            ?? $stores->get($storeId)?->name;
+        // Which branch a line is at matters only when there is more than one.
+        $manyBranches = $stores->pluck('location_id')->unique()->count() > 1;
 
-        $rows = $expiredRows
-            ->map(fn (MedicineBatch $batch) => [
-                'key' => 'batch-'.$batch->id,
-                'name' => $batch->medicine?->displayName() ?? 'Unknown',
-                'branch' => $where((int) $batch->pharmacy_store_id),
-                'quantity' => (int) $batch->quantity_available,
-                'unit' => $this->unit($batch->medicine?->base_unit, (int) $batch->quantity_available),
-                'status' => 'expired',
-                'expiry_date' => $batch->expiry_date?->toDateString(),
-            ])
-            ->concat($shortRows->map(function ($row) use ($medicines, $where) {
-                $onHand = (int) $row->on_hand;
-                $medicine = $medicines->get($row->medicine_id);
+        $panel['rows'] = $lines->map(function ($row) use ($medicines, $stores, $manyBranches) {
+            $medicine = $medicines->get($row->medicine_id);
+            $store = $stores->get((int) $row->pharmacy_store_id);
+            $onHand = (int) $row->on_hand;
 
-                return [
-                    'key' => 'stock-'.$row->pharmacy_store_id.'-'.$row->medicine_id,
-                    'name' => $medicine?->displayName() ?? 'Unknown',
-                    'branch' => $where((int) $row->pharmacy_store_id),
-                    'quantity' => $onHand,
-                    'unit' => $this->unit($medicine?->base_unit, $onHand),
-                    'status' => $onHand === 0 ? 'out' : 'low',
-                    'expiry_date' => null,
-                ];
-            }))
-            // Expired first, then nothing left, then running low.
-            ->sortBy(fn (array $row) => ['expired' => 0, 'out' => 1, 'low' => 2][$row['status']])
-            ->take(self::ROWS)
+            return [
+                'key' => $row->pharmacy_store_id.'-'.$row->medicine_id,
+                // What is on the strip first, what it is underneath.
+                'name' => $medicine?->brand_name ?: ($medicine?->generic_name ?? 'Unknown'),
+                'detail' => implode(' · ', array_filter([
+                    $medicine?->brand_name ? $medicine->generic_name : null,
+                    $medicine?->strength,
+                    $manyBranches ? ($store?->location?->name ?? $store?->name) : null,
+                ])),
+                'stock' => $onHand,
+                'min_level' => (int) $row->reorder_level,
+                'status' => $onHand === 0 ? 'out' : 'low',
+            ];
+        })->values()->all();
+
+        // Usable units on the shelves, by the category the medicine is filed
+        // under — the biggest few by name, everything else together.
+        $byCategory = MedicineBatch::query()
+            ->join('medicines', 'medicines.id', '=', 'medicine_batches.medicine_id')
+            ->whereIn('medicine_batches.pharmacy_store_id', $storeIds)
+            ->where('medicine_batches.status', MedicineBatch::ACTIVE)
+            ->where('medicine_batches.quantity_available', '>', 0)
+            ->whereDate('medicine_batches.expiry_date', '>', $today)
+            ->selectRaw("NULLIF(TRIM(medicines.category), '') AS category")
+            ->selectRaw('SUM(medicine_batches.quantity_available) AS units')
+            ->groupByRaw("NULLIF(TRIM(medicines.category), '')")
+            ->get()
+            ->map(fn ($row) => ['category' => $row->category, 'units' => (int) $row->units])
+            ->sortByDesc('units')
+            ->values();
+
+        $units = (int) $byCategory->sum('units');
+        $named = $byCategory->whereNotNull('category')->take(self::CATEGORIES);
+        $rest = $units - (int) $named->sum('units');
+
+        $slices = $named
+            ->map(fn (array $row) => ['key' => Str::slug($row['category']), 'label' => $row['category'], 'units' => $row['units']])
+            ->when($rest > 0, fn ($slices) => $slices->push(['key' => 'others', 'label' => 'Others', 'units' => $rest]));
+
+        $panel['units'] = $units;
+        $panel['categories'] = $slices
+            ->map(fn (array $slice) => [...$slice, 'share' => $units > 0 ? round($slice['units'] / $units * 100, 1) : 0.0])
             ->values()
             ->all();
 
-        $short = (int) ($counts->short ?? 0);
-        $empty = (int) ($counts->empty ?? 0);
+        return $panel;
+    }
+
+    /* =====================================================================
+     | Follow-ups
+     |===================================================================== */
+
+    /** How far either side of today the follow-up card looks. */
+    private const FOLLOW_UP_DAYS = 14;
+
+    /**
+     * Patients asked back who have not come yet — the ones overdue first,
+     * then today's, then the next fortnight's.
+     *
+     * Worked out the way the doctor's own list works it out
+     * (App\Services\Opd\DoctorRecords::followUps): a follow-up is advice
+     * written at a visit, so it falls due on the visit's date plus its days,
+     * and it is kept until the patient turns up to any later visit. Network
+     * wide rather than one doctor's, at the branches the visit was seen at.
+     *
+     * `$reasons` is false for somebody who may not read clinical notes: the
+     * diagnosis is a clinical record, and the list is still worth having
+     * without it.
+     *
+     * @return array<string, mixed>
+     */
+    public function followUps(?array $allowed, bool $reasons): array
+    {
+        $today = Carbon::today();
+        $due = '(appointments.appointment_date + consultations.follow_up_days)';
+
+        $rows = Consultation::query()
+            ->join('appointments', 'appointments.id', '=', 'consultations.appointment_id')
+            ->whereNull('appointments.deleted_at')
+            ->whereNotNull('consultations.follow_up_days')
+            ->when($allowed !== null, fn (Builder $q) => $q->whereIn('appointments.location_id', $allowed ?: [0]))
+            ->whereRaw("{$due} BETWEEN ? AND ?", [
+                $today->copy()->subDays(self::FOLLOW_UP_DAYS)->toDateString(),
+                $today->copy()->addDays(self::FOLLOW_UP_DAYS)->toDateString(),
+            ])
+            // Not back yet: no later day they actually turned up to.
+            ->whereRaw(
+                'NOT EXISTS (SELECT 1 FROM appointments AS later'
+                .' WHERE later.customer_id = consultations.customer_id'
+                .' AND later.appointment_date > appointments.appointment_date'
+                .' AND later.deleted_at IS NULL'
+                .' AND later.status NOT IN (?, ?, ?))',
+                [Appointment::STATUS_BOOKED, Appointment::STATUS_CANCELLED, Appointment::STATUS_NO_SHOW],
+            )
+            ->select('consultations.id', 'consultations.customer_id', 'consultations.follow_up_days')
+            ->selectRaw('appointments.appointment_date AS seen_on')
+            ->selectRaw("{$due} AS due_on")
+            ->when($reasons, fn (Builder $q) => $q->addSelect('consultations.diagnoses', 'consultations.chief_complaint'))
+            ->with('customer:id,name,code,phone')
+            ->orderByRaw("{$due} ASC")
+            ->orderBy('consultations.id')
+            ->limit(self::ROWS)
+            ->get();
 
         return [
-            'counts' => [
-                'expired' => (clone $expired)->count(),
-                'out' => $empty,
-                'low' => $short - $empty,
-            ],
-            'rows' => $rows,
+            'rows' => $rows->map(function (Consultation $row) use ($today, $reasons) {
+                $dueOn = Carbon::parse($row->due_on);
+
+                return [
+                    'id' => $row->id,
+                    'customer_id' => $row->customer_id,
+                    'name' => $row->customer?->name,
+                    'code' => $row->customer?->code,
+                    'phone' => $row->customer?->phone,
+                    'seen_on' => Carbon::parse($row->seen_on)->toDateString(),
+                    'due_on' => $dueOn->toDateString(),
+                    // Negative once the day has passed.
+                    'due_in' => (int) $today->diffInDays($dueOn, false),
+                    'days' => (int) $row->follow_up_days,
+                    'reason' => $reasons
+                        ? (($row->diagnoses ?? [])[0] ?? ($row->chief_complaint ?: null))
+                        : null,
+                ];
+            })->values()->all(),
         ];
     }
 
@@ -650,12 +798,23 @@ class OrganizationDashboard
      * workflow is an edit on every step, so edits count only for the few
      * records whose change is itself the news.
      *
+     * `$branch` narrows it to what happened at one branch, for the dashboard
+     * of somebody standing in it; head office reads the whole network.
+     *
      * @return list<array<string, mixed>>
      */
-    public function branchActivity(): array
+    public function branchActivity(?int $branch = null): array
     {
         $entries = ActivityLog::query()
             ->where('actor_type', 'tenant')
+            ->when($branch !== null, fn (Builder $q) => $q->where(fn (Builder $here) => $here
+                ->where('location_id', $branch)
+                // A bill raised by the visit's own workflow is logged with no
+                // acting branch; it belongs to the branch the bill is for.
+                ->orWhere(fn (Builder $bill) => $bill
+                    ->whereNull('location_id')
+                    ->where('entity_type', 'Invoice')
+                    ->whereIn('entity_id', Invoice::query()->where('location_id', $branch)->select('id')))))
             ->whereIn('entity_type', self::NEWSWORTHY)
             ->where(fn (Builder $q) => $q
                 ->where('event', '!=', 'updated')
@@ -664,24 +823,50 @@ class OrganizationDashboard
             ->limit(self::ROWS)
             ->get();
 
+        /*
+         * A bill or a sale is logged the moment it is created, before it has
+         * a number — the number, the branch and the amount are read off the
+         * record itself, so the entry says which bill and for how much.
+         */
+        $ids = fn (string $type) => $entries->where('entity_type', $type)->pluck('entity_id')->filter()->all();
+
+        $records = [
+            'Invoice' => Invoice::query()
+                ->whereIn('id', $ids('Invoice'))
+                ->get(['id', 'invoice_number AS number', 'location_id', 'total_amount'])
+                ->keyBy('id'),
+            'PharmacySale' => PharmacySale::query()
+                ->whereIn('id', $ids('PharmacySale'))
+                ->get(['id', 'sale_number AS number', 'location_id', 'total_amount'])
+                ->keyBy('id'),
+        ];
+
+        $record = fn (ActivityLog $row) => ($records[$row->entity_type] ?? collect())->get($row->entity_id);
+
         $branches = Location::withTrashed()
-            ->whereIn('id', $entries->pluck('location_id')->filter()->unique())
+            ->whereIn('id', $entries
+                ->map(fn (ActivityLog $row) => $row->location_id ?? $record($row)?->location_id)
+                ->filter()
+                ->unique())
             ->pluck('name', 'id');
 
-        return $entries->map(function (ActivityLog $row) use ($branches) {
-            $branch = $row->location_id ? ($branches[$row->location_id] ?? null) : null;
-            $text = $this->sentence($row->event, $row->entity_type);
+        return $entries->map(function (ActivityLog $row) use ($branches, $record) {
+            $bill = $record($row);
+            $at = $row->location_id ?? $bill?->location_id;
 
             return [
                 'id' => $row->id,
                 'event' => $row->event,
                 'entity_type' => $row->entity_type,
-                'text' => $branch ? "{$text} at {$branch}" : $text,
+                // The sentence alone; the branch goes on the line under it,
+                // beside what the record is called.
+                'text' => $this->sentence($row->event, $row->entity_type),
                 // What the record is called, kept out of the sentence: a
                 // name in the middle of one ("New posting Neha Sharma at
                 // Gorakhpur added") stops it reading as a sentence.
-                'detail' => $row->entity_label,
-                'branch' => $branch,
+                'detail' => $row->entity_label ?: $bill?->number,
+                'branch' => $at ? ($branches[$at] ?? null) : null,
+                'amount' => $bill ? round((float) $bill->total_amount, 2) : null,
                 'actor_name' => $row->actor_name,
                 'created_at' => $row->created_at?->toIso8601String(),
             ];
@@ -1014,12 +1199,6 @@ class OrganizationDashboard
     private function change(float|int $now, float|int $before): ?int
     {
         return $before != 0 ? (int) round((($now - $before) / abs($before)) * 100) : null;
-    }
-
-    /** "12 strips", "1 strip". */
-    private function unit(?string $unit, int $quantity): string
-    {
-        return $unit ? Str::plural($unit, $quantity) : '';
     }
 
     /**

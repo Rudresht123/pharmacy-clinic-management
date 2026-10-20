@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from '@/shared/components/ui/Card';
 import { DonutChart } from '@/shared/components/ui/DonutChart';
+import { ActivityFeed, feedItemFromLog } from '@/shared/components/ui/ActivityFeed';
 import { LoadingBlock, ErrorState, EmptyState, NoResultsState } from '@/shared/components/ui/Feedback';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import type { QueueStep } from '@/core/tenant-auth/api';
@@ -203,33 +204,6 @@ function clockTime(iso: string | undefined): string {
     return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-/** "10 minutes ago", without pulling in a date library for one line. */
-function ago(iso: string | null): string {
-    if (!iso) {
-        return '';
-    }
-
-    const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
-
-    if (seconds < 60) {
-        return 'just now';
-    }
-
-    const minutes = Math.round(seconds / 60);
-
-    if (minutes < 60) {
-        return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
-    }
-
-    const hours = Math.round(minutes / 60);
-
-    if (hours < 24) {
-        return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-    }
-
-    return `${Math.round(hours / 24)} day${Math.round(hours / 24) === 1 ? '' : 's'} ago`;
-}
-
 /**
  * A stable hue for a speciality, from its name rather than its position.
  *
@@ -247,31 +221,6 @@ function hueFor(label: string): number {
 
     return (sum % 6) + 1;
 }
-
-/**
- * What an audit row looks like on a feed rather than in a log.
- *
- * The icon follows the RECORD, the tone follows what happened to it. Keyed
- * only on the event, every row on a busy morning was the same blue plus sign —
- * because registering a patient, booking an appointment and finishing a
- * consultation are all "created", and the one thing the feed is for is telling
- * them apart at a glance.
- */
-const ENTITY_ICON: Record<string, string> = {
-    Customer: 'ti ti-user-plus',
-    Appointment: 'ti ti-calendar-event',
-    Doctor: 'ti ti-stethoscope',
-    DoctorSchedule: 'ti ti-calendar-time',
-    User: 'ti ti-user',
-    Location: 'ti ti-building-store',
-    Role: 'ti ti-shield-lock',
-};
-
-const ACTIVITY: Record<string, { tone: string; verb: string }> = {
-    created: { tone: 'sky', verb: 'added' },
-    updated: { tone: 'amber', verb: 'updated' },
-    deleted: { tone: 'rose', verb: 'removed' },
-};
 
 /**
  * The OPD dashboard — the screen somebody opens at the start of the morning.
@@ -1148,40 +1097,14 @@ export default function OpdTodayPage() {
                                         <p>Nothing has happened yet.</p>
                                     </div>
                                 ) : (
-                                    <ul className="opd-list">
-                                        {(data?.activity ?? []).map((row) => {
-                                            const kind = ACTIVITY[row.event] ?? ACTIVITY.updated;
-
-                                            return (
-                                                <li key={row.id} className="opd-feed">
-                                                    <span
-                                                        className={`opd-feed-icon is-${kind.tone}`}
-                                                        aria-hidden="true"
-                                                    >
-                                                        <i
-                                                            className={
-                                                                ENTITY_ICON[row.entity_type] ??
-                                                                'ti ti-point'
-                                                            }
-                                                        />
-                                                    </span>
-
-                                                    <span className="opd-feed-what">
-                                                        <b>
-                                                            {row.entity_type} {kind.verb}
-                                                        </b>
-                                                        <small>{row.entity_label}</small>
-                                                        <em>
-                                                            {ago(row.created_at)}
-                                                            {row.actor_name
-                                                                ? ` · ${row.actor_name}`
-                                                                : ''}
-                                                        </em>
-                                                    </span>
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
+                                    <ActivityFeed
+                                        items={(data?.activity ?? []).map((row) =>
+                                            feedItemFromLog({
+                                                ...row,
+                                                detail: [row.entity_label, row.actor_name],
+                                            }),
+                                        )}
+                                    />
                                 )}
                             </Card>
                     </div>

@@ -150,13 +150,17 @@ class DashboardTest extends TenantTestCase
         $data = $this->getJson('/api/v1/tenant/dashboard')->assertOk()->json('data');
 
         /*
-         * `headline` and `plan` need no capability — the first is empty
-         * because every card inside it does, and the second says which
-         * modules the organization holds, which `/auth/me` already tells
-         * them. Everything that answers a capability is gone.
+         * `headline`, `plan`, `overview` and `kpis` need no capability as
+         * panels — the figure cards inside are gated one by one, so both
+         * card lists are empty, and the overview counts nothing it may not.
+         * `plan` says which modules the organization holds, which
+         * `/auth/me` already tells them. Everything that answers a
+         * capability is gone.
          */
-        $this->assertSame(['context', 'scope', 'headline', 'plan'], array_keys($data));
+        $this->assertSame(['context', 'scope', 'headline', 'plan', 'overview', 'kpis'], array_keys($data));
         $this->assertSame([], $data['headline']);
+        $this->assertSame([], $data['kpis']);
+        $this->assertNull($data['overview']['staff']);
     }
 
     /**

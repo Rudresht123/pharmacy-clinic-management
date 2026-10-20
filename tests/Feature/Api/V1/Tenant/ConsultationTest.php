@@ -413,6 +413,50 @@ class ConsultationTest extends TenantTestCase
         $this->assertSame(self::MONDAY, $row['seen_on']);
         $this->assertSame('2026-09-14', $row['due_on']);
         $this->assertSame(7, $row['days']);
+        $this->assertNull($row['returned_on']);
+    }
+
+    /**
+     * A follow-up is done once the patient comes back to the same doctor.
+     *
+     * Only a visit they turned up to counts: a booking still to come, one
+     * cancelled, or one they missed is not them coming back.
+     */
+    public function test_a_follow_up_is_done_once_the_patient_comes_back(): void
+    {
+        [$organization, $ids, $branchId, $appointmentId] = $this->clinic();
+
+        $this->signInAsDoctor($organization, 'anjali@clinic.test');
+
+        $this->putJson("/api/v1/tenant/appointments/{$appointmentId}/consultation", [
+            'follow_up_days' => 7,
+        ])->assertOk();
+
+        $visit = fn (string $date, string $status) => $this->onTenant(
+            $organization,
+            fn () => Appointment::on('organization')->create([
+                'customer_id' => Customer::on('organization')->where('name', 'Asha Rane')->value('id'),
+                'doctor_id' => $ids['anjali'],
+                'location_id' => $branchId,
+                'appointment_date' => $date,
+                'type' => Appointment::BOOKED,
+                'status' => $status,
+            ]),
+        );
+
+        $visit('2026-09-12', Appointment::STATUS_NO_SHOW);
+        $visit('2026-09-13', Appointment::STATUS_CANCELLED);
+
+        $returnedOn = fn () => $this->getJson('/api/v1/tenant/opd/my-records?view=follow-ups')
+            ->assertOk()
+            ->json('data.0.returned_on');
+
+        $this->assertNull($returnedOn());
+
+        // Arriving at the desk is coming back; the consultation need not have happened yet.
+        $visit('2026-09-15', Appointment::STATUS_CHECKED_IN);
+
+        $this->assertSame('2026-09-15', $returnedOn());
     }
 
     /**

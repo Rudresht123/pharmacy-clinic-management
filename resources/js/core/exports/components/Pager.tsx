@@ -34,6 +34,8 @@ export function Pager({
     to,
     onPage,
     onPerPage,
+    noun = 'records',
+    sizes = PER_PAGE,
 }: {
     page: number;
     lastPage: number;
@@ -43,6 +45,9 @@ export function Pager({
     to: number;
     onPage: (page: number) => void;
     onPerPage: (perPage: number) => void;
+    /** What the rows are, for "Showing 1 – 20 of 37 …". */
+    noun?: string;
+    sizes?: number[];
 }) {
     const [goTo, setGoTo] = useState('');
 
@@ -60,13 +65,13 @@ export function Pager({
         <footer className="exc-pager">
             <span className="exc-pager-info">
                 Showing <b>{from.toLocaleString('en-IN')}</b> – <b>{to.toLocaleString('en-IN')}</b> of{' '}
-                <b>{total.toLocaleString('en-IN')}</b> records
+                <b>{total.toLocaleString('en-IN')}</b> {noun}
             </span>
 
             <div className="exc-pager-controls">
                 <span className="exc-select">
                     <select value={perPage} onChange={(event) => onPerPage(Number(event.target.value))} aria-label="Rows per page">
-                        {PER_PAGE.map((size) => (
+                        {sizes.map((size) => (
                             <option key={size} value={size}>
                                 {size} per page
                             </option>

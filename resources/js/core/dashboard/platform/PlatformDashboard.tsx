@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { ActivityFeed, feedItemFromLog } from '@/shared/components/ui/ActivityFeed';
 import { compactInr, count, inr, Ring, StackedColumns } from '@/shared/components/ui/ReportCharts';
 import { formatDate } from '@/shared/utils/format';
 import type {
@@ -864,53 +865,17 @@ function Enquiries({ panel, compare }: { panel: EnquiriesPanel; compare: string 
 /*  Recent activity                                                         */
 /* ------------------------------------------------------------------------ */
 
-const ACTIVITY_LOOK: Record<string, { icon: string; tone: string }> = {
-    Organization: { icon: 'ti ti-building', tone: 'blue' },
-    Location: { icon: 'ti ti-building-hospital', tone: 'green' },
-    OrganizationModule: { icon: 'ti ti-box', tone: 'violet' },
-    OrganizationType: { icon: 'ti ti-category', tone: 'teal' },
-    PlatformUser: { icon: 'ti ti-user-shield', tone: 'grey' },
-    Payment: { icon: 'ti ti-receipt', tone: 'green' },
-    Subscription: { icon: 'ti ti-refresh', tone: 'amber' },
-};
-
+/** What has happened on the platform, in the feed every dashboard shares. */
 function RecentActivity({ entries }: { entries: PlatformActivity[] }) {
     return (
         <Panel icon="ti ti-clock" title="Recent Activity" actions={<ViewAll to="/audit" />}>
             {entries.length === 0 ? (
                 <Nothing icon="ti ti-history">Nothing has happened on the platform yet.</Nothing>
             ) : (
-                <ul className="sa-activity">
-                    {entries.map((entry) => {
-                        const look = ACTIVITY_LOOK[entry.entity_type] ?? { icon: 'ti ti-point', tone: 'grey' };
-
-                        return (
-                            <li key={entry.id}>
-                                <span className={`sa-activity-mark od-bg-${look.tone}`}>
-                                    <i className={look.icon} aria-hidden="true" />
-                                </span>
-
-                                <span className="sa-activity-text">
-                                    <span>{entry.text}</span>
-                                    <time dateTime={entry.created_at ?? undefined}>
-                                        {activityTime(entry.created_at)}
-                                        {entry.actor_name && <> · {entry.actor_name}</>}
-                                    </time>
-                                </span>
-                            </li>
-                        );
-                    })}
-                </ul>
+                <ActivityFeed
+                    items={entries.map((entry) => feedItemFromLog({ ...entry, detail: [entry.actor_name] }))}
+                />
             )}
         </Panel>
     );
-}
-
-/** "27 Oct 2026, 09:55 AM". */
-function activityTime(iso: string | null): string {
-    if (!iso) return '';
-
-    const date = new Date(iso);
-
-    return `${formatDate(iso)}, ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 }

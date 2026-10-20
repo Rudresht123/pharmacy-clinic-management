@@ -83,15 +83,26 @@ export interface VisitPoint {
     returning: number;
 }
 
+export type ServicePeriod = 'this_month' | 'last_month' | 'this_year';
+
+/** A total over a chart, with its change against the period before. */
+export interface ComparedFigure {
+    value: number;
+    /** Null when the period before had nothing to compare with. */
+    change: number | null;
+}
+
 export interface VisitTrendsPanel {
+    period?: ServicePeriod;
     granularity: 'day' | 'month';
     location_id: number | null;
+    /** What the changes are measured against — "vs last month". */
+    compare?: string;
     series: VisitPoint[];
     new: number;
     returning: number;
+    totals?: { visits: ComparedFigure; new: ComparedFigure; returning: ComparedFigure };
 }
-
-export type ServicePeriod = 'this_month' | 'last_month' | 'this_year';
 
 export interface TopServicesPanel {
     period: ServicePeriod;
@@ -99,19 +110,44 @@ export interface TopServicesPanel {
     rows: { key: string; label: string; amount: number; share: number }[];
 }
 
-export interface StockAlertRow {
+export interface LowStockRow {
     key: string;
     name: string;
-    branch: string | null;
-    quantity: number;
-    unit: string;
-    status: 'expired' | 'out' | 'low';
-    expiry_date: string | null;
+    /** The generic under a brand, the strength, and the branch when there are several. */
+    detail: string;
+    stock: number;
+    min_level: number;
+    status: 'low' | 'out';
 }
 
-export interface StockAlertsPanel {
-    counts: { expired: number; out: number; low: number };
-    rows: StockAlertRow[];
+export interface PharmacyInventoryPanel {
+    location_id: number | null;
+    /** How far ahead "expiring" looks. */
+    expiry_days: number;
+    counts: { low: number; expiring: number; out: number; medicines: number };
+    rows: LowStockRow[];
+    /** Usable units on the shelves. */
+    units: number;
+    categories: { key: string; label: string; units: number; share: number }[];
+}
+
+export interface FollowUpRow {
+    id: number;
+    customer_id: number;
+    name: string | null;
+    code: string | null;
+    phone: string | null;
+    seen_on: string;
+    due_on: string;
+    /** Days until due; negative once it has passed. */
+    due_in: number;
+    days: number;
+    /** The diagnosis, for somebody who may read clinical notes. */
+    reason: string | null;
+}
+
+export interface FollowUpsPanel {
+    rows: FollowUpRow[];
 }
 
 export interface PnlFigure {
@@ -138,6 +174,8 @@ export interface BranchActivityEntry {
     text: string;
     detail?: string | null;
     branch: string | null;
+    /** What a bill or a sale came to. */
+    amount?: number | null;
     actor_name: string | null;
     created_at: string | null;
 }
@@ -369,7 +407,8 @@ export interface DashboardSummary {
     branch_performance?: BranchPerformancePanel;
     visit_trends?: VisitTrendsPanel;
     top_services?: TopServicesPanel;
-    stock_alerts?: StockAlertsPanel;
+    pharmacy_inventory?: PharmacyInventoryPanel;
+    follow_ups?: FollowUpsPanel;
     profit_loss?: ProfitLossPanel;
     branch_activity?: BranchActivityEntry[];
 
@@ -413,7 +452,7 @@ export function useDashboard(range?: DashboardRange) {
  * of the screen, and this costs nothing.
  */
 export function useDashboardPanel<T>(
-    panel: 'revenue_overview' | 'visit_trends' | 'top_services' | 'profit_loss',
+    panel: 'revenue_overview' | 'visit_trends' | 'top_services' | 'profit_loss' | 'pharmacy_inventory',
     params: Record<string, string | number | undefined>,
     enabled: boolean,
 ) {

@@ -109,7 +109,6 @@ class DemoDashboardData
             'branch_performance' => $this->branchPerformance(),
             'visit_trends' => $this->visitTrends(null),
             'top_services' => $this->topServices('this_month'),
-            'stock_alerts' => $this->stockAlerts(),
             'profit_loss' => $this->profitLoss('this_year'),
             'branch_activity' => $this->branchActivity(),
         ];
@@ -273,12 +272,22 @@ class DemoDashboardData
             ];
         }
 
+        $new = array_sum(array_column($series, 'new'));
+        $returning = array_sum(array_column($series, 'returning'));
+
         return [
+            'period' => 'this_month',
             'granularity' => 'day',
             'location_id' => $branch,
+            'compare' => 'vs last month',
             'series' => $series,
-            'new' => array_sum(array_column($series, 'new')),
-            'returning' => array_sum(array_column($series, 'returning')),
+            'new' => $new,
+            'returning' => $returning,
+            'totals' => [
+                'visits' => ['value' => $new + $returning, 'change' => 12],
+                'new' => ['value' => $new, 'change' => 8],
+                'returning' => ['value' => $returning, 'change' => 14],
+            ],
         ];
     }
 
@@ -294,7 +303,7 @@ class DemoDashboardData
         $rows = [
             ['key' => 'consultation', 'label' => 'Consultation', 'amount' => 279780],
             ['key' => 'pharmacy', 'label' => 'Pharmacy Sales', 'amount' => 244810],
-            ['key' => 'laboratory', 'label' => 'Laboratory Tests', 'amount' => 157380],
+            ['key' => 'laboratory', 'label' => 'Lab Tests', 'amount' => 157380],
             ['key' => 'procedures', 'label' => 'Procedures', 'amount' => 104920],
             ['key' => 'others', 'label' => 'Others', 'amount' => 87430],
         ];
@@ -309,21 +318,6 @@ class DemoDashboardData
                 'amount' => round($row['amount'] * $scale, 2),
                 'share' => round(($row['amount'] * $scale / $total) * 100, 1),
             ], $rows),
-        ];
-    }
-
-    /** @return array<string, mixed> */
-    private function stockAlerts(): array
-    {
-        return [
-            'counts' => ['expired' => 1, 'out' => 0, 'low' => 9],
-            'rows' => [
-                ['key' => 'demo-1', 'name' => 'Paracetamol 500mg', 'branch' => 'Main Branch (City)', 'quantity' => 12, 'unit' => 'strips', 'status' => 'low', 'expiry_date' => null],
-                ['key' => 'demo-2', 'name' => 'Amoxicillin 250mg', 'branch' => 'East Branch', 'quantity' => 5, 'unit' => 'strips', 'status' => 'low', 'expiry_date' => null],
-                ['key' => 'demo-3', 'name' => 'Cetirizine 10mg', 'branch' => 'West Branch', 'quantity' => 18, 'unit' => 'strips', 'status' => 'expired', 'expiry_date' => now()->subDays(15)->toDateString()],
-                ['key' => 'demo-4', 'name' => 'Vitamin D3', 'branch' => 'North Branch', 'quantity' => 8, 'unit' => 'strips', 'status' => 'low', 'expiry_date' => null],
-                ['key' => 'demo-5', 'name' => 'ORS Powder', 'branch' => 'Main Branch (City)', 'quantity' => 3, 'unit' => 'packs', 'status' => 'low', 'expiry_date' => null],
-            ],
         ];
     }
 
@@ -352,8 +346,8 @@ class DemoDashboardData
     {
         return [
             ['id' => 1, 'event' => 'milestone', 'entity_type' => 'Invoice', 'text' => 'Main Branch crossed ₹3L revenue this month', 'detail' => null, 'branch' => 'Main Branch (City)', 'actor_name' => null, 'created_at' => now()->subHours(2)->toIso8601String()],
-            ['id' => 2, 'event' => 'created', 'entity_type' => 'Doctor', 'text' => 'New doctor added at East Branch', 'detail' => null, 'branch' => 'East Branch', 'actor_name' => null, 'created_at' => now()->subHours(5)->toIso8601String()],
-            ['id' => 3, 'event' => 'created', 'entity_type' => 'StockInward', 'text' => 'North Branch pharmacy stock updated', 'detail' => null, 'branch' => 'North Branch', 'actor_name' => null, 'created_at' => now()->subDay()->toIso8601String()],
+            ['id' => 2, 'event' => 'created', 'entity_type' => 'Doctor', 'text' => 'New doctor added', 'detail' => null, 'branch' => 'East Branch', 'actor_name' => null, 'created_at' => now()->subHours(5)->toIso8601String()],
+            ['id' => 3, 'event' => 'created', 'entity_type' => 'StockInward', 'text' => 'Pharmacy stock received', 'detail' => null, 'branch' => 'North Branch', 'actor_name' => null, 'created_at' => now()->subDay()->toIso8601String()],
             ['id' => 4, 'event' => 'milestone', 'entity_type' => 'Appointment', 'text' => 'West Branch completed 500+ appointments', 'detail' => null, 'branch' => 'West Branch', 'actor_name' => null, 'created_at' => now()->subDay()->subHours(3)->toIso8601String()],
         ];
     }

@@ -1,0 +1,713 @@
+/* =========================================================
+   Follow-ups (.fu-)
+   ---------------------------------------------------------
+   A doctor's "come back in N days", worked from rather than
+   read: the page head and four tiles in one card, then the
+   schedule — tabs, rows-per-page and search, the overdue
+   alert, the table, the pager.
+
+   Cards follow the project-wide card style: white, no
+   border, a brand-tinted shadow in light mode; the border
+   comes back (and the shadow goes) in dark mode. The table
+   sits inset in its card inside a frame of its own.
+   ========================================================= */
+
+:root {
+    --fu-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+.fu-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* One colour per state, used by the tiles, the pills and the status. */
+.fu-page .is-red { --fu-rgb: 225, 29, 72; --fu-ink: #d92d20; }
+.fu-page .is-amber { --fu-rgb: 245, 158, 11; --fu-ink: #c26a00; }
+.fu-page .is-blue { --fu-rgb: 37, 99, 235; --fu-ink: #1e40af; }
+.fu-page .is-green { --fu-rgb: 22, 163, 74; --fu-ink: #15803d; }
+
+/* --- card shell ------------------------------------------ */
+
+.fu-top,
+.fu-card {
+    min-width: 0;
+    padding: 18px 20px;
+    background: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    box-shadow: var(--fu-shadow);
+}
+
+/*
+ * The page head lives inside the top card here, so it gives up its own
+ * frame — whichever page-header style is picked in Appearance.
+ */
+.fu-page > .fu-top > .page-head {
+    margin: 0 0 16px;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+/* --- tiles ----------------------------------------------- */
+
+.fu-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.fu-stat {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid rgba(var(--fu-rgb), 0.22);
+    border-radius: 12px;
+    background: rgba(var(--fu-rgb), 0.06);
+    text-align: left;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.fu-stat:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -6px rgba(var(--fu-rgb), 0.45);
+}
+
+.fu-stat.is-on {
+    box-shadow: 0 0 0 2px rgba(var(--fu-rgb), 0.55);
+}
+
+.fu-stat:focus-visible {
+    outline: 2px solid rgba(var(--fu-rgb), 0.8);
+    outline-offset: 2px;
+}
+
+.fu-stat-icon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+    border-radius: 12px;
+    background: rgba(var(--fu-rgb), 0.14);
+    font-size: 22px;
+    color: var(--fu-ink);
+}
+
+.fu-stat-body {
+    display: grid;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.fu-stat-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fu-ink);
+}
+
+.fu-stat-value {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.fu-stat-value b {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--fu-ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.fu-stat-go {
+    flex: 0 0 auto;
+    font-size: 16px;
+    color: var(--muted);
+}
+
+/* --- schedule card head ---------------------------------- */
+
+.fu-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px 20px;
+    margin-bottom: 16px;
+}
+
+.fu-card-lead {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+}
+
+.fu-card-lead h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.fu-card-lead h2 i {
+    font-size: 22px;
+    color: rgb(var(--brand));
+}
+
+.fu-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.fu-tab {
+    height: 34px;
+    padding: 0 16px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--surface-2);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-2);
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.fu-tab:hover {
+    border-color: rgba(var(--brand), 0.35);
+    color: rgb(var(--brand));
+}
+
+.fu-tab.is-on {
+    border-color: rgb(var(--brand));
+    background: rgb(var(--brand));
+    font-weight: 600;
+    color: rgb(var(--brand-fg));
+}
+
+.fu-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.fu-len {
+    display: grid;
+    gap: 5px;
+    margin: 0;
+}
+
+.fu-len > span:first-child {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--muted);
+}
+
+.fu-len .exc-select select {
+    height: 40px;
+    min-width: 84px;
+    border-radius: 10px;
+}
+
+.fu-search {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 290px;
+    max-width: 100%;
+    height: 40px;
+    margin: 0;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+}
+
+.fu-search:focus-within {
+    border-color: rgba(var(--brand), 0.6);
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.12);
+}
+
+.fu-search i {
+    font-size: 16px;
+    color: var(--muted);
+}
+
+.fu-search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    font-size: 13px;
+    color: var(--ink);
+    outline: none;
+}
+
+/* --- overdue alert --------------------------------------- */
+
+.fu-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 11px 14px;
+    border-radius: 10px;
+    background: #fdecee;
+    color: #c81e3a;
+}
+
+.fu-alert > i {
+    flex: 0 0 auto;
+    font-size: 18px;
+}
+
+.fu-alert p {
+    flex: 1;
+    margin: 0;
+    font-size: 13px;
+}
+
+.fu-alert b {
+    font-weight: 700;
+}
+
+.fu-alert button {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    font-size: 16px;
+    color: #a3485a;
+}
+
+.fu-alert button:hover {
+    background: rgba(200, 30, 58, 0.1);
+}
+
+/* --- table ----------------------------------------------- */
+
+.fu-frame {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+}
+
+.fu-table {
+    width: 100%;
+    min-width: 1040px;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.fu-table th {
+    padding: 11px 11px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.fu-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+}
+
+.fu-sort i {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.fu-sort:hover,
+.fu-sort.is-on,
+.fu-sort.is-on i {
+    color: rgb(var(--brand));
+}
+
+.fu-table th:first-child,
+.fu-table td:first-child {
+    padding-left: 16px;
+}
+
+.fu-table td {
+    padding: 12px 11px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-2);
+    vertical-align: middle;
+}
+
+.fu-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.fu-table tbody tr:hover td {
+    background: rgba(var(--brand), 0.025);
+}
+
+.fu-dim {
+    color: var(--muted) !important;
+}
+
+.fu-nowrap {
+    white-space: nowrap;
+}
+
+.fu-due {
+    white-space: nowrap;
+}
+
+.fu-due b {
+    display: block;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Days, not only a date: "eleven days late" is the fact somebody acts on. */
+.fu-when {
+    display: inline-flex;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(var(--fu-rgb), 0.1);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--fu-ink);
+}
+
+.fu-who {
+    display: block;
+    text-decoration: none;
+}
+
+.fu-who b {
+    display: block;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+}
+
+.fu-who small {
+    display: block;
+    margin-top: 1px;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+.fu-who:hover b {
+    color: rgb(var(--brand));
+}
+
+/* Chips wrap onto new lines; a chip itself never breaks. */
+.fu-reasons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-width: 180px;
+    max-width: 320px;
+}
+
+.fu-reasons em {
+    padding: 3px 9px;
+    border-radius: 6px;
+    background: rgba(var(--brand), 0.09);
+    font-size: 11.5px;
+    font-style: normal;
+    font-weight: 600;
+    color: rgb(var(--brand));
+    white-space: nowrap;
+}
+
+.fu-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(var(--fu-rgb), 0.1);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--fu-ink);
+    white-space: nowrap;
+}
+
+.fu-status::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.fu-actions {
+    white-space: nowrap;
+}
+
+.fu-table td.fu-actions {
+    padding-right: 12px;
+}
+
+.fu-actions > * + * {
+    margin-left: 2px;
+}
+
+.fu-contact {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid rgba(var(--brand), 0.28);
+    border-radius: 9px;
+    background: var(--surface);
+    font-size: 13px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+    vertical-align: middle;
+}
+
+.fu-contact i {
+    font-size: 16px;
+}
+
+.fu-contact:hover:not(:disabled) {
+    border-color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.06);
+}
+
+.fu-contact:disabled {
+    border-color: var(--line);
+    color: var(--muted);
+    cursor: not-allowed;
+}
+
+.fu-more {
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 32px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 18px;
+    color: var(--ink-2);
+    vertical-align: middle;
+}
+
+.fu-more:hover,
+.fu-more[aria-expanded='true'] {
+    background: var(--surface-2);
+}
+
+.fu-menu {
+    min-width: 210px;
+    padding: 6px;
+    border-radius: 10px;
+}
+
+.fu-menu .dropdown-item {
+    display: flex;
+    align-items: center;
+    border-radius: 7px;
+    font-size: 13px;
+}
+
+.fu-menu-head {
+    display: grid;
+    gap: 1px;
+    margin-bottom: 4px;
+    padding: 6px 10px 9px;
+    border-bottom: 1px solid var(--line);
+}
+
+.fu-menu-head small {
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.fu-menu-head b {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.fu-card > .exc-pager {
+    margin-top: 16px;
+}
+
+/* --- dark ------------------------------------------------ */
+
+[data-theme='dark'] .fu-top,
+[data-theme='dark'] .fu-card {
+    background: var(--surface);
+    border-color: var(--line);
+    box-shadow: none;
+}
+
+[data-theme='dark'] .fu-page .is-red { --fu-ink: #fb7185; }
+[data-theme='dark'] .fu-page .is-amber { --fu-ink: #fbbf24; }
+[data-theme='dark'] .fu-page .is-blue { --fu-ink: #93c5fd; }
+[data-theme='dark'] .fu-page .is-green { --fu-ink: #4ade80; }
+
+[data-theme='dark'] .fu-stat {
+    background: rgba(var(--fu-rgb), 0.1);
+    border-color: rgba(var(--fu-rgb), 0.3);
+}
+
+[data-theme='dark'] .fu-stat-icon,
+[data-theme='dark'] .fu-when,
+[data-theme='dark'] .fu-status {
+    background: rgba(var(--fu-rgb), 0.18);
+}
+
+[data-theme='dark'] .fu-alert {
+    background: rgba(225, 29, 72, 0.14);
+    color: #fda4af;
+}
+
+[data-theme='dark'] .fu-alert button {
+    color: #fda4af;
+}
+
+/* The accent at full strength is too dark to read on a dark card. */
+[data-theme='dark'] .fu-card-lead h2 i,
+[data-theme='dark'] .fu-reasons em,
+[data-theme='dark'] .fu-contact,
+[data-theme='dark'] .fu-sort.is-on,
+[data-theme='dark'] .fu-sort.is-on i {
+    color: color-mix(in srgb, rgb(var(--brand)) 45%, #ffffff);
+}
+
+[data-theme='dark'] .fu-reasons em {
+    background: rgba(var(--brand), 0.25);
+}
+
+[data-theme='dark'] .fu-contact {
+    border-color: rgba(var(--brand-2), 0.5);
+}
+
+/* --- narrower screens ------------------------------------ */
+
+@media (max-width: 1199.98px) {
+    .fu-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* On a phone each follow-up becomes a block: the patient on top, labelled values below. */
+@media (max-width: 767.98px) {
+    .fu-top,
+    .fu-card {
+        padding: 16px;
+    }
+
+    .fu-tools,
+    .fu-search {
+        width: 100%;
+    }
+
+    .fu-search {
+        flex: 1;
+    }
+
+    .fu-table {
+        min-width: 0;
+    }
+
+    .fu-table,
+    .fu-table tbody {
+        display: block;
+    }
+
+    .fu-table thead {
+        display: none;
+    }
+
+    .fu-table tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px 14px;
+        padding: 14px;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .fu-table tbody tr:last-child {
+        border-bottom: 0;
+    }
+
+    .fu-table td,
+    .fu-table td:first-child {
+        display: block;
+        padding: 0;
+        border: 0;
+    }
+
+    .fu-table tbody tr:hover td {
+        background: none;
+    }
+
+    .fu-table td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 4px;
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    .fu-table td[data-label='Patient'] {
+        order: -1;
+        grid-column: 1 / -1;
+    }
+
+    .fu-table td[data-label='Patient']::before,
+    .fu-table td.fu-actions::before {
+        display: none;
+    }
+
+    .fu-table td[data-label='Reason'],
+    .fu-table td.fu-actions {
+        grid-column: 1 / -1;
+    }
+
+    .fu-reasons {
+        max-width: none;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .fu-stats {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

@@ -45,6 +45,7 @@
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/layout.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/platform-dashboard.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/activity-feed.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/maps.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/pharmacy-reports.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/patient-records.css') }}">
@@ -53,6 +54,7 @@
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/billing-admin.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/invoice-page.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/export-center.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/follow-ups.css') }}">
 
     @viteReactRefresh
     @vite('resources/js/app/main.tsx')

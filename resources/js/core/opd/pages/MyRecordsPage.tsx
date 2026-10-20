@@ -41,14 +41,10 @@ interface WriteUp {
  */
 const PAGE_LENGTHS = [10, 20, 50, 100];
 
-export type RecordView =
-    | 'appointments'
-    | 'consultations'
-    | 'prescriptions'
-    | 'investigations'
-    | 'follow-ups';
+/** Follow-ups have a screen of their own: FollowUpsPage. */
+export type RecordView = 'appointments' | 'consultations' | 'prescriptions' | 'investigations';
 
-/** Every row any of the five views returns. Shared, because they mostly are. */
+/** Every row any of the views returns. Shared, because they mostly are. */
 interface Row {
     id: number | string;
     customer_id: number;
@@ -83,11 +79,6 @@ interface Row {
     frequency?: string | null;
     duration?: string | null;
     notes?: string | null;
-
-    seen_on?: string | null;
-    due_on?: string | null;
-    days?: number;
-    due_in?: number | null;
 }
 
 const STATUS: { [key: string]: string } = {
@@ -131,13 +122,6 @@ const VIEWS: Record<
         icon: 'ti ti-microscope',
         empty: 'You have not ordered a test in this period.',
         dated: true,
-    },
-    'follow-ups': {
-        title: 'Follow-ups',
-        subtitle: 'Who you asked back, and when they are due.',
-        icon: 'ti ti-calendar-repeat',
-        empty: 'You have not asked anybody to come back.',
-        dated: false,
     },
 };
 
@@ -226,9 +210,6 @@ export default function MyRecordsPage({ view }: { view: RecordView }) {
         );
     }, [data, term]);
 
-    /* Overdue first — a follow-up list is read to find who has slipped. */
-    const overdue = view === 'follow-ups' ? rows.filter((row) => (row.due_in ?? 0) < 0).length : 0;
-
     /*
      * Clamped rather than reset.
      *
@@ -313,14 +294,6 @@ export default function MyRecordsPage({ view }: { view: RecordView }) {
                     </div>
                 }
             >
-                {overdue > 0 && (
-                    <p className="rec-overdue">
-                        <i className="ti ti-alert-triangle" aria-hidden="true" />
-                        {overdue} {overdue === 1 ? 'person is' : 'people are'} past the date you
-                        asked them back.
-                    </p>
-                )}
-
                 {rows.length === 0 ? (
                     <div className="cn-none-yet">
                         <i className={meta.icon} aria-hidden="true" />
@@ -372,7 +345,7 @@ export default function MyRecordsPage({ view }: { view: RecordView }) {
                 open={reading !== null}
                 onClose={() => setReading(null)}
                 title={reading?.customer_name ?? 'Visit'}
-                subtitle={visitLine(view, reading)}
+                subtitle={visitLine(reading)}
                 icon="ti ti-clipboard-text"
                 size="lg"
                 footer={
@@ -408,14 +381,13 @@ export default function MyRecordsPage({ view }: { view: RecordView }) {
 }
 
 /** "Seen on 9 Sep 2026 · 14 min · Noida" — the visit, in one line. */
-function visitLine(view: RecordView, row: Row | null): string | undefined {
+function visitLine(row: Row | null): string | undefined {
     if (!row) return undefined;
 
-    const parts = [longDate(row.date ?? row.on ?? row.seen_on)];
+    const parts = [longDate(row.date ?? row.on)];
 
     if (row.minutes != null) parts.push(took(row.minutes));
     if (row.location_name) parts.push(row.location_name);
-    if (view === 'follow-ups' && row.days) parts.push(`asked back after ${row.days} days`);
 
     return parts.join(' · ');
 }
@@ -425,7 +397,6 @@ const COLUMNS: Record<RecordView, string[]> = {
     consultations: ['Date', 'Patient', 'Complaint', 'Diagnosis', 'Took', 'Written'],
     prescriptions: ['Date', 'Patient', 'Medicine', 'Dose', 'How often', 'For'],
     investigations: ['Date', 'Patient', 'Test', 'Note', 'For'],
-    'follow-ups': ['Due', 'Patient', 'Seen on', 'Asked back', 'For'],
 };
 
 function headerFor(view: RecordView) {
@@ -711,58 +682,21 @@ function cellsFor(view: RecordView, row: Row, wroteUp: WriteUp | null) {
         );
     }
 
-    if (view === 'investigations') {
-        return (
-            <>
-                <td className="av-date" data-label="Date">
-                    {longDate(row.on)}
-                </td>
-
-                <Patient row={row} />
-
-                <td data-label="Test">
-                    <b>{row.what}</b>
-                </td>
-
-                <td className="md-dim" data-label="Note">
-                    {row.notes || '—'}
-                </td>
-
-                <Diagnoses of={row.diagnoses} label="For" />
-            </>
-        );
-    }
-
-    /* Follow-ups */
-    const due = row.due_in ?? 0;
-
+    /* Investigations */
     return (
         <>
-            <td className="av-date" data-label="Due">
-                <b>{longDate(row.due_on)}</b>
-
-                {/*
-                    Days rather than a bare date: "eleven days late" is the fact
-                    somebody acts on, and counting it off a calendar at the end
-                    of a clinic is where a follow-up gets missed.
-                */}
-                <span className={`rec-due${due < 0 ? ' is-late' : due <= 3 ? ' is-soon' : ''}`}>
-                    {due < 0
-                        ? `${Math.abs(due)} days late`
-                        : due === 0
-                          ? 'Today'
-                          : `in ${due} days`}
-                </span>
+            <td className="av-date" data-label="Date">
+                {longDate(row.on)}
             </td>
 
             <Patient row={row} />
 
-            <td className="md-dim" data-label="Seen on">
-                {longDate(row.seen_on)}
+            <td data-label="Test">
+                <b>{row.what}</b>
             </td>
 
-            <td className="md-dim" data-label="Asked back">
-                after {row.days} days
+            <td className="md-dim" data-label="Note">
+                {row.notes || '—'}
             </td>
 
             <Diagnoses of={row.diagnoses} label="For" />

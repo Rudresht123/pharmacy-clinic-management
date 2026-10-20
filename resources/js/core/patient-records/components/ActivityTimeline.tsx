@@ -1,8 +1,7 @@
-import { Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ActivityFeed } from '@/shared/components/ui/ActivityFeed';
 import { EVENT_ICON, eventPill, rupees, when } from '../labels';
 import type { SectionKey, TimelineEvent } from '../types';
-import { Pill } from './Bits';
 
 /** The second line of an event — what happened, in the module's own terms. */
 function detailOf(event: TimelineEvent): string | null {
@@ -32,7 +31,9 @@ function monthOf(value: string | null): string {
 }
 
 /**
- * The patient's history as one line down the page, newest first.
+ * The patient's history, newest first, in the activity feed every screen
+ * shares — the dot and icon for what kind of event it is, who and where on
+ * the line under it, the date, and its status as the pill.
  *
  * Each event opens where it lives in full — its tab here, or for a bill the
  * invoice itself — rather than a second copy of it. `grouped` adds a heading
@@ -50,53 +51,25 @@ export function ActivityTimeline({
     const navigate = useNavigate();
 
     return (
-        <ol className="ptr-timeline">
-            {events.map((event, index) => {
+        <ActivityFeed
+            items={events.map((event) => {
                 const mark = EVENT_ICON[event.kind];
-                const detail = detailOf(event);
-                const month = monthOf(event.at);
-                const newMonth = grouped && (index === 0 || monthOf(events[index - 1].at) !== month);
+                const pill = eventPill(event.kind, event.status);
 
-                return (
-                    <Fragment key={event.key}>
-                        {newMonth && <li className="ptr-timeline-month">{month}</li>}
-
-                        <li className={`ptr-event is-${mark.tone}`}>
-                            <span className="ptr-event-mark" aria-hidden="true">
-                                <i className={mark.icon} />
-                            </span>
-
-                            <button
-                                type="button"
-                                className="ptr-event-box"
-                                onClick={() => (event.link ? navigate(event.link) : onOpen(event.section))}
-                            >
-                                <span className="ptr-event-top">
-                                    <b>{event.title}</b>
-                                    <time dateTime={event.at ?? undefined}>{when(event.at, event.has_time)}</time>
-                                </span>
-
-                                {(event.doctor_name || event.location_name) && (
-                                    <span className="ptr-event-who">
-                                        {event.doctor_name}
-                                        {event.location_name && (
-                                            <small>
-                                                {event.doctor_name ? ' · ' : ''}
-                                                {event.location_name}
-                                            </small>
-                                        )}
-                                    </span>
-                                )}
-
-                                <span className="ptr-event-bottom">
-                                    <small className="ptr-event-detail">{detail}</small>
-                                    <Pill pill={eventPill(event.kind, event.status)} />
-                                </span>
-                            </button>
-                        </li>
-                    </Fragment>
-                );
+                return {
+                    key: event.key,
+                    icon: mark.icon,
+                    tone: mark.tone,
+                    title: event.title,
+                    detail: [event.doctor_name, event.location_name, detailOf(event)].filter(Boolean).join(' · ') || undefined,
+                    at: event.at,
+                    // A history reads by its dates, not by "3 weeks ago".
+                    when: when(event.at, event.has_time),
+                    tag: pill ? { label: pill.label, tone: pill.tone } : null,
+                    group: grouped ? monthOf(event.at) : undefined,
+                    onOpen: () => (event.link ? navigate(event.link) : onOpen(event.section)),
+                };
             })}
-        </ol>
+        />
     );
 }

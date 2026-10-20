@@ -5830,18 +5830,31 @@ html::-webkit-scrollbar-track {
 
 /* The two stacked cards share their row.
  *
- * `flex-basis: auto`, NOT 0. With a zero basis the pair split the row evenly
- * and ignore what is in them, so on a quiet morning — a queue with one patient,
- * and therefore a short row — the doctors card was given less height than its
- * own single row needed, and that one row scrolled inside it. Sizing from
- * content first and sharing only the LEFTOVER keeps a short list whole and
- * still lets a long one take the rest of the column.
- *
  * The floor is the card's own chrome plus two rows, so an empty state and a
  * one-doctor list both read as something rather than as a clipped fragment.
  */
 .opd-stack{ display:flex; flex-direction:column; gap:12px; min-height:0; }
 .opd-stack > .card{ flex:1 1 auto; min-height:176px; }
+
+/*
+ * Beside the queue, the queue decides how tall the row is.
+ *
+ * "Doctors today" is every doctor on duty — fourteen on a full morning — so
+ * sized from its content it pushed the row past 1,300px, and the queue card
+ * beside it stretched to match with nothing under its five rows. Size
+ * containment takes the pair's content out of the row's sizing: the row is
+ * the queue's height (never below two floors and the gap), the pair
+ * stretches to it, and the doctors list scrolls inside its card.
+ *
+ * Upcoming is at most five rows, so it keeps its own height and Doctors
+ * takes what is left; on a short row Upcoming gives way first, down to its
+ * floor, so neither one spills out of the column.
+ */
+@media (min-width:1200px){
+    .opd-stack{ contain:size; min-height:364px; }
+    .opd-stack > .card:first-child{ flex:1 1 0; }
+    .opd-stack > .card + .card{ flex:0 1 auto; }
+}
 
 /* Lists scroll; their card does not stretch to hold them. */
 .opd-stack .opd-list,
@@ -5851,6 +5864,11 @@ html::-webkit-scrollbar-track {
     overflow-y:auto;
     scrollbar-gutter:stable;
 }
+
+/* One column, packed at the top. The pharmacy's `.opd-list` grid (further
+   down) also lands here, and in a card taller than its list a grid
+   stretches each doctor's row to share out the spare height. */
+.opd-stack .opd-list{ grid-template-columns:minmax(0,1fr); align-content:start; }
 
 /*
  * What caps row one.
@@ -7457,12 +7475,16 @@ html::-webkit-scrollbar-track {
 
 .pa{ display:grid; gap:13px; align-content:start; min-width:0; }
 
+/*
+ * Beside the write-up, the column is exactly the room card's height and
+ * scrolls inside it. It used to be sticky with a ceiling of the whole
+ * viewport, which is taller than the card's own ceiling (.md-room) — so it
+ * sized to its content, the card clipped the bottom (Last visit, the lower
+ * quick actions) and there was never anything for it to scroll.
+ */
 @media (min-width: 992px) {
     .pa {
-        position: sticky;
-        top: 76px;
-        align-self: start;
-        max-height: calc(100vh - 100px);
+        align-self: stretch;
         overflow-y: auto;
         padding-right: 6px;
     }
@@ -9798,22 +9820,6 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 .rec-when{ display:grid; gap:4px; min-width:150px; }
 .rec-when > span{ font-size:11px; font-weight:500; color:var(--muted); }
 
-/* Overdue is the reason somebody opens a follow-up list. */
-.rec-overdue{
-    display:flex;
-    align-items:center;
-    gap:9px;
-    margin:0 0 14px;
-    padding:10px 12px;
-    border-radius:10px;
-    background:#fdeaec;
-    font-size:12.5px;
-    font-weight:600;
-    color:#c92a3a;
-}
-
-.rec-overdue i{ flex:0 0 auto; font-size:16px; }
-
 /* A row that has a write-up behind it opens on click. */
 .rec-scroll + .dt-foot{ margin-top:14px; }
 
@@ -9882,27 +9888,6 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 .rec-who b{ display:block; font-size:13px; font-weight:600; color:var(--ink); }
 .rec-who small{ display:block; font-size:11px; color:var(--muted); }
 .rec-who:hover b{ color:rgb(var(--brand)); }
-
-/*
- * Days, not only a date.
- *
- * "Eleven days late" is the fact somebody acts on; counting it off a calendar
- * at the end of a clinic is where a follow-up gets missed.
- */
-.rec-due{
-    display:inline-flex;
-    margin-top:3px;
-    padding:2px 8px;
-    border-radius:999px;
-    background:var(--surface-2);
-    font-size:10.5px;
-    font-weight:600;
-    color:var(--muted);
-    white-space:nowrap;
-}
-
-.rec-due.is-soon{ background:#fdf0e0; color:#b45309; }
-.rec-due.is-late{ background:#fdeaec; color:#c92a3a; }
 
 /* --- a doctor's schedule, as a calendar ---------------------- */
 

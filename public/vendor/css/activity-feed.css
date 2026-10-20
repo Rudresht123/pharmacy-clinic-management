@@ -1,0 +1,215 @@
+/* =========================================================
+   Activity feed (.afeed-)
+   ---------------------------------------------------------
+   "Recent activity", drawn one way on every screen that has
+   it — see resources/js/shared/components/ui/ActivityFeed.tsx.
+
+   A thread down the left with a dot per entry in the entry's
+   colour, a tinted icon, what happened and the line under it,
+   when, and a pill naming the area. Fixed columns for the
+   time and the pill, so they line up down the list.
+
+   The card it sits in stays the page's own; the feed only
+   draws its rows. Colour is kept for what carries meaning:
+   the dot, the icon and the pill.
+   ========================================================= */
+
+.afeed {
+    position: relative;
+    margin: 0;
+    padding: 0 0 0 18px;
+    list-style: none;
+    container-type: inline-size;
+}
+
+/* The thread, from the first dot to the last. */
+.afeed::before {
+    content: '';
+    position: absolute;
+    top: 22px;
+    bottom: 22px;
+    left: 3px;
+    border-left: 1.5px solid var(--line-2);
+}
+
+.afeed-item {
+    position: relative;
+}
+
+.afeed-dot {
+    position: absolute;
+    top: 50%;
+    left: -18px;
+    width: 8px;
+    height: 8px;
+    margin-top: -4px;
+    border-radius: 50%;
+    background: var(--afeed-ink);
+    box-shadow: 0 0 0 3px var(--surface);
+}
+
+.afeed-row {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 96px 104px;
+    grid-template-areas: 'icon text when tag';
+    align-items: center;
+    column-gap: 12px;
+    width: calc(100% + 12px);
+    margin: 0 -6px;
+    padding: 8px 6px;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    text-decoration: none;
+}
+
+.afeed.has-dates .afeed-row {
+    grid-template-columns: 34px minmax(0, 1fr) 150px 120px;
+}
+
+.afeed-row.is-link {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.afeed-row.is-link:hover,
+.afeed-row.is-link:focus-visible {
+    background: var(--surface-2);
+    color: inherit;
+}
+
+.afeed-row.is-link:focus-visible {
+    outline: 2px solid rgba(var(--brand), 0.35);
+    outline-offset: 1px;
+}
+
+.afeed-icon {
+    grid-area: icon;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: var(--afeed-wash);
+    color: var(--afeed-ink);
+    font-size: 17px;
+}
+
+.afeed-text {
+    grid-area: text;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.afeed-text b,
+.afeed-text small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.afeed-text b {
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--ink);
+}
+
+.afeed-text small {
+    font-size: 11.5px;
+    line-height: 1.35;
+    color: var(--muted);
+}
+
+.afeed-when {
+    grid-area: when;
+    font-size: 11.5px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.afeed-tag-slot {
+    grid-area: tag;
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+}
+
+.afeed-tag {
+    max-width: 100%;
+    overflow: hidden;
+    padding: 3px 11px;
+    border-radius: 7px;
+    background: var(--afeed-wash);
+    color: var(--afeed-ink);
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* A heading the entries below sit under — a month, on a long history. */
+.afeed-group {
+    position: relative;
+    margin: 6px 0 2px -18px;
+    padding: 6px 0 4px;
+    background: var(--surface);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--ink-3);
+}
+
+.afeed-group:first-child { margin-top: 0; }
+
+/* --- tones ----------------------------------------------- */
+
+.afeed .is-blue { --afeed-wash: #e8f0ff; --afeed-ink: #2563eb; }
+.afeed .is-green { --afeed-wash: #e3f7ea; --afeed-ink: #16a34a; }
+.afeed .is-amber { --afeed-wash: #fff1db; --afeed-ink: #d97706; }
+.afeed .is-violet { --afeed-wash: #f0eaff; --afeed-ink: #7c3aed; }
+.afeed .is-rose { --afeed-wash: #ffe8ec; --afeed-ink: #e11d48; }
+.afeed .is-teal { --afeed-wash: #dff5f8; --afeed-ink: #0891b2; }
+.afeed .is-grey { --afeed-wash: var(--surface-3); --afeed-ink: var(--ink-3); }
+
+/* The dot is a quieter grey than the icon it belongs to. */
+.afeed-item.is-grey .afeed-dot { background: var(--muted); }
+
+[data-theme='dark'] .afeed .is-blue { --afeed-wash: rgba(59, 130, 246, 0.16); --afeed-ink: #93c5fd; }
+[data-theme='dark'] .afeed .is-green { --afeed-wash: rgba(34, 197, 94, 0.16); --afeed-ink: #86efac; }
+[data-theme='dark'] .afeed .is-amber { --afeed-wash: rgba(245, 158, 11, 0.16); --afeed-ink: #fcd34d; }
+[data-theme='dark'] .afeed .is-violet { --afeed-wash: rgba(139, 92, 246, 0.18); --afeed-ink: #c4b5fd; }
+[data-theme='dark'] .afeed .is-rose { --afeed-wash: rgba(244, 63, 94, 0.16); --afeed-ink: #fda4af; }
+[data-theme='dark'] .afeed .is-teal { --afeed-wash: rgba(8, 145, 178, 0.18); --afeed-ink: #67e8f9; }
+
+/* --- narrow ---------------------------------------------- */
+
+/* In a narrow card the time drops under the line it belongs to. */
+@container (max-width: 600px) {
+    .afeed.has-dates .afeed-row {
+        grid-template-columns: 34px minmax(0, 1fr) auto;
+        grid-template-areas:
+            'icon text tag'
+            'icon when tag';
+        row-gap: 1px;
+    }
+}
+
+@container (max-width: 470px) {
+    .afeed-row {
+        grid-template-columns: 34px minmax(0, 1fr) auto;
+        grid-template-areas:
+            'icon text tag'
+            'icon when tag';
+        row-gap: 1px;
+    }
+
+    .afeed-when { font-size: 11px; }
+    .afeed-tag { padding: 3px 9px; }
+}

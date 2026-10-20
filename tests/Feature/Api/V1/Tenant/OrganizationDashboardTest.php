@@ -4,6 +4,7 @@ namespace Tests\Feature\Api\V1\Tenant;
 
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
+use App\Models\Tenant\Consultation;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\Invoice;
@@ -163,7 +164,7 @@ class OrganizationDashboardTest extends TenantTestCase
 
         $this->assertSame('organization', $data['context']);
 
-        foreach (['overview', 'kpis', 'revenue_overview', 'branch_performance', 'visit_trends', 'top_services', 'stock_alerts', 'profit_loss', 'branch_activity'] as $panel) {
+        foreach (['overview', 'kpis', 'revenue_overview', 'branch_performance', 'visit_trends', 'top_services', 'pharmacy_inventory', 'profit_loss', 'branch_activity', 'follow_ups'] as $panel) {
             $this->assertArrayHasKey($panel, $data, "{$panel} is missing");
         }
 
@@ -249,20 +250,95 @@ class OrganizationDashboardTest extends TenantTestCase
         $this->assertCount(9, $pnl['revenue']['series']);
     }
 
-    public function test_stock_alerts_list_what_needs_acting_on(): void
+    public function test_pharmacy_inventory_counts_and_lists_what_is_running_low(): void
     {
-        // 100 tablets on the shelf against a reorder level of 150.
+        // A second lot, three weeks from its expiry: 200 tablets on the shelf
+        // in all, against a reorder level of 250.
+        $this->stock('P2', now()->addDays(20)->toDateString());
+
         $this->putJson("/api/v1/tenant/pharmacy-stores/{$this->store}/medicines", [
-            'medicines' => [['medicine_id' => $this->medicine, 'minimum_stock_level' => 0, 'reorder_level' => 150]],
+            'medicines' => [['medicine_id' => $this->medicine, 'minimum_stock_level' => 0, 'reorder_level' => 250]],
         ])->assertOk();
 
-        $alerts = $this->dashboard()['stock_alerts'];
+        $inventory = $this->dashboard()['pharmacy_inventory'];
 
-        $this->assertSame(['expired' => 0, 'out' => 0, 'low' => 1], $alerts['counts']);
-        $this->assertSame('low', $alerts['rows'][0]['status']);
-        $this->assertSame(100, $alerts['rows'][0]['quantity']);
-        $this->assertSame('tablets', $alerts['rows'][0]['unit']);
-        $this->assertSame('Gurgaon', $alerts['rows'][0]['branch']);
+        $this->assertSame(['low' => 1, 'expiring' => 1, 'out' => 0, 'medicines' => 1], $inventory['counts']);
+        $this->assertSame(30, $inventory['expiry_days']);
+
+        // The brand on top, the generic and strength under it; one branch
+        // keeps a pharmacy, so the branch is not repeated on every line.
+        $this->assertSame('Dolo 650', $inventory['rows'][0]['name']);
+        $this->assertSame('Paracetamol · 650 mg', $inventory['rows'][0]['detail']);
+        $this->assertSame(200, $inventory['rows'][0]['stock']);
+        $this->assertSame(250, $inventory['rows'][0]['min_level']);
+        $this->assertSame('low', $inventory['rows'][0]['status']);
+
+        // Filed under no category, so all of it is "Others".
+        $this->assertSame(200, $inventory['units']);
+        $this->assertEquals([['key' => 'others', 'label' => 'Others', 'units' => 200, 'share' => 100]], $inventory['categories']);
+
+        // A branch without a pharmacy has nothing to count.
+        $this->getJson("/api/v1/tenant/dashboard/pharmacy_inventory?location_id={$this->delhi}")
+            ->assertOk()
+            ->assertJsonPath('data.counts.medicines', 0);
+    }
+
+    /** Who was asked back and has not come, until they do. */
+    public function test_follow_ups_list_who_has_not_come_back(): void
+    {
+        $visit = $this->onTenant($this->organization, function () {
+            $doctor = Doctor::on('organization')->create(['name' => 'Dr. Mehta', 'is_active' => true])->id;
+
+            // Seen on the 10th and asked back in seven days: due the 17th.
+            $seen = Appointment::on('organization')->create([
+                'customer_id' => $this->patient,
+                'doctor_id' => $doctor,
+                'location_id' => $this->gurgaon,
+                'appointment_date' => '2026-09-10',
+                'type' => Appointment::BOOKED,
+                'status' => Appointment::STATUS_CHECKED_IN,
+            ]);
+
+            Consultation::on('organization')->create([
+                'appointment_id' => $seen->id,
+                'customer_id' => $this->patient,
+                'doctor_id' => $doctor,
+                'diagnoses' => ['Viral fever'],
+                'follow_up_days' => 7,
+            ]);
+
+            return fn () => Appointment::on('organization')->create([
+                'customer_id' => $this->patient,
+                'doctor_id' => $doctor,
+                'location_id' => $this->gurgaon,
+                'appointment_date' => '2026-09-14',
+                'type' => Appointment::BOOKED,
+                'status' => Appointment::STATUS_CHECKED_IN,
+            ]);
+        });
+
+        $rows = $this->dashboard()['follow_ups']['rows'];
+
+        $this->assertCount(1, $rows);
+        $this->assertSame('Kiran Rao', $rows[0]['name']);
+        $this->assertSame('2026-09-10', $rows[0]['seen_on']);
+        $this->assertSame('2026-09-17', $rows[0]['due_on']);
+        $this->assertSame(2, $rows[0]['due_in']);
+        $this->assertSame(7, $rows[0]['days']);
+        $this->assertSame('Viral fever', $rows[0]['reason']);
+
+        // The diagnosis is a clinical note: somebody at the branch with the
+        // patient list but not the notes sees who, not why.
+        $this->setStaffCapabilities($this->organization, ['customers.view', 'appointments.view']);
+        $this->placeStaffAt($this->organization, $this->gurgaon);
+        $this->signInAsStaff($this->organization);
+
+        $this->assertNull($this->dashboard()['follow_ups']['rows'][0]['reason']);
+
+        // Once they turn up again, they are off the list.
+        $this->onTenant($this->organization, $visit);
+
+        $this->assertSame([], $this->dashboard()['follow_ups']['rows']);
     }
 
     public function test_visits_are_split_into_new_and_returning(): void
@@ -288,10 +364,24 @@ class OrganizationDashboardTest extends TenantTestCase
 
         $trends = $this->dashboard()['visit_trends'];
 
+        $this->assertSame('this_month', $trends['period']);
         $this->assertSame(1, $trends['new']);
         $this->assertSame(1, $trends['returning']);
         $this->assertSame(1, $trends['series'][2]['new']);
         $this->assertSame(1, $trends['series'][9]['returning']);
+
+        // The three figures over the chart; August had no visits, so there
+        // is nothing to measure a change against.
+        $this->assertSame(['value' => 2, 'change' => null], $trends['totals']['visits']);
+        $this->assertSame(['value' => 1, 'change' => null], $trends['totals']['new']);
+        $this->assertSame('vs last month', $trends['compare']);
+
+        // The card picks its own period: the year, month by month.
+        $year = $this->getJson('/api/v1/tenant/dashboard/visit_trends?period=this_year')->assertOk()->json('data');
+
+        $this->assertSame('month', $year['granularity']);
+        $this->assertCount(12, $year['series']);
+        $this->assertSame(2, $year['totals']['visits']['value']);
     }
 
     public function test_a_card_can_be_reasked_with_its_own_filter(): void
@@ -339,7 +429,7 @@ class OrganizationDashboardTest extends TenantTestCase
 
         $this->assertSame('organization', $data['context']);
 
-        foreach (['revenue_overview', 'top_services', 'profit_loss', 'stock_alerts', 'branch_activity'] as $panel) {
+        foreach (['revenue_overview', 'top_services', 'profit_loss', 'pharmacy_inventory', 'branch_activity'] as $panel) {
             $this->assertArrayNotHasKey($panel, $data, "{$panel} should be absent");
         }
 
@@ -355,8 +445,11 @@ class OrganizationDashboardTest extends TenantTestCase
         $this->getJson('/api/v1/tenant/dashboard/revenue_overview')->assertNotFound();
     }
 
-    /** Somebody standing in a branch gets that branch's day, never the network. */
-    public function test_a_branch_dashboard_never_carries_the_network(): void
+    /**
+     * Somebody standing in a branch gets the same screen about that branch —
+     * its own money, never the network's, and no branch-against-branch table.
+     */
+    public function test_a_branch_dashboard_is_the_same_screen_about_its_branch(): void
     {
         $this->setStaffCapabilities($this->organization, ['customers.view', 'branches.view', 'billing.finance']);
         $this->placeStaffAt($this->organization, $this->gurgaon);
@@ -365,11 +458,21 @@ class OrganizationDashboardTest extends TenantTestCase
         $data = $this->dashboard();
 
         $this->assertSame('branch', $data['context']);
+        $this->assertArrayNotHasKey('branch_performance', $data);
 
-        foreach (['overview', 'kpis', 'revenue_overview', 'branch_performance', 'top_services', 'profit_loss'] as $panel) {
-            $this->assertArrayNotHasKey($panel, $data);
+        foreach (['overview', 'kpis', 'revenue_overview', 'top_services', 'profit_loss'] as $panel) {
+            $this->assertArrayHasKey($panel, $data, "{$panel} is missing");
         }
 
-        $this->getJson('/api/v1/tenant/dashboard/revenue_overview')->assertNotFound();
+        // Gurgaon's 500 + 300 + 200; Delhi's lab bill is not theirs.
+        $this->assertEquals(1000, collect($data['kpis'])->firstWhere('key', 'revenue')['value']);
+        $this->assertEquals(1000, $data['top_services']['total']);
+        $this->assertEquals(1000, $data['profit_loss']['revenue']['value']);
+
+        // Nothing to narrow to but itself.
+        $this->assertSame(['Gurgaon'], array_column($data['scope']['options'], 'name'));
+
+        $this->getJson('/api/v1/tenant/dashboard/revenue_overview?granularity=weekly')->assertOk();
+        $this->getJson("/api/v1/tenant/dashboard/revenue_overview?location_id={$this->delhi}")->assertForbidden();
     }
 }
