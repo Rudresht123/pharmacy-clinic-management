@@ -231,6 +231,8 @@ export interface MyRow {
     customer_id: number;
     customer_name: string | null;
     customer_code: string | null;
+    /** Their photograph, when one was taken. */
+    customer_photo_url: string | null;
     age: number | null;
     gender: string | null;
 

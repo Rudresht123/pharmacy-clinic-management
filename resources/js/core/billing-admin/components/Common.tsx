@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Modal } from '@/shared/components/ui/Modal';
+import { Modal, type ModalSize } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { STATUS_TONE } from '../labels';
@@ -29,6 +29,8 @@ export function ActionDialog({
     submitLabel = 'Save',
     askReason = true,
     reasonHint,
+    size = 'md',
+    canSubmit = true,
     children,
     onClose,
     submit,
@@ -40,6 +42,9 @@ export function ActionDialog({
     submitLabel?: string;
     askReason?: boolean;
     reasonHint?: string;
+    size?: ModalSize;
+    /** False keeps the submit button off until the form has what it needs. */
+    canSubmit?: boolean;
     children?: (errors: Record<string, string[]>) => ReactNode;
     onClose: () => void;
     submit: (reason: string) => Promise<unknown>;
@@ -73,6 +78,8 @@ export function ActionDialog({
     return (
         <Modal
             open
+            className="sxa-modal"
+            size={size}
             title={title}
             subtitle={subtitle}
             icon={<i className={icon} />}
@@ -84,7 +91,7 @@ export function ActionDialog({
                     <Button variant="light" onClick={onClose} disabled={busy}>
                         Cancel
                     </Button>
-                    <Button variant={tone === 'danger' ? 'danger' : 'primary'} loading={busy} onClick={() => void go()}>
+                    <Button variant={tone === 'danger' ? 'danger' : 'primary'} loading={busy} disabled={!canSubmit} onClick={() => void go()}>
                         {submitLabel}
                     </Button>
                 </>
@@ -93,7 +100,7 @@ export function ActionDialog({
             {children?.(errors)}
 
             {askReason && (
-                <div className="mb-2">
+                <div className="sxa-reason">
                     <label className="form-label" htmlFor="action-reason">
                         Reason <span className="text-danger">*</span>
                     </label>
@@ -102,15 +109,20 @@ export function ActionDialog({
                         className={`form-control ${errors.reason ? 'is-invalid' : ''}`}
                         rows={2}
                         value={reason}
-                        placeholder="Why — this is recorded with your name on the subscription's history."
+                        placeholder="Why are you doing this?"
                         onChange={(e) => setReason(e.target.value)}
                     />
                     <FieldError errors={errors} name="reason" />
-                    {reasonHint && !errors.reason && <small className="text-muted">{reasonHint}</small>}
+                    {!errors.reason && (
+                        <small className="sxa-reason-hint">
+                            <i className="ti ti-history" aria-hidden="true" />
+                            {reasonHint ?? 'Recorded with your name on the subscription’s history.'}
+                        </small>
+                    )}
                 </div>
             )}
 
-            {failure && <div className="alert alert-danger py-2 mb-0">{failure}</div>}
+            {failure && <div className="alert alert-danger py-2 mt-3 mb-0">{failure}</div>}
         </Modal>
     );
 }

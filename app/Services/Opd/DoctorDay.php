@@ -88,7 +88,7 @@ class DoctorDay
     private function dayFor(Doctor $doctor, Carbon $date, ?int $locationId): Collection
     {
         return Appointment::on('organization')
-            ->with(['customer', 'location', 'consultation.livePrescription.items', 'liveVideoCall'])
+            ->with(['customer.photograph', 'location', 'consultation.livePrescription.items', 'liveVideoCall'])
             ->where('doctor_id', $doctor->id)
             ->whereDate('appointment_date', $date->toDateString())
             ->when($locationId, fn ($query, $id) => $query->where('location_id', $id))
@@ -414,6 +414,8 @@ class DoctorDay
             'customer_id' => (int) $row->customer_id,
             'customer_name' => $row->customer?->name,
             'customer_code' => $row->customer?->code,
+            // Their face, so the doctor knows who is walking in.
+            'customer_photo_url' => $row->customer?->photograph?->url,
 
             // Age is a fact about today, so it is worked out per request
             // rather than stored — a cached one is wrong on a birthday.

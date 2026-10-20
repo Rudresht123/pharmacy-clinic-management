@@ -65,6 +65,19 @@ class ModuleRegistry
     public const SCOPES = [self::SCOPE_ORGANIZATION, self::SCOPE_BRANCH];
 
     /**
+     * Who a capability is FOR — a separate question from where it applies.
+     *
+     * Almost every capability is staff work. The patient app's are the
+     * exception: each is about the signed-in patient's own record, and a staff
+     * role holding one means nothing, while a patient role holding a staff one
+     * would be a door into the clinic. Marked with `audience` on the entry;
+     * an entry without it is staff's.
+     */
+    public const AUDIENCE_STAFF = 'staff';
+
+    public const AUDIENCE_PATIENT = 'patient';
+
+    /**
      * @return list<array{
      *     key: string,
      *     name: string,
@@ -73,7 +86,7 @@ class ModuleRegistry
      *     group: string,
      *     is_core: bool,
      *     requires?: list<string>,
-     *     capabilities: list<array{key: string, name: string}>,
+     *     capabilities: list<array{key: string, name: string, scope: string, audience?: string}>,
      * }>
      */
     public static function all(): array
@@ -180,6 +193,50 @@ class ModuleRegistry
                     ['key' => 'customers.create', 'name' => 'Add customers', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'customers.edit', 'name' => 'Edit customers', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'customers.delete', 'name' => 'Remove customers', 'scope' => self::SCOPE_BRANCH],
+                ],
+            ],
+            [
+                /*
+                 * The Export Center — records taken away as files.
+                 *
+                 * Core, so every organization has it; who may use it is the
+                 * roles' question alone. One capability per tab rather than
+                 * one per file: reading a patient on screen is the desk's
+                 * daily work, walking out with ten thousand names and phone
+                 * numbers is a decision about a person, and that decision is
+                 * made per subject — patients, the shop, the money, the
+                 * messages. Which COLUMNS a role takes is the finer control,
+                 * and it lives in `export_column_rules`, not here.
+                 *
+                 * Each tab still needs its subject's own module running —
+                 * there are no pharmacy records to export where the pharmacy
+                 * was never sold — and reaches only the branches the
+                 * capability is held at (App\Services\Exports\ExportAccess).
+                 */
+                'key' => 'exports',
+                'name' => 'Export Center',
+                'description' => 'Patient, pharmacy, billing and communication records as Excel, CSV or PDF.',
+                'icon' => 'ti ti-file-export',
+                'group' => self::GROUP_FOUNDATION,
+                'is_core' => true,
+                'capabilities' => [
+                    ['key' => 'exports.patients', 'name' => 'Export patient records (register, visits, prescriptions, lab)', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'exports.pharmacy', 'name' => 'Export pharmacy records (bills, stock, purchases)', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'exports.billing', 'name' => 'Export billing records (invoices, payments, refunds)', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * Organization-scoped: a message is not sent from a
+                     * branch, so there is no branch's share of the log to
+                     * hand a branch role — it is the whole log or none.
+                     */
+                    ['key' => 'exports.communication', 'name' => 'Export communication records (messages, campaigns)', 'scope' => self::SCOPE_ORGANIZATION],
+
+                    /*
+                     * Deciding which columns each role may take — hiding
+                     * phone numbers from one, amounts from another. It
+                     * reaches every role, so it is the organization's.
+                     */
+                    ['key' => 'exports.columns', 'name' => 'Choose which columns each role may export', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             [
@@ -418,10 +475,10 @@ class ModuleRegistry
                      * Organization-scoped: a patient is not posted to a
                      * branch, and books at whichever one their doctor sits at.
                      */
-                    ['key' => 'portal.appointments.view', 'name' => 'Patients: see their own appointments', 'scope' => self::SCOPE_ORGANIZATION],
-                    ['key' => 'portal.appointments.book', 'name' => 'Patients: find a doctor and book for themselves', 'scope' => self::SCOPE_ORGANIZATION],
-                    ['key' => 'portal.messages', 'name' => 'Patients: message the doctors they have seen', 'scope' => self::SCOPE_ORGANIZATION],
-                    ['key' => 'portal.video_calls', 'name' => 'Patients: book video visits and take the doctor\'s call', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'portal.appointments.view', 'name' => 'Patients: see their own appointments', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
+                    ['key' => 'portal.appointments.book', 'name' => 'Patients: find a doctor and book for themselves', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
+                    ['key' => 'portal.messages', 'name' => 'Patients: message the doctors they have seen', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
+                    ['key' => 'portal.video_calls', 'name' => 'Patients: book video visits and take the doctor\'s call', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
                 ],
             ],
             [
@@ -868,6 +925,20 @@ class ModuleRegistry
         }
 
         return null;
+    }
+
+    /** Who a capability is for — see AUDIENCE_PATIENT. Unknown keys count as staff's. */
+    public static function capabilityAudience(string $capability): string
+    {
+        foreach (self::all() as $module) {
+            foreach ($module['capabilities'] as $entry) {
+                if ($entry['key'] === $capability) {
+                    return $entry['audience'] ?? self::AUDIENCE_STAFF;
+                }
+            }
+        }
+
+        return self::AUDIENCE_STAFF;
     }
 
     /**

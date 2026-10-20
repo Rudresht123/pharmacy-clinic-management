@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
-import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
+import { Avatar } from '@/shared/components/ui/Avatar';
 import { doctorsHooks, useDoctorSchedules } from '@/core/doctors/api';
 import { useScheduleExceptions } from '../api';
 import type { DoctorSchedule } from '@/core/doctors/types';
@@ -85,9 +85,10 @@ export function DoctorPanel({
     return (
         <aside className="docp">
             <header className="docp-head">
-                <PersonPhoto
+                <Avatar
                     src={doctor.photo_url}
                     name={doctor.doctor_name}
+                    fallback="silhouette"
                     className="docp-face"
                 />
 

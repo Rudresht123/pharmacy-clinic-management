@@ -302,7 +302,12 @@ class StaffScopeTest extends TenantTestCase
             'capabilities' => ['people.view', 'people.edit'],
         ])->assertCreated()->json('data');
 
-        $this->setStaffCapabilities($organization, ['people.view', 'people.edit', 'people.create']);
+        /*
+         * Organization HR (`people.across_branches`): only somebody working at
+         * that level hands out organization-wide roles at all — see
+         * RoleScopeTest. This test is about the other rule, what is IN the role.
+         */
+        $this->setStaffCapabilities($organization, ['people.view', 'people.edit', 'people.create', 'people.across_branches']);
         $this->signInAsStaff($organization);
 
         $payload = [
@@ -338,7 +343,9 @@ class StaffScopeTest extends TenantTestCase
             'capabilities' => ['people.view', 'people.edit', 'settings.manage'],
         ])->assertCreated()->json('data');
 
-        $this->setStaffCapabilities($organization, ['people.view', 'people.edit']);
+        // Organization HR, so the refusal is the escalation rule and not the
+        // organization-wide authority one (RoleScopeTest).
+        $this->setStaffCapabilities($organization, ['people.view', 'people.edit', 'people.across_branches']);
         $this->signInAsStaff($organization);
 
         $this->putJson("/api/v1/tenant/users/{$delegateId}", [

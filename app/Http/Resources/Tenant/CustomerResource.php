@@ -21,6 +21,9 @@ class CustomerResource extends JsonResource
 
             'name' => $this->name,
 
+            // The URL, not the file id — null where none was taken, or not loaded.
+            'photo_url' => $this->whenLoaded('photograph', fn () => $this->photograph?->url, null),
+
             'registered_location_id' => $this->registered_location_id,
             'registered_location' => $this->whenLoaded(
                 'registeredLocation',
@@ -47,6 +50,9 @@ class CustomerResource extends JsonResource
             'is_active' => (bool) $this->is_active,
 
             'custom_fields' => $this->custom_fields ?? [],
+
+            // Only where the query selected it — the Patient Records list.
+            'last_visit_on' => $this->whenHas('last_visit_on'),
 
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

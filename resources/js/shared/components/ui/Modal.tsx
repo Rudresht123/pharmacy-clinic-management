@@ -28,6 +28,8 @@ interface ModalProps {
      * box covers the thing being worked from.
      */
     placement?: 'centre' | 'side';
+    /** Extra class on the dialog, for a feature to style its own dialogs. */
+    className?: string;
 }
 
 const SIZES: Record<ModalSize, string> = {
@@ -75,6 +77,7 @@ export function Modal({
     tone = 'primary',
     busy,
     placement = 'centre',
+    className,
 }: ModalProps) {
     // `mounted` keeps the dialog in the DOM through its exit transition;
     // `visible` toggles Bootstrap's .show class.
@@ -170,6 +173,7 @@ export function Modal({
                     className={cn(
                         'modal-dialog',
                         placement === 'side' ? 'modal-side' : SIZES[size],
+                        className,
                     )}
                     style={{ margin: 0, width: '100%' }}
                     tabIndex={-1}

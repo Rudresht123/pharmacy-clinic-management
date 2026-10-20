@@ -47,8 +47,12 @@
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/platform-dashboard.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/maps.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/pharmacy-reports.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/patient-records.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/role-scope.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/subscriptions.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/billing-admin.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/invoice-page.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/export-center.css') }}">
 
     @viteReactRefresh
     @vite('resources/js/app/main.tsx')

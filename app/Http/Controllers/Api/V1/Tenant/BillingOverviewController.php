@@ -268,6 +268,11 @@ class BillingOverviewController extends BaseApiController
                     ->when(
                         $request->filled('location_id'),
                         fn (Builder $inner) => $inner->where('location_id', $request->integer('location_id')),
+                    )
+                    // One patient's payments — their record's Billing tab.
+                    ->when(
+                        $request->filled('customer_id'),
+                        fn (Builder $inner) => $inner->where('customer_id', $request->integer('customer_id')),
                     );
             })
             ->when(

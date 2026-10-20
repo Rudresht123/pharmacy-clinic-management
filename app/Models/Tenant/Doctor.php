@@ -5,9 +5,9 @@ namespace App\Models\Tenant;
 use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -116,8 +116,30 @@ class Doctor extends Model
     public function postings(): BelongsToMany
     {
         return $this->belongsToMany(Location::class, 'doctor_locations', 'doctor_id', 'location_id')
-            ->withPivot('is_active')
+            ->withPivot('is_active', 'consultation_fee')
             ->withTimestamps();
+    }
+
+    /**
+     * What a consultation with this doctor costs at a branch.
+     *
+     * The branch's own fee for them when one is set on the posting, else
+     * their default. Null when neither is set — a doctor with no fee is a
+     * real configuration, and the bill then has no consultation line.
+     */
+    public function consultationFeeAt(?int $locationId): ?string
+    {
+        if ($locationId !== null) {
+            $fee = $this->postings()
+                ->where('locations.id', $locationId)
+                ->value('doctor_locations.consultation_fee');
+
+            if ($fee !== null) {
+                return (string) $fee;
+            }
+        }
+
+        return $this->default_consultation_fee !== null ? (string) $this->default_consultation_fee : null;
     }
 
     /**

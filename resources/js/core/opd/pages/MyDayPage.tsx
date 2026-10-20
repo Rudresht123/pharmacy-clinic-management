@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/shared/components/ui/Card';
-import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
+import { Avatar } from '@/shared/components/ui/Avatar';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { useMoveConsultation } from '@/core/appointments/api';
@@ -84,7 +84,7 @@ export default function MyDayPage() {
             {/* Who, and how the day stands — one line before any of the work. */}
             <div className="md-hero">
                 <div className="md-who">
-                    <PersonPhoto src={doctor.photo_url} name={doctor.name} className="md-face" />
+                    <Avatar src={doctor.photo_url} name={doctor.name} fallback="silhouette" className="md-face" />
 
                     <div>
                         <h1>

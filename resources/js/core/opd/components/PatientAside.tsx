@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
+import { Avatar } from '@/shared/components/ui/Avatar';
 import type { MyDay } from '../types';
 
 /** "12 Aug 2026" */
@@ -50,7 +50,13 @@ export function PatientAside({
                 visit appeared.
             */}
             <div className="pa-head">
-                <PersonPhoto src={null} name={current.customer_name} className="pa-face" />
+                <Avatar
+                    src={current.customer_photo_url}
+                    name={current.customer_name}
+                    fallback="silhouette"
+                    caption={current.customer_code}
+                    className="pa-face"
+                />
 
                 <div className="pa-id">
                     <b>{current.customer_name ?? 'Unnamed'}</b>

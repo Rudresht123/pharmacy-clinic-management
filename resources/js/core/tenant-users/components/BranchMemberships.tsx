@@ -8,6 +8,8 @@ import { notify } from '@/shared/utils/notify';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { locationsHooks } from '@/core/locations/api';
 import { rolesHooks, useSaveUserBranches } from '@/core/roles/api';
+import { SCOPE_INFO, ScopeBadge, eligibleRoles, permissionCount } from '@/core/roles/scope';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 
 interface Row {
     location_id: number;
@@ -46,10 +48,32 @@ export function BranchMemberships({
     /** Whether this person may change it at all — the panel is read-only otherwise. */
     canAssign: boolean;
 }) {
-    const { data: branches } = locationsHooks.useList({ all: 1 });
     const { data: roles } = rolesHooks.useList();
     const save = useSaveUserBranches(userId);
     const confirm = useConfirm();
+    const { user, branches: myBranches, can } = useTenantAuth();
+
+    /*
+     * The network's branches, for whoever may list them (`branches.view`);
+     * otherwise the ones this person works at, from their own session —
+     * which are exactly the ones they may assign anyway. Asking for the
+     * full list without the capability only produced a refusal, "Unknown
+     * branch" on every card and an empty Add list.
+     */
+    const listsBranches = user?.role === 'owner' || can('branches.view');
+    const { data: network } = locationsHooks.useList({ all: 1 }, { enabled: listsBranches });
+    const branches = listsBranches
+        ? network
+        : myBranches.map((branch) => ({ id: branch.id, name: branch.name ?? 'Branch' }));
+
+    /*
+     * The branches this person may post somebody to — every one for the
+     * owner, their own otherwise (TenantBranchAccess on the server, which
+     * refuses the rest). Offering a branch that would only be refused is a
+     * dead end with a round trip in it.
+     */
+    const reachable = (locationId: number) =>
+        user?.role === 'owner' || myBranches.some((branch) => branch.id === locationId);
 
     const rows: Row[] = initial;
 
@@ -67,7 +91,7 @@ export function BranchMemberships({
         roleId ? (roles ?? []).find((role) => role.id === roleId)?.name ?? null : null;
 
     const unused = (branches ?? []).filter(
-        (branch) => !rows.some((row) => row.location_id === branch.id),
+        (branch) => !rows.some((row) => row.location_id === branch.id) && reachable(branch.id),
     );
 
     /*
@@ -79,11 +103,13 @@ export function BranchMemberships({
      * has no notion of a grouped list, so the hint line is what tells the
      * two apart — shared roles sort first so the common case is on top.
      */
-    function roleOptions(locationId: number | ''): SelectOption[] {
+    function roleOptions(locationId: number | '', current: number | null = null): SelectOption[] {
         if (!locationId) return [];
 
-        return (roles ?? [])
-            .filter((role) => role.scope === 'branch' && (role.location_id === null || role.location_id === locationId))
+        // Branch roles this person may hand out, written by the organization
+        // or by this branch itself — and whichever is already set here.
+        return eligibleRoles(roles, 'branch', current)
+            .filter((role) => role.location_id === null || role.location_id === locationId)
             .sort(
                 (a, b) =>
                     Number(a.location_id !== null) - Number(b.location_id !== null) ||
@@ -92,7 +118,10 @@ export function BranchMemberships({
             .map((role) => ({
                 value: String(role.id),
                 label: role.name,
-                hint: role.location_id === null ? 'Shared role' : `${role.location ?? 'This branch'} role`,
+                hint: [
+                    role.location_id === null ? 'Shared by every branch' : `${role.location ?? 'This branch'} only`,
+                    role.assignable === false ? 'includes permissions you do not hold' : permissionCount(role),
+                ].join(' · '),
             }));
     }
 
@@ -208,14 +237,15 @@ export function BranchMemberships({
     }
 
     const editingRow = modal?.mode === 'edit' ? rows.find((row) => row.location_id === modal.locationId) : undefined;
-    const modalTitle = modal?.mode === 'edit' ? `Edit role at ${branchName(modal.locationId)}` : 'Add Branch Access';
+    const modalTitle = modal?.mode === 'edit' ? `Edit role at ${branchName(modal.locationId)}` : 'Add a branch';
+    const modalOptions = roleOptions(modalBranch, editingRow?.role_id ?? null);
 
     return (
         <>
             <Card
-                title="Branch Access"
+                title={SCOPE_INFO.branch.label}
                 icon="ti ti-map-pin"
-                description="What they do at each branch they work at."
+                description="Where they work, and the role they hold at each branch. A branch role works only at that branch."
                 actions={
                     canAssign &&
                     unused.length > 0 && (
@@ -228,8 +258,8 @@ export function BranchMemberships({
                 {rows.length === 0 ? (
                     <p className="db-quiet">
                         <i className="ti ti-building" />
-                        Not at any branch — they work for the organization itself, and their
-                        organization role (if they have one) applies across the network.
+                        Not at any branch yet. Add a branch to give them a role there — or, for
+                        head office, rely on their organization-wide access alone.
                     </p>
                 ) : (
                     <ul className="ba-list">
@@ -250,11 +280,18 @@ export function BranchMemberships({
                                         )}
                                     </b>
                                     <span className="ba-role">
-                                        {roleName(row.role_id) ?? 'No responsibility set yet'}
+                                        {roleName(row.role_id) ? (
+                                            <>
+                                                {roleName(row.role_id)}
+                                                <ScopeBadge scope="branch" />
+                                            </>
+                                        ) : (
+                                            'No role at this branch yet'
+                                        )}
                                     </span>
                                 </span>
 
-                                {canAssign && (
+                                {canAssign && reachable(row.location_id) && (
                                     <span className="ba-card-acts">
                                         {!row.is_primary && (
                                             <button
@@ -341,20 +378,36 @@ export function BranchMemberships({
 
                 <div className="form-group mb-0">
                     <label className="form-label" htmlFor="ba-role">
-                        Responsibility
+                        Branch role
                     </label>
 
                     <SearchableSelect
                         id="ba-role"
                         value={modalRole === '' ? '' : String(modalRole)}
                         onChange={(next) => setModalRole(next ? Number(next) : '')}
-                        disabled={!modalBranch}
+                        disabled={!modalBranch || modalOptions.length === 0}
                         clearable
-                        placeholder={modalBranch ? 'Nothing yet' : 'Choose a branch first'}
-                        options={roleOptions(modalBranch)}
+                        placeholder={
+                            !modalBranch
+                                ? 'Choose a branch first'
+                                : modalOptions.length === 0
+                                  ? 'No branch roles available'
+                                  : 'No role yet'
+                        }
+                        options={modalOptions}
                     />
 
-                    <p className="form-hint">Choose what this person does at this branch.</p>
+                    {modalBranch && modalOptions.length === 0 ? (
+                        <p className="form-hint">
+                            There are no branch roles you can give at this branch yet. You can still
+                            add the branch now and set their role later.
+                        </p>
+                    ) : (
+                        <p className="form-hint">
+                            Works only at {modalBranch ? branchName(Number(modalBranch)) : 'this branch'}.
+                            Organization-wide roles are set on the person, not here.
+                        </p>
+                    )}
                 </div>
             </FormModal>
         </>

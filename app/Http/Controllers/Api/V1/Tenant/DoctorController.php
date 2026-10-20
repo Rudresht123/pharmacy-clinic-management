@@ -9,13 +9,14 @@ use App\Http\Requests\Api\V1\Tenant\UpdateDoctorRequest;
 use App\Http\Resources\Tenant\DoctorResource;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Doctor;
-use App\Models\Tenant\File;
 use App\Models\Tenant\EntityFieldSetting;
+use App\Models\Tenant\File;
 use App\Repositories\Tenant\Contracts\DoctorRepositoryInterface;
 use App\Services\Fields\FieldSchema;
 use App\Services\Permissions\Permission;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DoctorAccountProvisioner;
+use App\Services\Tenant\DoctorPostings;
 use App\Support\Fields\DoctorFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -134,11 +135,17 @@ class DoctorController extends BaseApiController
     ): JsonResponse {
         $data = $this->withDepartment($request->validated());
         $account = $data['account'] ?? null;
-        unset($data['account']);
+        $branchFees = $data['branch_fees'] ?? null;
+        unset($data['account'], $data['branch_fees']);
 
         $updated = DB::connection(TenantConnectionService::CONNECTION)
-            ->transaction(function () use ($doctor, $data, $account, $request, $accounts) {
+            ->transaction(function () use ($doctor, $data, $account, $branchFees, $request, $accounts) {
                 $updated = $this->doctors->update($doctor, $data);
+
+                // What they charge at each of their branches, beside the default.
+                if ($branchFees !== null) {
+                    app(DoctorPostings::class)->price($updated, $branchFees);
+                }
 
                 if ($account) {
                     $accounts->open($updated, $account, $this->modules($request));

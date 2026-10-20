@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Card } from '@/shared/components/ui/Card';
 
 /** The colours every billing chart shares, from the theme's categorical palette. */
@@ -102,9 +102,42 @@ export interface GroupPoint {
 }
 
 /**
+ * The box a chart may fill: the card's spare width and height, measured.
+ * A chart beside a taller donut grows to meet it instead of leaving a gap
+ * under itself, and draws in real pixels so its labels never stretch.
+ */
+export function ChartFill({ min = 220, children }: { min?: number; children: (width: number, height: number) => ReactNode }) {
+    const ref = useRef<HTMLDivElement>(null);
+    const [box, setBox] = useState({ width: 0, height: 0 });
+
+    useEffect(() => {
+        const node = ref.current;
+
+        if (!node) return;
+
+        const read = (width: number, height: number) => setBox({ width: Math.floor(width), height: Math.floor(height) });
+        const rect = node.getBoundingClientRect();
+
+        read(rect.width, rect.height);
+
+        const observer = new ResizeObserver(([entry]) => read(entry.contentRect.width, entry.contentRect.height));
+
+        observer.observe(node);
+
+        return () => observer.disconnect();
+    }, []);
+
+    return (
+        <div ref={ref} className="sxa-fill" style={{ minHeight: min }}>
+            {box.width > 0 && <div className="sxa-fill-inner">{children(box.width, Math.max(min, box.height))}</div>}
+        </div>
+    );
+}
+
+/**
  * Columns side by side per period — one per series — with a value axis and
- * a hover card listing every series for the period. Drawn in a fixed
- * viewBox and scaled to the card, so it needs no measuring.
+ * a hover card listing every series for the period. `height` is the least
+ * it takes; it grows to the card's height when a neighbour is taller.
  */
 export function GroupedBars({
     points,
@@ -134,65 +167,72 @@ export function GroupedBars({
         );
     }
 
-    const W = 600;
-    const H = height;
-    const left = 52;
-    const bottom = 26;
-    const plotW = W - left - 8;
-    const plotH = H - bottom - 10;
-    const slot = plotW / points.length;
-    const barW = Math.min(18, (slot * 0.7) / series.length);
-    const y = (v: number) => 10 + plotH - (v / top) * plotH;
-
     return (
-        <div className="sxa-bars">
-            <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Chart" preserveAspectRatio="none">
-                {ticks.map((t) => (
-                    <g key={t}>
-                        <line x1={left} x2={W - 8} y1={y(t)} y2={y(t)} className="sxa-grid" />
-                        <text x={left - 8} y={y(t) + 4} textAnchor="end" className="sxa-axis">
-                            {axis(t)}
-                        </text>
-                    </g>
-                ))}
+        <ChartFill min={height}>
+            {(W, H) => {
+                const left = 52;
+                const right = 8;
+                const head = 10;
+                const bottom = 26;
+                const plotW = W - left - right;
+                const plotH = H - bottom - head;
+                const slot = plotW / points.length;
+                const gap = series.length > 1 ? 4 : 0;
+                const barW = Math.max(4, Math.min(20, (slot * 0.6 - gap * (series.length - 1)) / series.length));
+                const y = (v: number) => head + plotH - (v / top) * plotH;
 
-                {points.map((point, i) => {
-                    const groupW = barW * series.length + (series.length - 1) * 4;
-                    const x0 = left + slot * i + (slot - groupW) / 2;
-
-                    return (
-                        <g key={point.key} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
-                            <rect x={left + slot * i} y={10} width={slot} height={plotH} className={`sxa-hit ${hovered === i ? 'is-on' : ''}`} />
-                            {point.values.map((v, s) => (
-                                <rect
-                                    key={s}
-                                    x={x0 + s * (barW + 4)}
-                                    y={y(v)}
-                                    width={barW}
-                                    height={Math.max(0, 10 + plotH - y(v))}
-                                    rx={4}
-                                    style={{ fill: series[s]?.color }}
-                                />
+                return (
+                    <div className="sxa-bars" onMouseLeave={() => setHovered(null)}>
+                        <svg width={W} height={H} role="img" aria-label={`${series.map((s) => s.label).join(', ')} by month`}>
+                            {ticks.map((t) => (
+                                <g key={t}>
+                                    <line x1={left} x2={W - right} y1={y(t)} y2={y(t)} className="sxa-grid" />
+                                    <text x={left - 8} y={y(t) + 4} textAnchor="end" className="sxa-axis">
+                                        {axis(t)}
+                                    </text>
+                                </g>
                             ))}
-                            <text x={left + slot * i + slot / 2} y={H - 8} textAnchor="middle" className="sxa-axis">
-                                {point.label}
-                            </text>
-                        </g>
-                    );
-                })}
-            </svg>
 
-            {hovered !== null && points[hovered] && (
-                <div className="sxa-tip" style={{ left: `${((left + (600 - left - 8) / points.length * (hovered + 0.5)) / 600) * 100}%` }}>
-                    <b>{points[hovered].title}</b>
-                    {series.map((s, i) => (
-                        <span key={s.label}>
-                            <i style={{ background: s.color }} aria-hidden="true" /> {s.label}: {format(points[hovered].values[i] ?? 0)}
-                        </span>
-                    ))}
-                </div>
-            )}
-        </div>
+                            {points.map((point, i) => {
+                                const groupW = barW * series.length + gap * (series.length - 1);
+                                const x0 = left + slot * i + (slot - groupW) / 2;
+
+                                return (
+                                    <g key={point.key} onMouseEnter={() => setHovered(i)}>
+                                        <rect x={left + slot * i} y={head} width={slot} height={plotH} className={`sxa-hit ${hovered === i ? 'is-on' : ''}`} />
+                                        {point.values.map((v, s) => (
+                                            <rect
+                                                key={s}
+                                                x={x0 + s * (barW + gap)}
+                                                y={y(v)}
+                                                width={barW}
+                                                height={Math.max(0, head + plotH - y(v))}
+                                                rx={Math.min(4, barW / 2)}
+                                                style={{ fill: series[s]?.color }}
+                                            />
+                                        ))}
+                                        <text x={left + slot * i + slot / 2} y={H - 8} textAnchor="middle" className="sxa-axis">
+                                            {point.label}
+                                        </text>
+                                    </g>
+                                );
+                            })}
+                        </svg>
+
+                        {hovered !== null && points[hovered] && (
+                            <div className="sxa-tip" style={{ left: Math.min(Math.max(left + slot * (hovered + 0.5), 90), W - 90) }}>
+                                <b>{points[hovered].title}</b>
+                                {series.map((s, i) => (
+                                    <span key={s.label}>
+                                        <i style={{ background: s.color }} aria-hidden="true" /> {s.label}: {format(points[hovered].values[i] ?? 0)}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            }}
+        </ChartFill>
     );
 }
 

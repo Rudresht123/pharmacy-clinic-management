@@ -92,6 +92,17 @@ class Customer extends Model
     }
 
     /**
+     * Their photograph, when one has been taken.
+     *
+     * `photo` is a file id the server sets (forceFill) — never something a
+     * form posts, the same rule a doctor's photograph follows.
+     */
+    public function photograph(): BelongsTo
+    {
+        return $this->belongsTo(File::class, 'photo');
+    }
+
+    /**
      * This patient's own portal login, when they have signed in to the app.
      *
      * One at most — the same partial unique index on (userable_type,

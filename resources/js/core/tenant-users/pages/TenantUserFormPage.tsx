@@ -10,6 +10,7 @@ import { useApiForm } from '@/shared/components/form/useApiForm';
 import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { ConfigurableForm, type FieldGroup } from '@/core/field-settings/ConfigurableForm';
 import { rolesHooks } from '@/core/roles/api';
+import { ScopeBadge, eligibleRoles, permissionCount } from '@/core/roles/scope';
 import { departmentOptions, departmentsHooks } from '@/core/departments/api';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { EffectivePermissionsPanel } from '@/core/roles/components/EffectivePermissionsPanel';
@@ -50,9 +51,9 @@ const GROUPS: FieldGroup[] = [
     },
     {
         key: 'access',
-        title: 'Organization Role',
+        title: 'Organization-wide access',
         icon: 'ti ti-building',
-        description: 'What they may do across the whole organization.',
+        description: 'A role that works at every branch. Optional — most branch staff do not need one.',
         rail: true,
     },
     {
@@ -105,9 +106,17 @@ export default function TenantUserFormPage({
      * a validation message from a field they never even see this list came
      * from.
      */
-    const organizationRoles = (roles ?? []).filter((role) => role.scope === 'organization');
     const { data: departments } = departmentsHooks.useList();
-    const { can } = useTenantAuth();
+    const { can, user } = useTenantAuth();
+
+    /*
+     * Who may give or take away organization-wide access: the owner, and
+     * organization HR (`people.across_branches`) — the same line the server
+     * draws (StaffScope::canGrantOrganizationWide). Anybody else sees the
+     * role read-only, with the reason, instead of a picker that would only
+     * be refused on save.
+     */
+    const organizationLevel = user?.role === 'owner' || can('people.across_branches');
 
     const {
         register,
@@ -132,6 +141,14 @@ export default function TenantUserFormPage({
 
     // Which hint reads more true right now — assigned, or deliberately empty.
     const hasOrganizationRole = Boolean(watch('role_id'));
+
+    /*
+     * Organization-wide staff roles this person may hand out — never a
+     * branch role, never the patient app's — plus whichever one is already
+     * set, so an edit never blanks a field it did not touch.
+     */
+    const organizationRoles = eligibleRoles(roles, 'organization', person?.role_id ?? null);
+    const currentRole = (roles ?? []).find((role) => role.id === person?.role_id);
 
     /*
      * `location_id`'s own options, read off the schema rather than fetched
@@ -284,10 +301,50 @@ export default function TenantUserFormPage({
          * every other field on this form it carries no required mark and
          * offers an explicit empty option rather than only a placeholder.
          */
-        access: isStaff ? (
+        access: !isStaff ? (
+            <p className="form-hint">
+                An owner is not limited by a role, and works across every branch.
+            </p>
+        ) : !organizationLevel ? (
+            /*
+             * Read-only for branch-level staff. They may still edit this
+             * person; the role rides along unchanged, which the server
+             * accepts — it is only CHANGING it that needs organization-level
+             * authority.
+             */
+            <div className="form-group">
+                <span className="form-label">Organization role</span>
+                <p className="ras-readonly">
+                    {currentRole ? (
+                        <>
+                            <b>{currentRole.name}</b>
+                            <ScopeBadge scope="organization" />
+                        </>
+                    ) : (
+                        <span>None — their access comes from their branch role.</span>
+                    )}
+                </p>
+                <p className="form-hint">
+                    Only an organization administrator can change organization-wide access. Give
+                    them a role at their branch under Branch-specific access instead.
+                </p>
+            </div>
+        ) : organizationRoles.length === 0 ? (
+            <div className="ras-empty">
+                <i className="ti ti-building" aria-hidden="true" />
+                <div>
+                    <b>No organization-wide roles to give</b>
+                    <p>
+                        That is fine for branch staff — give them a role at their branch instead.
+                        {can('people.roles') &&
+                            ' To create one for head office, add an organization-wide role under Roles & Permissions.'}
+                    </p>
+                </div>
+            </div>
+        ) : (
             <div className="form-group">
                 <label className="form-label" htmlFor="role_id">
-                    Organization Role
+                    Organization role
                 </label>
 
                 <Controller
@@ -304,6 +361,10 @@ export default function TenantUserFormPage({
                             options={organizationRoles.map((role) => ({
                                 value: String(role.id),
                                 label: role.name,
+                                hint:
+                                    role.assignable === false
+                                        ? 'Organization-wide · includes permissions you do not hold'
+                                        : `Organization-wide · ${permissionCount(role)}`,
                             }))}
                         />
                     )}
@@ -315,21 +376,12 @@ export default function TenantUserFormPage({
                     </p>
                 ) : (
                     <p className="form-hint">
-                        {hasOrganizationRole ? (
-                            'Organization roles apply across the organization and are not limited to a single branch.'
-                        ) : (
-                            <>
-                                Most branch-level staff do not need an organization role. You can
-                                assign their branch responsibility after creating them.
-                            </>
-                        )}
+                        {hasOrganizationRole
+                            ? 'This role works at every branch, on top of anything they hold at a branch.'
+                            : 'Leave empty for branch staff — their access comes from the role they hold at each branch.'}
                     </p>
                 )}
             </div>
-        ) : (
-            <p className="form-hint">
-                An owner is not limited by a role, and works across every branch.
-            </p>
         ),
 
         /*
@@ -369,8 +421,8 @@ export default function TenantUserFormPage({
                 ) : (
                     <p className="form-hint">
                         This is the person&rsquo;s default branch — where their workspace opens.
-                        You can give them access to more branches under Branch Access once
-                        they&rsquo;re created.
+                        Once they&rsquo;re created, give them a role at each branch they work at
+                        under Branch-specific access.
                     </p>
                 )}
             </div>

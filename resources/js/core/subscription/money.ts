@@ -24,6 +24,17 @@ export function formatPaise(paise: number | null | undefined, currency = 'INR'):
     return inr.format(paise / 100);
 }
 
+const inrWhole = new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+});
+
+/** A headline figure in whole rupees: ₹12,84,560. Tables keep the paise. */
+export function formatRupees(paise: number | null | undefined): string {
+    return paise === null || paise === undefined ? '—' : inrWhole.format(paise / 100);
+}
+
 /** "1499", "1,499.50" → 149950. Null when it is not an amount. */
 export function rupeesToPaise(value: string | number): number | null {
     const text = String(value).replace(/[,\s₹]/g, '').trim();
@@ -61,6 +72,15 @@ export function formatDay(iso: string | null | undefined, timeZone?: string): st
         year: 'numeric',
         timeZone,
     }).format(new Date(iso));
+}
+
+/** A date for a narrow column: 11 Oct 2026. */
+export function formatShortDay(iso: string | null | undefined, timeZone?: string): string {
+    if (!iso) {
+        return '—';
+    }
+
+    return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone }).format(new Date(iso));
 }
 
 export function plural(count: number, one: string, many = `${one}s`): string {

@@ -2,7 +2,15 @@
 export interface Capability {
     key: string;
     name: string;
+    /** Where it may apply: every branch, or one. A branch role never holds an organization one. */
+    scope?: RoleScope;
+    /** Who it is for. Absent means staff; `patient` is the patient app's own. */
+    audience?: RoleAudience;
 }
+
+export type RoleScope = 'organization' | 'branch';
+
+export type RoleAudience = 'staff' | 'patient';
 
 /**
  * A module, with the capabilities it grants.
@@ -58,6 +66,19 @@ export interface Role {
      */
     is_customisable_by_branch?: boolean;
 
+    /**
+     * Who the role is for — staff, or patients using the app. A patient's
+     * role is never offered on a staff screen, whatever its scope.
+     */
+    audience?: RoleAudience;
+
+    /**
+     * Whether the person looking may hand it out — on the list only. False
+     * when it holds permissions they do not hold themselves. A hint for the
+     * dropdowns; the server still decides.
+     */
+    assignable?: boolean;
+
     users_count?: number;
     created_at: string | null;
     updated_at: string | null;
@@ -68,6 +89,9 @@ export interface RolePayload {
     description: string | null;
     icon: string;
     capabilities: string[];
+
+    /** Chosen once, when the role is created — and only an owner's choice counts. */
+    scope?: RoleScope;
 
     /**
      * Omitted — never sent empty — by a screen not in a position to set locks.

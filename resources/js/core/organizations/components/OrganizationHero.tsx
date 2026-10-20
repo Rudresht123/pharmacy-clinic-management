@@ -82,8 +82,8 @@ export function OrganizationHero({ organization }: { organization: Organization 
                     name={organization.organization_name}
                     src={organization.profile_image_url}
                     hasImage={organization.profile_image_id !== null}
+                    shape="rounded"
                     size={62}
-                    preview
                 />
             </span>
 

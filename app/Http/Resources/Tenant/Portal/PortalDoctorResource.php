@@ -21,6 +21,12 @@ class PortalDoctorResource extends JsonResource
     {
         $schedules = $this->relationLoaded('schedules') ? $this->schedules : collect();
 
+        // What a visit costs at each branch: the branch's fee for them, else their default.
+        $branchFees = $this->relationLoaded('postings')
+            ? $this->postings->mapWithKeys(fn ($branch) => [$branch->id => $branch->pivot->consultation_fee])
+            : collect();
+        $feeAt = fn (?int $locationId) => $branchFees->get($locationId) ?? $this->default_consultation_fee;
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -28,6 +34,7 @@ class PortalDoctorResource extends JsonResource
             'department_name' => $this->whenLoaded('department', fn () => $this->department?->path()),
             'qualifications' => $this->qualifications ?? [],
             'photo_url' => $this->whenLoaded('photograph', fn () => $this->photograph?->url, null),
+            // Their default; each branch below carries its own.
             'consultation_fee' => $this->default_consultation_fee,
             'rating' => $this->rating ?? 4.8,
             'reviews_count' => $this->reviews_count ?? 320,
@@ -40,7 +47,11 @@ class PortalDoctorResource extends JsonResource
             // Where they sit, from their active sittings.
             'locations' => $schedules
                 ->map(fn (DoctorSchedule $schedule) => $schedule->location
-                    ? ['id' => $schedule->location->id, 'name' => $schedule->location->name]
+                    ? [
+                        'id' => $schedule->location->id,
+                        'name' => $schedule->location->name,
+                        'consultation_fee' => $feeAt($schedule->location->id),
+                    ]
                     : null)
                 ->filter()
                 ->unique('id')
@@ -66,6 +77,7 @@ class PortalDoctorResource extends JsonResource
                     'slot_minutes' => $schedule->slot_minutes,
                     'location_id' => $schedule->location?->id,
                     'location_name' => $schedule->location?->name,
+                    'consultation_fee' => $feeAt($schedule->location?->id),
                 ])
                 ->values(),
 

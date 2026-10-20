@@ -89,8 +89,10 @@ class BillingAnalytics
 
         return [
             'tiles' => [
-                'active' => $status['active'] + $status['expiring_soon'],
-                'active_change' => $this->change($status['active'] + $status['expiring_soon'], $this->activeAt(Carbon::now()->subDays(30))),
+                // Running and not on trial — complimentary ones included.
+                'active' => $active = $status['active'] + $status['expiring_soon'] + $status['complimentary'],
+                'active_change' => $this->change($active, $this->activeAt(Carbon::now()->subDays(30))),
+                'complimentary' => $status['complimentary'],
                 'expiring_soon' => $status['expiring_soon'],
                 'suspended' => $status['suspended'],
                 'cancelled' => $status['cancelled'],

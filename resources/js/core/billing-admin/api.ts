@@ -198,6 +198,7 @@ export interface SubscriptionInsights {
     tiles: {
         active: number;
         active_change: number | null;
+        complimentary: number;
         expiring_soon: number;
         suspended: number;
         cancelled: number;

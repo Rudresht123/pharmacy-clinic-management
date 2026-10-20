@@ -172,6 +172,152 @@
     --sx-muted: 120, 128, 155;
 }
 
+/* --- the countdown in the header ------------------------------------------ */
+
+/* Built on the topbar's own variables, so it reads on a light, dark or brand topbar. */
+.sxc {
+    --sxc-tone: 5, 150, 105;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    height: 42px;
+    margin-right: 6px;
+    padding: 3px 14px 3px 3px;
+    border: 1px solid var(--tb-border, var(--line-2));
+    border-radius: 999px;
+    color: var(--tb-fg, var(--ink));
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.sxc:hover,
+.sxc:focus-visible {
+    color: var(--tb-fg, var(--ink));
+    background: var(--tb-hover-bg, var(--surface-3));
+    border-color: rgba(var(--sxc-tone), 0.45);
+}
+
+.sxc.is-ok { --sxc-tone: 5, 150, 105; }
+.sxc.is-warn { --sxc-tone: 217, 119, 6; }
+.sxc.is-grace { --sxc-tone: 234, 88, 12; }
+.sxc.is-locked { --sxc-tone: 225, 29, 72; }
+.sxc.is-trial { --sxc-tone: var(--brand); }
+
+.sxc-dial {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    font-size: 16px;
+    color: rgb(var(--sxc-tone));
+    background: rgba(var(--sxc-tone), 0.1);
+}
+
+.sxc-dial svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.sxc-track {
+    fill: none;
+    stroke: rgba(var(--sxc-tone), 0.18);
+    stroke-width: 3;
+}
+
+.sxc-fill {
+    fill: none;
+    stroke: rgb(var(--sxc-tone));
+    stroke-width: 3;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s ease;
+}
+
+.sxc-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.sxc-text b {
+    font-size: 13.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.sxc-text small {
+    font-size: 11px;
+    color: var(--tb-muted, var(--muted));
+}
+
+.sxc.is-warn .sxc-text b,
+.sxc.is-grace .sxc-text b,
+.sxc.is-locked .sxc-text b {
+    color: rgb(var(--sxc-tone));
+}
+
+/* The last day: the dial's clock pulses gently while the seconds run. */
+.sxc.is-ticking .sxc-dial i {
+    animation: sxc-tick 1s ease-in-out infinite;
+}
+
+@keyframes sxc-tick {
+    50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sxc.is-ticking .sxc-dial i {
+        animation: none;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .sxc {
+        gap: 7px;
+        margin-right: 2px;
+        padding-right: 10px;
+    }
+
+    .sxc-text small {
+        display: none;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .sxc {
+        height: 38px;
+        gap: 6px;
+        margin-right: 0;
+        padding: 2px 10px 2px 2px;
+    }
+
+    .sxc-dial {
+        width: 32px;
+        height: 32px;
+        font-size: 15px;
+    }
+
+    .sxc-text b {
+        font-size: 12.5px;
+    }
+}
+
+/* A small phone with the patient search too: the dial goes, the running time stays. */
+@media (max-width: 419.98px) {
+    .app-header:has(.gs) .sxc {
+        padding-left: 10px;
+    }
+
+    .app-header:has(.gs) .sxc-dial {
+        display: none;
+    }
+}
+
 /* --- the banner above every page ---------------------------------------- */
 
 .sx-banner {
@@ -470,6 +616,1534 @@
     font-size: 13px;
     color: var(--ink-3);
 }
+
+/* =========================================================
+   Subscription & Plan — the organization's own page (.sxp-)
+
+   One card shell for the page, in the house style: white,
+   borderless, a brand-tinted shadow; dark mode brings the
+   border back. Colour only where it means something — the
+   state stripe, chips, meters and icon circles.
+   ========================================================= */
+
+.sxp,
+.sxp-dialog {
+    --sxp-ok: 5, 150, 105;
+    --sxp-warn: 217, 119, 6;
+    --sxp-orange: 234, 88, 12;
+    --sxp-danger: 225, 29, 72;
+    --sxp-gold: 202, 138, 4;
+}
+
+.sxp {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.sxp .sx-chip,
+.sxp-dialog .sx-chip {
+    text-transform: none;
+}
+
+/* --- card shell ------------------------------------------------------------ */
+
+.sxp-card {
+    position: relative;
+    min-width: 0;
+    padding: 22px 24px;
+    background: #fff;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+.sxp-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.sxp-card-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+}
+
+.sxp-card-icon {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    font-size: 19px;
+    color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.1);
+}
+
+.sxp-card-title h3 {
+    margin: 0;
+    font-size: 15.5px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--ink);
+}
+
+.sxp-card-title p {
+    margin: 2px 0 0;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+.sxp-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.08);
+}
+
+.sxp-eyebrow {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.sxp-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.sxp-link:hover {
+    color: rgb(var(--brand));
+    text-decoration: underline;
+}
+
+.sxp-link .ti-arrow-right {
+    transition: transform 0.15s ease;
+}
+
+.sxp-link:hover .ti-arrow-right {
+    transform: translateX(2px);
+}
+
+.sxp-btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-inline: 16px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+    background: transparent;
+    border: 1px solid rgba(var(--brand), 0.4);
+    white-space: nowrap;
+}
+
+.sxp-btn-outline:hover,
+.sxp-btn-outline:focus-visible,
+.sxp-btn-outline:active {
+    color: rgb(var(--brand)) !important;
+    background: rgba(var(--brand), 0.06) !important;
+    border-color: rgb(var(--brand)) !important;
+}
+
+/* --- current plan ------------------------------------------------------------ */
+
+/*
+   One compact row: who you are (plan) | the four facts side by side | the
+   countdown. Narrower screens put plan and countdown on top and the facts
+   in a strip underneath — never a tall stack of half-empty columns.
+*/
+.sxp-hero {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'plan facts ring';
+    align-items: center;
+    padding: 22px 28px 22px 30px;
+    overflow: hidden;
+}
+
+/* A thin accent down the left edge carries the state — not a tinted card. */
+.sxp-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: rgb(var(--sxp-tone, var(--brand)));
+}
+
+.sxp-hero.is-ok { --sxp-tone: var(--sxp-ok); }
+.sxp-hero.is-warn { --sxp-tone: var(--sxp-warn); }
+.sxp-hero.is-grace { --sxp-tone: var(--sxp-orange); }
+.sxp-hero.is-locked { --sxp-tone: var(--sxp-danger); }
+.sxp-hero.is-trial { --sxp-tone: var(--brand); }
+
+.sxp-hero-plan {
+    grid-area: plan;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+    padding-right: 28px;
+}
+
+.sxp-hero-badge {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    border-radius: 15px;
+    font-size: 27px;
+    color: rgb(var(--sxp-gold));
+    background: rgba(var(--sxp-gold), 0.12);
+}
+
+.sxp-hero-id {
+    min-width: 0;
+}
+
+.sxp-hero-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    margin-top: 3px;
+}
+
+.sxp-hero-name h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+
+.sxp-hero-price {
+    margin-top: 4px;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.sxp-hero-price small {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+}
+
+.sxp-hero-line {
+    margin: 3px 0 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+.sxp-hero-facts {
+    grid-area: facts;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    padding: 2px 28px;
+    border-left: 1px solid var(--line);
+}
+
+.sxp-facts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sxp-fact {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding-right: 14px;
+}
+
+.sxp-fact + .sxp-fact {
+    padding-left: 18px;
+    border-left: 1px solid var(--line);
+}
+
+.sxp-fact > div {
+    min-width: 0;
+}
+
+.sxp-fact-icon {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 18px;
+    color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.08);
+}
+
+.sxp-fact small {
+    display: block;
+    overflow: hidden;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.sxp-fact b {
+    display: block;
+    margin-top: 1px;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.sxp-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.sxp-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 9px;
+}
+
+.sxp-btn-ghost i {
+    font-size: 15px;
+    color: rgb(var(--brand));
+}
+
+.sxp-btn-ghost:hover,
+.sxp-btn-ghost:focus-visible,
+.sxp-btn-ghost:active {
+    color: rgb(var(--brand)) !important;
+    background: var(--surface) !important;
+    border-color: rgba(var(--brand), 0.45) !important;
+}
+
+.sxp-hero-ring {
+    grid-area: ring;
+    display: grid;
+    place-items: center;
+    padding-left: 8px;
+}
+
+.sxp-ring {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 112px;
+    height: 112px;
+}
+
+.sxp-ring svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.sxp-ring-disk {
+    fill: rgba(var(--sxp-tone, var(--brand)), 0.07);
+}
+
+.sxp-ring-track {
+    fill: none;
+    stroke: var(--surface-3);
+    stroke-width: 9;
+}
+
+.sxp-ring-fill {
+    fill: none;
+    stroke: rgb(var(--sxp-tone, var(--brand)));
+    stroke-width: 9;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s ease;
+}
+
+.sxp-ring-text {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    line-height: 1.1;
+}
+
+.sxp-ring-text b {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.sxp-ring-text span {
+    max-width: 70px;
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--muted);
+}
+
+.sxp-ring-text i {
+    font-size: 26px;
+    color: rgb(var(--sxp-tone, var(--brand)));
+}
+
+/* --- usage ------------------------------------------------------------------- */
+
+.sxp-group + .sxp-group {
+    margin-top: 22px;
+}
+
+.sxp-group-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 10px;
+    margin: 0 0 10px;
+}
+
+.sxp-group-head h4 {
+    margin: 0;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+.sxp-group-head span {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.sxp-tiles {
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+    gap: 14px;
+}
+
+.sxp-tile {
+    --hue: var(--brand);
+    --bar: var(--hue);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 16px 16px 14px;
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 14px;
+}
+
+.sxp-tile.hue-green { --hue: 22, 163, 74; }
+.sxp-tile.hue-sky { --hue: 2, 132, 199; }
+.sxp-tile.hue-amber { --hue: 217, 119, 6; }
+.sxp-tile.hue-violet { --hue: 124, 58, 237; }
+
+.sxp-tile.is-near { --bar: var(--sxp-warn); }
+.sxp-tile.is-full,
+.sxp-tile.is-over { --bar: var(--sxp-danger); }
+
+.sxp-tile-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.sxp-tile-icon {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 18px;
+    color: rgb(var(--hue));
+    background: rgba(var(--hue), 0.1);
+}
+
+.sxp-tile-label {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--ink-2);
+}
+
+.sxp-tile-top .sx-chip,
+.sxp-tile-chip {
+    flex-shrink: 0;
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+.sxp-tile-chip {
+    align-self: flex-start;
+    margin-top: -4px;
+}
+
+.sxp-tile-value {
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.sxp-tile-value small {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--muted);
+}
+
+.sxp-tile-note {
+    margin-top: -6px;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+.sxp-tile-meter {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-top: auto;
+}
+
+.sxp-bar {
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--surface-3);
+}
+
+.sxp-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: rgb(var(--bar));
+    transition: width 0.4s ease;
+}
+
+.sxp-tile.is-unlimited .sxp-bar > span {
+    background: rgba(var(--hue), 0.3);
+}
+
+.sxp-tile-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.sxp-tile-foot b {
+    font-weight: 600;
+}
+
+.sxp-tile.is-full .sxp-tile-foot b,
+.sxp-tile.is-over .sxp-tile-foot b {
+    color: rgb(var(--sxp-danger));
+}
+
+.sxp-tiles--compact .sxp-tile {
+    gap: 10px;
+    padding: 14px;
+}
+
+.sxp-tiles--compact .sxp-tile-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    font-size: 16px;
+}
+
+.sxp-tiles--compact .sxp-tile-value {
+    font-size: 21px;
+}
+
+.sxp-tile--cta {
+    justify-content: center;
+    gap: 6px;
+    background: transparent;
+    border: 1.5px dashed rgba(var(--brand), 0.3);
+}
+
+.sxp-tile--cta .sxp-tile-icon {
+    margin-bottom: 4px;
+}
+
+.sxp-tile--cta b {
+    font-size: 14px;
+    color: var(--ink);
+}
+
+.sxp-tile--cta p {
+    margin: 0 0 4px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+/* --- modules and add-ons (side by side, one height) ------------------------ */
+
+.sxp-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    align-items: stretch;
+}
+
+.sxp-row > .sxp-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.sxp-mods {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 28px;
+}
+
+.sxp-mods ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sxp-mods li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.sxp-mods li:last-child {
+    border-bottom: 0;
+}
+
+.sxp-mods li > i {
+    flex-shrink: 0;
+    font-size: 19px;
+    color: rgb(var(--sxp-ok));
+}
+
+.sxp-mods li > span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.sxp-mods li > small {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.sxp-mods li.is-off > i,
+.sxp-mods li.is-off > span {
+    color: var(--muted);
+}
+
+.sxp-addons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sxp-addon {
+    --hue: var(--brand);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+}
+
+.sxp-addon.hue-green { --hue: 22, 163, 74; }
+.sxp-addon.hue-sky { --hue: 2, 132, 199; }
+.sxp-addon.hue-amber { --hue: 217, 119, 6; }
+.sxp-addon.hue-violet { --hue: 124, 58, 237; }
+
+.sxp-addon-icon {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    font-size: 19px;
+    color: rgb(var(--hue, var(--brand)));
+    background: rgba(var(--hue, var(--brand)), 0.1);
+}
+
+.sxp-addon.is-owned .sxp-addon-icon {
+    color: rgb(var(--sxp-ok));
+    background: rgba(var(--sxp-ok), 0.1);
+}
+
+.sxp-addon-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.sxp-addon-body b {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.sxp-addon-body small {
+    display: block;
+    margin-top: 1px;
+    overflow: hidden;
+    font-size: 12.5px;
+    color: var(--muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.sxp-addon-price {
+    flex-shrink: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+}
+
+.sxp-addon-price small {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+}
+
+.sxp-addon .btn {
+    flex-shrink: 0;
+    min-width: 72px;
+}
+
+.sxp-owned {
+    margin-bottom: 18px;
+}
+
+.sxp-card-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: auto 0 0;
+    padding-top: 16px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+.sxp-card-note i {
+    margin-top: 1px;
+    font-size: 15px;
+    color: rgb(var(--brand));
+}
+
+.sxp-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 28px 16px;
+    text-align: center;
+}
+
+.sxp-empty-icon {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    margin-bottom: 6px;
+    border-radius: 50%;
+    font-size: 24px;
+    color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.08);
+}
+
+.sxp-empty b {
+    font-size: 14px;
+    color: var(--ink);
+}
+
+.sxp-empty p {
+    max-width: 340px;
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+.sxp-empty .sxp-link {
+    margin-top: 6px;
+}
+
+/* --- billing history ---------------------------------------------------------- */
+
+.sxp-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+.sxp-table-wrap > .sxp-empty {
+    padding: 22px 16px;
+}
+
+.sxp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.sxp-table th {
+    padding: 11px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    color: var(--muted);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--line);
+}
+
+.sxp-table td {
+    padding: 12px 16px;
+    color: var(--ink-2);
+    white-space: nowrap;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--line);
+}
+
+.sxp-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.sxp-table tbody tr:hover td {
+    background: var(--surface-2);
+}
+
+.sxp-table .is-strong {
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.sxp-table .is-num {
+    font-variant-numeric: tabular-nums;
+}
+
+.sxp-table .is-end {
+    text-align: right;
+}
+
+.sxp-table .sxp-wrap {
+    white-space: normal;
+}
+
+.sxp-table .is-due {
+    font-weight: 600;
+    color: rgb(var(--sxp-warn));
+}
+
+.sxp-row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.sxp-card-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 22px;
+    margin-top: 16px;
+}
+
+.sxp-foot-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.sxp-foot-link i {
+    font-size: 16px;
+    color: rgb(var(--brand));
+}
+
+.sxp-foot-link:hover {
+    color: rgb(var(--brand));
+}
+
+.sxp-foot-note {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* --- an invoice waiting for payment --------------------------------------- */
+
+.sxp-alert {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px 14px 22px;
+    overflow: hidden;
+}
+
+.sxp-alert::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: rgb(var(--sxp-warn));
+}
+
+.sxp-alert-icon {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    font-size: 19px;
+    color: rgb(var(--sxp-warn));
+    background: rgba(var(--sxp-warn), 0.12);
+}
+
+.sxp-alert-body {
+    flex: 1 1 240px;
+    min-width: 0;
+}
+
+.sxp-alert-body b {
+    display: block;
+    font-size: 14px;
+    color: var(--ink);
+}
+
+.sxp-alert-body small {
+    display: block;
+    margin-top: 1px;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+/* --- dialogs ------------------------------------------------------------------ */
+
+.sxp-dialog-h {
+    margin: 0 0 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+.sxp-dialog-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+.sxp-dialog-note i {
+    margin-top: 1px;
+    font-size: 15px;
+    color: rgb(var(--brand));
+}
+
+.sxp-cycle {
+    display: inline-flex;
+    gap: 2px;
+    margin-bottom: 16px;
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--surface-3);
+}
+
+.sxp-cycle button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 18px;
+    border: 0;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-3);
+    background: transparent;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sxp-cycle button.is-on {
+    color: #fff;
+    background: rgb(var(--brand));
+    box-shadow: 0 4px 12px rgba(var(--brand), 0.25);
+}
+
+.sxp-cycle em {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-style: normal;
+    color: rgb(var(--sxp-ok));
+    background: rgba(var(--sxp-ok), 0.14);
+}
+
+.sxp-cycle button.is-on em {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.sxp-plans {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.sxp-plan {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px;
+    text-align: left;
+    color: var(--ink-2);
+    background: var(--surface);
+    border: 1px solid var(--line-2);
+    border-radius: 14px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sxp-plan:only-child {
+    max-width: 340px;
+}
+
+.sxp-plan:hover {
+    border-color: rgba(var(--brand), 0.4);
+}
+
+.sxp-plan.is-on {
+    border-color: rgb(var(--brand));
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.12);
+}
+
+.sxp-plan-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.sxp-plan-top b {
+    font-size: 15px;
+    color: var(--ink);
+}
+
+.sxp-plan-price {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.sxp-plan-price small {
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--muted);
+}
+
+.sxp-plan-desc {
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+.sxp-plan ul {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin: 2px 0 0;
+    padding: 12px 0 0;
+    font-size: 12.5px;
+    list-style: none;
+    border-top: 1px solid var(--line);
+}
+
+.sxp-plan li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.sxp-plan li i {
+    margin-top: 1px;
+    font-size: 15px;
+    color: rgb(var(--sxp-ok));
+}
+
+.sxp-limits {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 24px;
+    margin: 0 0 20px;
+}
+
+.sxp-limits div {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--line);
+}
+
+.sxp-limits dt {
+    font-weight: 500;
+    color: var(--ink-3);
+}
+
+.sxp-limits dd {
+    margin: 0;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.sxp-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sxp-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    font-size: 12.5px;
+    color: var(--ink-2);
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+}
+
+.sxp-tag i {
+    color: rgb(var(--sxp-ok));
+}
+
+.sxp-highlights {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    font-size: 13px;
+    list-style: none;
+    color: var(--ink-2);
+}
+
+.sxp-highlights i {
+    color: rgb(var(--brand));
+}
+
+.sxp-price-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.sxp-price-row > div {
+    padding: 12px 14px;
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+}
+
+.sxp-price-row span {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.sxp-price-row b {
+    display: block;
+    margin-top: 2px;
+    font-size: 18px;
+    color: var(--ink);
+}
+
+.sxp-price-row b small {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+}
+
+.sxp-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0 0 14px;
+    padding: 0;
+    list-style: none;
+}
+
+.sxp-methods li {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px;
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+}
+
+.sxp-methods li.is-off {
+    opacity: 0.65;
+}
+
+.sxp-methods b {
+    display: block;
+    font-size: 14px;
+    color: var(--ink);
+}
+
+.sxp-methods small {
+    display: block;
+    margin-top: 2px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+.sxp-invoice-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: var(--ink-3);
+}
+
+.sxp-totals {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 14px 0 0;
+}
+
+.sxp-totals div {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--ink-3);
+}
+
+.sxp-totals dd {
+    margin: 0;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+}
+
+.sxp-totals .is-total {
+    padding-top: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    border-top: 1px solid var(--line);
+}
+
+.sxp-totals .is-total dd {
+    color: var(--ink);
+}
+
+.sxp-paid-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 14px 0 0;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgb(var(--sxp-ok));
+    background: rgba(var(--sxp-ok), 0.08);
+    border-radius: 10px;
+}
+
+/* --- dark mode: border back, shadow off ------------------------------------- */
+
+[data-theme='dark'] .sxp-card {
+    background: var(--surface);
+    border-color: var(--line);
+}
+
+/* --- smaller screens ------------------------------------------------------------ */
+
+@media (max-width: 1299.98px) {
+    .sxp-tiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sxp-tiles--compact {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+/* Four facts in a row stop fitting beside plan and ring: two by two. */
+@media (max-width: 1599.98px) {
+    .sxp-facts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px 18px;
+    }
+
+    .sxp-fact + .sxp-fact {
+        padding-left: 0;
+        border-left: 0;
+    }
+}
+
+/* Plan and countdown on top, the facts as a strip underneath. */
+@media (max-width: 1199.98px) {
+    .sxp-hero {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            'plan ring'
+            'facts facts';
+        row-gap: 18px;
+    }
+
+    .sxp-hero-plan {
+        padding-right: 16px;
+    }
+
+    .sxp-hero-ring {
+        padding-left: 0;
+    }
+
+    .sxp-hero-facts {
+        padding: 18px 0 0;
+        border-left: 0;
+        border-top: 1px solid var(--line);
+    }
+}
+
+@media (max-width: 991.98px) {
+    .sxp-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .sxp-tiles--compact {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sxp-facts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px 16px;
+    }
+
+    .sxp-fact + .sxp-fact {
+        padding-left: 0;
+        border-left: 0;
+    }
+
+    .sxp-foot-note {
+        flex-basis: 100%;
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .sxp-card {
+        padding: 18px 16px;
+    }
+
+    .sxp-hero {
+        padding: 18px 16px 18px 20px;
+        row-gap: 16px;
+    }
+
+    .sxp-hero-plan {
+        gap: 12px;
+        padding-right: 10px;
+    }
+
+    .sxp-hero-badge {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        font-size: 22px;
+    }
+
+    .sxp-hero-name h2 {
+        font-size: 21px;
+    }
+
+    .sxp-hero-price {
+        font-size: 18px;
+    }
+
+    .sxp-ring {
+        width: 92px;
+        height: 92px;
+    }
+
+    .sxp-ring-text b {
+        font-size: 24px;
+    }
+
+    .sxp-ring-text span {
+        font-size: 10px;
+    }
+
+    .sxp-hero-facts {
+        padding-top: 16px;
+    }
+
+    .sxp-fact {
+        gap: 8px;
+        padding-right: 0;
+    }
+
+    .sxp-fact-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 9px;
+        font-size: 16px;
+    }
+
+    .sxp-mods,
+    .sxp-limits {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sxp-mods ul + ul li:first-child {
+        border-top: 1px solid var(--line);
+    }
+
+    .sxp-addon {
+        flex-wrap: wrap;
+    }
+
+    .sxp-addon-body {
+        flex-basis: calc(100% - 54px);
+    }
+
+    .sxp-addon-price {
+        margin-left: 54px;
+        margin-right: auto;
+    }
+}
+
+@media (max-width: 479.98px) {
+    .sxp-tiles {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sxp-tiles--compact {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .sxp-tiles--compact .sxp-tile {
+        padding: 12px;
+    }
+
+    .sxp-tiles--compact .sxp-tile-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .sxp-tiles--compact .sxp-tile-foot span {
+        display: none;
+    }
+}
+
 
 /* --- the locked page ----------------------------------------------------- */
 

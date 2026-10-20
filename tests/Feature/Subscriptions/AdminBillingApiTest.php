@@ -11,6 +11,8 @@ use App\Models\Platform\PlatformUser;
 use App\Models\Platform\Subscription;
 use App\Models\Platform\SubscriptionEvent;
 use App\Services\Subscriptions\Actor;
+use App\Services\Subscriptions\InvoiceService;
+use App\Services\Subscriptions\Payments\PaymentService;
 use App\Services\Subscriptions\SubscriptionLifecycle;
 use App\Support\Subscriptions\Entitlements;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -174,8 +176,8 @@ class AdminBillingApiTest extends TestCase
         $plan = Plan::query()->create(['slug' => 'pro', 'name' => 'Pro', 'status' => Plan::PUBLISHED, 'monthly_price' => 100000, 'annual_price' => 1000000]);
         $subscription = app(SubscriptionLifecycle::class)->assign($organization, $plan, Subscription::MONTHLY, Actor::system());
 
-        $invoice = app(\App\Services\Subscriptions\InvoiceService::class)->renewalInvoice($subscription);
-        app(\App\Services\Subscriptions\Payments\PaymentService::class)->recordManual($invoice, $invoice->total, 'UTR-1', Actor::system());
+        $invoice = app(InvoiceService::class)->renewalInvoice($subscription);
+        app(PaymentService::class)->recordManual($invoice, $invoice->total, 'UTR-1', Actor::system());
 
         $this->actingAs($admin, 'platform')->getJson('/api/v1/admin/billing/overview')
             ->assertOk()

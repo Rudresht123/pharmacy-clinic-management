@@ -158,7 +158,7 @@ class UpdateTenantUserRequest extends FormRequest
                 }
             }
 
-            $this->validateRoleGrant($validator);
+            $this->validateRoleGrant($validator, $target);
             $this->validateBranchReach($validator, $target);
 
             // Even with another owner around, locking yourself out mid-edit

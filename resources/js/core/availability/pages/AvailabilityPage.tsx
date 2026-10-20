@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
-import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
+import { Avatar } from '@/shared/components/ui/Avatar';
 import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { Card } from '@/shared/components/ui/Card';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
@@ -438,7 +438,13 @@ function spoken(date: string): string {
 function DoctorDay({
     doctor,
 }: {
-    doctor: { doctor_id: number; doctor_name: string; specialisation: string | null; sessions: AvailabilitySession[] };
+    doctor: {
+        doctor_id: number;
+        doctor_name: string;
+        specialisation: string | null;
+        photo_url: string | null;
+        sessions: AvailabilitySession[];
+    };
 }) {
     return (
         <li className="dl-row">
@@ -448,7 +454,7 @@ function DoctorDay({
                 sitting on top of the times as a heading.
             */}
             <div className="dl-who">
-                <PersonPhoto src={null} name={doctor.doctor_name} className="dl-face" />
+                <Avatar src={doctor.photo_url} name={doctor.doctor_name} fallback="silhouette" className="dl-face" />
 
                 <span className="dl-name">
                     <b>{doctor.doctor_name}</b>

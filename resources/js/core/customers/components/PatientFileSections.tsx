@@ -47,6 +47,7 @@ const PREVIEW = 5;
 function Panel({
     title,
     icon,
+    description,
     action,
     flush,
     className,
@@ -54,6 +55,7 @@ function Panel({
 }: {
     title: string;
     icon?: string;
+    description?: ReactNode;
     action?: ReactNode;
     /** No body padding, for a table that runs to the edges. */
     flush?: boolean;
@@ -64,6 +66,7 @@ function Panel({
         <Card
             title={<span className="opd-card-title">{title}</span>}
             icon={icon}
+            description={description}
             actions={action}
             className={cn('pf-panel', className)}
             bodyClassName={flush ? 'pf-flush' : undefined}
@@ -415,6 +418,122 @@ export function VisitsTable({ visits, preview, go }: { visits: Visit[]; preview?
     );
 }
 
+function plural(count: number, word: string): string {
+    return `${count} ${word}${count === 1 ? '' : 's'}`;
+}
+
+/**
+ * "Dolo 650 (Paracetamol) 650 mg tablet" → the name on the strip, then what
+ * it is. A drug written any other way is shown whole.
+ */
+function splitDrug(drug: string): { name: string; detail: string | null } {
+    const match = drug.match(/^(.+?)\s*\((.+?)\)\s*(.*)$/);
+
+    if (!match) {
+        return { name: drug, detail: null };
+    }
+
+    return { name: match[1], detail: [match[2], match[3]].filter(Boolean).join(' · ') };
+}
+
+const DOSE_SLOTS: Record<number, string[]> = {
+    3: ['Morning', 'Afternoon', 'Night'],
+    4: ['Morning', 'Afternoon', 'Evening', 'Night'],
+};
+
+/** "1-1-0-1" as a dose per time of day; anything else — "SOS", "BD" — as written. */
+function Frequency({ value }: { value: string | null | undefined }) {
+    const doses = (value ?? '').trim().split('-');
+    const slots = DOSE_SLOTS[doses.length];
+
+    if (!value) {
+        return <span className="cn-quiet">—</span>;
+    }
+
+    if (!slots || !doses.every((dose) => /^\d+$/.test(dose))) {
+        return <>{value}</>;
+    }
+
+    return (
+        <span
+            className="pf-rxfreq"
+            role="img"
+            aria-label={doses.map((dose, index) => `${dose} ${slots[index].toLowerCase()}`).join(', ')}
+        >
+            {doses.map((dose, index) => (
+                <i key={index} className={dose === '0' ? 'is-off' : undefined} title={slots[index]}>
+                    {dose}
+                </i>
+            ))}
+        </span>
+    );
+}
+
+/** One visit's prescription: who wrote it and when, over its medicines. */
+function PrescriptionVisit({ row }: { row: PrescriptionRow }) {
+    return (
+        <section className="pf-rxvisit">
+            <header className="pf-rxvisit-head">
+                <span className="pf-rxdate">
+                    <i className="ti ti-calendar-event" aria-hidden="true" />
+                    {longDate(row.date)}
+                </span>
+                <span>
+                    <i className="ti ti-stethoscope" aria-hidden="true" />
+                    {row.doctor ?? 'Doctor not recorded'}
+                </span>
+                <span className="pf-rxcount">{plural(row.lines.length, 'medicine')}</span>
+            </header>
+
+            <div className="pf-rxscroll">
+                <table className="pf-rxtable">
+                    <thead>
+                        <tr>
+                            <th>Medicine</th>
+                            <th>Dose</th>
+                            <th>Frequency</th>
+                            <th>Duration</th>
+                            <th>Instructions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {row.lines.map((line, index) => {
+                            const drug = splitDrug(line.drug);
+
+                            return (
+                                <tr key={index}>
+                                    <td>
+                                        <div className="pf-rxdrug">
+                                            <i className="ti ti-pill" aria-hidden="true" />
+                                            <span>
+                                                <b>{drug.name}</b>
+                                                {drug.detail && <small>{drug.detail}</small>}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    {/* data-label: the column name, shown above each value once the rows stack on a phone */}
+                                    <td className="pf-rxnowrap" data-label="Dose">
+                                        {line.dose || <span className="cn-quiet">—</span>}
+                                    </td>
+                                    <td className="pf-rxnowrap" data-label="Frequency">
+                                        <Frequency value={line.frequency} />
+                                    </td>
+                                    <td className="pf-rxnowrap" data-label="Duration">
+                                        {line.duration || <span className="cn-quiet">—</span>}
+                                    </td>
+                                    <td className="pf-rxnote" data-label="Instructions">
+                                        {line.notes || <span className="cn-quiet">—</span>}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    );
+}
+
 export function PrescriptionsTable({
     rows,
     preview,
@@ -425,11 +544,17 @@ export function PrescriptionsTable({
     go: Go;
 }) {
     const shown = preview ? rows.slice(0, PREVIEW) : rows;
+    const medicines = rows.reduce((total, row) => total + row.lines.length, 0);
 
     return (
         <Panel
             title={preview ? 'Recent Prescriptions' : 'Prescriptions'}
             icon={preview ? undefined : 'ti ti-prescription'}
+            description={
+                !preview && rows.length > 0
+                    ? `${plural(medicines, 'medicine')} across ${plural(rows.length, 'visit')}`
+                    : undefined
+            }
             action={preview && rows.length > PREVIEW ? <ViewAll to="prescriptions" go={go} /> : undefined}
             flush
         >
@@ -441,7 +566,7 @@ export function PrescriptionsTable({
                         line="Medicines written at a consultation appear here."
                     />
                 </div>
-            ) : (
+            ) : preview ? (
                 <div className="pf-table-wrap">
                     <table className="pf-table">
                         <thead>
@@ -456,23 +581,17 @@ export function PrescriptionsTable({
                                 <tr key={row.id}>
                                     <td className="pf-strong">{longDate(row.date)}</td>
                                     <td>{row.doctor ?? '—'}</td>
-                                    <td>
-                                        {preview
-                                            ? row.lines.map((line) => line.drug).join(', ')
-                                            : row.lines.map((line, index) => (
-                                                  <div key={index} className="pf-rx">
-                                                      <b>{line.drug}</b>
-                                                      {[line.dose, line.frequency, line.duration]
-                                                          .filter(Boolean)
-                                                          .join(' · ')}
-                                                      {line.notes && <small> — {line.notes}</small>}
-                                                  </div>
-                                              ))}
-                                    </td>
+                                    <td>{row.lines.map((line) => line.drug).join(', ')}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
+                </div>
+            ) : (
+                <div className="pf-rxlist">
+                    {shown.map((row) => (
+                        <PrescriptionVisit key={row.id} row={row} />
+                    ))}
                 </div>
             )}
         </Panel>

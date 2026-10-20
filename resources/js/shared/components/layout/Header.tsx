@@ -33,6 +33,8 @@ interface HeaderProps {
      * patients — which this component has no business knowing about.
      */
     search?: ReactNode;
+    /** Rendered on the right, before the theme button — the tenant's subscription countdown. */
+    extra?: ReactNode;
 }
 
 export function Header({
@@ -43,6 +45,7 @@ export function Header({
     onLock,
     profileTo,
     search,
+    extra,
 }: HeaderProps) {
     const confirm = useConfirm();
     const navigate = useNavigate();
@@ -113,11 +116,13 @@ export function Header({
             {search}
 
             <div className="ms-auto d-flex align-items-center gap-1">
+                {extra}
+
                 {/* Day/night is the one appearance setting people reach for
                     often enough to deserve a button rather than a drawer. */}
                 <button
                     type="button"
-                    className="app-menu-btn d-grid"
+                    className="app-menu-btn app-theme-btn d-grid"
                     onClick={toggleTheme}
                     aria-label={
                         resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'
@@ -159,7 +164,7 @@ export function Header({
                             </span>
                         )}
 
-                        <span className="d-none d-md-block text-start lh-sm">
+                        <span className="d-none d-xl-block text-start lh-sm">
                             <span className="d-block fw-semibold fs-14">{user?.name}</span>
                             <span className="d-block text-muted fs-12">{user?.email}</span>
                         </span>
@@ -170,7 +175,7 @@ export function Header({
                     {menuOpen && (
                         <div className="acct-menu" id="account-menu">
                             {/* Who this is — the trigger hides the name and
-                                email below md, so a phone sees them here. */}
+                                email below xl, so a tablet or phone sees them here. */}
                             <div className="acct-head">
                                 {user?.avatar_url ? (
                                     <img src={user.avatar_url} alt="" className="acct-photo" />

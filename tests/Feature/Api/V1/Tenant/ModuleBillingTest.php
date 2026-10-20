@@ -357,6 +357,58 @@ class ModuleBillingTest extends TenantTestCase
         $this->assertSame('570.00', $this->invoices($id)[0]->total_amount);
     }
 
+    /** Saves the doctor's branch fees the way the form does — login block and all. */
+    private function priceDoctor(array $branchFees)
+    {
+        $this->signInAsOwner($this->organization);
+
+        return $this->putJson("/api/v1/tenant/doctors/{$this->doctor}", [
+            'name' => 'Dr. Anjali Sharma',
+            'default_consultation_fee' => 500,
+            'account' => ['email' => 'anjali@clinic.test'],
+            'branch_fees' => $branchFees,
+        ]);
+    }
+
+    public function test_the_doctors_fee_at_this_branch_replaces_their_default(): void
+    {
+        $this->priceDoctor([['location_id' => $this->branch, 'consultation_fee' => 650]])
+            ->assertOk()
+            ->assertJsonPath('data.branch_fees.0.location_id', $this->branch)
+            ->assertJsonPath('data.branch_fees.0.consultation_fee', '650.00');
+
+        $id = $this->arrive();
+        $this->consult($id);
+        $this->complete($id);
+
+        $this->assertSame('650.00', $this->invoices($id)[0]->total_amount);
+    }
+
+    public function test_a_cleared_branch_fee_falls_back_to_the_doctors_default(): void
+    {
+        $this->priceDoctor([['location_id' => $this->branch, 'consultation_fee' => 650]])->assertOk();
+        $this->priceDoctor([['location_id' => $this->branch, 'consultation_fee' => null]])
+            ->assertOk()
+            ->assertJsonPath('data.branch_fees.0.consultation_fee', null);
+
+        $id = $this->arrive();
+        $this->consult($id);
+        $this->complete($id);
+
+        $this->assertSame('500.00', $this->invoices($id)[0]->total_amount);
+    }
+
+    public function test_a_fee_is_refused_at_a_branch_the_doctor_does_not_work_at(): void
+    {
+        $elsewhere = $this->onTenant($this->organization, fn () => Location::on('organization')->create([
+            'name' => 'Noida', 'code' => 'MB-NDA', 'type' => Location::CLINIC, 'is_active' => true,
+        ])->id);
+
+        $this->priceDoctor([['location_id' => $elsewhere, 'consultation_fee' => 800]])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('branch_fees.0.location_id');
+    }
+
     /* ----------------------------------------------------------- pharmacy */
 
     public function test_a_dispensing_stays_on_the_pharmacys_own_bill(): void

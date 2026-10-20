@@ -46,7 +46,7 @@ class DoctorController extends PortalController
     {
         $this->assertBookable($doctor);
 
-        $doctor->load(['department', 'photograph', 'schedules' => fn ($query) => $query
+        $doctor->load(['department', 'photograph', 'postings', 'schedules' => fn ($query) => $query
             ->where('is_active', true)
             ->with('location:id,name')]);
 

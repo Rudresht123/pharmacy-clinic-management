@@ -44,6 +44,27 @@ function getInitials(name: string | null): string {
     return ((words[0]?.[0] ?? '') + (words[words.length - 1]?.[0] ?? '')).toUpperCase();
 }
 
+/** The colour and icon a movement type is shown with — the same in list and grid. */
+function movementTypeView(type: string): { cls: string; icon: string } {
+    if (type === 'dispensing' || type === 'sale') {
+        return { cls: 'is-rose', icon: 'ti ti-shopping-bag' };
+    }
+
+    if (type === 'transfer_in' || type === 'transfer_out') {
+        return { cls: 'is-blue', icon: 'ti ti-arrows-left-right' };
+    }
+
+    if (type === 'damage' || type === 'expiry_writeoff') {
+        return { cls: 'is-rose', icon: 'ti ti-alert-triangle' };
+    }
+
+    if (type.includes('adjustment') || type === 'correction') {
+        return { cls: 'is-amber', icon: 'ti ti-adjustments' };
+    }
+
+    return { cls: 'is-green', icon: 'ti ti-shopping-cart' };
+}
+
 function formatSimpleDate(isoString: string): string {
     if (!isoString) return '';
     const d = new Date(`${isoString}T00:00:00`);
@@ -757,46 +778,46 @@ export default function MovementsPage() {
                         <table className="mv-table">
                             <thead>
                                 <tr>
-                                    <th className="mv-cell-num">#</th>
+                                    <th className="mv-cell-num mv-c-num">#</th>
                                     <th
-                                        className={`mv-th-sortable ${sortField === 'movement_date' ? 'is-sorted' : ''}`}
+                                        className={`mv-c-date mv-th-sortable ${sortField === 'movement_date' ? 'is-sorted' : ''}`}
                                         onClick={() => handleSort('movement_date')}
                                     >
                                         DATE & TIME
                                         <i className="ti ti-arrows-sort mv-sort-icon" />
                                     </th>
-                                    <th>
+                                    <th className="mv-c-med">
                                         MEDICINE
                                         <i className="ti ti-arrows-sort mv-sort-icon" />
                                     </th>
-                                    <th>
+                                    <th className="mv-c-type">
                                         MOVEMENT TYPE
                                         <i className="ti ti-arrows-sort mv-sort-icon" />
                                     </th>
                                     <th
-                                        className={`mv-th-sortable ${sortField === 'quantity' ? 'is-sorted' : ''}`}
+                                        className={`mv-c-qty mv-th-sortable ${sortField === 'quantity' ? 'is-sorted' : ''}`}
                                         onClick={() => handleSort('quantity')}
                                     >
                                         QUANTITY
                                         <i className="ti ti-arrows-sort mv-sort-icon" />
                                     </th>
-                                    <th>
+                                    <th className="mv-c-bal">
                                         BALANCE (BEFORE → AFTER)
                                         <i className="ti ti-arrows-sort mv-sort-icon" />
                                     </th>
-                                    <th>
+                                    <th className="mv-c-ref">
                                         REFERENCE
                                         <i className="ti ti-arrows-sort mv-sort-icon" />
                                     </th>
-                                    <th>
+                                    <th className="mv-c-reason">
                                         REASON
                                         <i className="ti ti-arrows-sort mv-sort-icon" />
                                     </th>
-                                    <th>
+                                    <th className="mv-c-by">
                                         BY
                                         <i className="ti ti-arrows-sort mv-sort-icon" />
                                     </th>
-                                    <th className="text-end pe-4">ACTIONS</th>
+                                    <th className="mv-c-act text-end pe-4">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -829,30 +850,7 @@ export default function MovementsPage() {
                                         const rowNum = pageIndex * pageSize + index + 1;
                                         const { date, time } = parseDatePieces(row.movement_date);
                                         const isPositive = row.quantity > 0;
-                                        const isDispensed =
-                                            row.movement_type === 'dispensing' || row.movement_type === 'sale';
-                                        const isTransfer =
-                                            row.movement_type === 'transfer_in' ||
-                                            row.movement_type === 'transfer_out';
-
-                                        let typeClass = 'is-green';
-                                        let typeIcon = 'ti ti-shopping-cart';
-                                        if (isDispensed) {
-                                            typeClass = 'is-rose';
-                                            typeIcon = 'ti ti-shopping-bag';
-                                        } else if (isTransfer) {
-                                            typeClass = 'is-blue';
-                                            typeIcon = 'ti ti-arrows-left-right';
-                                        } else if (
-                                            row.movement_type === 'damage' ||
-                                            row.movement_type === 'expiry_writeoff'
-                                        ) {
-                                            typeClass = 'is-rose';
-                                            typeIcon = 'ti ti-alert-triangle';
-                                        } else if (row.movement_type.includes('adjustment') || row.movement_type === 'correction') {
-                                            typeClass = 'is-amber';
-                                            typeIcon = 'ti ti-adjustments';
-                                        }
+                                        const { cls: typeClass, icon: typeIcon } = movementTypeView(row.movement_type);
 
                                         const typeLabel = MOVEMENT_LABELS[row.movement_type] ?? row.movement_type;
                                         const byName = row.performed_by_name ?? 'System';
@@ -861,12 +859,12 @@ export default function MovementsPage() {
                                         return (
                                             <tr key={row.id}>
                                                 {/* # Row Number */}
-                                                <td className="mv-cell-num">
+                                                <td className="mv-cell-num mv-c-num">
                                                     <span className="mv-row-circle">{rowNum}</span>
                                                 </td>
 
                                                 {/* Date & Time */}
-                                                <td>
+                                                <td className="mv-c-date" data-label="Date">
                                                     <div className="mv-date-cell">
                                                         <span className="mv-date-main">{date}</span>
                                                         <span className="mv-date-time">{time}</span>
@@ -874,7 +872,7 @@ export default function MovementsPage() {
                                                 </td>
 
                                                 {/* Medicine */}
-                                                <td>
+                                                <td className="mv-c-med">
                                                     <div className="mv-medicine-cell">
                                                         <MedicineThumbnail
                                                             name={row.medicine_name}
@@ -893,7 +891,7 @@ export default function MovementsPage() {
                                                 </td>
 
                                                 {/* Movement Type */}
-                                                <td>
+                                                <td className="mv-c-type">
                                                     <span className={`mv-type-pill ${typeClass}`}>
                                                         <i className={typeIcon} />
                                                         <span>{typeLabel}</span>
@@ -901,7 +899,7 @@ export default function MovementsPage() {
                                                 </td>
 
                                                 {/* Quantity */}
-                                                <td>
+                                                <td className="mv-c-qty">
                                                     <span
                                                         className={
                                                             isPositive ? 'mv-qty-pos' : 'mv-qty-neg'
@@ -912,7 +910,7 @@ export default function MovementsPage() {
                                                 </td>
 
                                                 {/* Balance Before -> After */}
-                                                <td>
+                                                <td className="mv-c-bal">
                                                     <span className="mv-balance-cell">
                                                         <span>{row.quantity_before}</span>
                                                         <span className="mv-bal-arrow">→</span>
@@ -921,10 +919,11 @@ export default function MovementsPage() {
                                                 </td>
 
                                                 {/* Reference */}
-                                                <td>
+                                                <td className="mv-c-ref" data-label="Reference">
                                                     {row.notes ? (
                                                         <a
                                                             className="mv-ref-link"
+                                                            title={row.notes}
                                                             onClick={(e) => {
                                                                 e.preventDefault();
                                                                 setSelectedMovement(row);
@@ -939,14 +938,17 @@ export default function MovementsPage() {
                                                 </td>
 
                                                 {/* Reason */}
-                                                <td>
+                                                <td
+                                                    className={`mv-c-reason${row.reason ? '' : ' is-default'}`}
+                                                    data-label="Reason"
+                                                >
                                                     <span className="mv-reason-cell" title={row.reason ?? ''}>
                                                         {row.reason || 'Standard operation'}
                                                     </span>
                                                 </td>
 
                                                 {/* Performed By */}
-                                                <td>
+                                                <td className="mv-c-by" data-label="By">
                                                     <div className="mv-by-wrap">
                                                         <div className="mv-by-avatar">
                                                             {getInitials(row.performed_by_name)}
@@ -959,7 +961,7 @@ export default function MovementsPage() {
                                                 </td>
 
                                                 {/* Actions */}
-                                                <td className="text-end pe-4 position-relative">
+                                                <td className="mv-c-act text-end pe-4 position-relative">
                                                     <button
                                                         type="button"
                                                         className="mv-action-btn ms-auto"
@@ -1026,61 +1028,73 @@ export default function MovementsPage() {
                 ) : (
                     /* Grid View Option */
                     <div className="mv-grid-container">
+                        {movementsLoading && <p className="mv-grid-note">Loading movements…</p>}
+                        {!movementsLoading && rows.length === 0 && (
+                            <p className="mv-grid-note">No stock movements matched your current filter selection.</p>
+                        )}
                         {rows.map((row) => {
                             const { date, time } = parseDatePieces(row.movement_date);
                             const isPositive = row.quantity > 0;
                             const typeLabel = MOVEMENT_LABELS[row.movement_type] ?? row.movement_type;
+                            const { cls: typeClass, icon: typeIcon } = movementTypeView(row.movement_type);
 
                             return (
                                 <div
                                     key={row.id}
                                     className="mv-card-item"
                                     onClick={() => setSelectedMovement(row)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            setSelectedMovement(row);
+                                        }
+                                    }}
                                     role="button"
+                                    tabIndex={0}
                                 >
                                     <div className="mv-card-head">
-                                        <div className="d-flex align-items-center gap-3">
-                                            <MedicineThumbnail
-                                                name={row.medicine_name}
-                                                dosageForm={row.medicine_dosage_form}
-                                                itemKind={row.medicine_item_kind}
-                                            />
-                                            <div>
-                                                <h6 className="mb-0 fw-bold">{row.medicine_name}</h6>
-                                                <span className="fs-7 text-muted">
-                                                    Batch: {row.batch_number ?? '—'}
-                                                </span>
-                                            </div>
+                                        <MedicineThumbnail
+                                            name={row.medicine_name}
+                                            dosageForm={row.medicine_dosage_form}
+                                            itemKind={row.medicine_item_kind}
+                                        />
+                                        <div className="mv-card-title">
+                                            <b title={row.medicine_name ?? undefined}>{row.medicine_name ?? 'Medicine'}</b>
+                                            <small>Batch: {row.batch_number ?? '—'}</small>
                                         </div>
-                                        <span className={`mv-type-pill ${isPositive ? 'is-green' : 'is-rose'}`}>
-                                            {typeLabel}
+                                        <span className={`mv-card-qty ${isPositive ? 'mv-qty-pos' : 'mv-qty-neg'}`}>
+                                            {isPositive ? `+${row.quantity}` : row.quantity}
                                         </span>
                                     </div>
 
-                                    <div className="mv-card-body">
-                                        <div className="mv-card-row">
-                                            <span className="mv-card-label">Quantity</span>
-                                            <span className={isPositive ? 'mv-qty-pos' : 'mv-qty-neg'}>
-                                                {isPositive ? `+${row.quantity}` : row.quantity}
-                                            </span>
-                                        </div>
-                                        <div className="mv-card-row">
-                                            <span className="mv-card-label">Balance</span>
-                                            <span className="mv-balance-cell">
-                                                {row.quantity_before} → <b>{row.quantity_after}</b>
-                                            </span>
-                                        </div>
-                                        <div className="mv-card-row">
-                                            <span className="mv-card-label">Reference</span>
-                                            <span className="text-primary fw-semibold">{row.notes || '—'}</span>
-                                        </div>
-                                        <div className="mv-card-row">
-                                            <span className="mv-card-label">Date</span>
-                                            <span>
-                                                {date} {time}
-                                            </span>
-                                        </div>
+                                    <div className="mv-card-meta">
+                                        <span className={`mv-type-pill ${typeClass}`}>
+                                            <i className={typeIcon} />
+                                            <span>{typeLabel}</span>
+                                        </span>
+                                        <span className="mv-balance-cell">
+                                            {row.quantity_before}
+                                            <span className="mv-bal-arrow">→</span>
+                                            <span className="mv-bal-after">{row.quantity_after}</span>
+                                        </span>
                                     </div>
+
+                                    <dl className="mv-card-facts">
+                                        <div>
+                                            <dt>Reference</dt>
+                                            <dd className="mv-card-ref" title={row.notes ?? undefined}>{row.notes || '—'}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Date</dt>
+                                            <dd>
+                                                {date} · {time}
+                                            </dd>
+                                        </div>
+                                        <div>
+                                            <dt>By</dt>
+                                            <dd>{row.performed_by_name ?? 'System'}</dd>
+                                        </div>
+                                    </dl>
                                 </div>
                             );
                         })}

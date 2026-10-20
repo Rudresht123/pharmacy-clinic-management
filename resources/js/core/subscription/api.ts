@@ -30,9 +30,10 @@ export function useSubscriptionCatalogue(enabled = true) {
     });
 }
 
-export function useSubscriptionInvoices() {
+export function useSubscriptionInvoices(enabled = true) {
     return useQuery({
         queryKey: ['subscription', 'invoices'],
+        enabled,
         queryFn: async () => (await http.get<ApiResponse<SubscriptionInvoice[]>>(`${ROOT}/invoices`)).data.data,
     });
 }

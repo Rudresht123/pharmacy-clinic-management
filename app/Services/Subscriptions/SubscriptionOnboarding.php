@@ -28,7 +28,7 @@ class SubscriptionOnboarding
     ) {}
 
     /**
-     * @param  array{plan_id?: int|string|null, billing_cycle?: string|null, trial?: bool|null}  $choice
+     * @param  array{plan_id?: int|string|null, billing_cycle?: string|null, trial?: bool|string|null, price?: int|string|null, payment_status?: string|null}  $choice
      */
     public function start(Organization $organization, array $choice = [], ?Actor $actor = null): Subscription
     {
@@ -42,14 +42,30 @@ class SubscriptionOnboarding
             }
 
             $cycle = $choice['billing_cycle'] ?? Subscription::MONTHLY;
-            $trial = (bool) ($choice['trial'] ?? false);
+            $trial = filter_var($choice['trial'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
-            return $trial
-                ? $this->lifecycle->startTrial($organization, $plan, $actor, 'Trial chosen when the organization was created.', $cycle === Subscription::COMPLIMENTARY ? Subscription::MONTHLY : $cycle)
-                : $this->lifecycle->assign($organization, $plan, $cycle, $actor, 'Plan chosen when the organization was created.', array_filter([
-                    // A website sign-up arrives here already paid for.
+            // A trial leads into a paid term, so it is never complimentary.
+            if ($trial && $cycle === Subscription::COMPLIMENTARY) {
+                $cycle = Subscription::MONTHLY;
+            }
+
+            return $this->lifecycle->assign(
+                $organization,
+                $plan,
+                $cycle,
+                $actor,
+                $trial ? 'Trial chosen when the organization was created.' : 'Plan chosen when the organization was created.',
+                array_filter([
+                    'trial' => $trial ?: null,
+
+                    // What was agreed, when it is not the list price.
+                    'price' => isset($choice['price']) && $choice['price'] !== '' ? (int) $choice['price'] : null,
+
+                    // A website sign-up arrives already paid for; a Super
+                    // Admin registering one may waive the first term.
                     'payment_status' => $choice['payment_status'] ?? null,
-                ]));
+                ], fn ($value) => $value !== null),
+            );
         }
 
         $default = $this->settings->get('default_trial_plan_id');

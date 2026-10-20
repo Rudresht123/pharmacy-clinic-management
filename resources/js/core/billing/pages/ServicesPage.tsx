@@ -7,6 +7,7 @@ import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
+import { locationsHooks } from '@/core/locations/api';
 import {
     useBillableServices,
     useDeleteBillableService,
@@ -78,6 +79,9 @@ export default function ServicesPage() {
     const canManage = can('billing.manage_services');
 
     const { data: services, isLoading } = useBillableServices();
+    const { data: branches } = locationsHooks.useList({ all: 1 });
+    const branchName = (id: number | null) =>
+        id === null ? 'Every branch' : ((branches ?? []).find((branch) => branch.id === id)?.name ?? 'One branch');
     const save = useSaveBillableService();
     const remove = useDeleteBillableService();
 
@@ -185,9 +189,7 @@ export default function ServicesPage() {
                                             </td>
                                             <td>
                                                 <span className="badge bg-light text-dark">
-                                                    {service.location_id === null
-                                                        ? 'Organisation'
-                                                        : 'This branch'}
+                                                    {branchName(service.location_id)}
                                                 </span>
                                             </td>
                                             <td>
@@ -228,6 +230,7 @@ export default function ServicesPage() {
             {editing && (
                 <ServiceDialog
                     initial={editing === 'new' ? blank() : editing}
+                    branches={(branches ?? []).map((branch) => ({ id: branch.id, name: branch.name }))}
                     saving={save.isPending}
                     onClose={() => setEditing(undefined)}
                     onSubmit={submit}
@@ -239,11 +242,13 @@ export default function ServicesPage() {
 
 function ServiceDialog({
     initial,
+    branches,
     saving,
     onClose,
     onSubmit,
 }: {
     initial: Omit<BillableService, 'id'>;
+    branches: { id: number; name: string }[];
     saving: boolean;
     onClose: () => void;
     onSubmit: (payload: Omit<BillableService, 'id'>) => void;
@@ -305,6 +310,33 @@ function ServiceDialog({
                             ))}
                         </select>
                         {kind && <small className="text-muted">{kind.hint}</small>}
+                    </div>
+
+                    {/*
+                        Where this price applies. A branch row replaces the
+                        organisation's row for the same service (same code, or
+                        same name) at that branch — it is never charged beside it.
+                    */}
+                    <div className="col-12">
+                        <label className="form-label fs-13">Charged at</label>
+                        <select
+                            className="form-select"
+                            value={form.location_id ?? ''}
+                            onChange={(e) =>
+                                set('location_id', e.target.value === '' ? null : Number(e.target.value))
+                            }
+                        >
+                            <option value="">Every branch (organisation price)</option>
+                            {branches.map((branch) => (
+                                <option key={branch.id} value={branch.id}>
+                                    {branch.name} only
+                                </option>
+                            ))}
+                        </select>
+                        <small className="text-muted">
+                            A branch price replaces the organisation price for the same service at that
+                            branch — give both the same code or name.
+                        </small>
                     </div>
 
                     <div className="col-6">

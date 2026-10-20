@@ -86,6 +86,8 @@ export interface Sale {
 
     customer_id: number | null;
     customer_name: string;
+    /** The patient's photograph, on a single bill — never on a list of them. */
+    customer_photo_url?: string | null;
     walk_in_phone: string | null;
     is_walk_in: boolean;
     /** The patient behind a registered sale — on a single bill only. */

@@ -14,6 +14,7 @@ use App\Services\Platform\OrganizationProvisioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Organizations — Build Spec §19.
@@ -90,6 +91,9 @@ class OrganizationController extends BaseApiController
                 Arr::except($data, OrganizationLocator::FIELDS),
                 $request->file('profile_image'),
             );
+        } catch (ValidationException $e) {
+            // A refusal (the plan it starts on, say) is the form's to show.
+            throw $e;
         } catch (\Throwable $e) {
             return $this->failFromThrowable($e, 'Failed to create organization.');
         }

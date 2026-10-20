@@ -247,45 +247,106 @@
     min-width: 0;
 }
 
-/* Square avatar used in table rows */
-.avatar-box {
-    flex-shrink: 0;
-    border-radius: 9px;
-    display: inline-grid;
-    place-items: center;
+/* =========================================================
+   Avatar (.pav) — the one avatar, everywhere
+   ---------------------------------------------------------
+   A photograph or logo when there is one (click to see it
+   full-screen), else initials on a soft tint or a drawn
+   silhouette. Sized by --pav-size, or by a screen's own
+   class: the default size has no specificity, so any
+   class that sets width and height wins.
+   ========================================================= */
+
+.pav {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
     overflow: hidden;
+    vertical-align: middle;
+    /* So the initials and the zoom glyph scale with the avatar. */
+    container-type: size;
 }
 
-.avatar-box--initials {
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: rgb(var(--brand));
-    background: rgba(var(--brand), 0.1);
-    box-shadow: inset 0 0 0 1px rgba(var(--brand), 0.08);
+:where(.pav) {
+    width: var(--pav-size, 40px);
+    height: var(--pav-size, 40px);
 }
 
-/* Avatar that opens the image viewer. A button, so the keyboard reaches it. */
-.avatar-trigger {
-    padding: 0;
-    border: 0;
-    background: none;
-    line-height: 0;
+.pav--circle {
+    border-radius: 50%;
+}
+
+.pav--rounded {
     border-radius: 9px;
+}
+
+.pav-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.pav--silhouette {
+    background: var(--surface-2);
+}
+
+.pav-initials {
+    font-size: var(--pav-font, 36cqw);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.02em;
+}
+
+.pav--tone-0 { background: #ede9fe; color: #6d28d9; }
+.pav--tone-1 { background: #dbeafe; color: #1d4ed8; }
+.pav--tone-2 { background: #ccfbf1; color: #0f766e; }
+.pav--tone-3 { background: #fef3c7; color: #b45309; }
+.pav--tone-4 { background: #ffe4e6; color: #be123c; }
+.pav--tone-5 { background: #dcfce7; color: #15803d; }
+
+.pav--clickable {
     cursor: zoom-in;
-    transition:
-        transform 0.15s ease,
-        box-shadow 0.15s ease;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.avatar-trigger:hover {
-    transform: scale(1.06);
-    box-shadow: 0 0 0 2px rgba(var(--brand), 0.35);
+.pav--clickable:hover {
+    box-shadow: 0 0 0 2px rgba(var(--brand), 0.4);
 }
 
-.avatar-trigger:focus-visible {
+.pav--clickable:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(var(--brand), 0.45);
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.5);
 }
+
+/* "Click to enlarge", said on hover rather than printed on every face. */
+.pav-zoom {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.42);
+    font-size: clamp(11px, 40cqw, 26px);
+    color: #ffffff;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+}
+
+.pav--clickable:hover .pav-zoom,
+.pav--clickable:focus-visible .pav-zoom {
+    opacity: 1;
+}
+
+[data-theme='dark'] .pav--tone-0 { background: rgba(167, 139, 250, 0.18); color: #c4b5fd; }
+[data-theme='dark'] .pav--tone-1 { background: rgba(96, 165, 250, 0.18); color: #93c5fd; }
+[data-theme='dark'] .pav--tone-2 { background: rgba(45, 212, 191, 0.16); color: #5eead4; }
+[data-theme='dark'] .pav--tone-3 { background: rgba(251, 191, 36, 0.16); color: #fcd34d; }
+[data-theme='dark'] .pav--tone-4 { background: rgba(251, 113, 133, 0.16); color: #fda4af; }
+[data-theme='dark'] .pav--tone-5 { background: rgba(74, 222, 128, 0.16); color: #86efac; }
 
 /* Muted secondary values (codes, ids) */
 .dt-muted {

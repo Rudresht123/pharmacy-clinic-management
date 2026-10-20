@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
+import { Avatar } from '@/shared/components/ui/Avatar';
 import { formatDate, formatDateTime } from '@/shared/utils/format';
 import { PAYMENT_STATUS_LABELS, type Sale } from '../sales';
 import { PAYMENT_METHOD_LABELS } from '../types';
@@ -44,7 +44,7 @@ export function SaleBillView({ sale }: { sale: Sale }) {
         <div className="sb">
             <div className="sb-top">
                 <section className="sb-patient" aria-label="Patient">
-                    <PersonPhoto src={null} name={sale.customer_name} className="sb-face" />
+                    <Avatar src={sale.customer_photo_url} name={sale.customer_name} fallback="silhouette" className="sb-face" />
 
                     <div className="sb-who">
                         <div className="sb-name">

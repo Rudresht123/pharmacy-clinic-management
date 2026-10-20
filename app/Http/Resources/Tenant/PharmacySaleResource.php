@@ -23,6 +23,10 @@ class PharmacySaleResource extends JsonResource
             // However they were recorded — a patient record, or a name at the counter.
             'customer_id' => $this->customer_id,
             'customer_name' => $this->buyerName(),
+            // Their photograph, where the bill was read with it (a single bill, never a list).
+            'customer_photo_url' => $this->relationLoaded('customer') && $this->customer?->relationLoaded('photograph')
+                ? $this->customer->photograph?->url
+                : null,
             'walk_in_phone' => $this->walk_in_phone,
             'is_walk_in' => $this->customer_id === null,
 

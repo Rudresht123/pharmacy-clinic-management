@@ -154,6 +154,21 @@ class StaffScope
     }
 
     /**
+     * Whether this actor may give or take away ORGANIZATION-WIDE access.
+     *
+     * An organization role applies at every branch. Holding the same
+     * capabilities is not enough to hand one out: a Lucknow manager who may
+     * edit staff at Lucknow, putting somebody on an organization role, would
+     * give them that power at Delhi too — further than the manager's own
+     * reach. So it is the same line this class already draws for staff: the
+     * owner, and whoever administers people across every branch.
+     */
+    public function canGrantOrganizationWide(?User $actor): bool
+    {
+        return $actor !== null && $this->reachesEveryBranch($actor);
+    }
+
+    /**
      * Does this person administer staff beyond their own branch?
      *
      * Every way they can hold it, not just the organization slot. It used to

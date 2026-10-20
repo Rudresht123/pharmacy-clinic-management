@@ -12,6 +12,7 @@ use App\Models\Tenant\File;
 use App\Models\Tenant\Location;
 use App\Repositories\Tenant\Contracts\CustomerRepositoryInterface;
 use App\Services\Tenancy\TenantConnectionService;
+use App\Services\Tenant\DoctorPostings;
 use App\Support\Opd\Weekday;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\ConnectionException;
@@ -271,6 +272,11 @@ class SeedOpdDemoCommand extends Command
             // Alternating branches, so a two-branch clinic has a real split
             // rather than every doctor sitting in the same room.
             $branch = $branches[$index % $branches->count()];
+
+            // Posted there as well, as writing a sitting from the screens
+            // does — a doctor's branch access comes from the posting, so
+            // without it their own login is refused their own visits.
+            app(DoctorPostings::class)->ensure($doctor, $branch->id);
 
             foreach ($this->sittingDays($index, $row) as $weekday) {
                 $sunday = $weekday === Weekday::SUNDAY;
@@ -695,5 +701,4 @@ class SeedOpdDemoCommand extends Command
 
         return $made;
     }
-
 }

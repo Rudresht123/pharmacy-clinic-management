@@ -4,7 +4,7 @@ import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { DatePicker } from '@/shared/components/form/DatePicker';
 import { Card } from '@/shared/components/ui/Card';
-import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
+import { Avatar } from '@/shared/components/ui/Avatar';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
@@ -274,9 +274,10 @@ export default function SchedulesPage() {
             {/* Who, where, from when, and of what sort. */}
             <div className="sc-strip">
                 <div className="sc-who">
-                    <PersonPhoto
+                    <Avatar
                         src={doctor?.photo_url}
                         name={doctor?.name}
+                        fallback="silhouette"
                         className="sc-face"
                     />
 

@@ -56,6 +56,9 @@ use App\Http\Controllers\Api\V1\Tenant\MedicineAvailabilityController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineBatchController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineController;
 use App\Http\Controllers\Api\V1\Tenant\OpdController;
+use App\Http\Controllers\Api\V1\Tenant\ExportCenterController;
+use App\Http\Controllers\Api\V1\Tenant\ExportColumnRuleController;
+use App\Http\Controllers\Api\V1\Tenant\PatientRecordController;
 use App\Http\Controllers\Api\V1\Tenant\DocumentGenerationController;
 use App\Http\Controllers\Api\V1\Tenant\DocumentRuleController;
 use App\Http\Controllers\Api\V1\Tenant\GuideController;
@@ -490,9 +493,74 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         Route::put('customers/{customer}', [CustomerController::class, 'update'])
             ->middleware('permission:customers.edit')
             ->name('customers.update');
+        // A photograph is part of the record, so it is the same key as editing it.
+        Route::post('customers/{customer}/photo', [CustomerController::class, 'uploadPhoto'])
+            ->middleware('permission:customers.edit')
+            ->name('customers.photo.store');
+        Route::delete('customers/{customer}/photo', [CustomerController::class, 'deletePhoto'])
+            ->middleware('permission:customers.edit')
+            ->name('customers.photo.destroy');
         Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])
             ->middleware('permission:customers.delete')
             ->name('customers.destroy');
+
+        /*
+        | Patient Records — one patient's history from every module, in one
+        | place. Behind `customers.view`, like the register it is opened from;
+        | every section inside is gated on its own module's capability and
+        | narrowed to the caller's branches (App\Services\Tenant\PatientRecord).
+        | Only what no module already lists per patient is served here; the
+        | screen reads prescriptions, lab orders, invoices, payments and
+        | documents from their own endpoints.
+        */
+        Route::middleware('permission:customers.view')->group(function () {
+            Route::get('patient-records', [PatientRecordController::class, 'index'])
+                ->name('patient-records.index');
+            Route::get('patient-records/stats', [PatientRecordController::class, 'stats'])
+                ->name('patient-records.stats');
+            // The register as a file — the Export Center's patient capability, not merely reading it.
+            Route::get('patient-records/export', [PatientRecordController::class, 'export'])
+                ->middleware('permission:exports.patients')
+                ->name('patient-records.export');
+            Route::get('patient-records/{customer}', [PatientRecordController::class, 'show'])
+                ->whereNumber('customer')
+                ->name('patient-records.show');
+            Route::get('patient-records/{customer}/timeline', [PatientRecordController::class, 'timeline'])
+                ->whereNumber('customer')
+                ->name('patient-records.timeline');
+            Route::get('patient-records/{customer}/appointments', [PatientRecordController::class, 'appointments'])
+                ->whereNumber('customer')
+                ->middleware('module:appointments')
+                ->name('patient-records.appointments');
+            Route::get('patient-records/{customer}/pharmacy', [PatientRecordController::class, 'pharmacy'])
+                ->whereNumber('customer')
+                ->middleware(['module:pharmacy', 'permission:pharmacy.view'])
+                ->name('patient-records.pharmacy');
+        });
+
+        /*
+        | The Export Center — records as Excel, CSV or PDF. No capability on
+        | the routes themselves: each export belongs to a tab, and the tab's
+        | capability, at the branches it is held, is checked inside
+        | (App\Services\Exports\ExportAccess). Which columns each role may
+        | take is the organization's, behind `exports.columns`. Literal paths
+        | before {dataset}.
+        */
+        Route::get('exports', [ExportCenterController::class, 'index'])
+            ->name('exports.index');
+        Route::middleware('permission:exports.columns')->group(function () {
+            Route::get('exports/column-rules', [ExportColumnRuleController::class, 'index'])
+                ->name('exports.column-rules.index');
+            Route::put('exports/column-rules/{role}', [ExportColumnRuleController::class, 'update'])
+                ->whereNumber('role')
+                ->name('exports.column-rules.update');
+        });
+        Route::get('exports/{dataset}/preview', [ExportCenterController::class, 'preview'])
+            ->where('dataset', '[a-z]+\.[a-z]+')
+            ->name('exports.preview');
+        Route::get('exports/{dataset}/download', [ExportCenterController::class, 'download'])
+            ->where('dataset', '[a-z]+\.[a-z]+')
+            ->name('exports.download');
 
         /*
         | The medicine master — behind its own module, which prescriptions and

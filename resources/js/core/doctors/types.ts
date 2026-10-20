@@ -26,8 +26,14 @@ export interface Doctor extends Timestamps {
     phone: string | null;
     email: string | null;
 
-    /** The fallback, not the price. Branch pricing arrives with billing. */
+    /** The fallback: what a branch without a fee of its own charges. */
     default_consultation_fee: string | null;
+
+    /**
+     * What they charge at each branch they are posted to. A null fee is
+     * "the default", which is what a bill at that branch then uses.
+     */
+    branch_fees?: DoctorBranchFee[];
     is_active: boolean;
     notes: string | null;
 
@@ -56,6 +62,12 @@ export interface Doctor extends Timestamps {
     schedule_count?: number;
 
     custom_fields: Record<string, unknown>;
+}
+
+export interface DoctorBranchFee {
+    location_id: number;
+    location_name: string;
+    consultation_fee: string | null;
 }
 
 /** One sitting: a branch, a weekday, and the hours. */

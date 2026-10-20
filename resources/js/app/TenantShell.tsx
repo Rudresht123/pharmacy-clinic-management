@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { SubscriptionBanner } from '@/core/subscription/components/SubscriptionBanner';
+import { SubscriptionClock } from '@/core/subscription/components/SubscriptionClock';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { BranchSwitcher } from '@/core/tenant-auth/BranchSwitcher';
@@ -105,6 +106,7 @@ export function TenantShell() {
                 )
             }
             headerSearch={<PatientSearch />}
+            headerExtra={<SubscriptionClock />}
             contentBanner={<SubscriptionBanner />}
             sidebarExtra={<BranchSwitcher />}
             sidebarHelp={

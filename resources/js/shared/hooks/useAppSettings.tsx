@@ -11,6 +11,14 @@ import { hexToRgb, lighten, readableOn, toTriplet } from '@/shared/utils/color';
 
 const STORAGE_KEY = 'app.settings';
 
+/**
+ * Saved alongside the settings, so a changed default can reach browsers
+ * that stored the old one.
+ *
+ * 2 — the sidebar defaults to the brand colour instead of white.
+ */
+const VERSION = 2;
+
 /** Quick-pick swatches. The accent itself can be any colour. */
 export const ACCENT_PRESETS = [
     { label: 'Indigo', hex: '#2e37a4' },
@@ -83,7 +91,7 @@ const DEFAULTS: AppSettings = {
     theme: 'system',
     accent: '#2e37a4',
     density: 'comfortable',
-    sidebar: 'light',
+    sidebar: 'brand',
     topbar: 'light',
     pageHead: 'light',
     compactSidebar: false,
@@ -152,7 +160,13 @@ function read(): AppSettings {
             return DEFAULTS;
         }
 
-        const parsed = JSON.parse(raw) as Partial<AppSettings>;
+        const parsed = JSON.parse(raw) as Partial<AppSettings> & { version?: number };
+
+        // Every browser saved the settings on its first visit, so a white
+        // sidebar stored before version 2 is the old default, not a choice.
+        if ((parsed.version ?? 1) < 2 && parsed.sidebar === 'light') {
+            parsed.sidebar = DEFAULTS.sidebar;
+        }
 
         // Merge over the defaults so a stored file from an older version,
         // or one with an accent that no longer exists, cannot break the app.
@@ -240,7 +254,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         root.style.setProperty('--content-bg-image', `url(/images/${settings.contentImage})`);
 
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...settings, version: VERSION }));
         } catch {
             // Preferences just will not persist.
         }

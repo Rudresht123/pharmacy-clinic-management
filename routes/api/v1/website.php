@@ -12,8 +12,9 @@ use Illuminate\Support\Facades\Route;
 | Public. No session, no tenant: these read and write the MASTER database
 | only (prices, plans, registrations), so the website never needs — and can
 | never reach — a clinic's database. CSRF-exempt with the rest of
-| `api/v1/website/*` (bootstrap/app.php); browser origins are allowed by
-| PUBLIC_SITE_ORIGINS.
+| `api/v1/website/*` (bootstrap/app.php). Browsers may call them from any
+| origin: the framework's CORS defaults open `api/*` without credentials,
+| and nothing here reads a cookie.
 |
 | The enquiry form (`website/enquiries`) is declared in routes/api/v1.php.
 |

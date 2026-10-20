@@ -9,7 +9,7 @@ import { formatDay, formatPaise } from '@/core/subscription/money';
 import { usePlans, useSubscriptionInsights, useSubscriptions } from '../api';
 import { StatusChip } from '../components/Common';
 import { AddSubscriptionDialog } from '../components/AddSubscriptionDialog';
-import { ChartCard, KpiCard, KpiRow } from '../components/Visuals';
+import { ChartCard, ChartFill, KpiCard, KpiRow } from '../components/Visuals';
 
 const STATUSES = [
     { value: '', label: 'All Statuses' },
@@ -66,7 +66,7 @@ export default function SubscriptionsPage() {
             />
 
             <KpiRow>
-                <KpiCard icon="ti ti-circle-check" tone="emerald" label="Active Subscriptions" value={t?.active ?? 0} change={t?.active_change} onClick={() => apply({ ...draft, status: 'active' })} />
+                <KpiCard icon="ti ti-circle-check" tone="emerald" label="Active Subscriptions" value={t?.active ?? 0} change={t?.active_change} hint={t?.complimentary ? `incl. ${t.complimentary} complimentary` : undefined} onClick={() => apply({ ...draft, status: 'active' })} />
                 <KpiCard icon="ti ti-clock-exclamation" tone="amber" label="Expiring Soon" value={t?.expiring_soon ?? 0} hint="Next 30 days" onClick={() => apply(draft, { expiring_within: '30' })} />
                 <KpiCard icon="ti ti-player-pause" tone="violet" label="Suspended" value={t?.suspended ?? 0} hint={`${t?.grace ?? 0} in grace · ${t?.expired ?? 0} expired`} onClick={() => apply({ ...draft, status: 'suspended' })} />
                 <KpiCard icon="ti ti-circle-x" tone="rose" label="Cancelled" value={t?.cancelled ?? 0} onClick={() => apply({ ...draft, status: 'cancelled' })} />
@@ -76,12 +76,17 @@ export default function SubscriptionsPage() {
             <div className="sxa-split">
                 <ChartCard title="Subscription Growth" legend={[{ label: 'Total Subscriptions', color: 'rgb(var(--brand))' }]}>
                     {insights && insights.growth.some((p) => p.value > 0) ? (
-                        <LineChart
-                            points={insights.growth}
-                            series={[{ label: 'Total Subscriptions', color: 'rgb(var(--brand))', values: insights.growth.map((p) => p.value), area: true }]}
-                            format={(v) => `${v} subscriptions`}
-                            axis={(v) => String(Math.round(v))}
-                        />
+                        <ChartFill>
+                            {(_, height) => (
+                                <LineChart
+                                    points={insights.growth}
+                                    series={[{ label: 'Total Subscriptions', color: 'rgb(var(--brand))', values: insights.growth.map((p) => p.value), area: true }]}
+                                    height={height}
+                                    format={(v) => `${v} subscriptions`}
+                                    axis={(v) => String(Math.round(v))}
+                                />
+                            )}
+                        </ChartFill>
                     ) : (
                         <div className="donut-empty"><i className="ti ti-chart-line" aria-hidden="true" /><p>No subscriptions yet.</p></div>
                     )}
@@ -140,16 +145,11 @@ export default function SubscriptionsPage() {
                                     <td>{formatDay(row.started_at)}</td>
                                     <td>{row.next_renewal_at ? formatDay(row.next_renewal_at) : row.expires_at ? formatDay(row.expires_at) : '—'}</td>
                                     <td>
-                                        <StatusChip
-                                            status={row.locked ? 'expired' : row.effective_status}
-                                            label={
-                                                row.effective_status === 'active' && row.days_remaining !== null && row.days_remaining <= 30
-                                                    ? 'Expiring soon'
-                                                    : row.billing_cycle === 'complimentary'
-                                                      ? 'Complimentary'
-                                                      : undefined
-                                            }
-                                        />
+                                        {row.effective_status === 'active' && row.days_remaining !== null && row.days_remaining <= 30 ? (
+                                            <StatusChip status="expiring_soon" label="Expiring Soon" />
+                                        ) : (
+                                            <StatusChip status={row.effective_status} label={row.billing_cycle === 'complimentary' ? 'Complimentary' : undefined} />
+                                        )}
                                     </td>
                                     <td>{row.billing_cycle === 'complimentary' ? '—' : formatPaise(row.price, row.currency)}</td>
                                     <td>

@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { queryClient } from '@/shared/api/queryClient';
 import { TenantAuthProvider, useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { ConfirmProvider } from '@/shared/hooks/useConfirm';
+import { ImagePreviewProvider } from '@/shared/hooks/useImagePreview';
 import { SettingsProvider } from '@/shared/hooks/useAppSettings';
 import { FullPageLoaderHost } from '@/shared/components/ui/Loader';
 
@@ -49,10 +50,10 @@ function TenantBootGate({ children }: { children: ReactNode }) {
  * Every cross-cutting provider an organization's workspace actually needs.
  *
  * Still smaller than app/providers.tsx: no LockProvider (it is built on the
- * platform AuthProvider) and no ImagePreviewProvider (nothing here opens the
- * viewer yet). SettingsProvider and ConfirmProvider are both generic, and
- * the shared AppShell needs them — appearance settings and the log-out
- * confirmation respectively.
+ * platform AuthProvider). SettingsProvider and ConfirmProvider are both
+ * generic, and the shared AppShell needs them — appearance settings and the
+ * log-out confirmation respectively. ImagePreviewProvider is the full-screen
+ * viewer every Avatar opens a photograph in.
  */
 export function TenantProviders({ children }: { children: ReactNode }) {
     return (
@@ -61,7 +62,9 @@ export function TenantProviders({ children }: { children: ReactNode }) {
                 <QueryClientProvider client={queryClient}>
                     <TenantAuthProvider>
                         <ConfirmProvider>
-                            <TenantBootGate>{children}</TenantBootGate>
+                            <ImagePreviewProvider>
+                                <TenantBootGate>{children}</TenantBootGate>
+                            </ImagePreviewProvider>
                         </ConfirmProvider>
                     </TenantAuthProvider>
 

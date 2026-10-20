@@ -98,7 +98,7 @@ class AvailabilityService
      */
     public function dayAtLocation(Carbon $date, int $locationId): array
     {
-        $doctors = Doctor::on('organization')->where('is_active', true)->orderBy('name')->get();
+        $doctors = Doctor::on('organization')->with('photograph')->where('is_active', true)->orderBy('name')->get();
 
         $day = [];
 
@@ -113,6 +113,7 @@ class AvailabilityService
                 'doctor_id' => $doctor->id,
                 'doctor_name' => $doctor->name,
                 'specialisation' => $doctor->specialisation,
+                'photo_url' => $doctor->photograph?->url,
                 'sessions' => array_map(
                     fn (array $session) => [...$session, 'slots' => $this->slotsFor($session)],
                     $sessions,

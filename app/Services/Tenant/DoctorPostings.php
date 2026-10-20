@@ -83,4 +83,26 @@ class DoctorPostings
     {
         $doctor->postings()->syncWithoutDetaching([$locationId]);
     }
+
+    /**
+     * What the doctor charges at each of their branches.
+     *
+     * Only branches they are already posted to — a fee somewhere they do not
+     * work prices nothing, and the request has refused it before this runs.
+     * Null puts a branch back on the doctor's default fee.
+     *
+     * @param  list<array{location_id: int, consultation_fee: float|int|string|null}>  $fees
+     */
+    public function price(Doctor $doctor, array $fees): void
+    {
+        DB::connection($doctor->getConnectionName())->transaction(function () use ($doctor, $fees) {
+            foreach ($fees as $row) {
+                $fee = $row['consultation_fee'] ?? null;
+
+                $doctor->postings()->updateExistingPivot((int) $row['location_id'], [
+                    'consultation_fee' => $fee === null || $fee === '' ? null : round((float) $fee, 2),
+                ]);
+            }
+        });
+    }
 }

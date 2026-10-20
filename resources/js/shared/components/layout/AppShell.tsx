@@ -32,6 +32,8 @@ interface AppShellProps {
      * across, and a tenant's search is over its own patients.
      */
     headerSearch?: React.ReactNode;
+    /** Sits in the header on the right, before the theme button. */
+    headerExtra?: React.ReactNode;
     /**
      * A notice above every page's content — the tenant's subscription
      * warning (expiring soon, in grace). Nothing when there is nothing to say.
@@ -60,6 +62,7 @@ export function AppShell({
     sidebarHelp,
     sidebarExtra,
     headerSearch,
+    headerExtra,
     contentBanner,
 }: AppShellProps) {
     const { settings, update } = useAppSettings();
@@ -118,6 +121,7 @@ export function AppShell({
 
             <Header
                 search={headerSearch}
+                extra={headerExtra}
                 onOpenSidebar={() => setMobileOpen(true)}
                 onOpenSettings={() => setSettingsOpen(true)}
                 user={user}

@@ -6,11 +6,11 @@ use App\Http\Requests\Api\V1\Tenant\Concerns\MergesFieldSettings;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\EntityFieldSetting;
+use App\Models\Tenant\User;
 use App\Support\Fields\DoctorFields;
 use Illuminate\Foundation\Http\FormRequest;
-use App\Models\Tenant\User;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 /**
  * Editing a doctor.
@@ -75,6 +75,16 @@ class UpdateDoctorRequest extends FormRequest
 
             // The fallback, not the price — see DoctorFields.
             'default_consultation_fee' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
+
+            /*
+             * The price at each branch the doctor is posted to. Blank puts a
+             * branch back on the default. Only their own branches: a fee where
+             * they do not work prices nothing, and getting posted somewhere is
+             * a sitting's job (DoctorScheduleController), not this form's.
+             */
+            'branch_fees' => ['sometimes', 'array'],
+            'branch_fees.*.location_id' => ['required', 'integer', 'distinct', Rule::in($this->postedBranchIds())],
+            'branch_fees.*.consultation_fee' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
 
             'is_active' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string'],
@@ -144,6 +154,7 @@ class UpdateDoctorRequest extends FormRequest
             'code.unique' => 'Another doctor already uses that code.',
             'registration_no.unique' => 'Another doctor is already registered under that number.',
             'department_id.exists' => 'That department has been removed. Choose another.',
+            'branch_fees.*.location_id.in' => 'This doctor does not work at that branch — give them a sitting there first.',
         ];
     }
 
@@ -155,6 +166,7 @@ class UpdateDoctorRequest extends FormRequest
         return [
             'registration_no' => 'registration number',
             'default_consultation_fee' => 'default consultation fee',
+            'branch_fees.*.consultation_fee' => 'branch fee',
             'department_id' => 'department',
         ];
     }
@@ -173,6 +185,16 @@ class UpdateDoctorRequest extends FormRequest
         if (! is_array($account) || trim((string) ($account['email'] ?? '')) === '') {
             $this->merge(['account' => null]);
         }
+    }
+
+    /** @return list<int> the branches this doctor is posted to */
+    private function postedBranchIds(): array
+    {
+        $doctor = $this->route('doctor');
+
+        return $doctor instanceof Doctor
+            ? $doctor->postings()->pluck('locations.id')->map(fn ($id) => (int) $id)->all()
+            : [];
     }
 
     /** This doctor's existing login, so its own email is not a clash. */

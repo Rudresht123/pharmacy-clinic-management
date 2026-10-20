@@ -1,26 +1,85 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { ErrorState, LoadingBlock } from '@/shared/components/ui/Feedback';
 import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
-import { formatDay } from '@/core/subscription/money';
+import { formatShortDay } from '@/core/subscription/money';
 import { useBillingMutation, useBillingSettings, usePlans, type BillingSettings } from '../api';
-import { FieldError } from '../components/Common';
+import { FieldError, StatusChip } from '../components/Common';
 
 type Section = 'general' | 'payments' | 'invoices' | 'tax' | 'notifications' | 'integrations';
 type Settings = BillingSettings['settings'];
 
-const SECTIONS: Array<{ key: Section; icon: string; title: string; caption: string }> = [
-    { key: 'general', icon: 'ti ti-building', title: 'General', caption: 'Billing details, timezone, financial year' },
-    { key: 'payments', icon: 'ti ti-credit-card', title: 'Payment Methods', caption: 'Razorpay, bank transfer, UPI' },
-    { key: 'invoices', icon: 'ti ti-file-invoice', title: 'Invoice Settings', caption: 'Numbering, renewal invoices, trials' },
-    { key: 'tax', icon: 'ti ti-receipt-tax', title: 'Tax & Compliance', caption: 'GST, tax rate, registration' },
-    { key: 'notifications', icon: 'ti ti-bell', title: 'Notifications', caption: 'Expiry reminders, grace period' },
-    { key: 'integrations', icon: 'ti ti-plug-connected', title: 'Integrations', caption: 'Payment gateway webhook' },
+const SECTIONS: Array<{ key: Section; icon: string; title: string; caption: string; blurb: string }> = [
+    { key: 'general', icon: 'ti ti-building', title: 'General', caption: 'Company, timezone, year', blurb: 'Who issues the invoices, and when the financial year starts.' },
+    { key: 'payments', icon: 'ti ti-credit-card', title: 'Payment Methods', caption: 'Razorpay, bank, UPI', blurb: 'How organizations can pay their invoices.' },
+    { key: 'invoices', icon: 'ti ti-file-invoice', title: 'Invoice Settings', caption: 'Numbering, renewals', blurb: 'Invoice numbers, renewal invoices and the default trial.' },
+    { key: 'tax', icon: 'ti ti-receipt-tax', title: 'Tax & Compliance', caption: 'GST, tax rate', blurb: 'How tax is worked out on every price.' },
+    { key: 'notifications', icon: 'ti ti-bell', title: 'Notifications', caption: 'Reminders, grace period', blurb: 'When organizations are reminded, and what grace allows.' },
+    { key: 'integrations', icon: 'ti ti-plug-connected', title: 'Integrations', caption: 'Gateway, webhook', blurb: 'The connections payments depend on.' },
 ];
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** "UTC +5:30" for a zone, from the browser's own tables. */
+function utcOffset(timeZone: string): string {
+    try {
+        const name = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'shortOffset' })
+            .formatToParts(new Date())
+            .find((part) => part.type === 'timeZoneName')?.value;
+
+        return !name || name === 'GMT' ? 'UTC' : name.replace('GMT', 'UTC');
+    } catch {
+        return '';
+    }
+}
+
+/** The financial year today falls in, in the platform's timezone: Apr 2026 – Mar 2027. */
+function financialYear(start: number, timeZone: string): string {
+    let year = new Date().getFullYear();
+    let month = new Date().getMonth() + 1;
+
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: 'numeric' }).formatToParts(new Date());
+        year = Number(parts.find((p) => p.type === 'year')?.value ?? year);
+        month = Number(parts.find((p) => p.type === 'month')?.value ?? month);
+    } catch {
+        // An unknown zone: the browser's own date is near enough for a preview.
+    }
+
+    const from = month >= start ? year : year - 1;
+    const last = ((start + 10) % 12) + 1;
+
+    return `${MONTHS[start - 1].slice(0, 3)} ${from} – ${MONTHS[last - 1].slice(0, 3)} ${start === 1 ? from : from + 1}`;
+}
+
+/** A label flush over its control; the hint and the error under it. */
+function Field({ label, wide = false, hint, children }: { label: string; wide?: boolean; hint?: string; children: ReactNode }) {
+    return (
+        <label className={`sxa-field ${wide ? 'is-wide' : ''}`}>
+            <span className="sxa-field-label">{label}</span>
+            {children}
+            {hint && <small className="sxa-field-hint">{hint}</small>}
+        </label>
+    );
+}
+
+/** One thing that is on or off — a payment method, a reminder channel. */
+function Toggle({ icon, title, text, on, onChange }: { icon: string; title: string; text: string; on: boolean; onChange: () => void }) {
+    return (
+        <label className={`sxa-toggle ${on ? 'is-on' : ''}`}>
+            <span className="sxa-toggle-icon" aria-hidden="true"><i className={icon} /></span>
+            <span className="sxa-toggle-text">
+                <b>{title}</b>
+                <small>{text}</small>
+            </span>
+            <span className="form-check form-switch">
+                <input type="checkbox" role="switch" className="form-check-input" checked={on} onChange={onChange} />
+            </span>
+        </label>
+    );
+}
 
 /**
  * Every billing policy, as a setting — the section list on the left, the
@@ -37,13 +96,26 @@ export default function BillingSettingsPage() {
     const [secrets, setSecrets] = useState({ razorpay_key_id: '', razorpay_key_secret: '', razorpay_webhook_secret: '' });
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const [failure, setFailure] = useState<string | null>(null);
-    const timezones = useMemo(() => {
+    const [copied, setCopied] = useState(false);
+
+    const zones = useMemo(() => {
+        let list: string[];
+
         try {
-            return (Intl as unknown as { supportedValuesOf(k: string): string[] }).supportedValuesOf('timeZone');
+            list = (Intl as unknown as { supportedValuesOf(k: string): string[] }).supportedValuesOf('timeZone');
         } catch {
-            return ['Asia/Kolkata', 'UTC'];
+            list = ['UTC'];
         }
+
+        return list;
     }, []);
+
+    // Browsers list some zones by their old names (Asia/Calcutta for
+    // Asia/Kolkata); the saved one must always be choosable.
+    const timezones = useMemo(
+        () => Array.from(new Set(['Asia/Kolkata', form?.timezone ?? 'Asia/Kolkata', ...zones])).map((tz) => ({ value: tz, label: `${tz} (${utcOffset(tz)})` })),
+        [zones, form?.timezone],
+    );
 
     useEffect(() => {
         if (data) {
@@ -59,6 +131,14 @@ export default function BillingSettingsPage() {
     const seller = (key: keyof Settings['seller'], value: string) => set('seller', { ...form.seller, [key]: value || null });
     const days = (text: string) => text.split(',').map((d) => d.trim()).filter(Boolean).map(Number);
     const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+    const error = (name: string) => <FieldError errors={errors} name={name} />;
+    const current = SECTIONS.find((s) => s.key === section)!;
+
+    // The number the next invoice will carry, with the prefix as typed.
+    const savedPrefix = data?.settings.invoice_prefix ?? '';
+    const nextNumber = data?.next_invoice_number?.startsWith(savedPrefix)
+        ? form.invoice_prefix + data.next_invoice_number.slice(savedPrefix.length)
+        : (data?.next_invoice_number ?? '—');
 
     async function submit() {
         setErrors({});
@@ -67,20 +147,21 @@ export default function BillingSettingsPage() {
         try {
             await save.mutateAsync({ ...form, ...Object.fromEntries(Object.entries(secrets).filter(([, v]) => v.trim() !== '')) });
             setSecrets({ razorpay_key_id: '', razorpay_key_secret: '', razorpay_webhook_secret: '' });
-        } catch (error) {
-            const validation = getValidationErrors(error);
-            validation ? setErrors(validation) : setFailure(resolveErrorMessage(error));
+        } catch (failed) {
+            const validation = getValidationErrors(failed);
+            validation ? setErrors(validation) : setFailure(resolveErrorMessage(failed));
         }
     }
 
-    const field = (label: string, input: React.ReactNode, error?: string, hint?: string) => (
-        <div className="mb-3">
-            <label className="form-label">{label}</label>
-            {input}
-            {error && <FieldError errors={errors} name={error} />}
-            {hint && <small className="text-muted d-block mt-1">{hint}</small>}
-        </div>
-    );
+    async function copyWebhook() {
+        try {
+            await navigator.clipboard.writeText(data?.webhook_url ?? '');
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+        } catch {
+            // Clipboard refused (insecure origin): the field is selectable.
+        }
+    }
 
     return (
         <>
@@ -95,11 +176,17 @@ export default function BillingSettingsPage() {
 
             <div className="sxa-settings">
                 <Card className="sxa-settings-nav">
-                    <nav>
+                    <nav aria-label="Settings sections">
                         {SECTIONS.map((item) => (
-                            <button key={item.key} type="button" className={section === item.key ? 'is-on' : ''} onClick={() => setSection(item.key)}>
-                                <i className={item.icon} aria-hidden="true" />
-                                <span>
+                            <button
+                                key={item.key}
+                                type="button"
+                                className={section === item.key ? 'is-on' : ''}
+                                aria-current={section === item.key ? 'page' : undefined}
+                                onClick={() => setSection(item.key)}
+                            >
+                                <span className="sxa-settings-icon" aria-hidden="true"><i className={item.icon} /></span>
+                                <span className="sxa-settings-label">
                                     <b>{item.title}</b>
                                     <small>{item.caption}</small>
                                 </span>
@@ -109,45 +196,72 @@ export default function BillingSettingsPage() {
                 </Card>
 
                 <Card className="sxa-settings-form">
-                    <h6 className="sxa-settings-title">{SECTIONS.find((s) => s.key === section)?.title} Settings</h6>
+                    <div className="sxa-settings-head">
+                        <h6>{current.title} Settings</h6>
+                        <p>{current.blurb}</p>
+                    </div>
 
                     {section === 'general' && (
-                        <>
-                            {field('Company Name', <input className="form-control" value={form.seller.name ?? ''} onChange={(e) => seller('name', e.target.value)} />, undefined, 'The legal name printed on every invoice.')}
-                            {field('Address', <textarea className="form-control" rows={3} value={form.seller.address ?? ''} onChange={(e) => seller('address', e.target.value)} />)}
-                            <div className="row g-3">
-                                <div className="col-md-6">{field('GST Number', <input className="form-control" value={form.seller.gstin ?? ''} onChange={(e) => seller('gstin', e.target.value.toUpperCase())} />, 'seller.gstin')}</div>
-                                <div className="col-md-6">{field('Currency', <input className="form-control" value="INR — Indian Rupee" disabled />)}</div>
-                                <div className="col-md-6">{field('Email', <input className="form-control" value={form.seller.email ?? ''} onChange={(e) => seller('email', e.target.value)} />)}</div>
-                                <div className="col-md-6">{field('Phone', <input className="form-control" value={form.seller.phone ?? ''} onChange={(e) => seller('phone', e.target.value)} />)}</div>
-                                <div className="col-md-6">
-                                    {field('Timezone', (
-                                        <select className="form-select" value={form.timezone} onChange={(e) => set('timezone', e.target.value)}>
-                                            {timezones.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
-                                        </select>
-                                    ), 'timezone')}
-                                </div>
-                                <div className="col-md-6">
-                                    {field('Fiscal Year Start', (
-                                        <select className="form-select" value={form.fiscal_year_start} onChange={(e) => set('fiscal_year_start', Number(e.target.value))}>
-                                            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                                        </select>
-                                    ), 'fiscal_year_start', 'Invoice numbers start a new series each financial year.')}
-                                </div>
-                            </div>
-                        </>
+                        <div className="sxa-form">
+                            <Field label="Company Name" wide>
+                                <input className="form-control" placeholder="Legal name printed on every invoice" value={form.seller.name ?? ''} onChange={(e) => seller('name', e.target.value)} />
+                            </Field>
+                            <Field label="Address" wide>
+                                <textarea className="form-control" rows={2} placeholder="Street, city, state – PIN" value={form.seller.address ?? ''} onChange={(e) => seller('address', e.target.value)} />
+                            </Field>
+                            <Field label="GST Number">
+                                <input className="form-control" placeholder="e.g. 06ABCDE1234F1Z5" value={form.seller.gstin ?? ''} onChange={(e) => seller('gstin', e.target.value.toUpperCase())} />
+                                {error('seller.gstin')}
+                            </Field>
+                            <Field label="Currency">
+                                <select className="form-select" value="INR" disabled>
+                                    <option value="INR">INR (₹) – Indian Rupee</option>
+                                </select>
+                            </Field>
+                            <Field label="Email">
+                                <input type="email" className="form-control" placeholder="billing@company.com" value={form.seller.email ?? ''} onChange={(e) => seller('email', e.target.value)} />
+                                {error('seller.email')}
+                            </Field>
+                            <Field label="Phone">
+                                <input className="form-control" placeholder="Billing contact number" value={form.seller.phone ?? ''} onChange={(e) => seller('phone', e.target.value)} />
+                                {error('seller.phone')}
+                            </Field>
+                            <Field label="Timezone">
+                                <select className="form-select" value={form.timezone} onChange={(e) => set('timezone', e.target.value)}>
+                                    {timezones.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                                </select>
+                                {error('timezone')}
+                            </Field>
+                            <Field label="Fiscal Year Start">
+                                <select className="form-select" value={form.fiscal_year_start} onChange={(e) => set('fiscal_year_start', Number(e.target.value))}>
+                                    {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                                </select>
+                                {error('fiscal_year_start')}
+                            </Field>
+                        </div>
                     )}
 
                     {section === 'payments' && (
-                        <>
-                            <div className="sxa-checks mb-3">
-                                <label><input type="checkbox" className="form-check-input" checked={form.gateways.includes('razorpay')} onChange={() => set('gateways', toggle(form.gateways, 'razorpay'))} /> Razorpay — cards, UPI, net banking, wallets</label>
-                                <label><input type="checkbox" className="form-check-input" checked={form.gateways.includes('manual')} onChange={() => set('gateways', toggle(form.gateways, 'manual'))} /> Manual — bank transfer, UPI, cheque (recorded by an administrator)</label>
+                        <div className="sxa-form">
+                            <div className="sxa-toggles">
+                                <Toggle
+                                    icon="ti ti-credit-card"
+                                    title="Razorpay"
+                                    text="Cards, UPI, net banking and wallets — confirmed by Razorpay."
+                                    on={form.gateways.includes('razorpay')}
+                                    onChange={() => set('gateways', toggle(form.gateways, 'razorpay'))}
+                                />
+                                <Toggle
+                                    icon="ti ti-building-bank"
+                                    title="Manual"
+                                    text="Bank transfer, UPI or cheque, recorded by an administrator."
+                                    on={form.gateways.includes('manual')}
+                                    onChange={() => set('gateways', toggle(form.gateways, 'manual'))}
+                                />
+                                {error('gateways')}
                             </div>
-                            <FieldError errors={errors} name="gateways" />
-                            {(['razorpay_key_id', 'razorpay_key_secret', 'razorpay_webhook_secret'] as const).map((key) =>
-                                field(
-                                    { razorpay_key_id: 'Razorpay Key ID', razorpay_key_secret: 'Razorpay Key Secret', razorpay_webhook_secret: 'Webhook Secret' }[key],
+                            {(['razorpay_key_id', 'razorpay_key_secret', 'razorpay_webhook_secret'] as const).map((key) => (
+                                <Field key={key} label={{ razorpay_key_id: 'Razorpay Key ID', razorpay_key_secret: 'Razorpay Key Secret', razorpay_webhook_secret: 'Webhook Secret' }[key]} wide={key === 'razorpay_webhook_secret'}>
                                     <input
                                         type={key === 'razorpay_key_id' ? 'text' : 'password'}
                                         autoComplete="off"
@@ -155,85 +269,129 @@ export default function BillingSettingsPage() {
                                         placeholder={data?.secrets[key] ? 'Saved — leave blank to keep it' : 'Not set'}
                                         value={secrets[key]}
                                         onChange={(e) => setSecrets({ ...secrets, [key]: e.target.value })}
-                                    />,
-                                ),
-                            )}
-                        </>
+                                    />
+                                    {error(key)}
+                                </Field>
+                            ))}
+                        </div>
                     )}
 
                     {section === 'invoices' && (
-                        <>
-                            {field('Invoice Number Prefix', <input className="form-control" value={form.invoice_prefix} onChange={(e) => set('invoice_prefix', e.target.value.toUpperCase())} />, 'invoice_prefix', `Next invoice: ${data?.next_invoice_number ?? '—'}`)}
-                            {field('Issue the renewal invoice (days before expiry)', <input type="number" min={0} className="form-control" value={form.renewal_invoice_days} onChange={(e) => set('renewal_invoice_days', Number(e.target.value))} />, 'renewal_invoice_days')}
-                            {field('Default trial plan for new organizations', (
+                        <div className="sxa-form">
+                            <Field label="Invoice Number Prefix">
+                                <input className="form-control" value={form.invoice_prefix} onChange={(e) => set('invoice_prefix', e.target.value.toUpperCase())} />
+                                {error('invoice_prefix')}
+                            </Field>
+                            <Field label="Renewal Invoice (days before expiry)">
+                                <input type="number" min={0} className="form-control" value={form.renewal_invoice_days} onChange={(e) => set('renewal_invoice_days', Number(e.target.value))} />
+                                {error('renewal_invoice_days')}
+                            </Field>
+                            <Field label="Default Trial Plan" wide hint="The plan a new organization starts its trial on when nobody picks one.">
                                 <select className="form-select" value={form.default_trial_plan_id ?? ''} onChange={(e) => set('default_trial_plan_id', e.target.value ? Number(e.target.value) : null)}>
                                     <option value="">None — new organizations start on Complimentary</option>
                                     {(plans ?? []).filter((p) => p.status === 'published' && !p.is_system && p.trial_days > 0).map((plan) => (
                                         <option key={plan.id} value={plan.id}>{plan.name} ({plan.trial_days}-day trial)</option>
                                     ))}
                                 </select>
-                            ), 'default_trial_plan_id')}
-                        </>
+                                {error('default_trial_plan_id')}
+                            </Field>
+                        </div>
                     )}
 
                     {section === 'tax' && (
-                        <>
-                            {field('How prices treat tax', (
+                        <div className="sxa-form">
+                            <Field label="How Prices Treat Tax" wide>
                                 <select className="form-select" value={form.tax_mode} onChange={(e) => set('tax_mode', e.target.value as Settings['tax_mode'])}>
                                     <option value="exclusive">Exclusive — tax added on top of the price</option>
                                     <option value="inclusive">Inclusive — tax inside the price</option>
                                     <option value="none">No tax</option>
                                 </select>
-                            ), 'tax_mode')}
-                            <div className="row g-3">
-                                <div className="col-md-6">{field('Tax Rate (%)', <input type="number" min={0} max={100} step="0.01" className="form-control" value={form.tax_rate_bp / 100} onChange={(e) => set('tax_rate_bp', Math.round(Number(e.target.value) * 100))} />, 'tax_rate_bp')}</div>
-                                <div className="col-md-6">{field('Tax Label', <input className="form-control" value={form.tax_label} onChange={(e) => set('tax_label', e.target.value)} />)}</div>
-                            </div>
-                            {field('GST Registration Number', <input className="form-control" value={form.seller.gstin ?? ''} onChange={(e) => seller('gstin', e.target.value.toUpperCase())} />, 'seller.gstin')}
-                        </>
+                                {error('tax_mode')}
+                            </Field>
+                            <Field label="Tax Rate (%)">
+                                <input type="number" min={0} max={100} step="0.01" className="form-control" value={form.tax_rate_bp / 100} onChange={(e) => set('tax_rate_bp', Math.round(Number(e.target.value) * 100))} />
+                                {error('tax_rate_bp')}
+                            </Field>
+                            <Field label="Tax Label">
+                                <input className="form-control" value={form.tax_label} onChange={(e) => set('tax_label', e.target.value)} />
+                                {error('tax_label')}
+                            </Field>
+                            <Field label="GST Registration Number" wide>
+                                <input className="form-control" placeholder="e.g. 06ABCDE1234F1Z5" value={form.seller.gstin ?? ''} onChange={(e) => seller('gstin', e.target.value.toUpperCase())} />
+                                {error('seller.gstin')}
+                            </Field>
+                        </div>
                     )}
 
                     {section === 'notifications' && (
-                        <>
-                            {field('During the grace period', (
+                        <div className="sxa-form">
+                            <Field label="During the Grace Period" wide hint="The number of grace days is set on each plan.">
                                 <select className="form-select" value={form.grace_access} onChange={(e) => set('grace_access', e.target.value as Settings['grace_access'])}>
                                     <option value="full">Full access, with a warning</option>
                                     <option value="read_only">Read-only — no changes until renewed</option>
                                 </select>
-                            ), undefined, 'The number of grace days is set on each plan.')}
-                            <div className="row g-3">
-                                <div className="col-md-6">{field('Remind, days before expiry', <input className="form-control" value={form.reminder_days.join(', ')} onChange={(e) => set('reminder_days', days(e.target.value))} />, 'reminder_days', '0 is the day it ends.')}</div>
-                                <div className="col-md-6">{field('Remind, days before grace ends', <input className="form-control" value={form.grace_reminder_days.join(', ')} onChange={(e) => set('grace_reminder_days', days(e.target.value))} />, 'grace_reminder_days')}</div>
-                                <div className="col-md-6">{field('Dashboard warning from (days)', <input type="number" min={0} className="form-control" value={form.warning_days} onChange={(e) => set('warning_days', Number(e.target.value))} />, 'warning_days')}</div>
+                            </Field>
+                            <Field label="Remind (days before expiry)">
+                                <input className="form-control" placeholder="7, 3, 1, 0" value={form.reminder_days.join(', ')} onChange={(e) => set('reminder_days', days(e.target.value))} />
+                                {error('reminder_days')}
+                            </Field>
+                            <Field label="Remind (days before grace ends)">
+                                <input className="form-control" placeholder="1" value={form.grace_reminder_days.join(', ')} onChange={(e) => set('grace_reminder_days', days(e.target.value))} />
+                                {error('grace_reminder_days')}
+                            </Field>
+                            <Field label="Dashboard Warning From (days)">
+                                <input type="number" min={0} className="form-control" value={form.warning_days} onChange={(e) => set('warning_days', Number(e.target.value))} />
+                                {error('warning_days')}
+                            </Field>
+                            <div className="sxa-toggles">
+                                <Toggle
+                                    icon="ti ti-mail"
+                                    title="Email reminders"
+                                    text="Sent to the organization's owner."
+                                    on={form.reminder_channels.includes('email')}
+                                    onChange={() => set('reminder_channels', toggle(form.reminder_channels, 'email'))}
+                                />
+                                <Toggle
+                                    icon="ti ti-brand-whatsapp"
+                                    title="WhatsApp reminders"
+                                    text="Needs an approved platform template."
+                                    on={form.reminder_channels.includes('whatsapp')}
+                                    onChange={() => set('reminder_channels', toggle(form.reminder_channels, 'whatsapp'))}
+                                />
+                                {error('reminder_channels')}
                             </div>
-                            <div className="sxa-checks">
-                                <span className="text-muted">Send reminders by:</span>
-                                {['email', 'whatsapp'].map((channel) => (
-                                    <label key={channel}>
-                                        <input type="checkbox" className="form-check-input" checked={form.reminder_channels.includes(channel)} onChange={() => set('reminder_channels', toggle(form.reminder_channels, channel))} />
-                                        {channel === 'email' ? 'Email' : 'WhatsApp (needs an approved platform template)'}
-                                    </label>
-                                ))}
-                            </div>
-                        </>
+                        </div>
                     )}
 
                     {section === 'integrations' && (
-                        <>
-                            <ul className="sx-list mb-3">
-                                <li className={data?.online_ready ? '' : 'is-off'}>
-                                    <i className="ti ti-credit-card" aria-hidden="true" />
-                                    <span>Razorpay</span>
-                                    <small>{data?.online_ready ? 'Ready to take payments' : 'Keys missing or switched off'}</small>
-                                </li>
-                                <li className={data?.secrets.razorpay_webhook_secret ? '' : 'is-off'}>
-                                    <i className="ti ti-webhook" aria-hidden="true" />
-                                    <span>Payment webhook</span>
-                                    <small>{data?.secrets.razorpay_webhook_secret ? 'Secret saved' : 'Secret not set'}</small>
-                                </li>
-                            </ul>
-                            {field('Webhook URL — add it in the Razorpay dashboard', <input className="form-control" readOnly value={data?.webhook_url ?? ''} onFocus={(e) => e.target.select()} />, undefined, 'Events: payment.captured, order.paid, payment.failed.')}
-                        </>
+                        <div className="sxa-form">
+                            <div className="sxa-toggles">
+                                <div className="sxa-toggle is-static">
+                                    <span className="sxa-toggle-icon" aria-hidden="true"><i className="ti ti-credit-card" /></span>
+                                    <span className="sxa-toggle-text">
+                                        <b>Razorpay</b>
+                                        <small>{data?.online_ready ? 'Ready to take payments.' : 'Keys missing, or switched off under Payment Methods.'}</small>
+                                    </span>
+                                    <StatusChip status={data?.online_ready ? 'active' : 'draft'} label={data?.online_ready ? 'Connected' : 'Not set'} />
+                                </div>
+                                <div className="sxa-toggle is-static">
+                                    <span className="sxa-toggle-icon" aria-hidden="true"><i className="ti ti-webhook" /></span>
+                                    <span className="sxa-toggle-text">
+                                        <b>Payment webhook</b>
+                                        <small>Confirms a payment even when the browser is closed.</small>
+                                    </span>
+                                    <StatusChip status={data?.secrets.razorpay_webhook_secret ? 'active' : 'draft'} label={data?.secrets.razorpay_webhook_secret ? 'Secret saved' : 'Not set'} />
+                                </div>
+                            </div>
+                            <Field label="Webhook URL — add it in the Razorpay dashboard" wide hint="Events: payment.captured, order.paid, payment.failed.">
+                                <span className="sxa-copy">
+                                    <input className="form-control" readOnly value={data?.webhook_url ?? ''} onFocus={(e) => e.target.select()} />
+                                    <Button type="button" variant="light" icon={copied ? 'ti ti-check' : 'ti ti-copy'} onClick={() => void copyWebhook()}>
+                                        {copied ? 'Copied' : 'Copy'}
+                                    </Button>
+                                </span>
+                            </Field>
+                        </div>
                     )}
                 </Card>
 
@@ -241,21 +399,31 @@ export default function BillingSettingsPage() {
                     <h6 className="sxa-settings-title">Invoice Preview</h6>
                     <div className="sxa-invoice">
                         <div className="sxa-invoice-head">
-                            <span className="sxa-invoice-mark"><i className="ti ti-building-hospital" aria-hidden="true" /></span>
-                            <div>
-                                <b>{form.seller.name || 'Your company name'}</b>
-                                <small>{form.seller.address || 'Address'}</small>
-                                {form.seller.gstin && <small>GSTIN: {form.seller.gstin}</small>}
+                            <span className="sxa-invoice-mark" aria-hidden="true"><i className="ti ti-building-hospital" /></span>
+                            <div className="sxa-invoice-seller">
+                                <b className={form.seller.name ? '' : 'is-empty'}>{form.seller.name || 'Company name'}</b>
+                                <small className={form.seller.address ? '' : 'is-empty'}>{form.seller.address || 'Address'}</small>
+                                <small className={form.seller.gstin ? '' : 'is-empty'}>GSTIN: {form.seller.gstin || 'not set'}</small>
                             </div>
                         </div>
-                        <div className="sxa-invoice-band">INVOICE</div>
-                        <dl>
-                            <div><dt>Invoice No</dt><dd>{data?.next_invoice_number}</dd></div>
-                            <div><dt>Date</dt><dd>{formatDay(new Date().toISOString(), form.timezone)}</dd></div>
-                            <div><dt>Due</dt><dd>{formatDay(new Date(Date.now() + 7 * 864e5).toISOString(), form.timezone)}</dd></div>
-                            <div><dt>Tax</dt><dd>{form.tax_mode === 'none' ? 'None' : `${form.tax_label} ${form.tax_rate_bp / 100}% ${form.tax_mode}`}</dd></div>
-                        </dl>
-                        <small className="text-muted">How the next invoice will be headed, from these settings.</small>
+
+                        <div className="sxa-invoice-doc">
+                            <div className="sxa-invoice-band">INVOICE</div>
+                            <dl>
+                                <div><dt>Invoice #</dt><dd>{nextNumber}</dd></div>
+                                <div><dt>Date</dt><dd>{formatShortDay(new Date().toISOString(), form.timezone)}</dd></div>
+                                <div><dt>Due Date</dt><dd>{formatShortDay(new Date(Date.now() + 7 * 864e5).toISOString(), form.timezone)}</dd></div>
+                                <div><dt>Tax</dt><dd>{form.tax_mode === 'none' ? 'None' : `${form.tax_label} ${form.tax_rate_bp / 100}% (${form.tax_mode})`}</dd></div>
+                                <div><dt>Financial Year</dt><dd>{financialYear(form.fiscal_year_start, form.timezone)}</dd></div>
+                            </dl>
+                        </div>
+
+                        {!form.seller.name && (
+                            <p className="sxa-invoice-note">
+                                <i className="ti ti-info-circle" aria-hidden="true" />
+                                Add the company name, address and GST number under General — they head every invoice.
+                            </p>
+                        )}
                     </div>
                 </Card>
             </div>

@@ -80,11 +80,18 @@ export interface RoleTemplate {
  * both — and it arrives already narrowed to what is grantable where this
  * person works, so a template can never offer something ungrantable.
  */
-export function useRoleTemplates() {
+/**
+ * Starting points for a new role. For an organization-wide role the server
+ * keeps each template's organization-level permissions; otherwise they are
+ * left out, since a branch role cannot hold them.
+ */
+export function useRoleTemplates(scope?: 'organization' | 'branch') {
     return useQuery({
-        queryKey: resourceKey(rolesApi.endpoint, 'templates'),
+        queryKey: resourceKey(rolesApi.endpoint, 'templates', scope ?? 'branch'),
         queryFn: async (): Promise<RoleTemplate[]> => {
-            const { data } = await http.get<ApiResponse<RoleTemplate[]>>('/tenant/roles/templates');
+            const { data } = await http.get<ApiResponse<RoleTemplate[]>>('/tenant/roles/templates', {
+                params: scope ? { scope } : undefined,
+            });
 
             return data.data ?? [];
         },

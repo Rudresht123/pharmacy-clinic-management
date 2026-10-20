@@ -8,7 +8,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { http } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import type { ApiResponse } from '@/shared/types/api';
-import { formatDay, formatPaise, rupeesToPaise } from '@/core/subscription/money';
+import { formatDay, formatPaise, formatRupees, rupeesToPaise } from '@/core/subscription/money';
 import { useBillingMutation, useInvoiceInsights, useInvoices, useOrganizationOptions, type AdminInvoice } from '../api';
 import { ActionDialog, FieldError, StatusChip } from '../components/Common';
 import { ChartCard, compactPaise, GroupedBars, KpiCard, KpiRow } from '../components/Visuals';
@@ -100,9 +100,9 @@ export default function InvoicesPage() {
 
             <KpiRow columns={4}>
                 <KpiCard icon="ti ti-file-invoice" tone="violet" label="Total Invoices" value={t?.total_invoices ?? 0} hint="Issued, not void" />
-                <KpiCard icon="ti ti-circle-check" tone="emerald" label="Paid Amount" value={formatPaise(t?.paid_amount ?? 0)} onClick={() => apply({ ...draft, status: 'paid' })} />
-                <KpiCard icon="ti ti-clock-dollar" tone="amber" label="Pending Amount" value={formatPaise(t?.pending_amount ?? 0)} onClick={() => apply({ ...draft, status: 'pending' })} />
-                <KpiCard icon="ti ti-alert-octagon" tone="rose" label="Overdue Amount" value={formatPaise(t?.overdue_amount ?? 0)} onClick={() => apply({ ...draft, status: 'overdue' })} />
+                <KpiCard icon="ti ti-circle-check" tone="emerald" label="Paid Amount" value={formatRupees(t?.paid_amount ?? 0)} onClick={() => apply({ ...draft, status: 'paid' })} />
+                <KpiCard icon="ti ti-clock-dollar" tone="amber" label="Pending Amount" value={formatRupees(t?.pending_amount ?? 0)} onClick={() => apply({ ...draft, status: 'pending' })} />
+                <KpiCard icon="ti ti-alert-octagon" tone="rose" label="Overdue Amount" value={formatRupees(t?.overdue_amount ?? 0)} onClick={() => apply({ ...draft, status: 'overdue' })} />
             </KpiRow>
 
             <div className="sxa-three">
@@ -169,7 +169,7 @@ export default function InvoicesPage() {
                                     <td>{formatPaise(invoice.total, invoice.currency)}</td>
                                     <td>{formatDay(invoice.issued_at)}</td>
                                     <td>{formatDay(invoice.due_at)}</td>
-                                    <td><StatusChip status={invoice.display_status === 'overdue' ? 'expired' : invoice.display_status === 'pending' ? 'issued' : invoice.display_status} label={invoice.display_status} /></td>
+                                    <td><StatusChip status={invoice.display_status} /></td>
                                     <td>{invoice.payment_mode ?? '—'}</td>
                                     <td><button type="button" className="btn btn-link sxa-link p-0" onClick={() => setViewing(invoice)}>View</button></td>
                                 </tr>
@@ -209,6 +209,7 @@ function InvoiceDetail({ invoice, onClose, onPay, onVoid }: { invoice: AdminInvo
         <Modal
             open
             size="lg"
+            className="sxa-modal"
             title={`Invoice ${invoice.number ?? ''}`}
             subtitle={invoice.organization?.name ?? invoice.bill_to?.name ?? undefined}
             icon={<i className="ti ti-file-invoice" />}
@@ -225,7 +226,7 @@ function InvoiceDetail({ invoice, onClose, onPay, onVoid }: { invoice: AdminInvo
             }
         >
             <dl className="sx-status-facts mb-3">
-                <div><dt>Status</dt><dd><StatusChip status={invoice.display_status === 'overdue' ? 'expired' : invoice.display_status === 'pending' ? 'issued' : invoice.display_status} label={invoice.display_status} /></dd></div>
+                <div><dt>Status</dt><dd><StatusChip status={invoice.display_status} /></dd></div>
                 <div><dt>Issued</dt><dd>{formatDay(invoice.issued_at)}</dd></div>
                 <div><dt>Due</dt><dd>{formatDay(invoice.due_at)}</dd></div>
                 {invoice.paid_at && <div><dt>Paid</dt><dd>{formatDay(invoice.paid_at)}</dd></div>}

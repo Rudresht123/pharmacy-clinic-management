@@ -160,7 +160,8 @@ class BillingTriggerResolver
     /**
      * What the OPD charges for this visit.
      *
-     *   1. The doctor's fee — or, when this visit is a follow-up inside the
+     *   1. The doctor's fee at this branch (their default where the branch
+     *      has none of its own) — or, when this visit is a follow-up inside the
      *      period the doctor set last time and the branch prices follow-ups,
      *      the follow-up fee instead (which may be nothing at all).
      *   2. Every per-visit and procedure charge on the price list, the
@@ -204,9 +205,8 @@ class BillingTriggerResolver
                 ];
             }
         } else {
-            $fee = $doctor?->default_consultation_fee !== null
-                ? round((float) $doctor->default_consultation_fee, 2)
-                : 0.0;
+            // The doctor's fee at this branch, falling back to their default.
+            $fee = round((float) ($doctor?->consultationFeeAt($appointment->location_id) ?? 0), 2);
 
             if ($fee > 0) {
                 $lines[] = [

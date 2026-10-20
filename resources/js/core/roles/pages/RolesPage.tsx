@@ -18,7 +18,8 @@ import {
     useRoleTemplates,
     useSaveBranchRolePermissions,
 } from '../api';
-import { ROLE_ICONS, type GrantableModule, type Role } from '../types';
+import { ROLE_ICONS, type GrantableModule, type Role, type RoleScope } from '../types';
+import { SCOPE_INFO, ScopeBadge } from '../scope';
 
 /**
  * A module's colour, keyed by the module itself.
@@ -50,6 +51,13 @@ const BLANK = {
      * takes and the shape every other permission list in this screen has.
      */
     locked: [] as string[],
+
+    /*
+     * Where it may be given — chosen once, when the role is created, and
+     * fixed after (the server never changes a live role's scope). Branch by
+     * default: that is what most roles are, and all a non-owner may write.
+     */
+    scope: 'branch' as RoleScope,
 };
 
 type Draft = typeof BLANK;
@@ -63,6 +71,7 @@ function toDraft(role: Role): Draft {
         icon: role.icon || ROLE_ICONS[0],
         capabilities: [...role.capabilities],
         locked: [...(role.locked ?? [])],
+        scope: role.scope,
     };
 }
 
@@ -98,30 +107,62 @@ export default function RolesPage() {
     const [editingMeta, setEditingMeta] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
 
-    // Land on the first role rather than an empty pane, which reads as an
-    // error when there is nothing wrong.
-    useEffect(() => {
-        if (selected === null && roles?.length) {
-            setSelected(roles[0].id);
-            setDraft(toDraft(roles[0]));
-        }
-    }, [roles, selected]);
-
     const current = useMemo(
         () => (typeof selected === 'number' ? roles?.find((role) => role.id === selected) : null),
         [roles, selected],
     );
 
     /*
-     * Every role written from this screen comes out branch-scoped — the
-     * payload has no scope field, so the server defaults it to `branch`
-     * whoever is asking (RoleController::store). So a NEW role's pool is
-     * branch-only; an EXISTING role's pool follows its own scope, because an
-     * organization-wide role (Head office, Doctor) may hold a branch
-     * capability too and must not have those hidden.
+     * The pool follows the role's scope. An EXISTING role's is its own — an
+     * organization-wide role (Head office, Doctor) may hold branch
+     * capabilities too and must not have those hidden. A NEW role's is the
+     * scope chosen for it above the list, which only an owner may set to
+     * organization-wide; everybody else writes branch roles
+     * (RoleController::store).
      */
-    const grantScope = current?.scope ?? 'branch';
-    const { data: modules, refetch: refetchGrantable } = useGrantable(grantScope);
+    const grantScope: RoleScope = selected === 'new' ? draft.scope : (current?.scope ?? 'branch');
+    const { data: pool, refetch: refetchGrantable } = useGrantable(grantScope);
+
+    /*
+     * Staff permissions for a staff role; the patient app's for the patient
+     * role. The two never mix: "Patients: book for themselves" on a
+     * receptionist's role means nothing, and listing it beside "Book
+     * appointments" invites somebody to tick the wrong one.
+     */
+    const forPatients = selected !== 'new' && current?.audience === 'patient';
+
+    const modules = useMemo(
+        () =>
+            (pool ?? [])
+                .map((module) => ({
+                    ...module,
+                    capabilities: module.capabilities.filter(
+                        (capability) => (capability.audience === 'patient') === forPatients,
+                    ),
+                }))
+                .filter((module) => module.capabilities.length > 0),
+        [pool, forPatients],
+    );
+
+    /*
+     * Switching a new role to branch-specific takes away what a branch role
+     * cannot hold, rather than leaving ticks the save would refuse.
+     */
+    useEffect(() => {
+        if (selected !== 'new' || !pool) return;
+
+        const allowed = new Set(modules.flatMap((module) => module.capabilities.map((c) => c.key)));
+
+        if (draft.capabilities.some((key) => !allowed.has(key))) {
+            setDraft((value) => ({
+                ...value,
+                capabilities: value.capabilities.filter((key) => allowed.has(key)),
+                locked: value.locked.filter((key) => allowed.has(key)),
+            }));
+        }
+        // Only when the pool itself changes — not on every tick.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pool, selected]);
 
     /*
      * The WHOLE registry, unscoped — never what is rendered as ticks, only
@@ -180,7 +221,7 @@ export default function RolesPage() {
      * that would drift the first time a screen moved, and a preview that lies
      * is worse than none.
      */
-    const { modules: orgModules, user, activeBranch, refreshSession, can } = useTenantAuth();
+    const { modules: orgModules, user, activeBranch, refreshSession, can, ownerRestricted } = useTenantAuth();
     const { data: entities } = useConfigurableEntities();
 
     const labels = useMemo(
@@ -236,8 +277,20 @@ export default function RolesPage() {
         setSelected('new');
         setDraft(
             from
-                ? { ...toDraft(from), id: 0, name: `${from.name} copy` }
-                : { ...BLANK, name: '' },
+                ? {
+                      ...toDraft(from),
+                      id: 0,
+                      name: `${from.name} copy`,
+                      // Only an owner writes organization-wide roles; a copy
+                      // made by anybody else is their branch's own.
+                      scope: user?.role === 'owner' ? from.scope : 'branch',
+                  }
+                : {
+                      ...BLANK,
+                      name: '',
+                      // A new role starts in the view it was asked for from.
+                      scope: user?.role === 'owner' ? shownView : 'branch',
+                  },
         );
         setErrors({});
         setTab('permissions');
@@ -333,12 +386,18 @@ export default function RolesPage() {
              * would silently undo the organization's locks by saving a name.
              */
             ...(canLock ? { locked: draft.locked } : {}),
+
+            // Chosen once, on creation. The server ignores it from anybody
+            // but the owner, and never changes a saved role's scope.
+            ...(selected === 'new' ? { scope: draft.scope } : {}),
         };
 
         try {
             if (selected === 'new') {
                 const created = (await create.mutateAsync(payload)) as unknown as Role;
 
+                // Follow it into its own view, so it is on the list beside it.
+                setView(created.scope);
                 setSelected(created.id);
                 setDraft(toDraft(created));
             } else {
@@ -382,6 +441,12 @@ export default function RolesPage() {
                     patch({
                         capabilities: draft.capabilities.filter((key) => pool.includes(key)),
                     });
+                }
+
+                // About the role as a whole — "you hold this role yourself" —
+                // so it is said aloud rather than parked on a field.
+                if (validation.capabilities) {
+                    notify.error(validation.capabilities[0]);
                 }
 
                 if (validation.name) {
@@ -439,6 +504,87 @@ export default function RolesPage() {
     const mayWriteRoles = can('people.roles');
 
     /*
+     * The list, in the three groups a role can belong to.
+     *
+     * Grouped by the role's own `scope` — never by its name — so a custom
+     * role lands where it belongs. Organization-wide roles are shown to the
+     * people who can give them (the owner and organization HR,
+     * `people.across_branches`, the same line the server draws); to a branch
+     * admin they are only clutter they could not use. The patient app's role
+     * is the owner's to see, and sits apart: it is nobody's job at work.
+     */
+    const organizationLevel = isOwner || can('people.across_branches');
+
+    /*
+     * One kind of access at a time.
+     *
+     * The two are different jobs — who works across the network, and what
+     * somebody does at one counter — and one long list of both made an
+     * organization admin read a page of branch roles to find the three that
+     * were theirs. An organization admin opens on organization-wide roles and
+     * switches to branch roles when they mean to (the organization writes the
+     * shared ones every branch uses, so the switch has to exist). A branch
+     * admin has only branch roles, and no switch at all.
+     */
+    const [view, setView] = useState<RoleScope>(organizationLevel ? 'organization' : 'branch');
+    const shownView: RoleScope = organizationLevel ? view : 'branch';
+
+    function switchView(next: RoleScope) {
+        if (next === shownView) return;
+
+        setView(next);
+        // Land on the first role of the new view rather than keep one the
+        // list no longer shows.
+        setSelected(null);
+        setDraft(BLANK);
+        setErrors({});
+        setEditingMeta(false);
+    }
+
+    const railGroups = useMemo(() => {
+        const list = roles ?? [];
+        const staff = list.filter((role) => role.audience !== 'patient');
+
+        return [
+            {
+                key: 'organization',
+                show: shownView === 'organization',
+                title: SCOPE_INFO.organization.label,
+                note: 'Given to a person directly. Works at every branch.',
+                empty: 'No organization-wide roles yet.',
+                roles: staff.filter((role) => role.scope === 'organization'),
+            },
+            {
+                key: 'branch',
+                show: shownView === 'branch',
+                title: SCOPE_INFO.branch.label,
+                note: 'Given per branch. Works only at that branch.',
+                empty: 'No branch roles yet.',
+                roles: staff.filter((role) => role.scope === 'branch'),
+            },
+            {
+                key: 'patient',
+                show: isOwner && shownView === 'organization',
+                title: 'Patient app',
+                note: 'For patients signing in to the app. Never given to staff.',
+                empty: '',
+                roles: list.filter((role) => role.audience === 'patient'),
+            },
+        ].filter((group) => group.show && (group.roles.length > 0 || group.key !== 'patient'));
+    }, [roles, shownView, isOwner]);
+
+    const railRoles = useMemo(() => railGroups.flatMap((group) => group.roles), [railGroups]);
+
+    // Land on the first role this person can see rather than an empty pane,
+    // which reads as an error when there is nothing wrong.
+    useEffect(() => {
+        if (selected === null && railRoles.length) {
+            setSelected(railRoles[0].id);
+            setDraft(toDraft(railRoles[0]));
+        }
+    }, [railRoles, selected]);
+
+    /*
      * A role written by the organization but assignable per branch — "Branch
      * manager", "Receptionist" and the like. Editing it outright changes what
      * every branch's holders may do; customising it is the alternative that
@@ -455,7 +601,9 @@ export default function RolesPage() {
      * them (they work across the network, not at one counter), so they pick
      * one explicitly below instead of it being implied by where they are.
      */
-    const { data: branchList } = locationsHooks.useList({ all: 1 });
+    // Only the owner's branch picker reads this; anybody else asking would
+    // only be refused.
+    const { data: branchList } = locationsHooks.useList({ all: 1 }, { enabled: isOwner });
     const [ownerBranch, setOwnerBranch] = useState<number | ''>('');
 
     // A role picked on the previous screen must not leave a branch silently
@@ -605,7 +753,17 @@ export default function RolesPage() {
                 </span>
 
                 <span className="rp-role-text">
-                    <b>{role.name}</b>
+                    <b className="ras-name">
+                        <span>{role.name}</span>
+                        {role.audience === 'patient' ? (
+                            <span className="ras-badge is-patient">
+                                <i className="ti ti-device-mobile" aria-hidden="true" />
+                                Patients
+                            </span>
+                        ) : (
+                            <ScopeBadge scope={role.scope} />
+                        )}
+                    </b>
 
                     <small>
                         {role.capabilities.length} permission
@@ -686,6 +844,34 @@ export default function RolesPage() {
                         </span>
                     </div>
 
+                    {organizationLevel && (
+                        <div className="ras-views">
+                            <nav className="ras-tabs" role="tablist" aria-label="Kind of access">
+                                {(['organization', 'branch'] as RoleScope[]).map((scope) => {
+                                    const count = (roles ?? []).filter(
+                                        (role) => role.scope === scope && role.audience !== 'patient',
+                                    ).length;
+
+                                    return (
+                                        <button
+                                            key={scope}
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={shownView === scope}
+                                            className={`ras-tab${shownView === scope ? ' is-on' : ''}`}
+                                            onClick={() => switchView(scope)}
+                                        >
+                                            <i className={SCOPE_INFO[scope].icon} aria-hidden="true" />
+                                            {SCOPE_INFO[scope].label}
+                                            <em>{count}</em>
+                                        </button>
+                                    );
+                                })}
+                            </nav>
+                            <p className="ras-views-note">{SCOPE_INFO[shownView].description}</p>
+                        </div>
+                    )}
+
                     <div className="rp-split">
                         {/* --- the roles -------------------------------- */}
                         <aside className="rp-rail">
@@ -720,11 +906,26 @@ export default function RolesPage() {
                                     </>
                                 )}
 
-                                {(roles ?? []).map(railItem)}
+                                {railGroups.map((group) => (
+                                    <section key={group.key} className="ras-group">
+                                        {/* The tabs above already name the view; a
+                                            heading repeating them is only noise.
+                                            Without tabs, or for the patient app's
+                                            role, it is what says what the list is. */}
+                                        {(!organizationLevel || group.key === 'patient') && (
+                                            <>
+                                                <p className="rp-rail-group">{group.title}</p>
+                                                <p className="ras-group-note">{group.note}</p>
+                                            </>
+                                        )}
 
-                                {(roles ?? []).length === 0 && selected !== 'new' && (
-                                    <p className="rp-rail-empty">No roles yet.</p>
-                                )}
+                                        {group.roles.length > 0 ? (
+                                            group.roles.map(railItem)
+                                        ) : (
+                                            <p className="rp-rail-empty">{group.empty}</p>
+                                        )}
+                                    </section>
+                                ))}
                             </div>
                         </aside>
 
@@ -745,10 +946,20 @@ export default function RolesPage() {
                                             </span>
 
                                             <div className="rp-head-text">
-                                                <h5>
-                                                    {selected === 'new'
-                                                        ? draft.name.trim() || 'New role'
-                                                        : (current?.name ?? draft.name)}
+                                                <h5 className="ras-name">
+                                                    <span>
+                                                        {selected === 'new'
+                                                            ? draft.name.trim() || 'New role'
+                                                            : (current?.name ?? draft.name)}
+                                                    </span>
+                                                    {forPatients ? (
+                                                        <span className="ras-badge is-patient">
+                                                            <i className="ti ti-device-mobile" aria-hidden="true" />
+                                                            Patients
+                                                        </span>
+                                                    ) : (
+                                                        <ScopeBadge scope={grantScope} />
+                                                    )}
                                                 </h5>
 
                                                 <p>
@@ -838,6 +1049,66 @@ export default function RolesPage() {
                                             </div>
                                         </div>
 
+                                        {/*
+                                            What this role's scope means, in a
+                                            sentence — for a new role, the choice
+                                            itself. Fixed once saved, because
+                                            changing a live role's scope would
+                                            move every holder's access.
+                                        */}
+                                        {selected === 'new' ? (
+                                            isOwner ? (
+                                                <div
+                                                    className="ras-choose"
+                                                    role="radiogroup"
+                                                    aria-label="Where this role works"
+                                                >
+                                                    {(['organization', 'branch'] as RoleScope[]).map(
+                                                        (scope) => (
+                                                            <button
+                                                                key={scope}
+                                                                type="button"
+                                                                role="radio"
+                                                                aria-checked={draft.scope === scope}
+                                                                className={`ras-option${draft.scope === scope ? ' is-on' : ''}`}
+                                                                onClick={() => patch({ scope })}
+                                                            >
+                                                                <span className="ras-option-icon" aria-hidden="true">
+                                                                    <i className={SCOPE_INFO[scope].icon} />
+                                                                </span>
+                                                                <span className="ras-option-text">
+                                                                    <b>{SCOPE_INFO[scope].label}</b>
+                                                                    <small>{SCOPE_INFO[scope].description}</small>
+                                                                </span>
+                                                                <i
+                                                                    className={`ras-option-tick ti ${draft.scope === scope ? 'ti-circle-check-filled' : 'ti-circle'}`}
+                                                                    aria-hidden="true"
+                                                                />
+                                                            </button>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <p className="ras-scope-line">
+                                                    <ScopeBadge scope="branch" />
+                                                    Roles you write work only at your branch.
+                                                </p>
+                                            )
+                                        ) : forPatients ? (
+                                            <p className="ras-scope-line">
+                                                <i className="ti ti-info-circle" aria-hidden="true" />
+                                                Patients get this role automatically when they sign in to
+                                                the app. It is never given to staff.
+                                            </p>
+                                        ) : (
+                                            current && (
+                                                <p className="ras-scope-line">
+                                                    <i className="ti ti-info-circle" aria-hidden="true" />
+                                                    {SCOPE_INFO[current.scope].description}
+                                                </p>
+                                            )
+                                        )}
+
                                         {editingMeta ? (
                                             <div className="rp-edit">
                                                 <label className="rp-field">
@@ -912,7 +1183,17 @@ export default function RolesPage() {
                                                 {!canWrite && (
                                                     <p className="rp-shared">
                                                         <i className="ti ti-lock" />
-                                                        {!mayWriteRoles ? (
+                                                        {!mayWriteRoles && ownerRestricted ? (
+                                                            <>
+                                                                Read-only: this organization&rsquo;s
+                                                                owner account is set to restricted
+                                                                (reports and administration only), so
+                                                                roles cannot be changed from it. A
+                                                                platform administrator can lift the
+                                                                restriction, or a staff account that
+                                                                may write roles can change them.
+                                                            </>
+                                                        ) : !mayWriteRoles ? (
                                                             <>
                                                                 Your role does not include writing
                                                                 roles. You can read this one, not
@@ -1003,7 +1284,7 @@ export default function RolesPage() {
                                         {tab === 'overview' && (
                                             <Overview
                                                 preview={preview}
-                                                roles={roles ?? []}
+                                                roles={railRoles}
                                                 selectedId={current?.id}
                                                 total={totalCapabilities}
                                                 onPick={choose}
@@ -1040,6 +1321,7 @@ export default function RolesPage() {
 
                                                 {draft.capabilities.length === 0 && !search && canWrite && (
                                                     <Templates
+                                                        scope={grantScope}
                                                         onApply={(capabilities, icon) =>
                                                             patch({ capabilities, icon })
                                                         }
@@ -1494,8 +1776,14 @@ function PermissionMatrix({
  * seeded from — and arrives already narrowed to what is grantable here, so
  * nothing has to be filtered on the way in.
  */
-function Templates({ onApply }: { onApply: (capabilities: string[], icon: string) => void }) {
-    const { data: templates } = useRoleTemplates();
+function Templates({
+    scope,
+    onApply,
+}: {
+    scope: RoleScope;
+    onApply: (capabilities: string[], icon: string) => void;
+}) {
+    const { data: templates } = useRoleTemplates(scope);
 
     if ((templates ?? []).length === 0) {
         return null;

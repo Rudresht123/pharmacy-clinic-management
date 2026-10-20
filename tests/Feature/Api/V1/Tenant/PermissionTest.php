@@ -955,13 +955,13 @@ class PermissionTest extends TenantTestCase
             $this->getJson('/api/v1/tenant/roles/grantable')->assertOk()->json('data.modules')
         )->pluck('key')->all();
 
-        // The core modules, billing among them: nothing has been sold yet.
-        $this->assertSame(['branches', 'people', 'customers', 'settings', 'billing'], $keys());
+        // The core modules, billing and the Export Center among them: nothing has been sold yet.
+        $this->assertSame(['branches', 'people', 'customers', 'exports', 'settings', 'billing'], $keys());
 
         $this->grantModule($organization, 'appointments');
 
         $this->assertSame(
-            ['branches', 'people', 'customers', 'settings', 'billing', 'appointments'],
+            ['branches', 'people', 'customers', 'exports', 'settings', 'billing', 'appointments'],
             $keys(),
         );
     }

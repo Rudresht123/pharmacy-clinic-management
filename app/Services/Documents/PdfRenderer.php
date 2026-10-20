@@ -11,10 +11,11 @@ use Throwable;
 /**
  * HTML in, PDF bytes out. Nothing else.
  *
- * THE ONLY CLASS IN THIS CODEBASE THAT NAMES A PDF LIBRARY. Everything above
- * it — the template, the payload, the markup — is ordinary PHP that can be
- * tested without rendering anything, and swapping dompdf for something else
- * later is this one file.
+ * THE ONLY CLASS IN THIS CODEBASE THAT NAMES A PDF LIBRARY — with PdfTable
+ * beside it, which draws registers too long to lay out as HTML. Everything
+ * above them — the template, the payload, the markup — is ordinary PHP that
+ * can be tested without rendering anything, and swapping dompdf for something
+ * else later is these two files.
  *
  * Why dompdf: it is pure PHP and needs nothing installed on the server. The
  * alternative worth having is Browsershot, which renders through headless

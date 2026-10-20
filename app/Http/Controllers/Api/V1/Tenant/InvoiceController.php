@@ -349,7 +349,8 @@ class InvoiceController extends BaseApiController
         $this->assertReadable($invoice);
 
         return $this->ok(InvoiceResource::make(
-            $invoice->load(['items', 'payments', 'customer']),
+            // The doctor too: the screen says who the visit was with.
+            $invoice->load(['items', 'payments', 'customer', 'doctor']),
         ));
     }
 

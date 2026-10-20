@@ -118,7 +118,7 @@ class CustomerRepository extends BaseRepository implements CustomerRepositoryInt
         $value = fn (string $key) => filled($filters[$key] ?? null) ? (string) $filters[$key] : null;
 
         return $this->query()
-            ->with('registeredLocation')
+            ->with(['registeredLocation', 'photograph'])
             ->when($activeOnly, fn (Builder $query) => $query->where('is_active', true))
             ->when(
                 $status === 'active',

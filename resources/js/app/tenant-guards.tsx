@@ -52,6 +52,22 @@ export function RequireCapability({ capability }: { capability: string }) {
 }
 
 /**
+ * The same, for a screen any one of several capabilities opens — the Export
+ * Center, whose four tabs are four capabilities, each enough on its own.
+ */
+export function RequireAnyCapability({ capabilities }: { capabilities: string[] }) {
+    const { can } = useTenantAuth();
+
+    if (!capabilities.some((capability) => can(capability))) {
+        return (
+            <NoAccess reason="Your role does not include this. Ask an owner if you need it." />
+        );
+    }
+
+    return <Outlet />;
+}
+
+/**
  * Refuses a route belonging to a module that is not running here.
  *
  * Two different failures, worth two different sentences: the organization was

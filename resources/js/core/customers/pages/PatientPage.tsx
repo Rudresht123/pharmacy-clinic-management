@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
-import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
+import { Avatar } from '@/shared/components/ui/Avatar';
 import { StatTiles, type StatTile } from '@/shared/components/ui/StatTiles';
 import { Tabs } from '@/shared/components/ui/Tabs';
 import { Button } from '@/shared/components/ui/Button';
@@ -225,7 +225,7 @@ export default function PatientPage() {
 
             {/* Who they are, before anything else. */}
             <header className="pf-head">
-                <PersonPhoto src={null} name={patient.name} className="pf-face" />
+                <Avatar src={patient.photo_url} name={patient.name} fallback="silhouette" caption={patient.code} className="pf-face" />
 
                 <div className="pf-id">
                     <h1 className="pf-name">

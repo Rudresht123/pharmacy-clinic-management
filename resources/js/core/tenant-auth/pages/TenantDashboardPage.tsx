@@ -8,7 +8,6 @@ import { branchPanels } from '@/core/dashboard/branch-panels';
 import { OrganizationDashboard } from '@/core/dashboard/organization/OrganizationDashboard';
 import { currentMonthWindow } from '@/core/billing/components/BillingWidgets';
 import { useTenantAuth } from '../TenantAuthProvider';
-import { SubscriptionStatusCard } from '@/core/subscription/components/SubscriptionStatusCard';
 
 /**
  * The landing page inside an organization's workspace.
@@ -24,7 +23,7 @@ import { SubscriptionStatusCard } from '@/core/subscription/components/Subscript
  * arrived.
  */
 export default function TenantDashboardPage() {
-    const { user, organization, subscription } = useTenantAuth();
+    const { user, organization } = useTenantAuth();
 
     /*
      * The days the network view is about — this month until somebody picks
@@ -61,16 +60,6 @@ export default function TenantDashboardPage() {
     const rail = rendered.filter((panel) => panel.column === 'rail');
     const full = rendered.filter((panel) => panel.column === 'full');
 
-    /*
-     * The subscription, first thing, for the people who can act on it: the
-     * owner and any billing contact. Days left, the expiry date, and Renew —
-     * from the session, which the server computes from the subscription's own
-     * dates. Everybody else gets the banner above every page instead.
-     */
-    const subscriptionCard = subscription?.can_manage ? (
-        <SubscriptionStatusCard status={subscription} />
-    ) : null;
-
     /** Their first name — a greeting, not a record. */
     const firstName = (user?.name ?? '').split(' ')[0];
 
@@ -88,15 +77,12 @@ export default function TenantDashboardPage() {
      */
     if (data?.context === 'organization') {
         return (
-            <>
-                {subscriptionCard}
-                <OrganizationDashboard
-                    data={data}
-                    range={range}
-                    onRange={setRange}
-                    refreshing={isFetching && isPlaceholderData}
-                />
-            </>
+            <OrganizationDashboard
+                data={data}
+                range={range}
+                onRange={setRange}
+                refreshing={isFetching && isPlaceholderData}
+            />
         );
     }
 
@@ -141,8 +127,6 @@ export default function TenantDashboardPage() {
                     )}
                 </div>
             </header>
-
-            {subscriptionCard}
 
             {isLoading ? (
                 <LoadingBlock label="Loading your dashboard…" />

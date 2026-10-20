@@ -135,9 +135,9 @@ class OrganizationModuleTest extends TestCase
             'module_id' => Module::where('key', 'prescriptions')->value('id'),
         ]);
 
-        // Billing is core — every clinic charges for something — so it stays.
+        // Billing is core — every clinic charges for something — so it stays, as does the Export Center.
         $this->assertSame(
-            ['branches', 'people', 'customers', 'settings', 'billing', 'appointments'],
+            ['branches', 'people', 'customers', 'exports', 'settings', 'billing', 'appointments'],
             app(ModuleAccess::class)->enabled($organization),
         );
     }

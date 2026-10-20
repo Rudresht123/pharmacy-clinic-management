@@ -357,6 +357,21 @@ class AppointmentTest extends TenantTestCase
         $this->assertNull($walkIn['slot_at']);
     }
 
+    /** The walk-in screen sends `slot_at: null` rather than leaving it out. */
+    public function test_a_walk_in_with_an_explicit_null_time_is_taken(): void
+    {
+        [, $doctorId, $branchId, $patientId] = $this->clinic();
+
+        $this->postJson('/api/v1/tenant/appointments', [
+            'customer_id' => $patientId,
+            'doctor_id' => $doctorId,
+            'location_id' => $branchId,
+            'appointment_date' => self::MONDAY,
+            'type' => Appointment::WALK_IN,
+            'slot_at' => null,
+        ])->assertCreated()->assertJsonPath('data.status', Appointment::STATUS_CHECKED_IN);
+    }
+
     /** A walk-in never carries a booked time — that is what makes it one. */
     public function test_a_walk_in_may_not_name_a_time(): void
     {

@@ -20,6 +20,7 @@ use App\Services\Opd\BookingService;
 use App\Services\Opd\VisitWorkflow;
 use App\Services\Prescriptions\PrescriptionService;
 use App\Services\Tenancy\TenantConnectionService;
+use App\Services\Tenant\DoctorPostings;
 use App\Support\Opd\Weekday;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -413,6 +414,10 @@ class SeedDoctorDemoCommand extends Command
     {
         $sits = DoctorSchedule::where('doctor_id', $this->doctor->id)->where('is_active', true)->pluck('weekday')->all();
         $added = 0;
+
+        // Posted to the branch, as writing a sitting from the screens does —
+        // the doctor's login reaches a branch only through the posting.
+        app(DoctorPostings::class)->ensure($this->doctor, $this->branch->id);
 
         foreach (range(Weekday::MONDAY, Weekday::SUNDAY) as $weekday) {
             if (in_array($weekday, $sits, true)) {

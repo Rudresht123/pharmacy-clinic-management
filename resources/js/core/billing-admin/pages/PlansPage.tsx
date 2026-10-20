@@ -1,17 +1,13 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Button } from '@/shared/components/ui/Button';
 import { EmptyState, ErrorState, LoadingBlock } from '@/shared/components/ui/Feedback';
 import { useConfirm } from '@/shared/hooks/useConfirm';
-import { formatPaise } from '@/core/subscription/money';
-import { useBillingMutation, usePlans, usePlansSummary, type Plan } from '../api';
-import { LABELS } from '../labels';
+import { useBillingMutation, usePlans, usePlansSummary } from '../api';
 import { StatusChip } from '../components/Common';
-import { PlanEditor } from '../components/PlanEditor';
+import { accentFor, PlanFace } from '../components/PlanCard';
 import { compactPaise, KpiCard, KpiRow } from '../components/Visuals';
-
-/** Plan accents, in order — colour on the name, icon and button, never the card. */
-const ACCENTS = ['emerald', 'violet', 'amber', 'sky', 'rose', 'indigo'] as const;
 
 /**
  * The plans on the price list, as cards: price, what is in it, how many
@@ -22,7 +18,7 @@ const ACCENTS = ['emerald', 'violet', 'amber', 'sky', 'rose', 'indigo'] as const
 export default function PlansPage() {
     const { data, isLoading, isError, refetch } = usePlans();
     const { data: summary } = usePlansSummary();
-    const [editing, setEditing] = useState<Plan | 'new' | null>(null);
+    const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const status = useBillingMutation<{ uuid: string; status: string }>('post', (b) => `/plans/${b.uuid}/status`);
     const remove = useBillingMutation<{ uuid: string }>('delete', (b) => `/plans/${b.uuid}`);
@@ -44,7 +40,7 @@ export default function PlansPage() {
                             <i className="ti ti-search" aria-hidden="true" />
                             <input className="form-control" placeholder="Search plans…" value={search} onChange={(e) => setSearch(e.target.value)} />
                         </div>
-                        <Button icon="ti ti-plus" onClick={() => setEditing('new')}>Create Plan</Button>
+                        <Button icon="ti ti-plus" onClick={() => navigate('/billing/plans/new')}>Create Plan</Button>
                     </div>
                 }
             />
@@ -64,41 +60,14 @@ export default function PlansPage() {
             )}
 
             <div className="sxa-plans">
-                {plans.map((plan, index) => {
-                    const accent = plan.is_system ? 'muted' : ACCENTS[index % ACCENTS.length];
+                {plans.map((plan) => {
+                    const accent = accentFor(data ?? [], plan.uuid);
                     const popular = summary?.most_popular_plan_id === plan.id && !plan.is_system;
                     const subscribers = summary?.subscribers[String(plan.id)] ?? plan.subscribers ?? 0;
                     const move = (to: string) => status.mutate({ uuid: plan.uuid, status: to });
 
                     return (
-                        <article key={plan.uuid} className={`sxa-plan ${popular ? 'is-popular' : ''}`} data-accent={accent}>
-                            {popular && <span className="sxa-plan-badge">Most Popular</span>}
-
-                            <header>
-                                <h5>{plan.name}</h5>
-                                <p>{plan.description || (plan.is_system ? 'Internal — existing organizations' : '')}</p>
-                            </header>
-
-                            <div className="sxa-plan-price">
-                                {plan.is_system ? (
-                                    <b>Free</b>
-                                ) : (
-                                    <>
-                                        <b>{formatPaise(plan.monthly_price).replace(/\.00$/, '')}</b>
-                                        <span>/month</span>
-                                    </>
-                                )}
-                            </div>
-
-                            <ul>
-                                {planPoints(plan).map((line) => (
-                                    <li key={line}>
-                                        <i className="ti ti-check" aria-hidden="true" />
-                                        {line}
-                                    </li>
-                                ))}
-                            </ul>
-
+                        <PlanFace key={plan.uuid} plan={plan} accent={accent} popular={popular}>
                             <div className="sxa-plan-meta">
                                 <span>
                                     <b>{subscribers}</b> {subscribers === 1 ? 'Subscription' : 'Subscriptions'}
@@ -111,7 +80,7 @@ export default function PlansPage() {
                                     <span className="text-muted small">Managed by the platform</span>
                                 ) : (
                                     <>
-                                        <Button variant="outline" onClick={() => setEditing(plan)}>View Details</Button>
+                                        <Button variant="outline" onClick={() => navigate(`/billing/plans/${plan.uuid}`)}>View Details</Button>
                                         {(plan.status === 'draft' || plan.status === 'unpublished') && (
                                             <Button size="sm" onClick={() => move('published')}>Publish</Button>
                                         )}
@@ -138,33 +107,10 @@ export default function PlansPage() {
                                     </>
                                 )}
                             </div>
-                        </article>
+                        </PlanFace>
                     );
                 })}
             </div>
-
-            {editing && <PlanEditor plan={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
         </>
     );
-}
-
-/** The plan's own highlights, or — when none are written — its limits and contents. */
-function planPoints(plan: Plan): string[] {
-    if (plan.highlights.length > 0) {
-        return plan.highlights.slice(0, 5);
-    }
-
-    const show = (key: string, unit: string) => {
-        const value = plan.limits[key];
-
-        return value === null ? `Unlimited ${unit}` : `Up to ${value ?? 0} ${unit}`;
-    };
-
-    return [
-        show('branches', 'branches'),
-        show('doctors', 'doctors'),
-        show('employees', 'staff'),
-        plan.modules.length > 0 ? `${plan.modules.length} module${plan.modules.length === 1 ? '' : 's'} included` : 'Core modules',
-        ...plan.features.map((feature) => LABELS[feature] ?? feature),
-    ].slice(0, 5);
 }

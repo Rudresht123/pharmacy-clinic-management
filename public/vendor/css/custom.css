@@ -6984,19 +6984,7 @@ html::-webkit-scrollbar-track {
 
 .q-board:hover{ border-color:rgb(var(--brand)); color:rgb(var(--brand)); }
 
-/*
- * A person's photograph, or the stand-in for one.
- *
- * The colour is inherited, and the placeholder is drawn in `currentColor`, so
- * one file serves every size and both themes.
- */
-.pp{
-    flex:0 0 auto;
-    border-radius:50%;
-    object-fit:cover;
-    background:var(--surface-2);
-    color:rgb(var(--brand));
-}
+/* A person's photograph is the shared Avatar (.pav, in table.css). */
 
 /* --- the room: header, and who is in it ---------------------- */
 
@@ -16472,11 +16460,122 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 .pf-table td{ padding:10px 16px; border-bottom:1px solid var(--line); color:var(--ink-2); vertical-align:top; }
 .pf-table tr:last-child td{ border-bottom:0; }
 .pf-table td.pf-strong{ font-weight:600; color:var(--ink); white-space:nowrap; }
-.pf-rx + .pf-rx{ margin-top:4px; }
-.pf-rx b{ margin-right:6px; font-weight:600; color:var(--ink); }
-.pf-rx small{ color:var(--muted); }
 .pf-pill{ display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; background:var(--surface-3); color:var(--ink-3); }
 .pf-pill.is-sky{ background:rgba(14,165,233,.12); color:#0369a1; }
+
+/*
+ * Prescriptions tab: each visit in a frame of its own — who wrote it and
+ * when along the top, the medicines below in a table.
+ */
+/* minmax(0, …): an auto track would grow to the table's width and push the frame out of the card. */
+.pf-rxlist{ display:grid; grid-template-columns:minmax(0, 1fr); gap:14px; }
+.pf-rxvisit{ border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.pf-rxvisit-head{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:8px 20px;
+    padding:11px 16px;
+    border-bottom:1px solid var(--line);
+    background:var(--surface-2);
+    font-size:12.5px;
+}
+.pf-rxvisit-head span{ display:inline-flex; align-items:center; gap:6px; color:var(--ink-2); }
+.pf-rxvisit-head i{ font-size:15px; color:var(--muted); }
+.pf-rxvisit-head .pf-rxdate{ font-weight:700; color:var(--ink); }
+.pf-rxvisit-head .pf-rxdate i{ color:rgb(var(--brand)); }
+.pf-rxvisit-head .pf-rxcount{
+    margin-left:auto;
+    padding:3px 10px;
+    border-radius:999px;
+    background:rgba(var(--brand), .08);
+    font-size:11.5px;
+    font-weight:700;
+    color:rgb(var(--brand));
+}
+.pf-rxscroll{ overflow-x:auto; }
+.pf-rxtable{ width:100%; border-collapse:collapse; font-size:12.5px; }
+.pf-rxtable th{
+    padding:9px 16px;
+    border-bottom:1px solid var(--line);
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.4px;
+    text-transform:uppercase;
+    color:var(--muted);
+    text-align:left;
+    white-space:nowrap;
+}
+.pf-rxtable td{ padding:12px 16px; border-bottom:1px solid var(--line); color:var(--ink-2); vertical-align:middle; }
+.pf-rxtable tr:last-child td{ border-bottom:0; }
+.pf-rxtable td.pf-rxnowrap{ white-space:nowrap; }
+.pf-rxtable td.pf-rxnote{ min-width:200px; color:var(--ink-3); }
+.pf-rxdrug{ display:flex; align-items:center; gap:10px; min-width:220px; }
+.pf-rxdrug > i{
+    display:grid;
+    place-items:center;
+    width:32px;
+    height:32px;
+    flex:0 0 auto;
+    border-radius:9px;
+    background:rgba(var(--brand), .08);
+    font-size:16px;
+    color:rgb(var(--brand));
+}
+.pf-rxdrug b{ display:block; font-size:13px; font-weight:600; color:var(--ink); }
+.pf-rxdrug small{ display:block; margin-top:1px; font-size:11.5px; color:var(--muted); }
+.pf-rxfreq{ display:inline-flex; gap:3px; }
+.pf-rxfreq i{
+    display:grid;
+    place-items:center;
+    width:22px;
+    height:22px;
+    border-radius:6px;
+    background:rgba(var(--brand), .1);
+    font-size:11.5px;
+    font-style:normal;
+    font-weight:700;
+    color:rgb(var(--brand));
+}
+.pf-rxfreq i.is-off{ background:var(--surface-2); font-weight:500; color:var(--muted); }
+
+/* The accent at full strength is too dark to read on a dark card. */
+[data-theme='dark'] .pf-rxvisit-head .pf-rxcount,
+[data-theme='dark'] .pf-rxdrug > i,
+[data-theme='dark'] .pf-rxfreq i:not(.is-off){
+    background:rgba(var(--brand), .25);
+    color:color-mix(in srgb, rgb(var(--brand)) 45%, #ffffff);
+}
+[data-theme='dark'] .pf-rxvisit-head .pf-rxdate i{ color:color-mix(in srgb, rgb(var(--brand)) 45%, #ffffff); }
+
+/* On a phone each medicine becomes a block: the name across the top, then labelled values. */
+@media (max-width: 575.98px){
+    .pf-rxtable,
+    .pf-rxtable tbody{ display:block; }
+    .pf-rxtable thead{ display:none; }
+    .pf-rxtable tr{
+        display:grid;
+        grid-template-columns:repeat(3, minmax(0, 1fr));
+        gap:12px;
+        padding:14px;
+        border-bottom:1px solid var(--line);
+    }
+    .pf-rxtable tr:last-child{ border-bottom:0; }
+    .pf-rxtable td{ display:block; padding:0; border:0; }
+    .pf-rxtable td:first-child,
+    .pf-rxtable td.pf-rxnote{ grid-column:1 / -1; min-width:0; }
+    .pf-rxtable td[data-label]::before{
+        content:attr(data-label);
+        display:block;
+        margin-bottom:4px;
+        font-size:10.5px;
+        font-weight:600;
+        letter-spacing:.4px;
+        text-transform:uppercase;
+        color:var(--muted);
+    }
+    .pf-rxdrug{ min-width:0; }
+}
 
 /* Notes */
 .pf-notes{ margin:0; padding:0; list-style:none; }
@@ -22076,6 +22175,537 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     border-top: 1px solid #f1f5f9;
     display: flex;
     justify-content: flex-end;
+}
+
+/* --- Inventory Movement: responsive ---------------------------------------
+   The table answers to its own card's width (a container query), not the
+   window's — the sidebar decides how much room it really has. Wide: every
+   column. Narrower: the row number and the reason go (both are in View
+   Details). Narrow: each row becomes a compact card. The table sits inset
+   in its card, in its own bordered frame, like every table in the app.
+   ------------------------------------------------------------------------- */
+
+.mv-table-card {
+    container: mvt / inline-size;
+}
+
+.mv-table-toolbar {
+    border-bottom: 0;
+}
+
+.mv-table-wrap {
+    width: auto;
+    margin: 0 20px;
+    border: 1px solid var(--line, #edf2f7);
+    border-radius: 10px;
+}
+
+.mv-table tbody tr:last-child {
+    border-bottom: 0;
+}
+
+.mv-table-footer {
+    border-top: 0;
+}
+
+.mv-table td.mv-c-med {
+    min-width: 220px;
+    white-space: normal;
+}
+
+.mv-med-name {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.mv-table thead th.mv-c-bal {
+    white-space: normal;
+    min-width: 120px;
+}
+
+/* Inline, the 200px cap on the reason never applied — it ran 450px wide. */
+.mv-reason-cell {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.mv-table td.mv-c-ref .mv-ref-link {
+    display: inline-block;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.mv-table th.mv-c-act,
+.mv-table td.mv-c-act {
+    padding-right: 16px !important;
+}
+
+/* The four figures answer to the page's width too: beside the sidebar on a
+   1200–1350px screen there is no room for four in a row. */
+.mv-dashboard-container {
+    container: mvd / inline-size;
+}
+
+@container mvd (max-width: 999.98px) {
+    .mv-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mv-kpi-card {
+        min-width: 0;
+    }
+}
+
+@container mvt (max-width: 1479.98px) {
+    .mv-table .mv-c-num,
+    .mv-table .mv-c-reason {
+        display: none;
+    }
+
+    .mv-table thead th,
+    .mv-table tbody td {
+        padding-inline: 12px;
+    }
+
+    .mv-table thead th.mv-c-date,
+    .mv-table tbody td.mv-c-date {
+        padding-left: 16px;
+    }
+}
+
+@container mvt (max-width: 1159.98px) {
+    .mv-by-avatar,
+    .mv-by-sub {
+        display: none;
+    }
+
+    .mv-sort-icon {
+        margin-left: 2px;
+    }
+
+    .mv-table td.mv-c-med {
+        min-width: 200px;
+    }
+}
+
+/* Who did it is in View Details; below this the row needs the room. */
+@container mvt (max-width: 1099.98px) {
+    .mv-table .mv-c-by {
+        display: none;
+    }
+}
+
+@container mvt (max-width: 999.98px) {
+    .mv-table thead th,
+    .mv-table tbody td {
+        padding-inline: 10px;
+    }
+
+    .mv-table td.mv-c-ref .mv-ref-link {
+        max-width: 120px;
+    }
+}
+
+/* Narrow: every row is a card — medicine and quantity, then type and
+   balance, then when, which document and who. */
+@container mvt (max-width: 899.98px) {
+    .mv-table-wrap {
+        overflow: visible;
+    }
+
+    .mv-table,
+    .mv-table tbody {
+        display: block;
+    }
+
+    .mv-table thead {
+        display: none;
+    }
+
+    .mv-table tbody tr {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+        align-items: start;
+        height: auto;
+        padding: 14px 16px;
+    }
+
+    .mv-table tbody td {
+        min-width: 0;
+        padding: 0;
+        white-space: normal;
+    }
+
+    .mv-table tbody td[colspan] {
+        grid-column: 1 / -1;
+        padding: 28px 12px;
+    }
+
+    .mv-table td.mv-c-num {
+        display: none;
+    }
+
+    .mv-table td.mv-c-med {
+        grid-column: 1 / 4;
+        grid-row: 1;
+        min-width: 0;
+    }
+
+    .mv-table td.mv-c-qty {
+        grid-column: 4;
+        grid-row: 1;
+        align-self: center;
+        justify-self: end;
+        padding-left: 10px;
+    }
+
+    .mv-table td.mv-c-qty span {
+        font-size: 16px;
+    }
+
+    .mv-table td.mv-c-type {
+        grid-column: 1 / 3;
+        grid-row: 2;
+        margin-top: 10px;
+    }
+
+    .mv-table td.mv-c-bal {
+        grid-column: 3 / 5;
+        grid-row: 2;
+        align-self: center;
+        justify-self: end;
+        margin-top: 10px;
+    }
+
+    .mv-table td.mv-c-date,
+    .mv-table td.mv-c-ref,
+    .mv-table td.mv-c-by,
+    .mv-table td.mv-c-act {
+        display: block;
+        grid-row: 3;
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--line-2, #e2e8f0);
+    }
+
+    .mv-table tbody td.mv-c-date,
+    .mv-table tbody td.mv-c-ref,
+    .mv-table tbody td.mv-c-by {
+        padding-left: 0;
+        padding-right: 10px;
+    }
+
+    .mv-table td.mv-c-date { grid-column: 1; }
+    .mv-table td.mv-c-ref { grid-column: 2; }
+    .mv-table td.mv-c-by { grid-column: 3; }
+
+    .mv-table td.mv-c-act {
+        grid-column: 4;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        align-self: stretch;
+        padding-right: 0 !important;
+    }
+
+    .mv-table td.mv-c-reason {
+        display: block;
+        grid-column: 1 / -1;
+        grid-row: 4;
+        margin-top: 8px;
+    }
+
+    .mv-table td.mv-c-reason.is-default {
+        display: none;
+    }
+
+    .mv-table td.mv-c-reason .mv-reason-cell {
+        display: block;
+        max-width: none;
+        white-space: normal;
+    }
+
+    .mv-table td[data-label]::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 2px;
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #94a3b8;
+    }
+
+    .mv-table td.mv-c-ref .mv-ref-link {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .mv-by-avatar,
+    .mv-by-sub {
+        display: none;
+    }
+}
+
+/* Grid view: as many cards as fit, never wider than the screen. */
+.mv-grid-container {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 14px;
+    padding: 0 20px 4px;
+}
+
+.mv-grid-note {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 28px 12px;
+    text-align: center;
+    color: #64748b;
+}
+
+.mv-card-item {
+    min-width: 0;
+    gap: 12px;
+    padding: 14px 16px;
+    border-color: var(--line-2, #e2e8f0);
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mv-card-item:hover {
+    border-color: rgba(var(--brand), 0.35);
+    box-shadow: 0 6px 18px rgba(var(--brand), 0.08);
+}
+
+.mv-card-item:focus-visible {
+    outline: 2px solid rgb(var(--brand));
+    outline-offset: 2px;
+}
+
+.mv-card-head {
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    min-width: 0;
+}
+
+.mv-card-title {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.mv-card-title b {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #0f172a;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.mv-card-title small {
+    margin-top: 2px;
+    overflow: hidden;
+    font-size: 12px;
+    color: #64748b;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.mv-card-qty.mv-qty-pos,
+.mv-card-qty.mv-qty-neg {
+    flex-shrink: 0;
+    font-size: 18px;
+}
+
+.mv-card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
+.mv-card-meta .mv-type-pill {
+    min-width: 0;
+}
+
+.mv-card-meta .mv-type-pill > span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.mv-card-meta .mv-balance-cell {
+    flex-shrink: 0;
+}
+
+.mv-card-facts {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin: auto 0 0;
+    padding-top: 10px;
+    border-top: 1px dashed var(--line-2, #e2e8f0);
+}
+
+.mv-card-facts > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    font-size: 12.5px;
+}
+
+.mv-card-facts dt {
+    flex-shrink: 0;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.mv-card-facts dd {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    font-weight: 500;
+    color: #0f172a;
+    text-align: right;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.mv-card-facts .mv-card-ref {
+    font-weight: 600;
+    color: #2563eb;
+}
+
+@container mvt (max-width: 479.98px) {
+    .mv-table tbody tr {
+        padding: 12px;
+    }
+
+    .mv-table td.mv-c-date .mv-date-main,
+    .mv-table td.mv-c-ref .mv-ref-link,
+    .mv-table td.mv-c-by .mv-by-name {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 575.98px) {
+    /* Four figures two by two, not four tall cards in a column. */
+    .mv-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .mv-kpi-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        min-width: 0;
+        padding: 14px;
+    }
+
+    .mv-kpi-icon-box {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        font-size: 18px;
+    }
+
+    .mv-kpi-content {
+        width: 100%;
+    }
+
+    .mv-kpi-label {
+        font-size: 12px;
+    }
+
+    .mv-kpi-val-row {
+        flex-wrap: wrap;
+        column-gap: 6px;
+        row-gap: 0;
+    }
+
+    .mv-kpi-val {
+        font-size: 20px;
+    }
+
+    .mv-kpi-sub {
+        font-size: 11.5px;
+    }
+
+    .mv-filter-card {
+        padding: 16px;
+    }
+
+    .mv-filter-grid {
+        gap: 12px;
+    }
+
+    /* More Filters on its own row, Clear and Apply side by side under it. */
+    .mv-filter-actions-row {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .mv-btn-more-filters,
+    .mv-filter-actions-right {
+        flex: 1 1 100%;
+    }
+
+    .mv-filter-actions-right {
+        gap: 10px;
+    }
+
+    .mv-btn-more-filters,
+    .mv-filter-actions-right > button {
+        justify-content: center;
+        white-space: nowrap;
+    }
+
+    .mv-filter-actions-right > button {
+        flex: 1 1 0;
+    }
+
+    .mv-table-toolbar {
+        padding: 14px 16px;
+    }
+
+    .mv-table-wrap {
+        margin: 0 12px;
+    }
+
+    .mv-grid-container {
+        gap: 12px;
+        padding: 0 12px 4px;
+    }
+
+    .mv-card-item {
+        padding: 12px 14px;
+    }
+
+    .mv-table-footer {
+        justify-content: center;
+        padding: 14px 16px;
+        text-align: center;
+    }
+
+    .mv-footer-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
 }
 
 

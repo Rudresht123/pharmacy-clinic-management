@@ -3,12 +3,15 @@
 namespace App\Http\Requests\Api\V1\Platform;
 
 use App\Models\Platform\Organization;
+use App\Models\Platform\Plan;
+use App\Models\Platform\Subscription;
 use App\Services\Geo\OrganizationLocator;
 use App\Services\Geo\PincodeLookup;
 use App\Support\Platform\OrganizationCode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\Validator;
 
 class StoreOrganizationRequest extends FormRequest
 {
@@ -59,6 +62,46 @@ class StoreOrganizationRequest extends FormRequest
 
             'profile_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'is_active' => ['nullable', 'boolean'],
+
+            /*
+             * The plan it starts on, chosen while registering it. Optional:
+             * without one it starts on the default trial plan from Billing
+             * Settings, or Complimentary (SubscriptionOnboarding). Checked in
+             * full here, because a refusal from inside provisioning would
+             * reach the form as a failure rather than as this field's error.
+             */
+            'subscription' => ['nullable', 'array'],
+            'subscription.plan_id' => ['nullable', 'integer', Rule::exists(Plan::class, 'id')->whereNot('status', Plan::ARCHIVED)],
+            'subscription.billing_cycle' => ['nullable', Rule::in(Subscription::CYCLES)],
+            'subscription.trial' => ['nullable', 'boolean'],
+
+            // The agreed price for the cycle, in paise; blank is the list price.
+            'subscription.price' => ['nullable', 'integer', 'min:0', 'max:100000000000'],
+
+            // The term may be waived here; "paid" only ever comes from a payment.
+            'subscription.payment_status' => ['nullable', Rule::in([Subscription::PAYMENT_PENDING, Subscription::PAYMENT_WAIVED])],
+        ];
+    }
+
+    /** A trial only of a plan that has one. */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $choice = (array) $this->input('subscription', []);
+
+                if (empty($choice['plan_id'])
+                    || ! filter_var($choice['trial'] ?? false, FILTER_VALIDATE_BOOLEAN)
+                    || $validator->errors()->has('subscription.plan_id')) {
+                    return;
+                }
+
+                $plan = Plan::query()->find($choice['plan_id']);
+
+                if ($plan !== null && $plan->trial_days < 1) {
+                    $validator->errors()->add('subscription.trial', "The {$plan->name} plan has no trial.");
+                }
+            },
         ];
     }
 
@@ -81,6 +124,8 @@ class StoreOrganizationRequest extends FormRequest
             'phone_number.digits_between' => 'The phone number must be between 10 and 15 digits.',
             'postal_code.regex' => 'Enter a 6-digit PIN code.',
             'profile_image.max' => 'The organization logo may not exceed 2 MB.',
+            'subscription.plan_id.exists' => 'Choose a plan that is on sale.',
+            'subscription.price.integer' => 'Enter the agreed price as an amount.',
         ];
     }
 

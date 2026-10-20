@@ -732,6 +732,35 @@ body {
     }
 }
 
+/*
+   A phone's header holds the menu button, the search, the subscription
+   clock and the account. Tighter padding, the account without its chevron,
+   and below 420px the day/night button goes — the Appearance panel behind
+   the gear has the same switch — so nothing is pushed off the edge.
+*/
+@media (max-width: 767.98px) {
+    .app-header {
+        padding: 0 12px;
+        gap: 8px;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .acct-trigger {
+        padding: 2px;
+    }
+
+    .acct-trigger .ti-chevron-down {
+        display: none;
+    }
+}
+
+@media (max-width: 419.98px) {
+    .app-theme-btn {
+        display: none !important;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .app-sidebar,
     .app-header,
@@ -2800,7 +2829,8 @@ body {
     .image-viewer-img,
     .image-viewer-btn,
     .previewable-hint,
-    .avatar-trigger {
+    .pav--clickable,
+    .pav-zoom {
         transition: none;
     }
 

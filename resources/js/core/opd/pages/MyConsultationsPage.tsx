@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/shared/components/ui/Card';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
 import { Pagination } from '@/shared/components/ui/Pagination';
-import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
+import { Avatar } from '@/shared/components/ui/Avatar';
 import { http } from '@/shared/api/http';
 import { resourceKey } from '@/shared/hooks/useResource';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
@@ -308,9 +308,11 @@ export default function MyConsultationsPage() {
                     ) : (
                         <>
                             <div className="cs-head">
-                                <PersonPhoto
-                                    src={null}
+                                <Avatar
+                                    src={open.customer_photo_url}
                                     name={open.customer_name}
+                                    fallback="silhouette"
+                                    caption={open.customer_code}
                                     className="pa-face"
                                 />
 

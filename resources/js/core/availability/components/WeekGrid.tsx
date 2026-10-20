@@ -1,4 +1,4 @@
-import { PersonPhoto } from '@/shared/components/ui/PersonPhoto';
+import { Avatar } from '@/shared/components/ui/Avatar';
 import type { AvailabilityWeek, DayState, WeekDoctor } from '../types';
 
 /** How each state reads, in words as well as colour. */
@@ -75,9 +75,10 @@ export function WeekGrid({
                                         onClick={() => onSelect(doctor)}
                                         aria-pressed={selected === doctor.doctor_id}
                                     >
-                                        <PersonPhoto
+                                        <Avatar
                                             src={doctor.photo_url}
                                             name={doctor.doctor_name}
+                                            fallback="silhouette"
                                             className="wk-face"
                                         />
 

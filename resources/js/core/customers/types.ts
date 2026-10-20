@@ -35,6 +35,9 @@ export interface Customer {
     code: string | null;
     name: string;
 
+    /** Their photograph's URL; null when none was taken. */
+    photo_url?: string | null;
+
     /** Where they signed up — provenance, never a restriction on access. */
     registered_location_id: number | null;
     registered_location?: { id: number; name: string } | null;

@@ -10,6 +10,7 @@ use App\Http\Resources\Tenant\CustomerResource;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\EntityFieldSetting;
+use App\Models\Tenant\File;
 use App\Models\Tenant\User;
 use App\Repositories\Tenant\Contracts\CustomerRepositoryInterface;
 use App\Services\Billing\BillingTriggerResolver;
@@ -18,6 +19,7 @@ use App\Services\Permissions\Permission;
 use App\Support\Fields\CustomerFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -120,7 +122,74 @@ class CustomerController extends BaseApiController
 
     public function show(Customer $customer): JsonResponse
     {
-        return $this->ok(CustomerResource::make($customer));
+        return $this->ok(CustomerResource::make($customer->loadMissing('photograph')));
+    }
+
+    /**
+     * Replace the patient's photograph.
+     *
+     * Its own endpoint rather than a field on the form, as a doctor's is: a
+     * file is not JSON, and the registration form should not turn multipart
+     * for the one patient in fifty who has their picture taken.
+     */
+    public function uploadPhoto(Request $request, Customer $customer): JsonResponse
+    {
+        $request->validate([
+            // What a phone or a webcam produces. Never SVG — a document that can carry script.
+            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+        ]);
+
+        $previous = $customer->photograph;
+        $upload = $request->file('photo');
+
+        $file = File::create([
+            'file_name' => $upload->getClientOriginalName(),
+            'file_path' => $upload->store('customers', 'public'),
+            'disk' => 'public',
+            'mime_type' => $upload->getClientMimeType(),
+            'file_size' => $upload->getSize(),
+            'extension' => $upload->getClientOriginalExtension(),
+        ]);
+
+        $customer->forceFill(['photo' => $file->id])->save();
+
+        // Only once the new one is in place, and only if nobody else shows it.
+        $this->forgetPhoto($previous, $customer);
+
+        return $this->ok(CustomerResource::make($customer->load('photograph')), 'Photo updated');
+    }
+
+    /** Remove it, leaving the patient. */
+    public function deletePhoto(Customer $customer): JsonResponse
+    {
+        $previous = $customer->photograph;
+
+        $customer->forceFill(['photo' => null])->save();
+        $this->forgetPhoto($previous, $customer);
+
+        return $this->ok(CustomerResource::make($customer->load('photograph')), 'Photo removed');
+    }
+
+    /**
+     * Delete a photograph's file — unless another patient still shows it.
+     *
+     * Demo portraits are shared between patients; purging one with the first
+     * patient whose picture changed would blank every other patient using it.
+     */
+    private function forgetPhoto(?File $file, Customer $customer): void
+    {
+        if (! $file) {
+            return;
+        }
+
+        $sharedElsewhere = Customer::withTrashed()
+            ->where('photo', $file->id)
+            ->whereKeyNot($customer->id)
+            ->exists();
+
+        if (! $sharedElsewhere) {
+            $file->purge();
+        }
     }
 
     /**
@@ -179,7 +248,7 @@ class CustomerController extends BaseApiController
     /**
      * What the visits add up to.
      *
-     * @param  \Illuminate\Support\Collection<int, Appointment>  $visits
+     * @param  Collection<int, Appointment>  $visits
      * @return array<string, mixed>
      */
     private function summarise(Customer $customer, $visits): array

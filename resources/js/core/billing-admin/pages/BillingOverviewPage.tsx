@@ -5,7 +5,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { DonutChart } from '@/shared/components/ui/DonutChart';
 import { ErrorState } from '@/shared/components/ui/Feedback';
-import { formatDay, formatPaise } from '@/core/subscription/money';
+import { formatPaise, formatRupees, formatShortDay } from '@/core/subscription/money';
 import { useOverview } from '../api';
 import { StatusChip } from '../components/Common';
 import { AddSubscriptionDialog } from '../components/AddSubscriptionDialog';
@@ -47,11 +47,11 @@ export default function BillingOverviewPage() {
             {isError && <ErrorState onRetry={() => void refetch()} />}
 
             <KpiRow>
-                <KpiCard icon="ti ti-currency-rupee" tone="emerald" label="Total Revenue" value={formatPaise(k?.total_revenue.value ?? 0)} change={k?.total_revenue.change} hint="Received in this period" />
+                <KpiCard icon="ti ti-currency-rupee" tone="emerald" label="Total Revenue" value={formatRupees(k?.total_revenue.value ?? 0)} change={k?.total_revenue.change} hint="Received in this period" />
                 <KpiCard icon="ti ti-users-group" tone="violet" label="Active Subscriptions" value={k?.active_subscriptions.value ?? 0} change={k?.active_subscriptions.change} onClick={() => navigate('/billing/subscriptions')} />
                 <KpiCard icon="ti ti-file-invoice" tone="sky" label="Total Invoices" value={k?.total_invoices.value ?? 0} change={k?.total_invoices.change} hint="Issued in this period" onClick={() => navigate('/billing/invoices')} />
-                <KpiCard icon="ti ti-clock-dollar" tone="amber" label="Pending Payments" value={formatPaise(k?.pending_payments.value ?? 0)} hint={`${k?.pending_payments.count ?? 0} unpaid invoice(s)`} onClick={() => navigate('/billing/invoices?status=pending')} />
-                <KpiCard icon="ti ti-alert-octagon" tone="rose" label="Overdue Invoices" value={k?.overdue_invoices.value ?? 0} hint={formatPaise(k?.overdue_invoices.amount ?? 0)} onClick={() => navigate('/billing/invoices?status=overdue')} />
+                <KpiCard icon="ti ti-clock-dollar" tone="amber" label="Pending Payments" value={formatRupees(k?.pending_payments.value ?? 0)} hint={`${k?.pending_payments.count ?? 0} unpaid invoice(s)`} onClick={() => navigate('/billing/invoices?status=pending')} />
+                <KpiCard icon="ti ti-alert-octagon" tone="rose" label="Overdue Invoices" value={k?.overdue_invoices.value ?? 0} hint={formatRupees(k?.overdue_invoices.amount ?? 0)} onClick={() => navigate('/billing/invoices?status=overdue')} />
             </KpiRow>
 
             <div className="sxa-split">
@@ -75,7 +75,7 @@ export default function BillingOverviewPage() {
                         <h6>Recent Invoices</h6>
                         <Link to="/billing/invoices" className="sxa-link">View All</Link>
                     </div>
-                    <div className="sxa-table">
+                    <div className="sxa-table is-compact">
                         <table className="table mb-0">
                             <thead>
                                 <tr>
@@ -85,26 +85,24 @@ export default function BillingOverviewPage() {
                                     <th>Amount</th>
                                     <th>Date</th>
                                     <th>Status</th>
-                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {(data?.recent_invoices ?? []).map((invoice, i) => (
                                     <tr key={invoice.uuid}>
                                         <td>{i + 1}</td>
-                                        <td><b>{invoice.number ?? '—'}</b></td>
-                                        <td>{invoice.organization?.name ?? invoice.bill_to ?? '—'}</td>
-                                        <td>{formatPaise(invoice.total, invoice.currency)}</td>
-                                        <td>{formatDay(invoice.issued_at)}</td>
-                                        <td><StatusChip status={invoice.status} /></td>
-                                        <td>
-                                            <Link className="sxa-link" to={`/billing/invoices?search=${encodeURIComponent(invoice.number ?? '')}`}>View</Link>
+                                        <td className="text-nowrap">
+                                            <Link className="sxa-link" to={`/billing/invoices?search=${encodeURIComponent(invoice.number ?? '')}`}>{invoice.number ?? '—'}</Link>
                                         </td>
+                                        <td>{invoice.organization?.name ?? invoice.bill_to ?? '—'}</td>
+                                        <td className="text-nowrap">{formatPaise(invoice.total, invoice.currency)}</td>
+                                        <td className="text-nowrap">{formatShortDay(invoice.issued_at)}</td>
+                                        <td><StatusChip status={invoice.status} /></td>
                                     </tr>
                                 ))}
                                 {data && data.recent_invoices.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} className="text-center text-muted py-4">No invoices yet.</td>
+                                        <td colSpan={6} className="text-center text-muted py-4">No invoices yet.</td>
                                     </tr>
                                 )}
                             </tbody>

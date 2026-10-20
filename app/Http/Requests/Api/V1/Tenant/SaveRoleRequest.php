@@ -3,10 +3,13 @@
 namespace App\Http\Requests\Api\V1\Tenant;
 
 use App\Models\Tenant\Role;
+use App\Models\Tenant\User;
 use App\Services\Permissions\Permission;
+use App\Services\Permissions\StaffScope;
 use App\Support\Modules\ModuleRegistry;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 /**
@@ -102,7 +105,8 @@ class SaveRoleRequest extends FormRequest
                     }
                 }
 
-                $scope = $this->input('scope', Role::SCOPE_BRANCH);
+                $scope = $this->effectiveScope();
+                $this->refuseWideningOwnRole($validator, $permission);
 
                 foreach ((array) $this->input('capabilities', []) as $index => $capability) {
                     /*
@@ -152,6 +156,67 @@ class SaveRoleRequest extends FormRequest
                 }
             },
         ];
+    }
+
+    /**
+     * The scope this role will actually have once saved — never simply what
+     * the request says.
+     *
+     * RoleController decides it: an existing role keeps its own (scope is not
+     * editable), and anybody but the owner writes branch roles only. Reading
+     * `scope` off the request instead let a branch manager send
+     * "organization" and slip an organization-only capability past the check
+     * below onto what is, and stays, a branch role.
+     */
+    private function effectiveScope(): string
+    {
+        $role = $this->route('role');
+
+        if ($role instanceof Role) {
+            return $role->scope;
+        }
+
+        $actor = Auth::guard('web')->user();
+
+        return $actor instanceof User && $actor->isOwner()
+            ? (string) $this->input('scope', Role::SCOPE_BRANCH)
+            : Role::SCOPE_BRANCH;
+    }
+
+    /**
+     * Nobody widens a role they hold themselves beyond what they already have.
+     *
+     * Handing a role out is checked (StaffScope::canGrant), but somebody who
+     * already holds a role their branch wrote never needs to hand it out —
+     * editing it was a way to grant themselves anything the branch runs.
+     * Only what is being ADDED is compared, so removing permissions, or
+     * renaming, stays open; and writing roles for other people is unchanged.
+     */
+    private function refuseWideningOwnRole(Validator $validator, Permission $permission): void
+    {
+        $role = $this->route('role');
+        $actor = Auth::guard('web')->user();
+        $organization = $this->attributes->get('tenant.organization');
+
+        if (! $role instanceof Role || ! $actor instanceof User || ! $organization || $actor->isOwner()) {
+            return;
+        }
+
+        $holdsIt = (int) $actor->role_id === (int) $role->getKey()
+            || $actor->memberships->contains(fn ($membership) => (int) $membership->role_id === (int) $role->getKey());
+
+        if (! $holdsIt) {
+            return;
+        }
+
+        $added = array_values(array_diff((array) $this->input('capabilities', []), $role->capabilityKeys()));
+
+        if (! app(StaffScope::class)->canGrant($actor, $added, $permission->capabilitiesFor($organization, $actor))) {
+            $validator->errors()->add(
+                'capabilities',
+                'You hold this role yourself, so you cannot add permissions to it that you do not already have. Ask an owner to change it.'
+            );
+        }
     }
 
     /** @return array<string, string> */

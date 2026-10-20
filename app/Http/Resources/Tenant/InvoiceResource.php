@@ -32,6 +32,7 @@ class InvoiceResource extends JsonResource
             'consultation_id' => $this->consultation_id,
             'doctor_id' => $this->doctor_id,
             'doctor_name' => $this->whenLoaded('doctor', fn () => $this->doctor?->name),
+            'doctor_specialisation' => $this->whenLoaded('doctor', fn () => $this->doctor?->specialisation),
 
             'status' => $this->status,
             'payment_status' => $this->payment_status,

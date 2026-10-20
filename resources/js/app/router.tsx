@@ -21,6 +21,7 @@ const MobileAppSettingsPage = lazy(
 );
 const BillingOverviewPage = lazy(() => import('@/core/billing-admin/pages/BillingOverviewPage'));
 const BillingPlansPage = lazy(() => import('@/core/billing-admin/pages/PlansPage'));
+const BillingPlanFormPage = lazy(() => import('@/core/billing-admin/pages/PlanFormPage'));
 const BillingPricingPage = lazy(() => import('@/core/billing-admin/pages/PricingPage'));
 const BillingSubscriptionsPage = lazy(() => import('@/core/billing-admin/pages/SubscriptionsPage'));
 const BillingOrganizationPage = lazy(
@@ -102,6 +103,8 @@ export function AppRoutes() {
                             <Route path="/billing" element={<Navigate to="/billing/overview" replace />} />
                             <Route path="/billing/overview" element={<BillingOverviewPage />} />
                             <Route path="/billing/plans" element={<BillingPlansPage />} />
+                            <Route path="/billing/plans/new" element={<BillingPlanFormPage />} />
+                            <Route path="/billing/plans/:uuid" element={<BillingPlanFormPage />} />
                             <Route path="/billing/pricing" element={<BillingPricingPage />} />
                             <Route path="/billing/subscriptions" element={<BillingSubscriptionsPage />} />
                             <Route path="/billing/organizations/:uuid" element={<BillingOrganizationPage />} />

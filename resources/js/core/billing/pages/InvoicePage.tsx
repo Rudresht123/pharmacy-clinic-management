@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
-import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
 import { LoadingBlock } from '@/shared/components/ui/Feedback';
@@ -23,26 +22,66 @@ import {
 } from '../api';
 import { PaymentDialog } from '../components/PaymentDialog';
 
-/** Where a line came from, for the badge beside it. */
+/** Where a line came from, for the tag under it. */
 const SOURCE_LABELS: Record<string, { label: string; tone: string }> = {
-    consultation: { label: 'Consultation', tone: 'indigo' },
+    consultation: { label: 'Consultation', tone: 'blue' },
     lab_test: { label: 'Laboratory', tone: 'teal' },
-    pharmacy_sale_item: { label: 'Pharmacy', tone: 'rose' },
+    pharmacy_sale_item: { label: 'Pharmacy', tone: 'red' },
     procedure: { label: 'Procedure', tone: 'amber' },
-    service: { label: 'Service', tone: 'secondary' },
-    custom: { label: 'Other', tone: 'secondary' },
+    service: { label: 'Service', tone: 'slate' },
+    custom: { label: 'Other', tone: 'slate' },
 };
 
+/** What the bill is called, and its mark, by which department's book it is in. */
+const KIND_META: Record<string, { title: string; icon: string }> = {
+    visit: { title: 'Visit Invoice', icon: 'ti ti-stethoscope' },
+    lab: { title: 'Lab Invoice', icon: 'ti ti-flask' },
+    registration: { title: 'Registration Invoice', icon: 'ti ti-user-plus' },
+    manual: { title: 'Invoice', icon: 'ti ti-receipt' },
+};
+
+const STATUS_META: Record<string, { tone: string; icon: string }> = {
+    draft: { tone: 'slate', icon: 'ti ti-pencil' },
+    pending: { tone: 'amber', icon: 'ti ti-clock-hour-4' },
+    partially_paid: { tone: 'blue', icon: 'ti ti-progress' },
+    paid: { tone: 'green', icon: 'ti ti-circle-check' },
+    cancelled: { tone: 'red', icon: 'ti ti-ban' },
+    refunded: { tone: 'violet', icon: 'ti ti-arrow-back-up' },
+    partially_refunded: { tone: 'violet', icon: 'ti ti-arrow-back-up' },
+};
+
+/** When the bill was drawn, in words. */
+const TRIGGER_LABELS: Record<string, string> = {
+    consultation: 'Consultation',
+    checkin: 'Check-in',
+    manual: 'Manual',
+    lab_order: 'Lab order',
+    laboratory: 'Lab sign-off',
+    pharmacy: 'Pharmacy',
+};
+
+const PAYMENT_TONES: Record<string, string> = { paid: 'green', partial: 'amber', unpaid: 'red' };
+
 const money = (value: number) => `₹${value.toFixed(2)}`;
+
+/** "20 Oct 2026, 11:45 AM" */
+function raisedAt(value: string | null | undefined): string {
+    if (!value) return formatDate(value);
+
+    const time = new Date(value).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+    return `${formatDate(value)}, ${time}`;
+}
 
 /**
  * One invoice, in full.
  *
- * Lines, running total and the payments taken against it — all here on the
- * one screen because that is what a counter reads while somebody pays. The
- * "Take payment" modal is a form, not another route, so the invoice stays
- * on screen and the outstanding figure updates as soon as the payment
- * lands.
+ * The bill on the left — who raised it, its lines, what it adds up to and
+ * what can be done with it — and on the right what has been paid against it
+ * and what the visit was. All on one screen because that is what a counter
+ * reads while somebody pays. "Take payment" is a form, not another route, so
+ * the bill stays in view and the outstanding figure updates as soon as the
+ * payment lands.
  */
 export default function InvoicePage() {
     const params = useParams<{ id: string }>();
@@ -88,8 +127,12 @@ export default function InvoicePage() {
         }
     }
 
-    /** The bill itself, or the slip for one payment or refund against it. */
-    async function print(documentType: 'clinic_invoice' | 'clinic_receipt' | 'clinic_refund', subjectId: number) {
+    /** The bill itself, or the slip for one payment or refund against it — opened, or saved. */
+    async function print(
+        documentType: 'clinic_invoice' | 'clinic_receipt' | 'clinic_refund',
+        subjectId: number,
+        download = false,
+    ) {
         setRefusal(null);
 
         try {
@@ -98,32 +141,27 @@ export default function InvoicePage() {
                 subject_id: subjectId,
             });
 
-            await openDocument(document_);
+            await openDocument(document_, download);
         } catch (failure) {
             setRefusal(resolveErrorMessage(failure));
         }
-    }
-
-    async function printInvoice() {
-        if (!invoice) return;
-
-        await print('clinic_invoice', invoice.id);
     }
 
     if (isLoading || !invoice) {
         return <LoadingBlock label="Loading invoice…" />;
     }
 
-    const tone =
-        invoice.status === 'cancelled'
-            ? 'danger'
-            : invoice.status === 'paid'
-              ? 'success'
-              : invoice.status === 'refunded' || invoice.status === 'partially_refunded'
-                ? 'warning'
-                : 'info';
-
+    const kind = KIND_META[invoice.kind] ?? KIND_META.manual;
+    const status = STATUS_META[invoice.status] ?? STATUS_META.pending;
+    const paymentTone = PAYMENT_TONES[invoice.payment_status] ?? 'slate';
     const refunded = invoice.refunded_amount ?? 0;
+    const cancelled = invoice.status === 'cancelled';
+
+    // A doctor who raised their own visit's bill reads with their department under the name.
+    const raiserIsDoctor = Boolean(invoice.doctor_name) && invoice.created_by_name === invoice.doctor_name;
+
+    const showDocuments = canPrint && !invoice.is_draft && !cancelled;
+    const showCancel = canCancel && !cancelled && invoice.paid_amount === 0;
 
     async function confirmCancel(reason: string) {
         if (!invoice) return;
@@ -160,17 +198,6 @@ export default function InvoicePage() {
                         >
                             Back
                         </Button>
-                        {canPrint && !invoice.is_draft && invoice.status !== 'cancelled' && (
-                            <Button
-                                variant="light"
-                                icon="ti ti-printer"
-                                onClick={() => void printInvoice()}
-                                disabled={generate.isPending}
-                                type="button"
-                            >
-                                {generate.isPending ? 'Preparing…' : 'Print'}
-                            </Button>
-                        )}
 
                         {/* A draft is closed before it can be paid — the whole
                             point of consolidating is that the patient is asked
@@ -186,14 +213,11 @@ export default function InvoicePage() {
                             </Button>
                         )}
 
-                        {!invoice.is_draft &&
-                            canCollect &&
-                            invoice.outstanding > 0 &&
-                            invoice.status !== 'cancelled' && (
-                                <Button icon="ti ti-cash" onClick={() => setPayingOpen(true)} type="button">
-                                    Take payment
-                                </Button>
-                            )}
+                        {!invoice.is_draft && canCollect && invoice.outstanding > 0 && !cancelled && (
+                            <Button icon="ti ti-cash" onClick={() => setPayingOpen(true)} type="button">
+                                Take payment
+                            </Button>
+                        )}
                     </div>
                 }
             />
@@ -202,225 +226,406 @@ export default function InvoicePage() {
                 <div className="alert alert-danger py-2 mb-3">{refusal}</div>
             )}
 
-            <div className="row g-3">
-                <div className="col-lg-8">
-                    <Card>
-                        <div className="d-flex justify-content-between align-items-center mb-3">
+            <div className="ivp-layout">
+                {/* ------------------------------------------------ the bill */}
+                <section className="ivp-card">
+                    <header className="ivp-head">
+                        <div className="ivp-title">
+                            <span className="ivp-title-icon" aria-hidden="true">
+                                <i className={kind.icon} />
+                            </span>
+
                             <div>
-                                <span className={`badge bg-${tone}-subtle text-${tone} me-2`}>
-                                    {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
-                                </span>
-                                {/* Which department's book this bill is in. */}
-                                <span className="badge bg-primary-subtle text-primary me-2">
-                                    {INVOICE_KIND_LABELS[invoice.kind] ?? invoice.kind}
-                                </span>
-                                <span className="badge bg-secondary-subtle text-secondary">
-                                    Trigger: {invoice.trigger.replace(/_/g, ' ')}
-                                </span>
+                                <h2>{kind.title}</h2>
+                                <div className="ivp-meta">
+                                    <span className="tabular-nums">{invoice.invoice_number}</span>
+                                    <span className="ivp-meta-sep" aria-hidden="true" />
+                                    <span>{raisedAt(invoice.created_at ?? invoice.invoice_date)}</span>
+                                </div>
                             </div>
-                            {invoice.created_by_name && (
-                                <span className="dr-sub">Raised by {invoice.created_by_name}</span>
-                            )}
                         </div>
 
-                        {invoice.status === 'cancelled' && invoice.cancellation_reason && (
-                            <div className="alert alert-danger py-2 mb-3">
-                                <b>Cancelled:</b> {invoice.cancellation_reason}
+                        {invoice.created_by_name && (
+                            <div className="ivp-raised">
+                                <span>Raised by</span>
+                                <span className="ivp-who">
+                                    <span className="ivp-avatar" aria-hidden="true">
+                                        <i className="ti ti-user" />
+                                    </span>
+                                    <span>
+                                        <b>{invoice.created_by_name}</b>
+                                        {raiserIsDoctor && (
+                                            <small>{invoice.doctor_specialisation || 'Doctor'}</small>
+                                        )}
+                                    </span>
+                                </span>
                             </div>
+                        )}
+                    </header>
+
+                    <div className="ivp-body">
+                        <div className="ivp-pills">
+                            <span className={`ivp-pill is-${status.tone}`}>
+                                <i className={status.icon} aria-hidden="true" />
+                                {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
+                            </span>
+                            {/* Which department's book this bill is in. */}
+                            <span className="ivp-pill is-indigo">
+                                {INVOICE_KIND_LABELS[invoice.kind] ?? invoice.kind}
+                            </span>
+                            <span className="ivp-pill is-green">
+                                <i className="ti ti-bolt" aria-hidden="true" />
+                                Trigger: {TRIGGER_LABELS[invoice.trigger] ?? invoice.trigger.replace(/_/g, ' ')}
+                            </span>
+                        </div>
+
+                        {cancelled && invoice.cancellation_reason && (
+                            <p className="ivp-note is-red">
+                                <b>Cancelled:</b> {invoice.cancellation_reason}
+                            </p>
                         )}
 
                         {invoice.is_draft && (
-                            <div className="alert alert-warning py-2 mb-3">
-                                <b>Not closed yet.</b> This bill was opened before each department
-                                billed for itself. Close it to take payment — the OPD&apos;s own
-                                charges are added first. Lab tests and medicines are billed by the
-                                lab and the pharmacy on their own bills.
-                            </div>
+                            <p className="ivp-note is-amber">
+                                <b>Not closed yet.</b> This bill was opened before each department billed for
+                                itself. Close it to take payment — the OPD&apos;s own charges are added first.
+                                Lab tests and medicines are billed by the lab and the pharmacy on their own bills.
+                            </p>
                         )}
 
-                        <div className="pf-table-wrap">
-                            <table className="table table-sm mb-0">
+                        <div className="ivp-table-frame">
+                            <table className="ivp-table">
                                 <thead>
                                     <tr>
-                                        <th>Line</th>
-                                        <th className="text-end">Qty</th>
-                                        <th className="text-end">Price</th>
-                                        <th className="text-end">Discount</th>
-                                        <th className="text-end">Tax</th>
-                                        <th className="text-end">Amount</th>
+                                        <th>S.No.</th>
+                                        <th>Item / Service</th>
+                                        <th className="ivp-mid">Qty</th>
+                                        <th className="ivp-num">Unit Price</th>
+                                        <th className="ivp-num">Discount</th>
+                                        <th className="ivp-num">Tax</th>
+                                        <th className="ivp-num">Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {(invoice.items ?? []).map((item) => (
-                                        <tr key={item.id}>
-                                            <td>
-                                                {item.description}
-                                                <span className="dr-sub d-block">
-                                                    <span
-                                                        className={`badge bg-${SOURCE_LABELS[item.source_type]?.tone ?? 'secondary'}-subtle text-${SOURCE_LABELS[item.source_type]?.tone ?? 'secondary'}`}
-                                                    >
-                                                        {SOURCE_LABELS[item.source_type]?.label ??
-                                                            item.source_type.replace(/_/g, ' ')}
+                                    {(invoice.items ?? []).map((item, index) => {
+                                        const source = SOURCE_LABELS[item.source_type];
+                                        // "General Medicine consultation" — what the line was, when it can be said.
+                                        const detail =
+                                            item.source_type === 'consultation' && invoice.doctor_specialisation
+                                                ? `${invoice.doctor_specialisation} consultation`
+                                                : null;
+
+                                        return (
+                                            <tr key={item.id}>
+                                                <td className="ivp-sno">{index + 1}</td>
+                                                <td className="ivp-item">
+                                                    <b>{item.description}</b>
+                                                    {detail && <small>{detail}</small>}
+                                                    <span className={`ivp-tag is-${source?.tone ?? 'slate'}`}>
+                                                        {source?.label ?? item.source_type.replace(/_/g, ' ')}
                                                     </span>
-                                                </span>
-                                            </td>
-                                            <td className="text-end tabular-nums">{item.quantity}</td>
-                                            <td className="text-end tabular-nums">{money(item.unit_price)}</td>
-                                            <td className="text-end tabular-nums">
-                                                {item.discount_amount > 0 ? money(item.discount_amount) : '—'}
-                                            </td>
-                                            <td className="text-end tabular-nums">
-                                                {item.tax_amount > 0 ? (
-                                                    <>
-                                                        {money(item.tax_amount)}
-                                                        <span className="dr-sub d-block">{item.tax_percent}%</span>
-                                                    </>
-                                                ) : (
-                                                    '—'
-                                                )}
-                                            </td>
-                                            <td className="text-end tabular-nums">{money(item.line_total)}</td>
-                                        </tr>
-                                    ))}
+                                                </td>
+                                                <td className="ivp-mid">{item.quantity}</td>
+                                                <td className="ivp-num">{money(item.unit_price)}</td>
+                                                <td className="ivp-num">
+                                                    {item.discount_amount > 0 ? money(item.discount_amount) : '—'}
+                                                </td>
+                                                <td className="ivp-num">
+                                                    {item.tax_amount > 0 ? (
+                                                        <>
+                                                            {money(item.tax_amount)}
+                                                            <span className="ivp-sub">{item.tax_percent}%</span>
+                                                        </>
+                                                    ) : (
+                                                        '—'
+                                                    )}
+                                                </td>
+                                                <td className="ivp-num ivp-amount">{money(item.line_total)}</td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
 
-                        <dl className="row mt-3 mb-0 fs-13">
-                            <dt className="col-8 text-end">Subtotal</dt>
-                            <dd className="col-4 text-end tabular-nums">{money(invoice.subtotal)}</dd>
+                        <div className="ivp-totals">
+                            <div className="ivp-total-row">
+                                <span>Subtotal</span>
+                                <span>{money(invoice.subtotal)}</span>
+                            </div>
                             {invoice.discount_amount > 0 && (
-                                <>
-                                    <dt className="col-8 text-end">Discount</dt>
-                                    <dd className="col-4 text-end tabular-nums">−{money(invoice.discount_amount)}</dd>
-                                </>
+                                <div className="ivp-total-row">
+                                    <span>Discount</span>
+                                    <span>−{money(invoice.discount_amount)}</span>
+                                </div>
                             )}
                             {invoice.tax_amount > 0 && (
-                                <>
-                                    <dt className="col-8 text-end">Tax</dt>
-                                    <dd className="col-4 text-end tabular-nums">{money(invoice.tax_amount)}</dd>
-                                </>
+                                <div className="ivp-total-row">
+                                    <span>Tax</span>
+                                    <span>{money(invoice.tax_amount)}</span>
+                                </div>
                             )}
-                            <dt className="col-8 text-end fw-bold">Total</dt>
-                            <dd className="col-4 text-end tabular-nums fw-bold">{money(invoice.total_amount)}</dd>
-                            <dt className="col-8 text-end">Paid</dt>
-                            <dd className="col-4 text-end tabular-nums">{money(invoice.paid_amount)}</dd>
+                            <div className="ivp-total-row is-strong">
+                                <span>Total</span>
+                                <span>{money(invoice.total_amount)}</span>
+                            </div>
+                            <div className="ivp-total-row">
+                                <span>Paid</span>
+                                <span>{money(invoice.paid_amount)}</span>
+                            </div>
                             {refunded > 0 && (
+                                // Handed back — and credited to the bill, so never owed again.
+                                <div className="ivp-total-row">
+                                    <span>Refunded</span>
+                                    <span>{money(refunded)}</span>
+                                </div>
+                            )}
+                            <div className={`ivp-total-row ${invoice.outstanding > 0 ? 'is-due' : 'is-settled'}`}>
+                                <span>Outstanding</span>
+                                <span>{money(invoice.outstanding)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {(showDocuments || showCancel) && (
+                        <footer className="ivp-foot">
+                            {showDocuments && (
                                 <>
-                                    {/* Handed back — and credited to the bill, so never owed again. */}
-                                    <dt className="col-8 text-end">Refunded</dt>
-                                    <dd className="col-4 text-end tabular-nums">{money(refunded)}</dd>
+                                    <button
+                                        type="button"
+                                        className="ivp-btn"
+                                        onClick={() => void print('clinic_invoice', invoice.id)}
+                                        disabled={generate.isPending}
+                                    >
+                                        <i className="ti ti-printer" aria-hidden="true" />
+                                        {generate.isPending ? 'Preparing…' : 'Print Invoice'}
+                                    </button>
+
+                                    {/* Not wired yet: delivering documents by WhatsApp or
+                                        email is the open step of document automation. */}
+                                    <button
+                                        type="button"
+                                        className="ivp-btn"
+                                        disabled
+                                        title="Sending bills to patients by WhatsApp or email is not set up yet."
+                                    >
+                                        <i className="ti ti-mail" aria-hidden="true" />
+                                        Send to Patient
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="ivp-btn"
+                                        onClick={() => void print('clinic_invoice', invoice.id, true)}
+                                        disabled={generate.isPending}
+                                    >
+                                        <i className="ti ti-download" aria-hidden="true" />
+                                        Download PDF
+                                    </button>
+
+                                    {showCancel && <span className="ivp-foot-sep" aria-hidden="true" />}
                                 </>
                             )}
-                            <dt className="col-8 text-end text-danger">Outstanding</dt>
-                            <dd className="col-4 text-end tabular-nums text-danger fw-bold">
-                                {money(invoice.outstanding)}
-                            </dd>
-                        </dl>
 
-                        {canCancel && invoice.status !== 'cancelled' && invoice.paid_amount === 0 && (
-                            <div className="mt-3 text-end">
-                                <Button
-                                    variant="danger"
-                                    size="sm"
-                                    icon="ti ti-ban"
+                            {showCancel && (
+                                <button
+                                    type="button"
+                                    className="ivp-btn is-danger ivp-foot-end"
                                     onClick={() => setCancellingOpen(true)}
                                 >
+                                    <i className="ti ti-ban" aria-hidden="true" />
                                     Cancel this invoice
-                                </Button>
-                            </div>
-                        )}
-                    </Card>
-                </div>
+                                </button>
+                            )}
+                        </footer>
+                    )}
+                </section>
 
-                <div className="col-lg-4">
-                    <Card>
-                        <h6 className="mb-3">Payments</h6>
-                        {(invoice.payments ?? []).length === 0 ? (
-                            <p className="text-muted fs-13 mb-0">No payment recorded yet.</p>
-                        ) : (
-                            <ul className="list-unstyled mb-0 fs-13">
-                                {(invoice.payments ?? []).map((payment) => (
-                                    <li key={payment.id} className="d-flex justify-content-between align-items-start py-2 border-bottom">
+                {/* ------------------------------------------------ the side */}
+                <aside className="ivp-side">
+                    <section className="ivp-card">
+                        <h3 className="ivp-side-head mb-0">
+                            <i className="ti ti-wallet" aria-hidden="true" />
+                            Payment Information
+                        </h3>
+
+                        <div className="ivp-side-body">
+                            <div className="ivp-stats">
+                                <div className="ivp-stat">
+                                    <i className="ti ti-file-invoice" aria-hidden="true" />
+                                    <div>
+                                        <small>Total Amount</small>
+                                        <b>{money(invoice.total_amount)}</b>
+                                    </div>
+                                </div>
+
+                                <div className="ivp-stat is-green">
+                                    <i className="ti ti-wallet" aria-hidden="true" />
+                                    <div>
+                                        <small>Amount Paid</small>
+                                        <b>{money(invoice.paid_amount)}</b>
+                                    </div>
+                                </div>
+
+                                {refunded > 0 && (
+                                    <div className="ivp-stat is-wide">
+                                        <i className="ti ti-arrow-back-up" aria-hidden="true" />
                                         <div>
-                                            <b className={payment.is_refund ? 'text-danger' : ''}>
-                                                {payment.is_refund && '↩ '}
-                                                {PAYMENT_METHOD_LABELS[payment.method] ?? payment.method}
-                                            </b>
-                                            <span className="dr-sub d-block tabular-nums">
-                                                {payment.receipt_number}
-                                            </span>
-                                            <span className="dr-sub d-block">
-                                                {formatDate(payment.paid_at)}
-                                                {payment.reference && ` · ${payment.reference}`}
-                                            </span>
-                                            {payment.notes && (
-                                                <span className="dr-sub d-block">{payment.notes}</span>
-                                            )}
+                                            <small>Refunded</small>
+                                            <b>{money(refunded)}</b>
                                         </div>
-                                        <div className="text-end">
-                                            <span className={`tabular-nums fw-bold ${payment.is_refund ? 'text-danger' : ''}`}>
-                                                {payment.is_refund ? '−' : ''}{money(payment.amount)}
-                                            </span>
-                                            {(canPrint || (canRefund && !payment.is_refund)) && (
-                                                <div className="d-flex gap-2 justify-content-end">
-                                                    {/* This row's own slip — a receipt for money in, a
-                                                        refund receipt for money back — not the bill again. */}
-                                                    {canPrint && (
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-link btn-sm px-0"
-                                                            onClick={() =>
-                                                                void print(
-                                                                    payment.is_refund ? 'clinic_refund' : 'clinic_receipt',
-                                                                    payment.id,
-                                                                )
-                                                            }
-                                                            disabled={generate.isPending}
-                                                        >
-                                                            {payment.is_refund ? 'Refund slip' : 'Receipt'}
-                                                        </button>
-                                                    )}
-                                                    {canRefund && !payment.is_refund && (
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-link btn-sm px-0"
-                                                            onClick={() => startRefund(payment.id)}
-                                                        >
-                                                            Refund
-                                                        </button>
+                                    </div>
+                                )}
+
+                                <div className={`ivp-stat ${invoice.outstanding > 0 ? 'is-due' : 'is-clear'}`}>
+                                    <i
+                                        className={invoice.outstanding > 0 ? 'ti ti-credit-card' : 'ti ti-circle-check'}
+                                        aria-hidden="true"
+                                    />
+                                    <div>
+                                        <small>Outstanding Amount</small>
+                                        <b>{money(invoice.outstanding)}</b>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="ivp-section">
+                                <h4 className="ivp-section-title">
+                                    <i className="ti ti-clock" aria-hidden="true" />
+                                    Payment Status
+                                </h4>
+
+                                <p className="ivp-status-line">
+                                    <span className={`ivp-pill is-${paymentTone}`}>
+                                        {PAYMENT_STATUS_LABELS[invoice.payment_status] ?? invoice.payment_status}
+                                    </span>
+                                    <span>
+                                        {invoice.outstanding > 0 ? (
+                                            <>
+                                                <b className="is-red-text">{money(invoice.outstanding)}</b> outstanding
+                                                of <b>{money(invoice.total_amount)}</b>.
+                                            </>
+                                        ) : refunded > 0 ? (
+                                            <>
+                                                Nothing owed — <b>{money(refunded)}</b> was handed back and credited
+                                                to the bill.
+                                            </>
+                                        ) : (
+                                            <>Settled in full.</>
+                                        )}
+                                    </span>
+                                </p>
+                            </div>
+
+                            {(invoice.payments ?? []).length > 0 && (
+                                <div className="ivp-section">
+                                    <h4 className="ivp-section-title">
+                                        <i className="ti ti-receipt-2" aria-hidden="true" />
+                                        Payments
+                                    </h4>
+
+                                    <ul className="ivp-payments">
+                                        {(invoice.payments ?? []).map((payment) => (
+                                            <li key={payment.id} className={payment.is_refund ? 'is-refund' : undefined}>
+                                                <div>
+                                                    <b>
+                                                        {payment.is_refund && '↩ '}
+                                                        {PAYMENT_METHOD_LABELS[payment.method] ?? payment.method}
+                                                    </b>
+                                                    <span className="ivp-sub tabular-nums">{payment.receipt_number}</span>
+                                                    <span className="ivp-sub">
+                                                        {formatDate(payment.paid_at)}
+                                                        {payment.reference && ` · ${payment.reference}`}
+                                                    </span>
+                                                    {payment.notes && <span className="ivp-sub">{payment.notes}</span>}
+                                                </div>
+
+                                                <div>
+                                                    <span className="ivp-pay-amount">
+                                                        {payment.is_refund ? '−' : ''}
+                                                        {money(payment.amount)}
+                                                    </span>
+
+                                                    {(canPrint || (canRefund && !payment.is_refund)) && (
+                                                        <div className="ivp-pay-links">
+                                                            {/* This row's own slip — a receipt for money in, a
+                                                                refund receipt for money back — not the bill again. */}
+                                                            {canPrint && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        void print(
+                                                                            payment.is_refund
+                                                                                ? 'clinic_refund'
+                                                                                : 'clinic_receipt',
+                                                                            payment.id,
+                                                                        )
+                                                                    }
+                                                                    disabled={generate.isPending}
+                                                                >
+                                                                    {payment.is_refund ? 'Refund slip' : 'Receipt'}
+                                                                </button>
+                                                            )}
+                                                            {canRefund && !payment.is_refund && (
+                                                                <button type="button" onClick={() => startRefund(payment.id)}>
+                                                                    Refund
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </Card>
-
-                    <Card className="mt-3">
-                        <h6 className="mb-3">Payment status</h6>
-                        <p className="fs-13 mb-0">
-                            <span className={`badge bg-${tone}-subtle text-${tone} me-2`}>
-                                {PAYMENT_STATUS_LABELS[invoice.payment_status] ?? invoice.payment_status}
-                            </span>
-                            {invoice.outstanding > 0 ? (
-                                <>
-                                    <b>{money(invoice.outstanding)}</b> outstanding of{' '}
-                                    <b>{money(invoice.total_amount)}</b>.
-                                </>
-                            ) : refunded > 0 ? (
-                                <>
-                                    Nothing owed — <b>{money(refunded)}</b> was handed back and credited to the
-                                    bill.
-                                </>
-                            ) : (
-                                <>Settled in full.</>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
                             )}
-                        </p>
-                    </Card>
-                </div>
+                        </div>
+                    </section>
+
+                    <section className="ivp-card">
+                        <h3 className="ivp-side-head mb-0">
+                            <i className="ti ti-calendar-event" aria-hidden="true" />
+                            {invoice.kind === 'visit' ? 'Visit Details' : 'Bill Details'}
+                        </h3>
+
+                        <div className="ivp-side-body">
+                            <div className="ivp-facts">
+                                <div className="ivp-fact">
+                                    <span className="ivp-fact-icon" aria-hidden="true">
+                                        <i className="ti ti-building-hospital" />
+                                    </span>
+                                    <div>
+                                        <small>{invoice.kind === 'visit' ? 'Visit Type' : 'Bill Type'}</small>
+                                        <b>{INVOICE_KIND_LABELS[invoice.kind] ?? invoice.kind}</b>
+                                    </div>
+                                </div>
+
+                                {invoice.doctor_name ? (
+                                    <div className="ivp-fact">
+                                        <span className="ivp-fact-icon" aria-hidden="true">
+                                            <i className="ti ti-user" />
+                                        </span>
+                                        <div>
+                                            <small>{invoice.kind === 'lab' ? 'Ordered By' : 'Consultation By'}</small>
+                                            <b>{invoice.doctor_name}</b>
+                                            {invoice.doctor_specialisation && <span>{invoice.doctor_specialisation}</span>}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="ivp-fact">
+                                        <span className="ivp-fact-icon" aria-hidden="true">
+                                            <i className="ti ti-user" />
+                                        </span>
+                                        <div>
+                                            <small>Patient</small>
+                                            <b>{invoice.customer_name ?? 'Walk-in'}</b>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </section>
+                </aside>
             </div>
 
             <PaymentDialog
@@ -467,6 +672,7 @@ export default function InvoicePage() {
         </>
     );
 }
+
 function RefundModal({
     open,
     onClose,

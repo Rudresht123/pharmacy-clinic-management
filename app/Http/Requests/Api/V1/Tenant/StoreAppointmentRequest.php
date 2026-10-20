@@ -54,6 +54,9 @@ class StoreAppointmentRequest extends FormRequest
              */
             'slot_at' => [
                 $this->input('type') === Appointment::BOOKED ? 'required' : 'prohibited',
+                // The walk-in screen sends an explicit null; without this the
+                // format rule refused it and walk-ins could not be taken.
+                'nullable',
                 'date_format:H:i',
             ],
 

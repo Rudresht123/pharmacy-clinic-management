@@ -1,5 +1,6 @@
 import type { NavItem, NavSection } from './navigation';
 import type { TenantUserRole } from '@/core/tenant-auth/api';
+import { EXPORT_CAPABILITIES } from '@/core/exports/capabilities';
 
 /**
  * The six reports, each its own capability — sold as its own module
@@ -570,6 +571,19 @@ export function tenantNavigation(
             icon: 'ti ti-users',
             match: '/customers',
         });
+
+        /*
+         * Directly under the register it reads from: one patient's
+         * appointments, visits, prescriptions, reports, pharmacy and bills in
+         * one place. Each tab inside is gated on its own module, so the row
+         * needs nothing beyond being able to see a patient.
+         */
+        clinical.push({
+            label: 'Patient Records',
+            to: '/patient-records',
+            icon: 'ti ti-file-search',
+            match: '/patient-records',
+        });
     }
 
     /*
@@ -856,6 +870,20 @@ export function tenantNavigation(
                     soon: true,
                 },
             ],
+        });
+    }
+
+    /*
+     * Every record this person may take away as a file, in one place — after
+     * the modules whose records it holds. Any one of its four tabs is enough
+     * for the row; the screen shows only the tabs a role gives.
+     */
+    if (EXPORT_CAPABILITIES.some((capability) => can(capability))) {
+        clinical.push({
+            label: 'Export Center',
+            to: '/exports',
+            icon: 'ti ti-file-export',
+            match: '/exports',
         });
     }
 

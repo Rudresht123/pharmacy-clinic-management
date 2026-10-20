@@ -108,6 +108,21 @@ class SaveUserBranchesRequest extends FormRequest
                         continue;
                     }
 
+                    /*
+                     * A role one branch wrote for itself is offered at that
+                     * branch alone (Role::scopeAssignableAt). Without this the
+                     * list hid it and the request did not: a Delhi role could
+                     * be posted onto a Lucknow membership by id.
+                     */
+                    if ($role->location_id !== null && (int) $role->location_id !== (int) ($row['location_id'] ?? 0)) {
+                        $validator->errors()->add(
+                            "branches.{$index}.role_id",
+                            "\"{$role->name}\" belongs to another branch and can only be given there."
+                        );
+
+                        continue;
+                    }
+
                     // The same escalation rule as anywhere else a role is
                     // handed out: nobody grants what they do not hold.
                     if (! $scope->canGrant($actor, $role->capabilityKeys(), $held)) {

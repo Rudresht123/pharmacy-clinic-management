@@ -32,6 +32,7 @@ export const LABELS: Record<string, string> = {
 export const STATUS_TONE: Record<string, string> = {
     trial: 'trial',
     active: 'ok',
+    expiring_soon: 'warn',
     past_due: 'warn',
     grace: 'grace',
     expired: 'locked',
@@ -42,6 +43,8 @@ export const STATUS_TONE: Record<string, string> = {
     unpublished: 'warn',
     archived: 'muted',
     issued: 'warn',
+    pending: 'warn',
+    overdue: 'locked',
     paid: 'ok',
     void: 'muted',
 };

@@ -56,6 +56,20 @@ class RoleResource extends JsonResource
             'is_customisable_by_branch' => $this->isCustomisableByBranch(),
 
             /*
+             * Who the role is FOR — `staff`, or `patient` for the patient
+             * app's own role. A separate question from scope: the patient
+             * role is organization-wide, and is still never a staff role.
+             */
+            'audience' => $this->audience(),
+
+            /*
+             * Whether the person asking may hand this role out — present on
+             * the list only (RoleController::index). A hint for the dropdowns;
+             * the assignment requests decide.
+             */
+            'assignable' => $this->whenHas('assignable'),
+
+            /*
              * How many people hold it, counting BOTH ways it can be held: on
              * `users.role_id` for head office, and on a membership for branch
              * staff. Counting only the first made every branch role read as

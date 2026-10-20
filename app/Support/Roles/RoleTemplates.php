@@ -170,6 +170,10 @@ class RoleTemplates
                     // The branch's money across OPD, lab and pharmacy, together.
                     'billing.finance',
                     'communication.view',
+                    /* Their own branch's records as files — never another branch's. */
+                    'exports.patients',
+                    'exports.pharmacy',
+                    'exports.billing',
                 ],
             ],
 
@@ -420,6 +424,8 @@ class RoleTemplates
                     'billing.refund',
                     // The branch's books across every department, in one place.
                     'billing.finance',
+                    // …and the same books as a file.
+                    'exports.billing',
                     'documents.view',
                     'documents.generate',
                 ],
@@ -453,6 +459,12 @@ class RoleTemplates
                     'customers.view',
                     'customers.create',
                     'customers.edit',
+                    /* The Export Center, every tab and every branch, and who takes which columns. */
+                    'exports.patients',
+                    'exports.pharmacy',
+                    'exports.billing',
+                    'exports.communication',
+                    'exports.columns',
                     'appointments.view',
                     /* The doctor roster, organization-wide — see ModuleRegistry. */
                     'appointments.doctors',

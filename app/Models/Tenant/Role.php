@@ -2,7 +2,9 @@
 
 namespace App\Models\Tenant;
 
+use App\Services\Tenant\PatientAccountProvisioner;
 use App\Support\History\RecordsHistory;
+use App\Support\Modules\ModuleRegistry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -119,6 +121,39 @@ class Role extends Model
     public function isOrganizationScoped(): bool
     {
         return $this->scope === self::SCOPE_ORGANIZATION;
+    }
+
+    /**
+     * Whether this role is for patients signing in to the app, not for staff.
+     *
+     * Read from what it grants — every capability the patient app's — so a
+     * role written for patients is recognised by what it does, not by what
+     * it is called. The provisioner's own slug is the fallback, for the
+     * patient role in an organization not running OPD, which holds nothing
+     * yet and so has nothing to be recognised by.
+     *
+     * A staff screen never offers one, and the server refuses one there: a
+     * staff account on the patient role could do nothing at work, and a
+     * person's TYPE (owner, staff, patient) is a different question from the
+     * access a role gives them.
+     */
+    public function isForPatients(): bool
+    {
+        $keys = $this->capabilityKeys();
+
+        if ($keys !== []) {
+            return collect($keys)->every(
+                fn (string $key) => ModuleRegistry::capabilityAudience($key) === ModuleRegistry::AUDIENCE_PATIENT
+            );
+        }
+
+        return $this->slug === PatientAccountProvisioner::ROLE;
+    }
+
+    /** Who this role is for — `staff` or `patient`. */
+    public function audience(): string
+    {
+        return $this->isForPatients() ? ModuleRegistry::AUDIENCE_PATIENT : ModuleRegistry::AUDIENCE_STAFF;
     }
 
     /** The branch that wrote it, or null for one the organization wrote. */

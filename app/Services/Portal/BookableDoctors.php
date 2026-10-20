@@ -46,7 +46,7 @@ class BookableDoctors
         $term = trim((string) $term);
 
         return $this->doctors->listing('active')
-            ->with(['department', 'photograph', 'schedules' => fn ($query) => $query
+            ->with(['department', 'photograph', 'postings', 'schedules' => fn ($query) => $query
                 ->where('is_active', true)
                 ->with('location:id,name')])
             ->whereHas('schedules', fn (Builder $query) => $query->where('is_active', true))

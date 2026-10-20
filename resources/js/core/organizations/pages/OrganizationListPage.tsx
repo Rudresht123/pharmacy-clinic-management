@@ -67,7 +67,8 @@ export default function OrganizationListPage() {
                                 name={row.organization_name}
                                 src={row.profile_image_url}
                                 hasImage={row.profile_image_id !== null}
-                                preview
+                                shape="rounded"
+                                size={36}
                             />
 
                             <span className="dt-lede">

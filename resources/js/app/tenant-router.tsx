@@ -3,7 +3,8 @@ import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { FullPageLoader } from '@/shared/components/ui/Loader';
 import { NavigationLoader } from './NavigationLoader';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
-import { RequireCapability, RequireModule, RequireOwner } from './tenant-guards';
+import { EXPORT_CAPABILITIES } from '@/core/exports/capabilities';
+import { RequireAnyCapability, RequireCapability, RequireModule, RequireOwner } from './tenant-guards';
 import { TenantShell } from './TenantShell';
 
 const OrganizationSetupPage = lazy(() => import('@/core/org-setup/pages/OrganizationSetupPage'));
@@ -17,6 +18,9 @@ const TenantDashboardPage = lazy(() => import('@/core/tenant-auth/pages/TenantDa
 const CustomerListPage = lazy(() => import('@/core/customers/pages/CustomerListPage'));
 const CustomerFormPage = lazy(() => import('@/core/customers/pages/CustomerFormPage'));
 const PatientPage = lazy(() => import('@/core/customers/pages/PatientPage'));
+const PatientRecordsPage = lazy(() => import('@/core/patient-records/pages/PatientRecordsPage'));
+const ExportCenterPage = lazy(() => import('@/core/exports/pages/ExportCenterPage'));
+const ExportColumnsPage = lazy(() => import('@/core/exports/pages/ExportColumnsPage'));
 const LocationListPage = lazy(() => import('@/core/locations/pages/LocationListPage'));
 const LocationFormPage = lazy(() => import('@/core/locations/pages/LocationFormPage'));
 const TenantUserListPage = lazy(() => import('@/core/tenant-users/pages/TenantUserListPage'));
@@ -306,6 +310,28 @@ export function TenantAppRoutes() {
                             */}
                             <Route element={<RequireCapability capability="customers.view" />}>
                                 <Route path="/customers/:id" element={<PatientPage />} />
+                            </Route>
+
+                            {/*
+                                One patient's history from every module, beside
+                                the register. Each tab inside asks for its own
+                                module's capability; the page needs only to be
+                                able to see a patient at all.
+                            */}
+                            <Route element={<RequireCapability capability="customers.view" />}>
+                                <Route path="/patient-records" element={<PatientRecordsPage />} />
+                            </Route>
+
+                            {/*
+                                The Export Center opens for any one of its four
+                                tabs; which tabs show is the server's answer.
+                                Column access is the organization's.
+                            */}
+                            <Route element={<RequireAnyCapability capabilities={EXPORT_CAPABILITIES} />}>
+                                <Route path="/exports" element={<ExportCenterPage />} />
+                            </Route>
+                            <Route element={<RequireCapability capability="exports.columns" />}>
+                                <Route path="/exports/columns" element={<ExportColumnsPage />} />
                             </Route>
 
                             <Route element={<RequireCapability capability="branches.view" />}>

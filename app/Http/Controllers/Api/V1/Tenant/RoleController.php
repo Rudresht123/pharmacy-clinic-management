@@ -9,6 +9,7 @@ use App\Models\Tenant\BranchMembership;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
 use App\Services\Permissions\Permission;
+use App\Services\Permissions\StaffScope;
 use App\Support\Modules\ModuleRegistry;
 use App\Support\Roles\RoleTemplates;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +30,7 @@ class RoleController extends BaseApiController
 {
     public function __construct(
         private readonly Permission $permission,
+        private readonly StaffScope $staff,
     ) {}
 
     /**
@@ -100,6 +102,15 @@ class RoleController extends BaseApiController
         $modules = $this->permission->modulesAt($organization, $branch);
         $pool = ModuleRegistry::capabilitiesFor($modules);
 
+        /*
+         * Only an owner writes organization-wide roles (RoleController::store),
+         * so only for them, and only when they say that is what they are
+         * writing, do templates keep their organization-level permissions.
+         */
+        $organizationWide = $request->query('scope') === Role::SCOPE_ORGANIZATION
+            && $user instanceof User
+            && $user->isOwner();
+
         $templates = [];
 
         foreach (RoleTemplates::all() as $template) {
@@ -117,10 +128,12 @@ class RoleController extends BaseApiController
              * "offered something that cannot be honoured" bug as the main
              * capability list.
              */
-            $capabilities = array_values(array_filter(
-                $capabilities,
-                fn (string $capability) => ModuleRegistry::capabilityScope($capability) !== ModuleRegistry::SCOPE_ORGANIZATION,
-            ));
+            if (! $organizationWide) {
+                $capabilities = array_values(array_filter(
+                    $capabilities,
+                    fn (string $capability) => ModuleRegistry::capabilityScope($capability) !== ModuleRegistry::SCOPE_ORGANIZATION,
+                ));
+            }
 
             // A template that would grant nothing here is not offered at all.
             if ($capabilities === []) {
@@ -178,14 +191,31 @@ class RoleController extends BaseApiController
             $query->assignableAt($this->permission->branchFor($user));
         }
 
-        return $this->ok(
-            RoleResource::collection(
-                $query->withCount(['users', 'memberships'])
-                    ->orderBy('location_id')
-                    ->orderBy('name')
-                    ->get()
-            )
-        );
+        $roles = $query->withCount(['users', 'memberships'])
+            ->orderBy('location_id')
+            ->orderBy('name')
+            ->get();
+
+        /*
+         * Whether THIS person may hand each one out — the same answer the
+         * assignment requests give (StaffScope::canGrant), asked once here so
+         * a dropdown can leave out a role that would only be refused after a
+         * round trip. Never a patient's role, which is not staff access at
+         * all. A hint for the screen; the requests still decide.
+         */
+        $organization = $request->attributes->get('tenant.organization');
+        $held = $user instanceof User && $organization && ! $user->isOwner()
+            ? $this->permission->capabilitiesFor($organization, $user)
+            : [];
+
+        $roles->each(fn (Role $role) => $role->setAttribute(
+            'assignable',
+            $user instanceof User
+                && ! $role->isForPatients()
+                && $this->staff->canGrant($user, $role->capabilityKeys(), $held),
+        ));
+
+        return $this->ok(RoleResource::collection($roles));
     }
 
     /**

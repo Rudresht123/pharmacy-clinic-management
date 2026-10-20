@@ -23,6 +23,8 @@ export interface AvailabilityDoctor {
     doctor_id: number;
     doctor_name: string;
     specialisation: string | null;
+    /** Their photograph, when one was uploaded. */
+    photo_url: string | null;
     sessions: AvailabilitySession[];
 
     /**

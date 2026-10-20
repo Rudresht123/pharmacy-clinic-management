@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Controller } from 'react-hook-form';
+import { Controller, useWatch } from 'react-hook-form';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -51,7 +51,7 @@ const GROUPS: FieldGroup[] = [
         key: 'practice',
         title: 'Practice',
         icon: 'ti ti-license',
-        description: 'Registration, and what a consultation normally costs.',
+        description: 'Registration, and what a consultation costs at each branch.',
         rail: true,
     },
     {
@@ -110,6 +110,10 @@ export default function DoctorFormPage() {
         defaultValues: { is_active: true, department_id: '' },
     });
 
+    // Shown as each branch fee's placeholder: what a blank one falls back to.
+    const defaultFee = useWatch({ control, name: 'default_consultation_fee' }) as string | undefined;
+    const branchFees = doctor?.branch_fees ?? [];
+
     useEffect(() => {
         if (!doctor) {
             return;
@@ -124,6 +128,10 @@ export default function DoctorFormPage() {
             phone: doctor.phone ?? '',
             email: doctor.email ?? '',
             default_consultation_fee: doctor.default_consultation_fee ?? '',
+            branch_fees: (doctor.branch_fees ?? []).map((row) => ({
+                location_id: row.location_id,
+                consultation_fee: row.consultation_fee ?? '',
+            })),
             notes: doctor.notes ?? '',
             is_active: doctor.is_active,
             custom_fields: doctor.custom_fields ?? {},
@@ -147,10 +155,20 @@ export default function DoctorFormPage() {
          * block as "they should not have a login" and closes the one they had,
          * which is exactly what switching it off means.
          */
+        const fees = (values.branch_fees ?? []) as { location_id: number; consultation_fee: string }[];
+
         const payload = {
             ...values,
             department_id: values.department_id ? Number(values.department_id) : null,
             account: withAccount ? values.account : null,
+
+            // Blank is "the default", sent as null rather than as a ₹0 fee.
+            branch_fees: isEdit
+                ? fees.map((row) => ({
+                      location_id: Number(row.location_id),
+                      consultation_fee: row.consultation_fee === '' ? null : Number(row.consultation_fee),
+                  }))
+                : undefined,
         };
 
         const result = await submit(payload, async () =>
@@ -201,6 +219,73 @@ export default function DoctorFormPage() {
                     errors={errors}
                     control={control}
                     extras={{
+                        /*
+                         * What they charge at each branch they sit at.
+                         *
+                         * Only on edit, and only their branches: a doctor is
+                         * posted to a branch by being given a sitting there,
+                         * so a new doctor has none to price yet. Blank charges
+                         * the default fee above.
+                         */
+                        practice: isEdit ? (
+                            <div className="mb-1">
+                                <label className="form-label">Fee at each branch</label>
+
+                                {branchFees.length === 0 ? (
+                                    <p className="form-hint mb-0">
+                                        Set once {doctor?.name ?? 'they'} has a sitting at a branch — under
+                                        Schedules. Until then every bill uses the default fee.
+                                    </p>
+                                ) : (
+                                    <>
+                                        {branchFees.map((row, index) => {
+                                            const error = (
+                                                errors.branch_fees as
+                                                    | Record<number, { consultation_fee?: { message?: unknown } }>
+                                                    | undefined
+                                            )?.[index]?.consultation_fee;
+
+                                            return (
+                                                <div key={row.location_id} className="mb-2">
+                                                    <div className="d-flex align-items-center gap-2">
+                                                        <span className="flex-grow-1 fs-14">{row.location_name}</span>
+
+                                                        <input
+                                                            type="hidden"
+                                                            {...register(`branch_fees.${index}.location_id`)}
+                                                        />
+
+                                                        <div className="input-group" style={{ maxWidth: 170 }}>
+                                                            <span className="input-group-text">₹</span>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.01"
+                                                                className={`form-control${error ? ' is-invalid' : ''}`}
+                                                                aria-label={`Consultation fee at ${row.location_name}`}
+                                                                placeholder={defaultFee ? `${defaultFee} (default)` : 'Default'}
+                                                                {...register(`branch_fees.${index}.consultation_fee`)}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {error && (
+                                                        <p className="invalid-feedback d-block mb-0">
+                                                            {String(error.message ?? '')}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+
+                                        <p className="form-hint mb-0">
+                                            Leave blank to charge the default fee at that branch.
+                                        </p>
+                                    </>
+                                )}
+                            </div>
+                        ) : undefined,
+
                         /*
                          * A department or a sub-department, from the tree.
                          * "Cardiology › Interventional Cardiology" — the doctor

@@ -55,6 +55,26 @@ class DoctorResource extends JsonResource
             'email' => $this->email,
 
             'default_consultation_fee' => $this->default_consultation_fee,
+
+            /*
+             * What they charge at each branch they are posted to. A null fee
+             * is "the default above", which is what a bill at that branch
+             * then uses.
+             */
+            'branch_fees' => $this->whenLoaded(
+                'postings',
+                fn () => $this->postings
+                    ->sortBy('name')
+                    ->map(fn ($branch) => [
+                        'location_id' => $branch->id,
+                        'location_name' => $branch->name,
+                        'consultation_fee' => $branch->pivot->consultation_fee,
+                    ])
+                    ->values()
+                    ->all(),
+                [],
+            ),
+
             'is_active' => (bool) $this->is_active,
             'notes' => $this->notes,
 

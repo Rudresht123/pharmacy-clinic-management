@@ -3,6 +3,7 @@
 namespace App\Services\Subscriptions;
 
 use App\Models\Platform\PlatformSetting;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -85,7 +86,7 @@ class BillingSettings
      */
     public function seriesYear(?\DateTimeInterface $at = null): int
     {
-        $local = \Illuminate\Support\Carbon::instance($at ?? now())->setTimezone((string) $this->get('timezone'));
+        $local = Carbon::instance($at ?? now())->setTimezone((string) $this->get('timezone'));
         $start = (int) $this->get('fiscal_year_start');
 
         return (int) $local->month >= $start ? (int) $local->year : (int) $local->year - 1;

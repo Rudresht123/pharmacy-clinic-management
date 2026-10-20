@@ -1,0 +1,2085 @@
+/* =========================================================
+   Patient Records (.ptr-)
+   ---------------------------------------------------------
+   The register on the left, one patient's record on the
+   right: figures, list, profile with its tab strip, then
+   the tab's own card(s).
+
+   Cards follow the project-wide card style: white, no
+   border, a brand-tinted shadow in light mode; the border
+   comes back in dark mode. Tables sit inset in their card
+   inside a frame of their own. Colour is kept for what
+   carries meaning — icons, states, up and down.
+   ========================================================= */
+
+:root {
+    --ptr-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+.ptr-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ptr-page > .page-head {
+    margin-bottom: 0;
+}
+
+.ptr-page .is-refreshing {
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+/* --- card shell ------------------------------------------ */
+
+.ptr-card,
+.ptr-kpi,
+.ptr-money-tile {
+    min-width: 0;
+    background: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    box-shadow: var(--ptr-shadow);
+}
+
+.ptr-card {
+    padding: 18px 20px;
+}
+
+.ptr-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.ptr-card-head h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.ptr-card-head h3 i {
+    font-size: 18px;
+    color: rgb(var(--brand));
+}
+
+.ptr-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+}
+
+.ptr-link:hover {
+    text-decoration: underline;
+}
+
+.ptr-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* --- the four figures ------------------------------------ */
+
+.ptr-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+}
+
+.ptr-kpis.is-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ptr-kpis.is-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ptr-kpis.is-1 { grid-template-columns: minmax(0, 1fr); }
+
+.ptr-kpi {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 20px;
+}
+
+.ptr-kpi.is-loading {
+    min-height: 96px;
+    background: linear-gradient(90deg, #ffffff 0%, var(--surface-3) 50%, #ffffff 100%);
+    background-size: 200% 100%;
+    animation: ptr-shimmer 1.2s linear infinite;
+}
+
+@keyframes ptr-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+}
+
+.ptr-kpi-icon,
+.ptr-money-tile > span {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+}
+
+.ptr-kpi-icon {
+    width: 52px;
+    height: 52px;
+    font-size: 24px;
+}
+
+.is-blue > .ptr-kpi-icon,
+.ptr-money-tile.is-blue > span { background: #e8f0ff; color: #2563eb; }
+.is-green > .ptr-kpi-icon,
+.ptr-money-tile.is-green > span { background: #e3f7ea; color: #16a34a; }
+.is-rose > .ptr-kpi-icon,
+.ptr-money-tile.is-rose > span { background: #ffe8ec; color: #e11d48; }
+.is-violet > .ptr-kpi-icon,
+.ptr-money-tile.is-violet > span { background: #f0eaff; color: #7c3aed; }
+.is-amber > .ptr-kpi-icon,
+.ptr-money-tile.is-amber > span { background: #fff1db; color: #d97706; }
+
+.ptr-kpi-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.ptr-kpi-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+.ptr-kpi-value {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.3;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.ptr-kpi-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.ptr-kpi-hint em {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-style: normal;
+    font-weight: 700;
+    color: var(--ink-3);
+}
+
+.ptr-kpi-hint em.is-up { color: #16a34a; }
+.ptr-kpi-hint em.is-down { color: #e11d48; }
+
+/* --- list beside record ---------------------------------- */
+
+.ptr-split {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.ptr-split.is-single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.ptr-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+/* --- the register ---------------------------------------- */
+
+.ptr-list {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
+
+/*
+   Side by side, the register stays in view while a long record scrolls,
+   and scrolls on its own — so it never runs on past the record beside it.
+*/
+.ptr-split:not(.is-single) .ptr-list {
+    position: sticky;
+    top: calc(var(--tb-height, 62px) + 16px);
+    max-height: calc(100vh - var(--tb-height, 62px) - 32px);
+}
+
+.ptr-list-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.ptr-list-head {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--line);
+}
+
+.ptr-list-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ptr-list-head h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+/* The size of the register, as a badge rather than a parenthesis. */
+.ptr-count {
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: rgba(var(--brand), 0.1);
+    font-size: 12px;
+    font-weight: 700;
+    color: rgb(var(--brand));
+    font-variant-numeric: tabular-nums;
+}
+
+.ptr-search-row {
+    display: flex;
+    gap: 8px;
+}
+
+.ptr-search {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    height: 38px;
+    margin: 0;
+    padding: 0 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    background: #ffffff;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ptr-search:focus-within {
+    border-color: rgba(var(--brand), 0.5);
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.12);
+}
+
+.ptr-search i {
+    font-size: 16px;
+    color: var(--muted);
+}
+
+.ptr-search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-size: 13px;
+    color: var(--ink);
+}
+
+/* --- filters: one button, a panel, and chips for what is on */
+
+.ptr-filter-btn {
+    position: relative;
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    background: #ffffff;
+    font-size: 18px;
+    color: var(--ink-2);
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.ptr-filter-btn:hover,
+.ptr-filter-btn.is-on {
+    border-color: rgba(var(--brand), 0.45);
+    background: rgba(var(--brand), 0.06);
+    color: rgb(var(--brand));
+}
+
+.ptr-filter-count {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    display: grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgb(var(--brand));
+    box-shadow: 0 0 0 2px #ffffff;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.ptr-filter-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-2);
+}
+
+.ptr-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.ptr-filter-field > span {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+/* The segmented control, stretched to the panel. */
+.ptr-seg-fill {
+    display: flex;
+    width: 100%;
+}
+
+.ptr-seg-fill button {
+    flex: 1 1 0;
+    padding: 5px 6px;
+}
+
+.ptr-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.ptr-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    padding: 3px 7px 3px 10px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(var(--brand), 0.1);
+    font-size: 12px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+}
+
+.ptr-chip:hover {
+    background: rgba(var(--brand), 0.17);
+}
+
+.ptr-chip i {
+    font-size: 13px;
+}
+
+.ptr-chip-clear {
+    padding: 3px 4px;
+    border: 0;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.ptr-chip-clear:hover {
+    color: var(--ink-2);
+    text-decoration: underline;
+}
+
+/* Room on the right for the caret, so it never sits on the words. */
+.ptr-pager-size {
+    height: 34px;
+    padding: 0 26px 0 10px;
+    overflow: hidden;
+    border-color: var(--line-2);
+    border-radius: 9px;
+    background-position: right 8px center;
+    background-size: 12px 10px;
+    font-size: 12.5px;
+    color: var(--ink-2);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.ptr-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ptr-row {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 13px;
+    align-items: center;
+    width: 100%;
+    padding: 11px 16px 11px 13px;
+    border: 0;
+    border-left: 3px solid transparent;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+    text-align: left;
+    transition: background-color 0.15s ease;
+}
+
+.ptr-rows li:last-child .ptr-row {
+    border-bottom: 0;
+}
+
+.ptr-row:hover {
+    background: var(--surface-2);
+}
+
+.ptr-row.is-on {
+    border-left-color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.07);
+}
+
+/* The photograph, ringed in the colour of their gender. */
+.ptr-row-face {
+    display: block;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    outline: 2px solid var(--line-2);
+    outline-offset: 2px;
+}
+
+.ptr-row-face.is-male { outline-color: #93b4f6; }
+.ptr-row-face.is-female { outline-color: #f5a3b5; }
+.ptr-row-face.is-other { outline-color: #c4b1f6; }
+
+.ptr-row-face .pav {
+    width: 100%;
+    height: 100%;
+}
+
+.ptr-row-who {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+/* The name across the whole row, the last visit tucked in its corner. */
+.ptr-row-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+
+.ptr-row-name {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.ptr-row-seen {
+    flex: 0 0 auto;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.ptr-row-seen.is-today { color: #16a34a; }
+.ptr-row-seen.is-recent { color: rgb(var(--brand)); }
+.ptr-row-seen.is-none { font-weight: 500; }
+
+.ptr-row-meta,
+.ptr-row-who .ptr-row-line {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.ptr-row-meta {
+    gap: 6px;
+}
+
+/* A dot between each fact. */
+.ptr-row-meta > span + span::before {
+    content: '·';
+    margin-right: 6px;
+    color: var(--ink-3);
+}
+
+.ptr-row-code {
+    font-weight: 600;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+}
+
+.ptr-row-sex {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.ptr-row-sex i {
+    font-size: 13px;
+}
+
+.ptr-row-sex.is-male { color: #2563eb; }
+.ptr-row-sex.is-female { color: #e11d48; }
+.ptr-row-sex.is-other { color: #7c3aed; }
+
+.ptr-row-off {
+    padding: 0 6px;
+    border-radius: 5px;
+    background: var(--surface-3);
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--ink-3);
+}
+
+/* Mobile, then the branch they registered at — the branch gives way first. */
+.ptr-row-who .ptr-row-line {
+    gap: 10px;
+}
+
+.ptr-row-line > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ptr-row-line > span:first-child {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.ptr-row-line i {
+    font-size: 13px;
+}
+
+.ptr-row.is-inactive .ptr-row-name { color: var(--ink-3); }
+.ptr-row.is-inactive .ptr-row-face { opacity: 0.55; }
+
+.ptr-row-branch {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.ptr-row-branch i {
+    flex: 0 0 auto;
+    font-size: 13px;
+}
+
+.ptr-gender {
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.ptr-gender.is-male { background: #e8f0ff; color: #2563eb; }
+.ptr-gender.is-female { background: #ffe8ec; color: #e11d48; }
+.ptr-gender.is-other { background: #f0eaff; color: #7c3aed; }
+
+.ptr-list-none {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.ptr-list-none i {
+    font-size: 30px;
+    color: var(--muted);
+}
+
+.ptr-list-none b {
+    font-size: 13.5px;
+    color: var(--ink-2);
+}
+
+.ptr-list-none p {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+.ptr-list-foot {
+    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+}
+
+/* --- paging ---------------------------------------------- */
+
+.ptr-pager {
+    /* The DataTable's own buttons, which read their colour from this. */
+    --dt-primary: rgb(var(--brand));
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.ptr-list-foot .ptr-pager {
+    flex-wrap: nowrap;
+    margin-top: 0;
+}
+
+.ptr-list-foot .ptr-pager-pages {
+    gap: 3px;
+}
+
+.ptr-list-foot .dt-page {
+    min-width: 30px;
+    height: 30px;
+    padding: 0 6px;
+    font-size: 12.5px;
+}
+
+.ptr-list-foot .ptr-pager-size {
+    flex: 0 0 auto;
+    min-width: 104px;
+    height: 30px;
+}
+
+.ptr-pager-info {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.ptr-pager-pages {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ptr-pager-gap {
+    padding: 0 2px;
+    color: var(--muted);
+}
+
+.ptr-pager-size {
+    flex: 0 0 auto;
+    width: auto;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+/* --- profile --------------------------------------------- */
+
+.ptr-profile {
+    padding: 22px 24px 0;
+}
+
+.ptr-back {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+}
+
+.ptr-split.is-single .ptr-back {
+    display: inline-flex;
+}
+
+/* Photo, who they are, and what can be done — one row. */
+.ptr-profile-top {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: center;
+}
+
+/* The photograph, ringed in the colour of their gender — as in the list. */
+.ptr-face {
+    position: relative;
+    display: block;
+    width: 68px;
+    height: 68px;
+    margin: 0;
+    border-radius: 50%;
+    outline: 3px solid var(--line-2);
+    outline-offset: 3px;
+}
+
+.ptr-face.is-male { outline-color: #93b4f6; }
+.ptr-face.is-female { outline-color: #f5a3b5; }
+.ptr-face.is-other { outline-color: #c4b1f6; }
+
+.ptr-face .pav {
+    width: 100%;
+    height: 100%;
+}
+
+/* No photograph yet: the whole face is the way to add one. */
+.ptr-face.is-editable {
+    cursor: pointer;
+}
+
+.ptr-face.is-editable .pav {
+    transition: filter 0.15s ease;
+}
+
+.ptr-face.is-editable:hover .pav {
+    filter: brightness(0.88);
+}
+
+/* With one, the face opens it and the camera alone changes it. */
+label.ptr-face-edit {
+    margin: 0;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+label.ptr-face-edit:hover {
+    transform: scale(1.08);
+}
+
+.ptr-face-edit {
+    position: absolute;
+    right: -5px;
+    bottom: -5px;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgb(var(--brand));
+    box-shadow: 0 0 0 2px #ffffff;
+    font-size: 14px;
+    color: #ffffff;
+}
+
+.ptr-face.is-busy .ptr-face-edit i,
+.ptr-spin {
+    display: inline-block;
+    animation: ptr-spin 0.9s linear infinite;
+}
+
+/* --- export the register --------------------------------- */
+
+.ptr-export {
+    position: relative;
+}
+
+.ptr-export > .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+}
+
+.ptr-export-caret {
+    font-size: 13px;
+    opacity: 0.7;
+}
+
+.ptr-export-menu {
+    min-width: 270px;
+}
+
+/* What the file will hold — every patient, or the ones the filters left. */
+.ptr-export-scope {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 4px;
+    padding: 6px 10px 9px;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+.ptr-export-scope i {
+    font-size: 15px;
+    color: rgb(var(--brand));
+}
+
+.ptr-export-menu button {
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 10px;
+}
+
+.ptr-export-menu button > i {
+    margin-top: 1px;
+    font-size: 20px;
+}
+
+.ptr-export-menu i.is-xlsx { color: #16a34a; }
+.ptr-export-menu i.is-csv { color: #2563eb; }
+.ptr-export-menu i.is-pdf { color: #e11d48; }
+
+.ptr-export-menu span {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.ptr-export-menu b {
+    font-size: 13px;
+    color: var(--ink);
+}
+
+.ptr-export-menu small {
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+@keyframes ptr-spin {
+    to { transform: rotate(360deg); }
+}
+
+.ptr-id {
+    min-width: 0;
+}
+
+.ptr-id h2 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin: 0 0 6px;
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+
+.ptr-id-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.ptr-id h2 .ptr-gender {
+    font-size: 11.5px;
+    letter-spacing: 0;
+}
+
+/* Active or not, as a quiet dot rather than a second loud pill. */
+.ptr-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.ptr-state i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.ptr-state.is-on { background: #e3f7ea; color: #15803d; }
+.ptr-state.is-off { background: var(--surface-3); color: var(--ink-3); }
+
+.ptr-id-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    font-size: 13px;
+    color: var(--ink-3);
+}
+
+.ptr-code {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px 3px 4px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface-2);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.ptr-code-label {
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: rgba(var(--brand), 0.1);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: rgb(var(--brand));
+}
+
+.ptr-code button {
+    display: grid;
+    place-items: center;
+    padding: 0 2px;
+    border: 0;
+    background: transparent;
+    font-size: 15px;
+    color: var(--muted);
+}
+
+.ptr-code button:hover {
+    color: rgb(var(--brand));
+}
+
+.ptr-linked {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+}
+
+.ptr-profile-side {
+    display: flex;
+    align-items: center;
+    align-self: start;
+}
+
+/* --- the facts strip ------------------------------------- */
+
+/*
+   Six labelled cells, three by two — always full rows, never one cell left
+   alone on a line. Each cell draws the divider on its own left and top edge;
+   the frame clips the ones that would fall on its border.
+*/
+.ptr-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 18px 0 0;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.ptr-strip > div {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 10px;
+    align-items: center;
+    min-width: 0;
+    padding: 11px 14px;
+    box-shadow: -1px 0 0 var(--line), 0 -1px 0 var(--line);
+}
+
+/* An address is the long one: two lines before it gives way. */
+.ptr-strip > .is-wide dd {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+}
+
+.ptr-strip i {
+    grid-row: 1 / 3;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: rgba(var(--brand), 0.08);
+    font-size: 16px;
+    color: rgb(var(--brand));
+}
+
+.ptr-strip dt {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.ptr-strip dd {
+    margin: 0;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.ptr-strip a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.ptr-strip a:hover {
+    color: rgb(var(--brand));
+}
+
+.ptr-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--line-2);
+    border-radius: 9px;
+    background: #ffffff;
+    font-size: 18px;
+    color: var(--ink-2);
+}
+
+.ptr-icon-btn:hover {
+    border-color: rgba(var(--brand), 0.35);
+    color: rgb(var(--brand));
+}
+
+.ptr-more {
+    position: relative;
+}
+
+.ptr-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 20;
+    min-width: 200px;
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: var(--ptr-shadow);
+}
+
+.ptr-menu a,
+.ptr-menu button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 13px;
+    color: var(--ink-2);
+    text-align: left;
+    text-decoration: none;
+}
+
+.ptr-menu a:hover,
+.ptr-menu button:hover {
+    background: var(--surface-2);
+    color: var(--ink);
+}
+
+.ptr-profile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.ptr-profile-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    height: 36px;
+}
+
+.ptr-profile-actions .ptr-icon-btn {
+    width: 36px;
+    height: 36px;
+}
+
+/* A secondary action that does not compete with the primary beside it. */
+.ptr-btn-quiet {
+    border: 1px solid var(--line-2);
+    background: #ffffff;
+    color: var(--ink-2);
+}
+
+.ptr-btn-quiet:hover,
+.ptr-btn-quiet:focus-visible {
+    border-color: rgba(var(--brand), 0.4);
+    background: rgba(var(--brand), 0.04);
+    color: rgb(var(--brand));
+}
+
+[data-theme='dark'] .ptr-btn-quiet {
+    border-color: var(--line);
+    background: var(--surface);
+}
+
+/* --- tab strip ------------------------------------------- */
+
+/*
+   Pills, as the OPD queue's tabs are: white, the chosen one filled. One row
+   that scrolls sideways when it must — without a scrollbar drawn across the
+   card's foot.
+*/
+.ptr-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 18px -24px 0;
+    padding: 14px 24px 16px;
+    overflow-x: auto;
+    border-top: 1px solid var(--line);
+    scrollbar-width: none;
+    /* The last 24px fade, so a row that scrolls says it does. */
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+}
+
+.ptr-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.ptr-tab {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 13px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #ffffff;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    white-space: nowrap;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.ptr-tab:hover {
+    border-color: var(--ink-3);
+    color: var(--ink);
+}
+
+.ptr-tab i {
+    font-size: 16px;
+}
+
+.ptr-tab span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ptr-tab em {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    font-size: 10.5px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.ptr-tab.is-on {
+    border-color: transparent;
+    background: rgb(var(--brand));
+    color: #ffffff;
+}
+
+.ptr-tab.is-on em {
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+}
+
+/* --- overview -------------------------------------------- */
+
+.ptr-grid.is-overview {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: stretch;
+}
+
+.ptr-facts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 24px;
+    margin: 0;
+}
+
+.ptr-fact {
+    display: flex;
+    gap: 12px;
+    min-width: 0;
+}
+
+.ptr-fact > i {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    font-size: 19px;
+    color: var(--muted);
+}
+
+.ptr-fact > div {
+    min-width: 0;
+}
+
+.ptr-fact dt {
+    margin-bottom: 2px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+}
+
+.ptr-fact dd {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+    word-break: break-word;
+}
+
+.ptr-quiet {
+    font-weight: 500;
+    color: var(--muted);
+}
+
+/* --- timeline -------------------------------------------- */
+
+.ptr-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ptr-event {
+    --ptr-tone: 37, 99, 235;
+    position: relative;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 12px;
+}
+
+.ptr-event.is-blue { --ptr-tone: 37, 99, 235; }
+.ptr-event.is-rose { --ptr-tone: 225, 29, 72; }
+.ptr-event.is-green { --ptr-tone: 22, 163, 74; }
+.ptr-event.is-violet { --ptr-tone: 124, 58, 237; }
+.ptr-event.is-amber { --ptr-tone: 234, 88, 12; }
+.ptr-event.is-teal { --ptr-tone: 8, 145, 178; }
+.ptr-event.is-grey { --ptr-tone: 100, 116, 139; }
+
+/* The thread from one event down to the next. */
+.ptr-event::before {
+    content: '';
+    position: absolute;
+    top: 34px;
+    bottom: -12px;
+    left: 16px;
+    width: 2px;
+    background: rgba(var(--ptr-tone), 0.3);
+}
+
+.ptr-event:last-child::before {
+    display: none;
+}
+
+.ptr-event-mark {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgb(var(--ptr-tone));
+    font-size: 16px;
+    color: #ffffff;
+    box-shadow: 0 0 0 4px #ffffff;
+}
+
+.ptr-event-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
+    padding: 10px 14px;
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+    background: #ffffff;
+    text-align: left;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.ptr-event-box:hover {
+    border-color: rgba(var(--brand), 0.35);
+    background: rgba(var(--brand), 0.02);
+}
+
+.ptr-event-top,
+.ptr-event-bottom {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.ptr-event-top {
+    align-items: baseline;
+}
+
+.ptr-event-bottom {
+    align-items: flex-end;
+}
+
+.ptr-event-top b {
+    font-size: 13.5px;
+    color: var(--ink);
+}
+
+.ptr-event-top time {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+/* Who and where on one line; it is the detail that may wrap. */
+.ptr-event-who {
+    overflow: hidden;
+    font-size: 12.5px;
+    color: var(--ink-2);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.ptr-event-who small {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.ptr-event-detail {
+    min-width: 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.ptr-timeline-month {
+    padding: 6px 0 0 46px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+/* --- states ---------------------------------------------- */
+
+.ptr-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.ptr-pill.is-green { background: #e3f7ea; color: #15803d; }
+.ptr-pill.is-blue { background: #e8f0ff; color: #1d4ed8; }
+.ptr-pill.is-amber { background: #fff1db; color: #b45309; }
+.ptr-pill.is-rose { background: #ffe8ec; color: #be123c; }
+.ptr-pill.is-violet { background: #f0eaff; color: #6d28d9; }
+.ptr-pill.is-teal { background: #dff5f8; color: #0e7490; }
+.ptr-pill.is-grey { background: var(--surface-3); color: var(--ink-3); }
+
+/* --- tables ---------------------------------------------- */
+
+.ptr-table-frame {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+.ptr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.ptr-table th {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.ptr-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink-2);
+    vertical-align: top;
+}
+
+.ptr-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.ptr-table td small {
+    display: block;
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: var(--muted);
+}
+
+.ptr-table td .ptr-pill + small {
+    max-width: 22ch;
+}
+
+.ptr-table a {
+    font-weight: 600;
+    color: rgb(var(--brand));
+    text-decoration: none;
+}
+
+.ptr-table a:hover {
+    text-decoration: underline;
+}
+
+.ptr-table .ptr-strong {
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+}
+
+.ptr-table .ptr-date {
+    white-space: nowrap;
+}
+
+.ptr-table .ptr-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.ptr-table .ptr-owed,
+.ptr-table .ptr-abnormal {
+    font-weight: 700;
+    color: #be123c;
+}
+
+.ptr-table .ptr-end {
+    width: 36px;
+    text-align: right;
+}
+
+.ptr-openable {
+    cursor: pointer;
+}
+
+.ptr-openable:hover > td {
+    background: var(--surface-2);
+}
+
+.ptr-chevron {
+    display: inline-block;
+    color: var(--muted);
+    transition: transform 0.2s ease;
+}
+
+.ptr-chevron.is-open {
+    transform: rotate(180deg);
+}
+
+.ptr-table .ptr-detail-row > td {
+    padding: 14px 16px;
+    background: var(--surface-2);
+}
+
+.ptr-detail-row .ptr-table-frame {
+    background: #ffffff;
+}
+
+.ptr-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 13px;
+    color: var(--ink-2);
+}
+
+.ptr-lines li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+}
+
+.ptr-lines b {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.ptr-lines small {
+    color: var(--muted);
+}
+
+.ptr-line-total {
+    margin-left: auto;
+    font-weight: 600;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.ptr-note {
+    margin: 10px 0 0;
+    font-size: 12.5px;
+    color: var(--ink-3);
+}
+
+/* --- segmented switch ------------------------------------ */
+
+.ptr-seg {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 9px;
+    background: var(--surface-3);
+}
+
+.ptr-seg button {
+    padding: 5px 12px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-3);
+}
+
+.ptr-seg button.is-on {
+    background: #ffffff;
+    color: rgb(var(--brand));
+    box-shadow: 0 1px 3px rgba(var(--brand), 0.15);
+}
+
+/* --- OPD visits ------------------------------------------ */
+
+.ptr-visits {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ptr-visit {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+}
+
+.ptr-visit-head {
+    display: grid;
+    grid-template-columns: 130px minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+}
+
+.ptr-visit-date b,
+.ptr-visit-who b {
+    display: block;
+    font-size: 13.5px;
+    color: var(--ink);
+}
+
+.ptr-visit-date small,
+.ptr-visit-who small {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.ptr-visit-body {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 14px 16px;
+}
+
+.ptr-visit-body > div {
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: 12px;
+    font-size: 13px;
+}
+
+.ptr-visit-body dt {
+    font-weight: 500;
+    color: var(--muted);
+}
+
+.ptr-visit-body dd {
+    margin: 0;
+    color: var(--ink);
+}
+
+.ptr-visit-none {
+    margin: 0;
+    padding: 14px 16px;
+    font-size: 13px;
+}
+
+.ptr-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.ptr-chips span {
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(var(--brand), 0.08);
+    font-size: 12px;
+    font-weight: 600;
+    color: rgb(var(--brand));
+}
+
+.ptr-vitals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+}
+
+.ptr-vitals span {
+    color: var(--ink-3);
+}
+
+.ptr-vitals b {
+    margin-left: 2px;
+    color: var(--ink);
+}
+
+.ptr-vitals em {
+    margin-left: 2px;
+    font-size: 11.5px;
+    font-style: normal;
+    color: var(--muted);
+}
+
+/* --- billing figures ------------------------------------- */
+
+.ptr-money {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+}
+
+.ptr-money.is-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.ptr-money-tile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+}
+
+.ptr-money-tile > span {
+    width: 42px;
+    height: 42px;
+    font-size: 20px;
+}
+
+.ptr-money-tile small {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.ptr-money-tile b {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- empty and loading ----------------------------------- */
+
+.ptr-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 36px 16px;
+    text-align: center;
+}
+
+.ptr-empty > span {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    margin-bottom: 4px;
+    border-radius: 50%;
+    background: rgba(var(--brand), 0.08);
+    font-size: 24px;
+    color: rgb(var(--brand));
+}
+
+.ptr-empty b {
+    font-size: 14px;
+    color: var(--ink-2);
+}
+
+.ptr-empty p {
+    max-width: 42ch;
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+.ptr-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 36px 16px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+/* --- dark ------------------------------------------------ */
+
+[data-theme='dark'] .ptr-card,
+[data-theme='dark'] .ptr-kpi,
+[data-theme='dark'] .ptr-money-tile {
+    background: var(--surface);
+    border-color: var(--line);
+}
+
+[data-theme='dark'] .ptr-kpi.is-loading {
+    background: linear-gradient(90deg, var(--surface) 0%, var(--surface-3) 50%, var(--surface) 100%);
+    background-size: 200% 100%;
+}
+
+[data-theme='dark'] .ptr-search,
+[data-theme='dark'] .ptr-icon-btn,
+[data-theme='dark'] .ptr-menu,
+[data-theme='dark'] .ptr-event-box,
+[data-theme='dark'] .ptr-detail-row .ptr-table-frame,
+[data-theme='dark'] .ptr-seg button.is-on,
+[data-theme='dark'] .ptr-filter-btn {
+    background: var(--surface);
+}
+
+[data-theme='dark'] .ptr-filter-count,
+[data-theme='dark'] .ptr-face-edit {
+    box-shadow: 0 0 0 2px var(--surface);
+}
+
+[data-theme='dark'] .ptr-strip,
+[data-theme='dark'] .ptr-tab:not(.is-on) {
+    background: var(--surface);
+}
+
+[data-theme='dark'] .ptr-state.is-on { background: rgba(34, 197, 94, 0.18); color: #86efac; }
+
+[data-theme='dark'] .ptr-event-mark {
+    box-shadow: 0 0 0 4px var(--surface);
+}
+
+[data-theme='dark'] .is-blue > .ptr-kpi-icon,
+[data-theme='dark'] .ptr-money-tile.is-blue > span,
+[data-theme='dark'] .ptr-gender.is-male,
+[data-theme='dark'] .ptr-pill.is-blue { background: rgba(59, 130, 246, 0.18); color: #93c5fd; }
+[data-theme='dark'] .is-green > .ptr-kpi-icon,
+[data-theme='dark'] .ptr-money-tile.is-green > span,
+[data-theme='dark'] .ptr-pill.is-green { background: rgba(34, 197, 94, 0.18); color: #86efac; }
+[data-theme='dark'] .is-rose > .ptr-kpi-icon,
+[data-theme='dark'] .ptr-money-tile.is-rose > span,
+[data-theme='dark'] .ptr-gender.is-female,
+[data-theme='dark'] .ptr-pill.is-rose { background: rgba(244, 63, 94, 0.18); color: #fda4af; }
+[data-theme='dark'] .is-violet > .ptr-kpi-icon,
+[data-theme='dark'] .ptr-gender.is-other,
+[data-theme='dark'] .ptr-pill.is-violet { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
+[data-theme='dark'] .is-amber > .ptr-kpi-icon,
+[data-theme='dark'] .ptr-money-tile.is-amber > span,
+[data-theme='dark'] .ptr-pill.is-amber { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
+[data-theme='dark'] .ptr-pill.is-teal { background: rgba(8, 145, 178, 0.2); color: #67e8f9; }
+
+[data-theme='dark'] .ptr-table .ptr-owed,
+[data-theme='dark'] .ptr-table .ptr-abnormal { color: #fb7185; }
+[data-theme='dark'] .ptr-kpi-hint em.is-up { color: #4ade80; }
+[data-theme='dark'] .ptr-kpi-hint em.is-down { color: #fb7185; }
+[data-theme='dark'] .ptr-link,
+[data-theme='dark'] .ptr-linked,
+[data-theme='dark'] .ptr-back,
+[data-theme='dark'] .ptr-tab.is-on,
+[data-theme='dark'] .ptr-table a { color: rgb(var(--brand-2)); }
+
+/* --- narrower screens ------------------------------------ */
+
+@media (max-width: 1399.98px) {
+    .ptr-split {
+        grid-template-columns: 320px minmax(0, 1fr);
+    }
+
+    .ptr-grid.is-overview {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 1199.98px) {
+    .ptr-kpis.is-4,
+    .ptr-money.is-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ptr-grid.is-overview {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ptr-profile-top {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    /* The actions drop under the name and line up from the left. */
+    .ptr-profile-side {
+        grid-column: 1 / -1;
+    }
+
+    .ptr-profile-actions {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .ptr-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767.98px) {
+    .ptr-facts-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* Wide enough to read; the frame scrolls sideways instead of every cell wrapping. */
+    .ptr-table {
+        min-width: 720px;
+    }
+
+    .ptr-visit-head {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .ptr-visit-who {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    .ptr-visit-body > div {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2px;
+    }
+
+    .ptr-money.is-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 575.98px) {
+    /* Not the register: its head, rows and foot carry their own padding. */
+    .ptr-card:not(.ptr-list) {
+        padding: 16px;
+    }
+
+    .ptr-list-head {
+        padding: 16px 16px 12px;
+    }
+
+    .ptr-list-foot {
+        padding: 12px 16px;
+    }
+
+    /* Two by two, the icon above the figure, so all four fit one screen. */
+    .ptr-kpi {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 14px;
+    }
+
+    .ptr-kpi-icon {
+        width: 38px;
+        height: 38px;
+        font-size: 18px;
+    }
+
+    .ptr-kpi-label {
+        font-size: 12px;
+    }
+
+    .ptr-kpi-hint {
+        flex-wrap: wrap;
+        gap: 2px 6px;
+        white-space: normal;
+    }
+
+    .ptr-kpi-value {
+        font-size: 20px;
+    }
+
+    .ptr-profile {
+        padding: 16px 16px 0;
+    }
+
+    .ptr-profile-top {
+        gap: 14px;
+    }
+
+    .ptr-face {
+        width: 56px;
+        height: 56px;
+    }
+
+    .ptr-id h2 {
+        font-size: 19px;
+    }
+
+    .ptr-tabs {
+        margin: 16px -16px 0;
+        padding: 12px 16px 14px;
+    }
+
+    .ptr-tab {
+        padding: 6px 11px;
+    }
+
+    .ptr-strip {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ptr-row {
+        padding: 12px 14px 12px 11px;
+    }
+
+    .ptr-pager-info {
+        flex-basis: 100%;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .ptr-kpis.is-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 339.98px) {
+    .ptr-kpis.is-4,
+    .ptr-kpis.is-3,
+    .ptr-kpis.is-2,
+    .ptr-money {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* --- print: the record, without the screen around it ------ */
+
+@media print {
+    .ptr-kpis,
+    .ptr-list,
+    .ptr-tabs,
+    .ptr-profile-side,
+    .ptr-back,
+    .ptr-page > .page-head .page-head-actions {
+        display: none !important;
+    }
+
+    .ptr-split {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ptr-card,
+    .ptr-kpi,
+    .ptr-money-tile {
+        box-shadow: none;
+        border-color: var(--line);
+    }
+}

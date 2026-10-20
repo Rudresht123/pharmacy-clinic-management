@@ -52,6 +52,8 @@ export interface Invoice {
     consultation_id: number | null;
     doctor_id: number | null;
     doctor_name: string | null;
+    /** The doctor's department, as text — present when the detail loaded the doctor. */
+    doctor_specialisation?: string | null;
 
     status: 'draft' | 'pending' | 'partially_paid' | 'paid' | 'cancelled' | 'refunded' | 'partially_refunded';
     payment_status: 'unpaid' | 'partial' | 'paid';
