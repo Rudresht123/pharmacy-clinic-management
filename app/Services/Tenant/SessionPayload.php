@@ -12,6 +12,7 @@ use App\Services\Modules\FeatureResolver;
 use App\Services\Opd\QueueSteps;
 use App\Services\Permissions\Permission;
 use App\Services\Subscriptions\EntitlementService;
+use App\Support\Subscriptions\Entitlements;
 
 /**
  * Everything a client needs to know about a signed-in session.
@@ -97,8 +98,16 @@ class SessionPayload
              * the handoff as false instead of having to know which two modules
              * it needs. Laravel is the source of truth for this, never the
              * client and never Firebase.
+             *
+             * With them, the plan's say on video visits: an app offers a video
+             * booking, or a button to ring one, only where the subscription
+             * would let the call through.
              */
-            'features' => $this->permission->featuresAt($organization, $branch),
+            'features' => [
+                ...$this->permission->featuresAt($organization, $branch),
+                Entitlements::VIDEO_CONSULTATION => app(EntitlementService::class)
+                    ->hasFeature($organization, Entitlements::VIDEO_CONSULTATION),
+            ],
 
             /*
              * WhatsApp, SMS and email live inside the communication module, so

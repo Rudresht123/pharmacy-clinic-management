@@ -11,6 +11,8 @@ use App\Services\Permissions\Permission;
 use App\Services\Portal\BookableDoctors;
 use App\Services\Portal\PatientAppointments;
 use App\Services\Portal\PatientNotifications;
+use App\Services\Subscriptions\EntitlementService;
+use App\Support\Subscriptions\Entitlements;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,6 +56,12 @@ class AppointmentController extends PortalController
         if ($request->input('mode') === Appointment::MODE_VIDEO
             && ! $this->permission->allows($this->organization($request), $request->user(), 'portal.video_calls')) {
             return $this->fail('Video visits are not available to you at this clinic. Please book an in-clinic visit.', 403);
+        }
+
+        // Nor where the clinic's plan has no video: the call would be refused.
+        if ($request->input('mode') === Appointment::MODE_VIDEO
+            && ! app(EntitlementService::class)->hasFeature($this->organization($request), Entitlements::VIDEO_CONSULTATION)) {
+            return $this->fail('Video visits are not available at this clinic. Please book an in-clinic visit.', 403);
         }
 
         try {

@@ -386,7 +386,8 @@ class BookingService
     public function queue(?int $doctorId, int $locationId, Carbon $date)
     {
         return Appointment::on('organization')
-            ->with(['customer', 'doctor', 'location'])
+            // The photograph too: the desk's lists put a face beside each name.
+            ->with(['customer.photograph', 'doctor', 'location'])
             ->when($doctorId !== null, fn ($query) => $query->where('doctor_id', $doctorId))
             ->where('location_id', $locationId)
             ->whereDate('appointment_date', $date->toDateString())

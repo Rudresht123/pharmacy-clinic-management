@@ -10,9 +10,14 @@ use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\DoctorSchedule;
 use App\Models\Tenant\DoctorScheduleException;
+use App\Models\Tenant\File;
 use App\Models\Tenant\Location;
+use App\Services\Subscriptions\SubscriptionFacts;
 use App\Support\Opd\Weekday;
+use App\Support\Subscriptions\Entitlements;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
+use Mockery;
 use Tests\TenantTestCase;
 
 /**
@@ -620,6 +625,91 @@ class AppointmentTest extends TenantTestCase
         $this->assertSame([1, 2], $tokens);
         $this->assertSame('12:30', $body['queue'][0]['slot_at']);
         $this->assertSame(2, $body['waiting']);
+    }
+
+    /** The desk books a video visit for a time, where the clinic's plan has video. */
+    public function test_the_desk_books_a_video_visit(): void
+    {
+        [, $doctorId, $branchId, $patientId] = $this->clinic();
+
+        $this->getJson('/api/v1/tenant/auth/me')->assertJsonPath('data.features.video_consultation', true);
+
+        $this->postJson('/api/v1/tenant/appointments', [
+            'customer_id' => $patientId,
+            'doctor_id' => $doctorId,
+            'location_id' => $branchId,
+            'appointment_date' => self::MONDAY,
+            'type' => Appointment::BOOKED,
+            'slot_at' => '10:30',
+            'mode' => Appointment::MODE_VIDEO,
+        ])->assertCreated()->assertJsonPath('data.mode', Appointment::MODE_VIDEO);
+    }
+
+    /** A plan without video: the session says so, and a video booking is refused before anybody is rung. */
+    public function test_a_video_visit_needs_the_plan(): void
+    {
+        [, $doctorId, $branchId, $patientId] = $this->clinic();
+
+        // Every other feature as the complimentary plan has it; video off.
+        // Bound as the scoped factory: the facts are made afresh per request.
+        $facts = Mockery::mock(SubscriptionFacts::class)->makePartial();
+        $facts->shouldReceive('hasFeature')
+            ->andReturnUsing(fn ($organization, string $feature) => $feature !== Entitlements::VIDEO_CONSULTATION);
+
+        $this->app->scoped(SubscriptionFacts::class, fn () => $facts);
+        $this->app->forgetScopedInstances();
+
+        $this->getJson('/api/v1/tenant/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.features.video_consultation', false);
+
+        $this->postJson('/api/v1/tenant/appointments', [
+            'customer_id' => $patientId,
+            'doctor_id' => $doctorId,
+            'location_id' => $branchId,
+            'appointment_date' => self::MONDAY,
+            'type' => Appointment::BOOKED,
+            'slot_at' => '10:30',
+            'mode' => Appointment::MODE_VIDEO,
+        ])->assertStatus(422)->assertJsonValidationErrors('mode');
+
+        // In the clinic is still fine.
+        $this->book($doctorId, $branchId, $patientId, '10:30');
+    }
+
+    /** The desk's list puts a face beside each name: the patient's photograph, when they have one. */
+    public function test_the_day_carries_each_patients_photograph(): void
+    {
+        Storage::fake('public');
+
+        [$organization, $doctorId, $branchId, $patientId] = $this->clinic();
+        $plainId = $this->patient($organization, 'Vikram Shah', '9876500017');
+
+        // Set as the server sets it -- a file id, never a posted field.
+        $this->onTenant($organization, function () use ($patientId) {
+            $file = File::on('organization')->create([
+                'file_name' => 'asha.jpg',
+                'file_path' => 'customers/asha.jpg',
+                'disk' => 'public',
+                'mime_type' => 'image/jpeg',
+                'file_size' => 1024,
+                'extension' => 'jpg',
+            ]);
+
+            Customer::on('organization')->findOrFail($patientId)->forceFill(['photo' => $file->id])->save();
+        });
+
+        $this->book($doctorId, $branchId, $patientId, '10:30');
+        $this->book($doctorId, $branchId, $plainId, '11:00');
+
+        $rows = collect($this->getJson(
+            "/api/v1/tenant/appointments?location_id={$branchId}&date=".self::MONDAY
+        )->assertOk()->json('data.queue'))->keyBy('customer_id');
+
+        $this->assertSame(Storage::disk('public')->url('customers/asha.jpg'), $rows[$patientId]['customer_photo_url']);
+
+        // No photograph: null, so the app shows initials rather than a broken picture.
+        $this->assertNull($rows[$plainId]['customer_photo_url']);
     }
 
     /*

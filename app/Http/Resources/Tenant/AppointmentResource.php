@@ -34,6 +34,11 @@ class AppointmentResource extends JsonResource
 
             'customer_gender' => $this->whenLoaded('customer', fn () => $this->customer?->gender),
 
+            // Their photograph, where the list was read with it (the desk's day is).
+            'customer_photo_url' => $this->relationLoaded('customer') && $this->customer?->relationLoaded('photograph')
+                ? $this->customer->photograph?->url
+                : null,
+
             'doctor_id' => $this->doctor_id,
             'doctor_name' => $this->whenLoaded('doctor', fn () => $this->doctor?->name),
 

@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\Api\V1\Tenant;
 
+use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\Location;
+use App\Services\Subscriptions\EntitlementService;
 use App\Services\Tenancy\TenantBranchAccess;
+use App\Support\Subscriptions\Entitlements;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -87,6 +90,16 @@ class StoreAppointmentRequest extends FormRequest
                     'location_id',
                     'You can only book at the branch you work at.'
                 );
+            }
+
+            // Refused here rather than when the doctor rings: a video visit
+            // the plan cannot call is a booking nobody can keep.
+            $organization = $this->attributes->get('tenant.organization');
+
+            if ($this->input('mode') === Appointment::MODE_VIDEO
+                && $organization instanceof Organization
+                && ! app(EntitlementService::class)->hasFeature($organization, Entitlements::VIDEO_CONSULTATION)) {
+                $validator->errors()->add('mode', 'Video consultation is not part of your plan.');
             }
         });
     }
