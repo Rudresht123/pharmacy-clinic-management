@@ -25,8 +25,8 @@ function NoAccess({ reason }: { reason: string }) {
             <h6>You do not have access to this</h6>
             <p>{reason}</p>
 
-            <Link to="/dashboard" className="btn btn-primary mt-3">
-                Back to dashboard
+            <Link to="/" className="btn btn-primary mt-3">
+                Back to home
             </Link>
         </div>
     );

@@ -9,8 +9,9 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
- * How appointments run across the organization: who is told about a
- * reschedule request, and who moves a patient through the queue.
+ * How appointments run across the organization: who moves a patient through
+ * the queue. Who is TOLD about anything — a booking, a reschedule request —
+ * is the communication automation rules' (AutomationRuleController).
  *
  * Reading is open to anybody who sees appointments — the screens draw their
  * buttons from it. Changing it is `appointments.settings`.
@@ -27,7 +28,6 @@ class AppointmentSettingController extends BaseApiController
     public function update(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'reschedule_notify' => ['sometimes', Rule::in(AppointmentSetting::OPTIONS)],
             'check_in_by' => ['sometimes', Rule::in(AppointmentSetting::OPTIONS)],
             'call_by' => ['sometimes', Rule::in(AppointmentSetting::OPTIONS)],
             'consult_start_by' => ['sometimes', Rule::in(AppointmentSetting::OPTIONS)],
@@ -43,7 +43,6 @@ class AppointmentSettingController extends BaseApiController
     private function shape(AppointmentSetting $settings): array
     {
         return [
-            'reschedule_notify' => $settings->reschedule_notify,
             'check_in_by' => $settings->check_in_by,
             'call_by' => $settings->call_by,
             'consult_start_by' => $settings->consult_start_by,

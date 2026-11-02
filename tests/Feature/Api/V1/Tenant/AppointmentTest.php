@@ -140,6 +140,12 @@ class AppointmentTest extends TenantTestCase
             'account' => ['email' => self::DOCTOR_EMAIL, 'password' => self::DOCTOR_PASSWORD],
         ])->assertOk();
 
+        // Posted at the fixture's branch, which seats them on its Doctor role.
+        $this->postDoctor($organization, $doctorId, $this->onTenant(
+            $organization,
+            fn () => Location::on('organization')->where('code', 'GGN')->value('id'),
+        ));
+
         $this->signInAsStaff($organization);
     }
 
@@ -451,8 +457,11 @@ class AppointmentTest extends TenantTestCase
         $this->assertSame(2, $next['token_no']);
     }
 
-    /** Two doctors at one branch keep separate queues. */
-    public function test_tokens_are_per_doctor_not_per_branch(): void
+    /**
+     * Two doctors at one branch share one run of tokens: the desk numbers
+     * the waiting room, so no two people in it hold the same number.
+     */
+    public function test_tokens_run_across_the_branch_not_per_doctor(): void
     {
         [$organization, $doctorId, $branchId, $patientId] = $this->clinic();
 
@@ -491,9 +500,9 @@ class AppointmentTest extends TenantTestCase
             'type' => Appointment::WALK_IN,
         ])->assertCreated()->json('data');
 
-        // Each doctor's queue starts at one.
+        // The second arrival takes the next number, whoever their doctor is.
         $this->assertSame(1, $mine['token_no']);
-        $this->assertSame(1, $theirs['token_no']);
+        $this->assertSame(2, $theirs['token_no']);
     }
 
     /*

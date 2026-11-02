@@ -30,6 +30,12 @@ final class MessageVariables
         'invoice_number' => 'Invoice number',
         'payment_method' => 'Payment method',
         'phone' => 'Patient phone',
+
+        // A reschedule: where the visit was, why, and what the clinic said.
+        'old_date' => 'Previous date',
+        'old_time' => 'Previous time',
+        'reason' => 'Patient\'s reason',
+        'clinic_note' => 'Clinic\'s note',
     ];
 
     /** @return list<string> every `{{name}}` in a text, in order, each once */

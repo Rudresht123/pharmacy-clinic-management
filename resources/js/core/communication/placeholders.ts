@@ -28,6 +28,12 @@ export const PLACEHOLDERS: Placeholder[] = [
     { token: '{{phone}}', label: 'Phone', sample: '+91 98765 43210' },
     { token: '{{branch_name}}', label: 'Branch', sample: 'Gurgaon' },
     { token: '{{token_no}}', label: 'Token', sample: '12' },
+
+    // Filled on a reschedule only: where the visit was, why, what the clinic said.
+    { token: '{{old_date}}', label: 'Previous date', sample: '22 Sep 2026' },
+    { token: '{{old_time}}', label: 'Previous time', sample: '10:00 AM' },
+    { token: '{{reason}}', label: 'Reason', sample: 'Travelling that day' },
+    { token: '{{clinic_note}}', label: 'Clinic note', sample: 'The doctor is away that day.' },
 ];
 
 /** Named placeholders, plus WhatsApp's numbered ones. */

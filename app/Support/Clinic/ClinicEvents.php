@@ -75,6 +75,19 @@ final class ClinicEvents
     /** A booking was called off — the clinic's "Send cancellation notice" rule. */
     public const APPOINTMENT_CANCELLED = 'appointment_cancelled';
 
+    /**
+     * A patient asked, from the app, to move a booking — about the request,
+     * not the visit, which stays put until somebody agrees. What reacts is
+     * the clinic's "Tell staff: reschedule request" rule.
+     */
+    public const RESCHEDULE_REQUESTED = 'reschedule_requested';
+
+    /** The clinic agreed and the visit moved — about the request it answers. */
+    public const APPOINTMENT_RESCHEDULED = 'appointment_rescheduled';
+
+    /** The clinic could not move it; the visit stays where it was. */
+    public const RESCHEDULE_REJECTED = 'reschedule_rejected';
+
     /** A lab order was signed off — every item resulted, nothing still pending. */
     public const LAB_REPORT_READY = 'lab_report_ready';
 
@@ -163,6 +176,24 @@ final class ClinicEvents
                 'label' => 'Appointment cancelled',
                 'module' => 'appointments',
                 'at' => 'BookingService::cancel()',
+                'documents' => [],
+            ],
+            self::RESCHEDULE_REQUESTED => [
+                'label' => 'Reschedule request',
+                'module' => 'appointments',
+                'at' => 'RescheduleRequests::request()',
+                'documents' => [],
+            ],
+            self::APPOINTMENT_RESCHEDULED => [
+                'label' => 'Appointment rescheduled',
+                'module' => 'appointments',
+                'at' => 'RescheduleRequests::approve()',
+                'documents' => [],
+            ],
+            self::RESCHEDULE_REJECTED => [
+                'label' => 'Reschedule not possible',
+                'module' => 'appointments',
+                'at' => 'RescheduleRequests::reject()',
                 'documents' => [],
             ],
             self::LAB_REPORT_READY => [

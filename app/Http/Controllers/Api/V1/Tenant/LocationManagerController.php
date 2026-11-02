@@ -8,6 +8,8 @@ use App\Models\Tenant\BranchMembership;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
+use App\Services\Tenancy\CurrentTenant;
+use App\Services\Tenant\DefaultRoleSeeder;
 use App\Support\Roles\RoleTemplates;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -171,24 +173,24 @@ class LocationManagerController extends BaseApiController
     }
 
     /**
-     * The role a manager is put on here.
+     * The role a manager is put on here — one of THIS branch's own.
      *
-     * A named one has to be assignable AT THIS BRANCH — the organization's own
-     * roles, plus this branch's, and never another branch's. It also has to be
-     * branch-scoped: an organization-scoped role would apply everywhere, so
-     * "manager of Gurgaon" would quietly be manager of the network.
+     * A named one has to be the branch's: each branch sets its own roles, and
+     * another branch's would carry that branch's choices here. Unnamed, it is
+     * the branch's Branch manager, written for it from the template the first
+     * time somebody is appointed.
      */
     private function managerRole(?int $roleId, Location $location): ?Role
     {
         if ($roleId !== null) {
-            return Role::query()
-                ->assignableAt($location->getKey())
-                ->where('scope', Role::SCOPE_BRANCH)
-                ->find($roleId);
+            return Role::query()->assignableAt($location->getKey())->find($roleId);
         }
 
         $template = RoleTemplates::find(self::TEMPLATE);
+        $organization = CurrentTenant::organization();
 
-        return Role::where('slug', $template['slug'] ?? 'branch-manager')->first();
+        return $template && $organization
+            ? app(DefaultRoleSeeder::class)->roleAt($template, $location, $organization)
+            : null;
     }
 }

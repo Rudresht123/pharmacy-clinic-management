@@ -10,11 +10,13 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * A patient booking for themselves.
+ * A patient booking for themselves, or for somebody in their family.
  *
- * No `customer_id` — who the booking is for comes from the signed-in login,
- * never from the request — and no `type`, because a patient can only book a
- * time; walk-ins are something that happens at the desk.
+ * No `customer_id` — who the booking is for comes from the signed-in login and
+ * the family they have added, never from an id the request can pick freely;
+ * `member_id` is looked up inside that family (AppointmentController). And no
+ * `type`, because a patient can only book a time; walk-ins are something that
+ * happens at the desk.
  */
 class BookAppointmentRequest extends FormRequest
 {
@@ -45,6 +47,9 @@ class BookAppointmentRequest extends FormRequest
             'mode' => ['nullable', Rule::in(Appointment::MODES)],
 
             'notes' => ['nullable', 'string', 'max:500'],
+
+            // Somebody in their family; left out, the visit is their own.
+            'member_id' => ['nullable', 'integer'],
         ];
     }
 

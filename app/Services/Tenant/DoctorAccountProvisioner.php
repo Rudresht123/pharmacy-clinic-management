@@ -3,7 +3,6 @@
 namespace App\Services\Tenant;
 
 use App\Models\Tenant\Doctor;
-use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
 use Illuminate\Support\Facades\Hash;
 use RuntimeException;
@@ -21,87 +20,23 @@ use RuntimeException;
  * system is the reason `doctors` is its own table rather than a role on
  * `users`. A doctor may never have TWO: Phase 4 asks "who wrote this
  * prescription", and two accounts give two answers.
+ *
+ * What the login may do is each BRANCH's to say: it holds that branch's Doctor
+ * role at every branch the doctor is posted to (DoctorPostings::seat), and no
+ * role of the organization's.
  */
 class DoctorAccountProvisioner
 {
-    /**
-     * What a doctor's own login may do.
-     *
-     * Their own list, their own patients, and writing what happened. Not the
-     * desk's work — booking, cancelling and calling people through belong to
-     * whoever is running the queue, and a doctor holding them would be able to
-     * rearrange a morning they cannot see.
-     */
-    private const WANTED = [
-        /*
-         * Their own list, and the patients on it. Nothing wider.
-         *
-         * `appointments.queue` is what `opd/my-day` is behind — it is how a
-         * doctor reads their own list at all. It NO LONGER carries the
-         * consultation: since the workflow split it means "check in and call
-         * through", the desk's two verbs, and the two keys below are what a
-         * doctor actually works with.
-         *
-         * `appointments.view` is deliberately NOT here. It opens the
-         * department's board, the desk's queue for every doctor, the doctor
-         * registry and the branch rota — a manager's screens. Granting it made
-         * a doctor sign in to five menu entries about running a clinic and one
-         * about seeing patients.
-         */
-        'appointments.queue',
-
-        /*
-         * The consultation, both ends of it. These are the keys the
-         * receptionist deliberately does not hold, and a doctor login without
-         * them could read its own list and never open a write-up.
-         */
-        'appointments.consult_start',
-        'appointments.consult_complete',
-
-        // Writing to their own patients between visits.
-        'appointments.messages',
-
-        // Seeing them on video, for a visit booked that way.
-        'appointments.video_call',
-
-        'customers.view',
-        'prescriptions.view',
-        'prescriptions.write',
-
-        /*
-         * Ordering tests and reading what comes back. Not `.process` or
-         * `.complete`: a doctor who could sign off their own order has taken
-         * the bench out of the loop, and the result they act on would be one
-         * nobody ran.
-         */
-        'laboratory.view',
-        'laboratory.order',
-
-        // Searching the catalogue, and seeing what is on the shelf, while prescribing.
-        'medicines.view',
-    ];
-
-    /** The slug of the role every doctor login shares. */
+    /** The slug of the organization-wide role doctors used to share — gone since roles became each branch's own. */
     public const ROLE = 'doctor';
 
-    /**
-     * @param  array{email: string, password?: string|null}  $account
-     * @param  list<string>  $modules  what the organization runs
-     */
-    public function open(Doctor $doctor, array $account, array $modules): User
-    {
-        /*
-         * The shared role is brought up to date on every call, not only when
-         * an account is first opened.
-         *
-         * It used to be built inside the create branch alone, so its
-         * capabilities froze at whatever the organization ran on the day the
-         * *first* doctor account was made. Buy the prescriptions module a
-         * month later and no existing doctor ever gained it — the role was
-         * only rebuilt if somebody happened to add a brand-new doctor.
-         */
-        $role = $this->role($modules);
+    public function __construct(
+        private readonly DoctorPostings $postings,
+    ) {}
 
+    /** @param  array{email: string, password?: string|null}  $account */
+    public function open(Doctor $doctor, array $account): User
+    {
         $existing = $doctor->user()->first();
 
         if ($existing) {
@@ -114,9 +49,7 @@ class DoctorAccountProvisioner
                 'name' => $doctor->name,
                 'email' => $account['email'],
                 'is_active' => true,
-
-                // Points at the shared role even if this account predates it.
-                'role_id' => $role->id,
+                'role_id' => null,
             ]);
 
             if (! empty($account['password'])) {
@@ -124,6 +57,7 @@ class DoctorAccountProvisioner
             }
 
             $existing->save();
+            $this->postings->seat($doctor);
 
             return $existing;
         }
@@ -132,24 +66,20 @@ class DoctorAccountProvisioner
             throw new RuntimeException('A new login needs a password.');
         }
 
-        return User::create([
+        $login = User::create([
             'name' => $doctor->name,
             'email' => $account['email'],
             'password' => Hash::make($account['password']),
             'is_active' => true,
             'role' => User::STAFF,
-
-            /*
-             * The role is organization-wide rather than a branch membership: a
-             * doctor sits wherever their timings put them, and tying their
-             * account to one branch would hide the other branches' lists from
-             * the one person who has to work them.
-             */
-            'role_id' => $role->id,
-
+            'role_id' => null,
             'userable_type' => Doctor::class,
             'userable_id' => $doctor->id,
         ]);
+
+        $this->postings->seat($doctor);
+
+        return $login;
     }
 
     /** Take the login away, leaving the doctor and their history behind. */
@@ -161,38 +91,5 @@ class DoctorAccountProvisioner
          * either keeping it or removing it.
          */
         $doctor->user()->first()?->delete();
-    }
-
-    /**
-     * The shared "Doctor" role, created once and reused.
-     *
-     * One role rather than one per doctor: they all do the same job, and a
-     * role per person makes changing what doctors may do a loop instead of an
-     * edit.
-     */
-    private function role(array $modules): Role
-    {
-        $role = Role::firstOrCreate(
-            ['slug' => self::ROLE],
-            [
-                'name' => 'Doctor',
-                'scope' => Role::SCOPE_ORGANIZATION,
-                'icon' => 'ti ti-stethoscope',
-                'description' => 'Sees their own list and writes up what happened.',
-            ],
-        );
-
-        /*
-         * Only what the organization actually runs. A capability whose module
-         * is switched off would be a permission that means nothing, and
-         * SaveRoleRequest would refuse it from the screen anyway.
-         */
-        $available = \App\Support\Modules\ModuleRegistry::capabilitiesFor($modules);
-
-        $role->load('capabilities')->syncCapabilities(
-            array_values(array_intersect(self::WANTED, $available))
-        );
-
-        return $role;
     }
 }

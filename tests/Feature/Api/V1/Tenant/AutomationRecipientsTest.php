@@ -1,0 +1,435 @@
+<?php
+
+namespace Tests\Feature\Api\V1\Tenant;
+
+use App\Jobs\SendEmailMessage;
+use App\Jobs\SendPushMessage;
+use App\Models\Platform\Organization;
+use App\Models\Tenant\Appointment;
+use App\Models\Tenant\AutomationRule;
+use App\Models\Tenant\BranchMembership;
+use App\Models\Tenant\CommunicationChannel;
+use App\Models\Tenant\Customer;
+use App\Models\Tenant\Doctor;
+use App\Models\Tenant\DoctorSchedule;
+use App\Models\Tenant\Location;
+use App\Models\Tenant\MessageTemplate;
+use App\Models\Tenant\Role;
+use App\Models\Tenant\User as TenantUser;
+use App\Services\Tenant\DefaultRoleSeeder;
+use App\Services\Tenant\DoctorPostings;
+use App\Services\Tenant\PatientAccountProvisioner;
+use App\Support\Opd\Weekday;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Queue;
+use Tests\TenantTestCase;
+
+/**
+ * Who an automation rule tells — To, CC and BCC on an email, Send to on an
+ * App notification — by place on the record (the doctor, whoever booked it,
+ * the branch manager, the desk), by role, by name, or by address.
+ */
+class AutomationRecipientsTest extends TenantTestCase
+{
+    use RefreshDatabase;
+
+    private const MONDAY = '2026-09-07';
+
+    private const STAFF = '/api/v1/tenant';
+
+    private const DOCTOR_EMAIL = 'dr.anjali@clinic.test';
+
+    private const DOCTOR_LOGIN = 'anjali@clinic.test';
+
+    private const MANAGER_EMAIL = 'manager@clinic.test';
+
+    private Organization $organization;
+
+    private int $gurgaon;
+
+    private int $delhi;
+
+    private int $doctorId;
+
+    private int $patientId;
+
+    private string $defaultGuard;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->defaultGuard = (string) config('auth.defaults.guard');
+        $this->artisan('modules:sync');
+        $this->travelTo(Carbon::parse(self::MONDAY.' 08:00'));
+
+        $this->organization = $this->provisionOrganization('AR');
+        $this->grantModule($this->organization, 'appointments');
+        $this->grantModule($this->organization, 'communication');
+
+        $this->signInAsOwner($this->organization);
+
+        [$this->gurgaon, $this->delhi] = $this->onTenant($this->organization, fn () => [
+            Location::on('organization')->create(['name' => 'Gurgaon', 'code' => 'AR-GGN', 'type' => Location::CLINIC, 'is_active' => true])->id,
+            Location::on('organization')->create(['name' => 'Delhi', 'code' => 'AR-DEL', 'type' => Location::CLINIC, 'is_active' => true])->id,
+        ]);
+
+        $this->doctorId = $this->postJson(self::STAFF.'/doctors', [
+            'name' => 'Dr. Anjali Sharma',
+            'specialisation' => 'General Physician',
+            'email' => self::DOCTOR_EMAIL,
+            'is_active' => true,
+            'account' => ['email' => self::DOCTOR_LOGIN, 'password' => 'doctor-secret-1'],
+        ])->assertCreated()->json('data.id');
+
+        $this->patientId = $this->onTenant($this->organization, function () {
+            DoctorSchedule::on('organization')->create([
+                'doctor_id' => $this->doctorId, 'location_id' => $this->gurgaon, 'name' => 'Morning OPD',
+                'weekday' => Weekday::MONDAY, 'starts_at' => '10:00', 'ends_at' => '12:00',
+                'slot_minutes' => 30, 'is_active' => true,
+            ]);
+
+            app(DoctorPostings::class)->ensure(Doctor::query()->findOrFail($this->doctorId), $this->gurgaon);
+
+            $manager = TenantUser::query()->create([
+                'name' => 'Meena Manager', 'email' => self::MANAGER_EMAIL, 'password' => bcrypt('secret-123'),
+                'is_active' => true, 'role' => TenantUser::STAFF,
+            ]);
+
+            Location::query()->whereKey($this->gurgaon)->update(['manager_id' => $manager->id]);
+
+            return Customer::on('organization')->create([
+                'name' => 'Rohit Sharma', 'phone' => '9810000044', 'email' => 'rohit@example.com', 'is_active' => true,
+            ])->id;
+        });
+
+        Queue::fake();
+    }
+
+    /** As a new request finds the app — see VideoCallTest::fresh(). */
+    private function fresh(): void
+    {
+        $this->flushSession();
+        $this->flushHeaders();
+        $this->withHeader('Origin', config('app.url'));
+        $this->app['auth']->forgetGuards();
+        $this->app['auth']->setDefaultDriver($this->defaultGuard);
+    }
+
+    private function rule(string $channel, string $audience = AutomationRule::STAFF, string $event = AutomationRule::APPOINTMENT_CONFIRMED): AutomationRule
+    {
+        return $this->onTenant($this->organization, fn () => AutomationRule::query()
+            ->where('channel', $channel)->where('event_key', $event)->where('audience', $audience)->sole());
+    }
+
+    /** Saved as the owner would, through the rule screen. */
+    private function tell(string $channel, array $recipients, string $audience = AutomationRule::STAFF, string $event = AutomationRule::APPOINTMENT_CONFIRMED)
+    {
+        $this->fresh();
+        $this->signInAsOwner($this->organization);
+
+        return $this->putJson(self::STAFF.'/communication/automation-rules/'.$this->rule($channel, $audience, $event)->id, [
+            'recipients' => $recipients,
+        ]);
+    }
+
+    /** A patient of their own each time, unless one is named: one visit a day each. */
+    private function book(string $slot = '10:30', ?int $customer = null): int
+    {
+        $customer ??= $this->onTenant($this->organization, fn () => Customer::on('organization')->create([
+            'name' => 'Walk-up '.$slot, 'phone' => '98'.random_int(10000000, 99999999), 'is_active' => true,
+        ])->id);
+
+        return (int) $this->postJson(self::STAFF.'/appointments', [
+            'customer_id' => $customer,
+            'doctor_id' => $this->doctorId,
+            'location_id' => $this->gurgaon,
+            'appointment_date' => self::MONDAY,
+            'type' => Appointment::BOOKED,
+            'slot_at' => $slot,
+        ])->assertCreated()->json('data.id');
+    }
+
+    private function bookAtTheDesk(string $slot = '10:30'): int
+    {
+        $this->fresh();
+        $this->signInAsReceptionist($this->organization, $this->gurgaon);
+
+        return $this->book($slot);
+    }
+
+    private function login(string $email): int
+    {
+        return (int) $this->onTenant($this->organization, fn () => TenantUser::query()->where('email', $email)->value('id'));
+    }
+
+    /** @return list<array{to: string, also_to: list<string>, cc: list<string>, bcc: list<string>}> */
+    private function emails(string $subject): array
+    {
+        return collect(Queue::pushed(SendEmailMessage::class))
+            ->filter(fn (SendEmailMessage $job) => $job->content['subject'] === $subject)
+            ->map(fn (SendEmailMessage $job) => [
+                'to' => $job->content['to'],
+                'also_to' => $job->content['also_to'] ?? [],
+                'cc' => $job->content['cc'] ?? [],
+                'bcc' => $job->content['bcc'] ?? [],
+            ])
+            ->values()->all();
+    }
+
+    /** @return list<list<int>> who each push of [$type] went to */
+    private function pushes(string $type): array
+    {
+        return collect(Queue::pushed(SendPushMessage::class))
+            ->filter(fn (SendPushMessage $job) => ($job->content['data']['type'] ?? null) === $type)
+            ->map(fn (SendPushMessage $job) => collect($job->content['user_ids'])->sort()->values()->all())
+            ->values()->all();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Who hears
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_a_booking_tells_whoever_the_staff_rule_names_on_to_cc_and_bcc(): void
+    {
+        $this->tell(CommunicationChannel::EMAIL, [
+            'to' => [['type' => 'doctor']],
+            'cc' => [['type' => 'branch_manager']],
+            'bcc' => [['type' => 'email', 'address' => 'Owner-Copy@clinic.test']],
+        ])->assertOk()
+            ->assertJsonPath('data.recipients.to.0.label', 'Doctor')
+            ->assertJsonPath('data.recipients.cc.0.label', 'Branch manager')
+            ->assertJsonPath('data.recipients.bcc.0.label', 'owner-copy@clinic.test');
+
+        $this->tell(CommunicationChannel::PUSH, [
+            'to' => [['type' => 'doctor'], ['type' => 'branch_manager']],
+        ])->assertOk();
+
+        $this->bookAtTheDesk();
+
+        // ONE email: the doctor's own address on To, the manager copied in,
+        // the owner's copy hidden.
+        $this->assertSame([[
+            'to' => self::DOCTOR_EMAIL,
+            'also_to' => [],
+            'cc' => [self::MANAGER_EMAIL],
+            'bcc' => ['owner-copy@clinic.test'],
+        ]], $this->emails('Appointment booked'));
+
+        $this->assertSame(
+            [collect([$this->login(self::DOCTOR_LOGIN), $this->login(self::MANAGER_EMAIL)])->sort()->values()->all()],
+            $this->pushes('appointment_booked'),
+        );
+    }
+
+    public function test_switched_off_nobody_hears_and_the_doctor_is_not_told_a_second_way(): void
+    {
+        foreach ([CommunicationChannel::EMAIL, CommunicationChannel::PUSH] as $channel) {
+            $this->putJson(self::STAFF.'/communication/automation-rules/'.$this->rule($channel)->id, ['is_enabled' => false])
+                ->assertOk();
+        }
+
+        $this->book();
+
+        $this->assertSame([], $this->emails('Appointment booked'));
+        $this->assertSame([], $this->pushes('appointment_booked'));
+    }
+
+    public function test_booked_by_is_whoever_made_the_booking_never_the_patient(): void
+    {
+        $this->tell(CommunicationChannel::PUSH, ['to' => [['type' => 'creator']]])->assertOk();
+
+        $this->bookAtTheDesk();
+        $this->assertSame([[$this->login(self::RECEPTIONIST_EMAIL)]], $this->pushes('appointment_booked'));
+
+        // Booked by the patient, from the app: nobody on staff "booked it".
+        $token = $this->onTenant($this->organization, function () {
+            $patient = Customer::on('organization')->create(['name' => 'Asha Rane', 'phone' => '9810000045', 'is_active' => true]);
+
+            return app(PatientAccountProvisioner::class)->open($patient, ['appointments'])
+                ->createToken('Patient phone')->plainTextToken;
+        });
+
+        $this->fresh();
+        $this->withHeaders(['X-Organization' => $this->organization->subdomain, 'Authorization' => "Bearer {$token}"])
+            ->postJson(self::STAFF.'/portal/appointments', [
+                'doctor_id' => $this->doctorId,
+                'location_id' => $this->gurgaon,
+                'appointment_date' => self::MONDAY,
+                'slot_at' => '11:00',
+            ])->assertCreated();
+
+        $this->assertCount(1, $this->pushes('appointment_booked'));
+    }
+
+    public function test_the_front_desk_and_a_role_are_the_people_at_that_branch(): void
+    {
+        // A receptionist at Gurgaon, and one at Delhi who must not hear about Gurgaon.
+        $this->signInAsReceptionist($this->organization, $this->gurgaon);
+        $roleId = $this->onTenant($this->organization, function () {
+            app(DefaultRoleSeeder::class)->seedBranch($this->organization, Location::query()->findOrFail($this->delhi));
+
+            // Each branch's own Receptionist — the rule names Gurgaon's copy.
+            $gurgaon = Role::query()->where('slug', Role::slugAt(self::RECEPTIONIST_ROLE, $this->gurgaon))->firstOrFail();
+            $delhi = Role::query()->where('slug', Role::slugAt(self::RECEPTIONIST_ROLE, $this->delhi))->firstOrFail();
+
+            $desk = TenantUser::query()->create([
+                'name' => 'Delhi Desk', 'email' => 'delhi.desk@clinic.test', 'password' => bcrypt('secret-123'),
+                'is_active' => true, 'role' => TenantUser::STAFF,
+            ]);
+
+            BranchMembership::query()->create(['user_id' => $desk->id, 'location_id' => $this->delhi, 'role_id' => $delhi->id]);
+
+            return $gurgaon->id;
+        });
+
+        $this->tell(CommunicationChannel::PUSH, ['to' => [['type' => 'front_desk']]])->assertOk();
+        $this->book('10:00');
+
+        $this->tell(CommunicationChannel::PUSH, ['to' => [['type' => 'role', 'id' => $roleId]]])->assertOk()
+            ->assertJsonPath('data.recipients.to.0.label', 'Receptionist');
+        $this->book('10:30');
+
+        // Gurgaon's desk both times — never Delhi's, and never the doctor,
+        // who is posted to Gurgaon but hears as the doctor or not at all.
+        $desk = [$this->login(self::RECEPTIONIST_EMAIL)];
+        $this->assertSame([$desk, $desk], $this->pushes('appointment_booked'));
+    }
+
+    public function test_somebody_named_twice_is_told_once_on_the_higher_list(): void
+    {
+        $managerId = $this->login(self::MANAGER_EMAIL);
+
+        $this->tell(CommunicationChannel::EMAIL, [
+            'to' => [['type' => 'doctor']],
+            'cc' => [['type' => 'user', 'id' => $managerId], ['type' => 'branch_manager']],
+            'bcc' => [['type' => 'email', 'address' => self::DOCTOR_EMAIL]],
+        ])->assertOk();
+
+        $this->book();
+
+        $this->assertSame([[
+            'to' => self::DOCTOR_EMAIL,
+            'also_to' => [],
+            'cc' => [self::MANAGER_EMAIL],
+            'bcc' => [],
+        ]], $this->emails('Appointment booked'));
+    }
+
+    public function test_nobody_reachable_on_to_moves_the_copies_up_and_a_lone_bcc_goes_on_its_own(): void
+    {
+        // Gurgaon without a manager: To is nobody, so CC becomes the addressee.
+        $this->onTenant($this->organization, fn () => Location::query()->whereKey($this->gurgaon)->update(['manager_id' => null]));
+
+        $this->tell(CommunicationChannel::EMAIL, [
+            'to' => [['type' => 'branch_manager']],
+            'cc' => [['type' => 'email', 'address' => 'front@clinic.test']],
+        ])->assertOk();
+        $this->book('10:00');
+
+        $this->tell(CommunicationChannel::EMAIL, [
+            'to' => [['type' => 'branch_manager']],
+            'bcc' => [['type' => 'email', 'address' => 'a@clinic.test'], ['type' => 'email', 'address' => 'b@clinic.test']],
+        ])->assertOk();
+        $this->book('10:30');
+
+        $this->assertSame([
+            ['to' => 'front@clinic.test', 'also_to' => [], 'cc' => [], 'bcc' => []],
+            // Each hidden recipient alone — neither sees the other.
+            ['to' => 'a@clinic.test', 'also_to' => [], 'cc' => [], 'bcc' => []],
+            ['to' => 'b@clinic.test', 'also_to' => [], 'cc' => [], 'bcc' => []],
+        ], $this->emails('Appointment booked'));
+    }
+
+    public function test_the_patients_own_message_can_copy_the_doctor_in(): void
+    {
+        $this->onTenant($this->organization, fn () => CommunicationChannel::forChannel(CommunicationChannel::EMAIL)
+            ->forceFill(['is_connected' => true])->save());
+
+        $this->putJson(self::STAFF.'/communication/automation-rules/'.$this->rule(CommunicationChannel::EMAIL, AutomationRule::PATIENT)->id, [
+            'is_enabled' => true,
+            'recipients' => ['to' => [['type' => 'patient']], 'cc' => [['type' => 'doctor']]],
+        ])->assertOk();
+
+        $this->book(customer: $this->patientId);
+
+        $this->assertSame([[
+            'to' => 'rohit@example.com',
+            'also_to' => [],
+            'cc' => [self::DOCTOR_EMAIL],
+            'bcc' => [],
+        ]], $this->emails('Appointment confirmed — {{clinic_name}}'));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | What may be saved
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_a_list_has_to_make_sense_for_its_rule(): void
+    {
+        $push = $this->rule(CommunicationChannel::PUSH)->id;
+        $email = $this->rule(CommunicationChannel::EMAIL)->id;
+        $patientEmail = $this->rule(CommunicationChannel::EMAIL, AutomationRule::PATIENT)->id;
+        $rules = self::STAFF.'/communication/automation-rules/';
+
+        // Nobody is copied on a push.
+        $this->putJson($rules.$push, ['recipients' => ['to' => [['type' => 'doctor']], 'cc' => [['type' => 'branch_manager']]]])
+            ->assertUnprocessable()->assertJsonValidationErrors('recipients.cc');
+
+        // Staff wording never reaches the patient…
+        $this->putJson($rules.$email, ['recipients' => ['to' => [['type' => 'patient']]]])
+            ->assertUnprocessable()->assertJsonValidationErrors('recipients.to.0');
+
+        // …and the patient's own message never drops them.
+        $this->putJson($rules.$patientEmail, ['recipients' => ['to' => [['type' => 'doctor']]]])
+            ->assertUnprocessable()->assertJsonValidationErrors('recipients.to');
+
+        // Somebody who exists, and an address that is one.
+        $this->putJson($rules.$email, ['recipients' => ['to' => [['type' => 'role', 'id' => 99999]]]])
+            ->assertUnprocessable()->assertJsonValidationErrors('recipients.to.0');
+        $this->putJson($rules.$email, ['recipients' => ['to' => [['type' => 'user', 'id' => 99999]]]])
+            ->assertUnprocessable()->assertJsonValidationErrors('recipients.to.0');
+        $this->putJson($rules.$email, ['recipients' => ['to' => [['type' => 'email', 'address' => 'not-an-address']]]])
+            ->assertUnprocessable()->assertJsonValidationErrors('recipients.to.0.address');
+
+        // Switched on, it has to tell somebody.
+        $this->putJson($rules.$email, ['recipients' => ['to' => []]])
+            ->assertUnprocessable()->assertJsonValidationErrors('recipients.to');
+        $this->putJson($rules.$email, ['is_enabled' => false, 'recipients' => ['to' => []]])->assertOk();
+
+        // A patient template on a staff alert, the wrong reader.
+        $patientTemplate = $this->onTenant($this->organization, fn () => MessageTemplate::query()
+            ->where('channel', CommunicationChannel::EMAIL)->where('audience', AutomationRule::PATIENT)->value('id'));
+        $this->putJson($rules.$email, ['message_template_id' => $patientTemplate])
+            ->assertUnprocessable()->assertJsonValidationErrors('message_template_id');
+    }
+
+    public function test_only_who_sets_up_messages_changes_who_hears(): void
+    {
+        $this->fresh();
+        $this->signInAsReceptionist($this->organization, $this->gurgaon);
+
+        $this->putJson(self::STAFF.'/communication/automation-rules/'.$this->rule(CommunicationChannel::EMAIL)->id, [
+            'recipients' => ['to' => [['type' => 'email', 'address' => 'me@example.com']]],
+        ])->assertForbidden();
+    }
+
+    public function test_the_choices_are_places_roles_and_staff_never_patients(): void
+    {
+        // A patient with an app login, who must not be offered.
+        $this->onTenant($this->organization, fn () => app(PatientAccountProvisioner::class)
+            ->open(Customer::query()->findOrFail($this->patientId), ['appointments']));
+
+        $data = $this->getJson(self::STAFF.'/communication/automation-rules/recipients')->assertOk()->json('data');
+
+        $this->assertSame(['patient', 'doctor', 'creator', 'branch_manager', 'front_desk'], array_column($data['places'], 'type'));
+        $this->assertContains('Meena Manager', array_column($data['staff'], 'name'));
+        $this->assertNotContains('Rohit Sharma', array_column($data['staff'], 'name'));
+        $this->assertNotContains('Patient', array_column($data['roles'], 'name'));
+    }
+}

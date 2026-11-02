@@ -5,7 +5,7 @@ import { CategoryTag, TemplatePill } from './StatusPill';
 import type { MessageTemplate } from '../types';
 
 /**
- * The App notification templates, as the list that drives the preview.
+ * The App notification templates.
  *
  * A list rather than the email/WhatsApp table: a notification is a title and
  * a line, and that is what a row shows — the same two things the patient
@@ -58,7 +58,7 @@ export function PushTemplateList({
             className="ph-card"
             title="Notification templates"
             icon="ti ti-template"
-            description="What patients read on their lock screen. Choose one to preview it."
+            description="What patients and staff read on their lock screen."
             actions={
                 onCreate && (
                     <Button size="sm" icon="ti ti-plus" onClick={onCreate}>

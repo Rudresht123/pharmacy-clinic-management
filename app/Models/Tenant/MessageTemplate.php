@@ -20,6 +20,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * Placeholders are {{1}}, {{2}} in WhatsApp's own numbering, or named ones
  * like {{patient_name}} where the provider allows it. Neither is resolved
  * here: filling them is the sender's job, at the moment of sending.
+ *
+ * `audience` is who the wording is written for (AutomationRule::PATIENT or
+ * ::STAFF). A staff alert — "Rahul is booked with you at 10:30" — is never
+ * offered to a campaign or to a rule that writes to patients.
  */
 class MessageTemplate extends Model
 {
@@ -52,6 +56,7 @@ class MessageTemplate extends Model
         'tone',
         'is_active',
         'sort_order',
+        'audience',
         'created_by',
         'updated_by',
     ];

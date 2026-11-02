@@ -37,11 +37,10 @@ class LocationRepository extends BaseRepository implements LocationRepositoryInt
     /**
      * The branches the signed-in person may act on, or null for all of them.
      *
-     * `branches.view` is a branch-scoped capability — it means "here", not
-     * "everywhere" — and this listing was honouring the capability without
-     * honouring its scope. A receptionist at Lucknow held it and got Delhi's
-     * site list, and every branch picker in the product is populated from
-     * this, so they could also aim a request at a branch they do not work at.
+     * Every branch picker in the product is populated from this, with no tick
+     * behind it (see LocationController::index), so it is narrowed to where
+     * the person works: a receptionist at Lucknow must not get Delhi's sites,
+     * or aim a request at a branch they do not work at.
      *
      * Null rather than every id, so an owner's query skips the clause.
      *

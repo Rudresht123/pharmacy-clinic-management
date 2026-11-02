@@ -88,6 +88,7 @@ class AppointmentReminders
             $visit->location_id === null ? null : (int) $visit->location_id,
             $this->sender->appointmentVariables($visit, $organization),
             $channel,
+            $visit,
         );
 
         if ($sent === []) {

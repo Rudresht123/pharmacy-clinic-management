@@ -136,7 +136,8 @@ class SeedCommunicationDemoCommand extends Command
 
         foreach (self::RULES as $order => [$key, $title, $description, $icon, $lead, $enabled, $sends]) {
             AutomationRule::query()->updateOrCreate(
-                ['channel' => $channel, 'event_key' => $key],
+                // The patient's rule: a staff alert on the same event is not this one.
+                ['channel' => $channel, 'event_key' => $key, 'audience' => AutomationRule::PATIENT],
                 [
                     'title' => $title,
                     'description' => $description,

@@ -9,10 +9,9 @@ import { useConfirmSetupStep } from '../api';
 import { SectionShell, type SectionProps } from '../components/SectionShell';
 
 /**
- * What each kind of job may do.
+ * What each kind of job may do — read here, set by each branch.
  *
- * Read here; written in the roles editor, which already handles scopes,
- * branch roles and the capability grid — a second copy of it would drift.
+ * Every branch writes its own roles; the owner sets only the patient app's.
  * Reviewing is a sign-off the admin gives once they have looked.
  */
 export function RolesSection({ step, nav }: SectionProps) {
@@ -39,7 +38,7 @@ export function RolesSection({ step, nav }: SectionProps) {
             actions={
                 <Link to="/roles" className="btn btn-light">
                     <i className="ti ti-external-link me-1" aria-hidden="true" />
-                    Open roles editor
+                    Patient app role
                 </Link>
             }
             primary={
@@ -50,9 +49,9 @@ export function RolesSection({ step, nav }: SectionProps) {
             }
         >
             <p className="su-lead">
-                Every organisation starts with a Staff role, and doctor logins get a Doctor role of their
-                own. Add a role for each kind of job — receptionist, pharmacist, manager — and give it only
-                what that job needs. The owner is never limited by a role.
+                Each branch sets its own roles. A new branch starts with the usual jobs — branch manager,
+                receptionist, doctor, pharmacist — which its branch admin then changes as they like. You
+                decide which modules each branch runs, and what patients can do in the app.
             </p>
 
             {isLoading ? (
@@ -83,8 +82,8 @@ export function RolesSection({ step, nav }: SectionProps) {
                                         )}
                                     </td>
                                     <td>
-                                        {role.scope === 'organization'
-                                            ? 'Whole organisation'
+                                        {role.audience === 'patient'
+                                            ? 'Patient app'
                                             : (role.location ?? 'One branch')}
                                     </td>
                                     <td className="text-end">{role.capabilities.length}</td>

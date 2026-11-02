@@ -32,7 +32,6 @@ export interface RescheduleRequest {
 export type Who = 'desk' | 'doctor' | 'both';
 
 export interface AppointmentSettings {
-    reschedule_notify: Who;
     check_in_by: Who;
     call_by: Who;
     consult_start_by: Who;

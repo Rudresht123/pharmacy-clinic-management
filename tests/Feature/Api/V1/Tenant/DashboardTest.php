@@ -47,7 +47,7 @@ class DashboardTest extends TenantTestCase
 
         config(['hms.dashboard_demo' => true]);
 
-        $this->setStaffCapabilities($organization, ['customers.view']);
+        $this->setStaffCapabilities($organization, ['dashboard.view', 'customers.view']);
         $this->signInAsStaff($organization);
 
         $data = $this->getJson('/api/v1/tenant/dashboard')->assertOk()->json('data');
@@ -123,7 +123,7 @@ class DashboardTest extends TenantTestCase
     {
         [$organization] = $this->network();
 
-        $this->setStaffCapabilities($organization, ['customers.view']);
+        $this->setStaffCapabilities($organization, ['dashboard.view', 'customers.view']);
         $this->signInAsStaff($organization);
 
         $data = $this->getJson('/api/v1/tenant/dashboard')->assertOk()->json('data');
@@ -139,12 +139,20 @@ class DashboardTest extends TenantTestCase
         $this->assertSame(['patients'], array_column($data['headline'], 'key'));
     }
 
-    /** Holding nothing is a valid dashboard, not a refusal. */
+    /**
+     * The dashboard is its own tick: holding nothing at all does not open it,
+     * and holding only that tick is a valid, empty dashboard — not a refusal.
+     */
     public function test_somebody_holding_nothing_gets_an_empty_dashboard(): void
     {
         [$organization] = $this->network();
 
         $this->setStaffCapabilities($organization, []);
+        $this->signInAsStaff($organization);
+
+        $this->getJson('/api/v1/tenant/dashboard')->assertForbidden();
+
+        $this->setStaffCapabilities($organization, ['dashboard.view']);
         $this->signInAsStaff($organization);
 
         $data = $this->getJson('/api/v1/tenant/dashboard')->assertOk()->json('data');
@@ -154,10 +162,11 @@ class DashboardTest extends TenantTestCase
          * panels — the figure cards inside are gated one by one, so both
          * card lists are empty, and the overview counts nothing it may not.
          * `plan` says which modules the organization holds, which
-         * `/auth/me` already tells them. Everything that answers a
+         * `/auth/me` already tells them. `branch_info` is their own branch,
+         * which comes with the dashboard itself. Everything that answers a
          * capability is gone.
          */
-        $this->assertSame(['context', 'scope', 'headline', 'plan', 'overview', 'kpis'], array_keys($data));
+        $this->assertSame(['context', 'scope', 'headline', 'plan', 'branch_info', 'overview', 'kpis'], array_keys($data));
         $this->assertSame([], $data['headline']);
         $this->assertSame([], $data['kpis']);
         $this->assertNull($data['overview']['staff']);
@@ -187,7 +196,7 @@ class DashboardTest extends TenantTestCase
             }
         });
 
-        $this->setStaffCapabilities($organization, ['customers.view']);
+        $this->setStaffCapabilities($organization, ['dashboard.view', 'customers.view']);
         $this->signInAsStaff($organization);
 
         $mine = $this->getJson('/api/v1/tenant/dashboard')->assertOk()->json('data');
@@ -209,7 +218,7 @@ class DashboardTest extends TenantTestCase
     {
         [$organization] = $this->network();
 
-        $this->setStaffCapabilities($organization, ['appointments.view']);
+        $this->setStaffCapabilities($organization, ['dashboard.view', 'appointments.view']);
         $this->signInAsStaff($organization);
 
         $this->assertArrayNotHasKey(

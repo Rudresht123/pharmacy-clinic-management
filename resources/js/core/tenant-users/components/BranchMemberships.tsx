@@ -8,7 +8,7 @@ import { notify } from '@/shared/utils/notify';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { locationsHooks } from '@/core/locations/api';
 import { rolesHooks, useSaveUserBranches } from '@/core/roles/api';
-import { SCOPE_INFO, ScopeBadge, eligibleRoles, permissionCount } from '@/core/roles/scope';
+import { eligibleRoles, permissionCount } from '@/core/roles/scope';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 
 interface Row {
@@ -95,33 +95,20 @@ export function BranchMemberships({
     );
 
     /*
-     * Only branch-scoped roles apply here — an organization role sits on the
-     * person, not the membership. Ownership decides how each one reads:
-     * written by the organization (`location_id` null) it is offered at
-     * every branch as "Shared role"; written by one branch it is offered
-     * only there, labelled with that branch's own name. `SearchableSelect`
-     * has no notion of a grouped list, so the hint line is what tells the
-     * two apart — shared roles sort first so the common case is on top.
+     * The roles of the branch being chosen — each branch sets its own, so a
+     * Lucknow seat is offered Lucknow's roles and nothing else. Plus whichever
+     * is already set here, so an edit never blanks a field it did not touch.
      */
     function roleOptions(locationId: number | '', current: number | null = null): SelectOption[] {
         if (!locationId) return [];
 
-        // Branch roles this person may hand out, written by the organization
-        // or by this branch itself — and whichever is already set here.
         return eligibleRoles(roles, 'branch', current)
-            .filter((role) => role.location_id === null || role.location_id === locationId)
-            .sort(
-                (a, b) =>
-                    Number(a.location_id !== null) - Number(b.location_id !== null) ||
-                    a.name.localeCompare(b.name),
-            )
+            .filter((role) => role.location_id === locationId || role.id === current)
+            .sort((a, b) => a.name.localeCompare(b.name))
             .map((role) => ({
                 value: String(role.id),
                 label: role.name,
-                hint: [
-                    role.location_id === null ? 'Shared by every branch' : `${role.location ?? 'This branch'} only`,
-                    role.assignable === false ? 'includes permissions you do not hold' : permissionCount(role),
-                ].join(' · '),
+                hint: role.assignable === false ? 'includes permissions you do not hold' : permissionCount(role),
             }));
     }
 
@@ -243,9 +230,9 @@ export function BranchMemberships({
     return (
         <>
             <Card
-                title={SCOPE_INFO.branch.label}
+                title="Branches & roles"
                 icon="ti ti-map-pin"
-                description="Where they work, and the role they hold at each branch. A branch role works only at that branch."
+                description="Where they work, and the role they hold at each branch. Each branch sets its own roles."
                 actions={
                     canAssign &&
                     unused.length > 0 && (
@@ -258,8 +245,7 @@ export function BranchMemberships({
                 {rows.length === 0 ? (
                     <p className="db-quiet">
                         <i className="ti ti-building" />
-                        Not at any branch yet. Add a branch to give them a role there — or, for
-                        head office, rely on their organization-wide access alone.
+                        Not at any branch yet. Add a branch to give them a role there.
                     </p>
                 ) : (
                     <ul className="ba-list">
@@ -281,10 +267,7 @@ export function BranchMemberships({
                                     </b>
                                     <span className="ba-role">
                                         {roleName(row.role_id) ? (
-                                            <>
-                                                {roleName(row.role_id)}
-                                                <ScopeBadge scope="branch" />
-                                            </>
+                                            roleName(row.role_id)
                                         ) : (
                                             'No role at this branch yet'
                                         )}

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Avatar } from '@/shared/components/ui/Avatar';
 import type { MyDay } from '../types';
+import { PatientPhone, PatientRecordLink, useCanOpenRecord } from '@/core/customers/components/PatientRecordLink';
 
 /** "12 Aug 2026" */
 function longDate(value: string | null): string {
@@ -41,6 +42,7 @@ export function PatientAside({
     onHistory: () => void;
 }) {
     const last = current.history[0];
+    const canOpenRecord = useCanOpenRecord();
 
     return (
         <div className="pa">
@@ -91,7 +93,7 @@ export function PatientAside({
                 {current.phone && (
                     <li>
                         <i className="is-green ti ti-phone" aria-hidden="true" />
-                        <a href={`tel:${current.phone}`}>{current.phone}</a>
+                        <PatientPhone phone={current.phone} />
                     </li>
                 )}
 
@@ -116,9 +118,9 @@ export function PatientAside({
                 recorded" is calm but present, because a doctor needs to know
                 somebody looked rather than that nobody asked.
             */}
-            <Link
+            <PatientRecordLink
                 className={`pa-allergy${current.allergies ? ' is-known' : ''}`}
-                to={`/customers/${current.customer_id}`}
+                customerId={current.customer_id}
             >
                 <i
                     className={
@@ -132,8 +134,8 @@ export function PatientAside({
                     <small>{current.allergies ?? 'None recorded'}</small>
                 </span>
 
-                <i className="ti ti-chevron-right" aria-hidden="true" />
-            </Link>
+                {canOpenRecord && <i className="ti ti-chevron-right" aria-hidden="true" />}
+            </PatientRecordLink>
 
             <p className="pa-heading">Quick actions</p>
 
@@ -144,10 +146,12 @@ export function PatientAside({
                     the write-up — records are blue, history violet — so the
                     two halves of the card agree with each other.
                 */}
-                <Link className="pa-tile is-blue" to={`/customers/${current.customer_id}`}>
-                    <i className="ti ti-file-text" aria-hidden="true" />
-                    Full record
-                </Link>
+                {canOpenRecord && (
+                    <Link className="pa-tile is-blue" to={`/customers/${current.customer_id}`}>
+                        <i className="ti ti-file-text" aria-hidden="true" />
+                        Full record
+                    </Link>
+                )}
 
                 <button type="button" className="pa-tile is-violet" onClick={onHistory}>
                     <i className="ti ti-history" aria-hidden="true" />

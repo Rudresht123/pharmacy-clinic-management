@@ -2,8 +2,11 @@
 
 namespace App\Services\Tenant;
 
+use App\Models\Tenant\BranchMembership;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\Location;
+use App\Services\Tenancy\CurrentTenant;
+use App\Support\Roles\RoleTemplates;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -67,8 +70,21 @@ class DoctorPostings
              */
             if ($removed !== []) {
                 $doctor->schedules()->whereIn('location_id', $removed)->delete();
+
+                // …and their seat there: a branch they no longer work at is
+                // not one their login acts at.
+                $login = $doctor->user()->first();
+
+                if ($login) {
+                    BranchMembership::query()
+                        ->where('user_id', $login->id)
+                        ->whereIn('location_id', $removed)
+                        ->delete();
+                }
             }
         });
+
+        $this->seat($doctor);
     }
 
     /**
@@ -82,6 +98,51 @@ class DoctorPostings
     public function ensure(Doctor $doctor, int $locationId): void
     {
         $doctor->postings()->syncWithoutDetaching([$locationId]);
+
+        $this->seat($doctor);
+    }
+
+    /**
+     * The doctor's login, seated at every branch they are posted to.
+     *
+     * EACH BRANCH SETS ITS OWN ROLES, so a doctor's permissions at a branch
+     * are that branch's Doctor role — written for the branch from the
+     * template the first time a doctor needs it, and the branch's to change
+     * after. A seat the branch has already given a role keeps it.
+     */
+    public function seat(Doctor $doctor): void
+    {
+        $login = $doctor->user()->first();
+        $organization = CurrentTenant::organization();
+        $template = RoleTemplates::find('doctor');
+
+        if ($login === null || $organization === null || $template === null) {
+            return;
+        }
+
+        $seats = BranchMembership::query()->where('user_id', $login->id)->get()->keyBy('location_id');
+        $hasPrimary = $seats->contains(fn (BranchMembership $seat) => $seat->is_primary);
+
+        foreach ($doctor->postings()->orderBy('locations.id')->get() as $branch) {
+            $seat = $seats->get($branch->id);
+
+            if ($seat !== null && $seat->role_id !== null) {
+                continue;
+            }
+
+            $role = app(DefaultRoleSeeder::class)->roleAt($template, $branch, $organization);
+
+            if ($role === null) {
+                continue;
+            }
+
+            BranchMembership::query()->updateOrCreate(
+                ['user_id' => $login->id, 'location_id' => $branch->id],
+                ['role_id' => $role->id, 'is_primary' => $seat?->is_primary ?? ! $hasPrimary],
+            );
+
+            $hasPrimary = true;
+        }
     }
 
     /**

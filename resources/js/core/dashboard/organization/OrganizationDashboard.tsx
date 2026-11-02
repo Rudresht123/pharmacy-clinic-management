@@ -34,6 +34,7 @@ import {
     StackedColumns,
     TrendCurve,
 } from '@/shared/components/ui/ReportCharts';
+import { PatientRecordLink, useCanContact } from '@/core/customers/components/PatientRecordLink';
 
 /**
  * The workspace dashboard — head office's view of the network, or a branch's
@@ -1187,6 +1188,8 @@ function stateOf(row: FollowUpRow): FollowUpState {
 }
 
 function FollowUps({ panel }: { panel: FollowUpsPanel }) {
+    const canContact = useCanContact();
+
     return (
         <Panel
             icon="ti ti-calendar-event"
@@ -1228,10 +1231,10 @@ function FollowUps({ panel }: { panel: FollowUpsPanel }) {
                                             </div>
                                         </td>
                                         <td>
-                                            <Link className="od-fu-who" to={`/customers/${row.customer_id}`}>
+                                            <PatientRecordLink className="od-fu-who" customerId={row.customer_id}>
                                                 <b>{row.name ?? 'Unnamed'}</b>
                                                 {row.code && <small>{row.code}</small>}
-                                            </Link>
+                                            </PatientRecordLink>
                                         </td>
                                         <td className="od-fu-dim">{shortDate(row.seen_on)}</td>
                                         <td className="od-fu-dim">after {plural(row.days, 'day')}</td>
@@ -1250,7 +1253,7 @@ function FollowUps({ panel }: { panel: FollowUpsPanel }) {
                                             </span>
                                         </td>
                                         <td>
-                                            <Contact name={row.name} phone={row.phone} />
+                                            {canContact && <Contact name={row.name} phone={row.phone} />}
                                         </td>
                                     </tr>
                                 );

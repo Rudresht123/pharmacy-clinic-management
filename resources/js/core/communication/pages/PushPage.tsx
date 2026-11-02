@@ -19,9 +19,6 @@ import { MessageDetailModal } from '../components/MessageDetailModal';
 import { AutomationRuleModal } from '../components/AutomationRuleModal';
 import { ChannelAnalyticsPanel } from '../components/ChannelAnalyticsPanel';
 import { CampaignsTable } from '../components/CampaignsTable';
-import { BranchWordingPanel } from '../components/BranchWordingPanel';
-import { PushNotificationCard } from '../components/PushPreview';
-import { fillPlaceholders } from '../placeholders';
 
 import { ReasonDialog } from '@/core/medicines/components/ReasonDialog';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
@@ -41,7 +38,7 @@ import {
 } from '../api';
 import type { AutomationRule, DeliveryRecord, MessageTemplate } from '../types';
 
-const CATEGORIES = ['All', 'Appointment', 'Reminder', 'Payments', 'Marketing', 'General'] as const;
+const CATEGORIES = ['All', 'Appointment', 'Reminder', 'Payments', 'Marketing', 'General', 'Staff alert'] as const;
 
 type View = 'overview' | 'templates' | 'devices' | 'send' | 'history' | 'settings';
 
@@ -63,9 +60,6 @@ const MOVED: Record<string, View> = {
     automation: 'settings',
     analytics: 'history',
 };
-
-/** The longest message the server accepts for an App notification. */
-const BODY_LIMIT = 500;
 
 /**
  * Push notifications through Firebase — a channel like email and WhatsApp:
@@ -271,63 +265,17 @@ export default function PushPage() {
                 </>
             )}
 
+            {/* The templates and nothing else: no preview, no side panel. */}
             {view === 'templates' && (
-                <div className="ph-templates">
-                    <PushTemplateList
-                        templates={data.templates}
-                        categories={CATEGORIES}
-                        selected={selected}
-                        onSelect={setSelected}
-                        onCreate={manage ? () => setEditing(false) : undefined}
-                        onEdit={manage ? setEditing : undefined}
-                        onRemove={manage ? setRemoving : undefined}
-                    />
-
-                    {/* Its own column of cards at their natural height —
-                        never stretched to the list's, which is what cut the
-                        bottom of the phone off. */}
-                    <div className="ph-side">
-                        <Card
-                            className="ph-card"
-                            title="Preview"
-                            icon="ti ti-device-mobile"
-                            description="As a patient sees it, with sample details filled in"
-                        >
-                            {selected ? (
-                                <>
-                                    <PushNotificationCard
-                                        title={fillPlaceholders(selected.subject ?? selected.name)}
-                                        body={fillPlaceholders(selected.content)}
-                                    />
-
-                                    <dl className="ph-measure">
-                                        <div>
-                                            <dt>Title</dt>
-                                            <dd>{(selected.subject ?? selected.name).length} characters</dd>
-                                        </div>
-                                        <div>
-                                            <dt>Message</dt>
-                                            <dd>
-                                                {selected.content.length} of {BODY_LIMIT}
-                                            </dd>
-                                        </div>
-                                        <div>
-                                            <dt>Status</dt>
-                                            <dd>{selected.is_active ? 'In use' : 'Not in use'}</dd>
-                                        </div>
-                                    </dl>
-                                </>
-                            ) : (
-                                <p className="ph-empty">
-                                    <i className="ti ti-hand-click" aria-hidden="true" />
-                                    Choose a template to see it on a phone.
-                                </p>
-                            )}
-                        </Card>
-
-                        <BranchWordingPanel template={selected} />
-                    </div>
-                </div>
+                <PushTemplateList
+                    templates={data.templates}
+                    categories={CATEGORIES}
+                    selected={selected}
+                    onSelect={setSelected}
+                    onCreate={manage ? () => setEditing(false) : undefined}
+                    onEdit={manage ? setEditing : undefined}
+                    onRemove={manage ? setRemoving : undefined}
+                />
             )}
 
             {view === 'devices' && <PushDevicesTable days={days} canManage={manage} />}

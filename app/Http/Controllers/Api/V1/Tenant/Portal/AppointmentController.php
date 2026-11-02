@@ -10,6 +10,7 @@ use App\Services\Opd\RescheduleRequests;
 use App\Services\Permissions\Permission;
 use App\Services\Portal\BookableDoctors;
 use App\Services\Portal\PatientAppointments;
+use App\Services\Portal\PatientFamily;
 use App\Services\Portal\PatientNotifications;
 use App\Services\Subscriptions\EntitlementService;
 use App\Support\Subscriptions\Entitlements;
@@ -31,6 +32,7 @@ class AppointmentController extends PortalController
         private readonly PatientNotifications $notifications,
         private readonly Permission $permission,
         private readonly RescheduleRequests $reschedules,
+        private readonly PatientFamily $family,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -64,11 +66,38 @@ class AppointmentController extends PortalController
             return $this->fail('Video visits are not available at this clinic. Please book an in-clinic visit.', 403);
         }
 
+        $member = null;
+
+        if ($request->filled('member_id')) {
+            if (! $this->permission->allows($this->organization($request), $request->user(), 'portal.family')) {
+                return $this->fail('Booking for your family is not available at this clinic.', 403);
+            }
+
+            /*
+             * The call rings the phone of whoever the visit is for, and a
+             * family member has no app to answer it on.
+             */
+            if ($request->input('mode') === Appointment::MODE_VIDEO) {
+                return $this->fail('Video visits are for your own appointments. Please book an in-clinic visit.', 422);
+            }
+
+            try {
+                $member = $this->family->find($this->patient($request), $request->integer('member_id'))->member;
+            } catch (ModelNotFoundException) {
+                return $this->fail('That family member was not found.', 404);
+            }
+
+            if (! $member->is_active) {
+                return $this->fail("{$member->name}'s record is inactive. Please contact the clinic.", 422);
+            }
+        }
+
         try {
             $appointment = $this->appointments->book(
                 $this->organization($request),
                 $this->patient($request),
                 $request->validated(),
+                $member,
             );
         } catch (RuntimeException $exception) {
             // The slot went, or they already hold one that day — something
@@ -143,7 +172,7 @@ class AppointmentController extends PortalController
     {
         return PortalAppointmentResource::make(
             Appointment::query()
-                ->with(['doctor.photograph', 'location', 'liveVideoCall', 'latestRescheduleRequest'])
+                ->with(PatientAppointments::RELATIONS)
                 ->findOrFail($appointment),
         );
     }

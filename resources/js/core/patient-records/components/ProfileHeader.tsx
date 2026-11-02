@@ -8,6 +8,7 @@ import { resolveErrorMessage } from '@/shared/api/http';
 import { usePatientPhoto } from '../api';
 import { TABS, capitalise, day, mobile } from '../labels';
 import type { PatientRecordSummary, Tab } from '../types';
+import { PatientPhone } from '@/core/customers/components/PatientRecordLink';
 
 /**
  * Who the patient is, what may be done from here, and the tab strip.
@@ -207,10 +208,12 @@ export function ProfileHeader({
 
                             {menu && (
                                 <div className="ptr-menu" role="menu">
-                                    <Link role="menuitem" to={`/customers/${patient.id}`}>
-                                        <i className="ti ti-id" aria-hidden="true" />
-                                        Open patient file
-                                    </Link>
+                                    {can('customers.record') && (
+                                        <Link role="menuitem" to={`/customers/${patient.id}`}>
+                                            <i className="ti ti-id" aria-hidden="true" />
+                                            Open patient file
+                                        </Link>
+                                    )}
                                     <button
                                         type="button"
                                         role="menuitem"
@@ -245,7 +248,7 @@ export function ProfileHeader({
                 <div>
                     <i className="ti ti-phone" aria-hidden="true" />
                     <dt>Mobile</dt>
-                    <dd>{patient.phone ? <a href={`tel:${patient.phone}`}>{mobile(patient.phone)}</a> : 'Not recorded'}</dd>
+                    <dd>{patient.phone ? <PatientPhone phone={patient.phone}>{mobile(patient.phone)}</PatientPhone> : 'Not recorded'}</dd>
                 </div>
                 <div>
                     <i className="ti ti-mail" aria-hidden="true" />

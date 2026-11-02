@@ -8,6 +8,7 @@ import { http } from '@/shared/api/http';
 import { resourceKey } from '@/shared/hooks/useResource';
 import type { ApiResponse } from '@/shared/types/api';
 import { cn } from '@/shared/utils/cn';
+import { PatientRecordLink, useCanContact, useCanOpenRecord } from '@/core/customers/components/PatientRecordLink';
 
 /** One "come back in N days", as `DoctorRecords::followUps` returns it. */
 interface FollowUp {
@@ -427,6 +428,8 @@ export default function FollowUpsPage() {
 }
 
 function FollowUpRow({ row }: { row: FollowUp }) {
+    const canOpenRecord = useCanOpenRecord();
+    const canContact = useCanContact();
     const state = stateOf(row);
     const due = row.due_in ?? 0;
     const reasons = reasonsOf(row);
@@ -460,10 +463,10 @@ function FollowUpRow({ row }: { row: FollowUp }) {
             </td>
 
             <td data-label="Patient">
-                <Link className="fu-who" to={`/customers/${row.customer_id}`}>
+                <PatientRecordLink className="fu-who" customerId={row.customer_id}>
                     <b>{row.customer_name ?? 'Unnamed'}</b>
                     {about && <small>{about}</small>}
-                </Link>
+                </PatientRecordLink>
             </td>
 
             <td className="fu-dim" data-label="Patient ID">
@@ -495,8 +498,8 @@ function FollowUpRow({ row }: { row: FollowUp }) {
             </td>
 
             <td className="fu-actions" data-label="Actions">
-                <ContactMenu row={row} />
-                <MoreMenu row={row} />
+                {canContact && <ContactMenu row={row} />}
+                {canOpenRecord && <MoreMenu row={row} />}
             </td>
         </tr>
     );
@@ -624,6 +627,7 @@ function ContactMenu({ row }: { row: FollowUp }) {
     );
 }
 
+/** Both of its doors lead into the record, so it is offered only with that tick. */
 function MoreMenu({ row }: { row: FollowUp }) {
     const menu = useMenu();
 

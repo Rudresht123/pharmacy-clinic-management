@@ -680,7 +680,7 @@ export default function InvoiceListPage() {
                                                                           },
                                                                       ]
                                                                     : []),
-                                                                ...(invoice.customer_id
+                                                                ...(invoice.customer_id && can('customers.record')
                                                                     ? [
                                                                           {
                                                                               label: 'Patient profile',

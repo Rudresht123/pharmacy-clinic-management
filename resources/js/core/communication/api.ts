@@ -12,6 +12,7 @@ import type {
     MessageTemplate,
     PushDevicePage,
     PushRecipient,
+    RecipientOptions,
 } from './types';
 
 const ROOT = '/tenant/communication';
@@ -69,7 +70,28 @@ export function useToggleRule() {
     });
 }
 
-/** The rule's wording, template and timing — everything but its event. */
+/**
+ * Who a rule can name: the places on a record, the clinic's roles, its staff.
+ *
+ * Fetched only while a rule is open for editing — the list of staff is not
+ * something the rest of the screen needs.
+ */
+export function useRuleRecipientOptions(enabled: boolean) {
+    return useQuery({
+        queryKey: ['communication', 'rule-recipients'],
+        enabled,
+        staleTime: 60_000,
+        queryFn: async (): Promise<RecipientOptions> => {
+            const { data } = await http.get<ApiResponse<RecipientOptions>>(
+                `${ROOT}/automation-rules/recipients`,
+            );
+
+            return data.data;
+        },
+    });
+}
+
+/** The rule's wording, template, timing and who it tells — everything but its event. */
 export function useSaveRule() {
     const queryClient = useQueryClient();
 

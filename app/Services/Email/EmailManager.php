@@ -103,6 +103,9 @@ class EmailManager
         // moment it finishes, rather than living forever in a delivery log.
         SendEmailMessage::dispatch($organization->getKey(), $log->id, [
             'to' => $message->to,
+            'also_to' => $message->alsoTo,
+            'cc' => $message->cc,
+            'bcc' => $message->bcc,
             'subject' => $message->subject,
             'body' => $message->body,
             'template' => $message->template,
@@ -147,9 +150,17 @@ class EmailManager
             $this->mailer($settings)->html(
                 $message->rendered(),
                 function ($mail) use ($message, $settings, $from) {
-                    $mail->to($message->to)
+                    $mail->to([$message->to, ...$message->alsoTo])
                         ->subject($message->renderedSubject())
                         ->from($from['address'], $from['name']);
+
+                    if ($message->cc !== []) {
+                        $mail->cc($message->cc);
+                    }
+
+                    if ($message->bcc !== []) {
+                        $mail->bcc($message->bcc);
+                    }
 
                     if (filled($settings['reply_to'] ?? null)) {
                         $mail->replyTo($settings['reply_to']);
@@ -397,7 +408,7 @@ class EmailManager
     {
         $secrets = config('email.redact', []);
 
-        $message = preg_replace('/\b(' . implode('|', $secrets) . ')=\S+/i', '$1=[redacted]', $message) ?? $message;
+        $message = preg_replace('/\b('.implode('|', $secrets).')=\S+/i', '$1=[redacted]', $message) ?? $message;
 
         // smtp://user:pass@host — the password sits between the colon and the at.
         $message = preg_replace('#(smtps?://[^:/@]+):[^@]*@#i', '$1:[redacted]@', $message) ?? $message;

@@ -4,7 +4,7 @@ import { SelectField, TextField } from '@/shared/components/form/Fields';
 import { useApiForm } from '@/shared/components/form/useApiForm';
 import { PLACEHOLDERS } from '../placeholders';
 import { TemplatePreview } from './TemplatePreview';
-import type { Channel, MessageTemplate, TemplateStatus } from '../types';
+import type { Audience, Channel, MessageTemplate, TemplateStatus } from '../types';
 
 /** The tints a template may carry, as the list screens read them. */
 const TONES = ['sky', 'violet', 'emerald', 'rose', 'amber', 'teal'] as const;
@@ -34,6 +34,7 @@ interface Values {
     status: TemplateStatus;
     icon: string;
     tone: string;
+    audience: Audience;
 }
 
 /**
@@ -71,6 +72,7 @@ const EMPTY: Omit<Values, 'template_type'> = {
     status: 'draft',
     icon: 'ti ti-calendar-check',
     tone: 'sky',
+    audience: 'patient',
 };
 
 /**
@@ -158,6 +160,7 @@ export function TemplateFormModal({
                       status: template.status,
                       icon: template.icon ?? EMPTY.icon,
                       tone: template.tone ?? EMPTY.tone,
+                      audience: template.audience ?? 'patient',
                   }
                 : { ...EMPTY, template_type: types[0].value },
         );
@@ -215,6 +218,8 @@ export function TemplateFormModal({
                 status: values.status,
                 icon: values.icon,
                 tone: values.tone,
+                // WhatsApp's wording is the provider's, for patients only.
+                audience: titled ? values.audience : 'patient',
             }),
         );
 
@@ -273,6 +278,20 @@ export function TemplateFormModal({
                             options={types}
                         />
                     </div>
+
+                    {titled && (
+                        <SelectField
+                            name="audience"
+                            label="Written for"
+                            hint="A staff template is offered only to the “Tell staff” rules, never to a campaign."
+                            control={control}
+                            errors={errors}
+                            options={[
+                                { value: 'patient', label: 'Patients' },
+                                { value: 'staff', label: 'Clinic staff' },
+                            ]}
+                        />
+                    )}
 
                     {titled && (
                         <TextField

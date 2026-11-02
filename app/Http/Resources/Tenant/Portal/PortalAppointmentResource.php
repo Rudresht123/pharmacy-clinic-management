@@ -2,12 +2,13 @@
 
 namespace App\Http\Resources\Tenant\Portal;
 
+use App\Http\Middleware\EnsurePortalPatient;
 use App\Models\Tenant\AppointmentRescheduleRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * One of the patient's own appointments.
+ * One of the patient's own appointments, or their family's.
  *
  * Not AppointmentResource: that one answers the desk, with `next_states` for
  * moving somebody through the queue and the waiting-room clock. A patient needs
@@ -65,6 +66,21 @@ class PortalAppointmentResource extends JsonResource
                 ];
             }),
 
+            /*
+             * Who the visit is for. The app says so only when it is somebody
+             * else in the family: `relation` is null on the patient's own.
+             */
+            'patient' => $this->whenLoaded('customer', function () use ($request) {
+                $own = (int) $this->customer_id === (int) $request->attributes->get(EnsurePortalPatient::ATTRIBUTE)?->getKey();
+
+                return [
+                    'id' => $this->customer?->id,
+                    'name' => $this->customer?->name,
+                    'is_self' => $own,
+                    'relation' => $own ? null : $this->customer?->familyLink?->relation,
+                ];
+            }),
+
             'doctor' => $this->whenLoaded('doctor', fn () => [
                 'id' => $this->doctor?->id,
                 'name' => $this->doctor?->name,
@@ -77,6 +93,7 @@ class PortalAppointmentResource extends JsonResource
             'location' => $this->whenLoaded('location', fn () => [
                 'id' => $this->location?->id,
                 'name' => $this->location?->name,
+                'address' => $this->location?->addressLine(),
             ]),
 
             'notes' => $this->notes,

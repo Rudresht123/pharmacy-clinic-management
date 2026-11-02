@@ -151,8 +151,15 @@ final class ExportWriter
         array $heading,
         ?callable $muted,
     ): Response {
-        // A long register is a long render; it is still one request.
-        set_time_limit(300);
+        /*
+         * A long register is a long render; it is still one request. Raised
+         * for this render only, and only ever raised: under the CLI there is
+         * no limit at all, and a 300 left behind kills whatever runs next in
+         * the same process — a queue worker, or the test suite — five minutes
+         * after its first PDF export.
+         */
+        $limit = (int) ini_get('max_execution_time');
+        $raised = $limit !== 0 && $limit < 300 && set_time_limit(300);
 
         $shown = min($total, self::PDF_LIMIT);
         $sums = $this->emptySums($columns);
@@ -173,35 +180,41 @@ final class ExportWriter
             return ['cells' => $this->displayRow($columns, $row), 'muted' => $muted !== null && $muted($record)];
         });
 
-        $bytes = $this->pdf->render(
-            [
-                'organization' => $heading['organization'],
-                'title' => $heading['title'],
-                'meta' => [
-                    number_format($total).' '.$heading['noun'],
-                    'Generated '.Carbon::now()->format('d M Y, h:i A').' by '.$heading['by'],
+        try {
+            $bytes = $this->pdf->render(
+                [
+                    'organization' => $heading['organization'],
+                    'title' => $heading['title'],
+                    'meta' => [
+                        number_format($total).' '.$heading['noun'],
+                        'Generated '.Carbon::now()->format('d M Y, h:i A').' by '.$heading['by'],
+                    ],
+                    'notes' => $notes,
                 ],
-                'notes' => $notes,
-            ],
-            array_map(fn (Column $column) => [
-                'label' => $column->label,
-                'width' => $column->width,
-                'align' => $column->isNumeric() ? 'right' : 'left',
-                'bold' => $column === $columns[0],
-                // "20 Oct 2026" over three lines, or an amount split, reads wrong.
-                'nowrap' => $column->type !== Column::TEXT,
-            ], $columns),
-            $rows,
-            empty: 'Nothing matches these filters.',
-            // By reference: the sums fill in while the rows are drawn, after this is written.
-            totals: function () use ($columns, &$sums) {
-                return $sums === [] ? null : $this->totalsRow(
-                    $columns,
-                    $sums,
-                    fn (Column $column, float $sum) => number_format($sum, 2),
-                );
-            },
-        );
+                array_map(fn (Column $column) => [
+                    'label' => $column->label,
+                    'width' => $column->width,
+                    'align' => $column->isNumeric() ? 'right' : 'left',
+                    'bold' => $column === $columns[0],
+                    // "20 Oct 2026" over three lines, or an amount split, reads wrong.
+                    'nowrap' => $column->type !== Column::TEXT,
+                ], $columns),
+                $rows,
+                empty: 'Nothing matches these filters.',
+                // By reference: the sums fill in while the rows are drawn, after this is written.
+                totals: function () use ($columns, &$sums) {
+                    return $sums === [] ? null : $this->totalsRow(
+                        $columns,
+                        $sums,
+                        fn (Column $column, float $sum) => number_format($sum, 2),
+                    );
+                },
+            );
+        } finally {
+            if ($raised) {
+                set_time_limit($limit);
+            }
+        }
 
         return response($bytes, 200, [
             'Content-Type' => 'application/pdf',

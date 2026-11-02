@@ -20,12 +20,16 @@ class Conversation extends Model
 
     public const PATIENT = 'patient';
 
-    public const SIDES = [self::DOCTOR, self::PATIENT];
+    /** The desk's own thread with a patient — see the migration. */
+    public const FRONT_DESK = 'front_desk';
+
+    public const SIDES = [self::DOCTOR, self::PATIENT, self::FRONT_DESK];
 
     protected $connection = 'organization';
 
     protected $fillable = [
         'doctor_id',
+        'branch_id',
         'customer_id',
         'last_message_at',
         'doctor_last_read_id',
@@ -50,9 +54,20 @@ class Conversation extends Model
         return $this->belongsTo(Doctor::class)->withTrashed();
     }
 
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Location::class)->withTrashed();
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    /** A desk thread, rather than a doctor's — the two never mix in one row. */
+    public function isDeskThread(): bool
+    {
+        return $this->doctor_id === null;
     }
 
     public function messages(): HasMany
@@ -65,20 +80,36 @@ class Conversation extends Model
         return $this->hasOne(ConversationMessage::class)->latestOfMany();
     }
 
-    /** The column holding what [side] has read up to. */
+    /**
+     * The column holding what [side] has read up to.
+     *
+     * Staff's own pointer, whether this row is a doctor's thread or the
+     * desk's — see the migration that added `branch_id`.
+     */
     public static function readColumn(string $side): string
     {
-        return $side === self::DOCTOR ? 'doctor_last_read_id' : 'patient_last_read_id';
+        return $side === self::PATIENT ? 'patient_last_read_id' : 'doctor_last_read_id';
     }
 
     /** The column holding what [side]'s phone has received up to. */
     public static function deliveredColumn(string $side): string
     {
-        return $side === self::DOCTOR ? 'doctor_delivered_id' : 'patient_delivered_id';
+        return $side === self::PATIENT ? 'patient_delivered_id' : 'doctor_delivered_id';
     }
 
-    public static function otherSide(string $side): string
+    /**
+     * Who [mySide] is writing to, on this one thread.
+     *
+     * Only the patient's half is ambiguous: a doctor's own side is always
+     * writing to the patient, and the desk's always is too, but the patient
+     * is on one or the other depending on which kind of row this is.
+     */
+    public function counterpartSide(string $mySide): string
     {
-        return $side === self::DOCTOR ? self::PATIENT : self::DOCTOR;
+        if ($mySide !== self::PATIENT) {
+            return self::PATIENT;
+        }
+
+        return $this->isDeskThread() ? self::FRONT_DESK : self::DOCTOR;
     }
 }

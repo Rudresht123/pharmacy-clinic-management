@@ -5,23 +5,18 @@ namespace App\Services\Opd;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\AppointmentRescheduleRequest;
-use App\Models\Tenant\AppointmentSetting;
-use App\Models\Tenant\BranchMembership;
 use App\Models\Tenant\Customer;
-use App\Models\Tenant\Doctor;
 use App\Models\Tenant\User;
-use App\Services\Email\EmailManager;
-use App\Services\Email\EmailMessage;
-use App\Services\Permissions\Permission;
+use App\Services\Clinic\ClinicEvent;
+use App\Services\Clinic\ClinicEventDispatcher;
 use App\Services\Portal\BookableDoctors;
 use App\Services\Portal\PatientNotifications;
-use App\Services\Push\PushManager;
 use App\Services\Tenancy\TenantConnectionService;
+use App\Support\Clinic\ClinicEvents;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -33,11 +28,13 @@ use RuntimeException;
  * agreed with the patient when the first has gone); no leaves it alone. Either
  * way the patient is told.
  *
- * WHO HEARS ABOUT A NEW REQUEST is the organization's choice
- * (AppointmentSetting::reschedule_notify): the people at the visit's branch
- * who can answer it, the doctor whose day it changes, or both — each by app
- * notification and email. Telling anybody happens after the save and never
- * fails it; the desk's list is the record either way.
+ * WHO HEARS is the clinic's automation rules, like any other clinic event: a
+ * new request is ClinicEvents::RESCHEDULE_REQUESTED ("Tell staff: reschedule
+ * request" — the desk, the doctor, whoever the clinic named), an answer is
+ * APPOINTMENT_RESCHEDULED or RESCHEDULE_REJECTED (the patient's own message,
+ * and the doctor when a visit moves). Raised after commit and never failing
+ * the save; the desk's list is the record either way. Only the in-app bell is
+ * written here, as it is for a booking.
  */
 class RescheduleRequests
 {
@@ -45,9 +42,7 @@ class RescheduleRequests
         private readonly BookingService $booking,
         private readonly BookableDoctors $doctors,
         private readonly PatientNotifications $patientNotifications,
-        private readonly PushManager $push,
-        private readonly EmailManager $email,
-        private readonly Permission $permission,
+        private readonly ClinicEventDispatcher $events,
     ) {}
 
     /*
@@ -65,7 +60,7 @@ class RescheduleRequests
     public function request(Organization $organization, Customer $patient, int $appointmentId, array $data): AppointmentRescheduleRequest
     {
         $visit = Appointment::query()
-            ->where('customer_id', $patient->getKey())
+            ->whereIn('customer_id', $patient->familyIds())
             ->whereKey($appointmentId)
             ->with('doctor')
             ->firstOrFail();
@@ -107,7 +102,7 @@ class RescheduleRequests
             ]);
         });
 
-        $this->tellTheClinic($organization, $request->load(['customer', 'doctor.user']));
+        $this->events->dispatch(ClinicEvent::for(ClinicEvents::RESCHEDULE_REQUESTED, $request));
 
         return $request;
     }
@@ -116,7 +111,7 @@ class RescheduleRequests
     public function withdraw(Customer $patient, int $appointmentId): AppointmentRescheduleRequest
     {
         $request = AppointmentRescheduleRequest::query()
-            ->where('customer_id', $patient->getKey())
+            ->whereIn('customer_id', $patient->familyIds())
             ->where('appointment_id', $appointmentId)
             ->pending()
             ->first();
@@ -197,11 +192,7 @@ class RescheduleRequests
 
         $visit->load('doctor');
         $this->patientNotifications->rescheduleApproved($visit);
-        $this->tellThePatient($organization, $visit, 'appointment.rescheduled', 'Appointment rescheduled', sprintf(
-            'Your appointment with %s is now on %s.',
-            $visit->doctor?->name ?? 'your doctor',
-            $this->when($visit->appointment_date, $visit->slot_at),
-        ));
+        $this->events->dispatch(ClinicEvent::for(ClinicEvents::APPOINTMENT_RESCHEDULED, $request));
 
         return $request->refresh();
     }
@@ -222,11 +213,7 @@ class RescheduleRequests
 
         if ($visit !== null) {
             $this->patientNotifications->rescheduleRejected($visit, $request->decision_note);
-            $this->tellThePatient($organization, $visit, 'appointment.reschedule_rejected', 'Reschedule not possible', sprintf(
-                'Your appointment with %s stays on %s.',
-                $visit->doctor?->name ?? 'your doctor',
-                $this->when($visit->appointment_date, $visit->slot_at),
-            ));
+            $this->events->dispatch(ClinicEvent::for(ClinicEvents::RESCHEDULE_REJECTED, $request));
         }
 
         return $request->refresh();
@@ -260,120 +247,6 @@ class RescheduleRequests
                 AppointmentRescheduleRequest::WITHDRAWN => 'The patient has withdrawn this request.',
                 default => 'This request has already been answered.',
             });
-        }
-    }
-
-    /**
-     * The people the organization chose to hear about a new request.
-     *
-     * "The desk" is everybody posted to the visit's branch who could answer
-     * it — whoever holds `appointments.reschedule` there — except doctors and
-     * patients, who are told as themselves or not at all.
-     */
-    private function tellTheClinic(Organization $organization, AppointmentRescheduleRequest $request): void
-    {
-        try {
-            $settings = AppointmentSetting::current();
-            $patient = $request->customer?->name ?? 'A patient';
-            $title = 'Reschedule request';
-            $body = sprintf(
-                '%s asks to move %s with %s to %s.',
-                $patient,
-                $this->when($request->from_date, $request->from_slot_at),
-                $request->doctor?->name ?? 'their doctor',
-                $this->when($request->requested_date, $request->requested_slot_at),
-            ).($request->reason ? ' Reason: '.$request->reason : '');
-
-            $people = [];
-
-            if ($settings->notifiesDesk()) {
-                foreach ($this->desk($organization, (int) $request->location_id) as $user) {
-                    $people[$user->id] = $user;
-                }
-            }
-
-            $doctorLogin = $request->doctor?->user;
-
-            if ($settings->notifiesDoctor() && $doctorLogin instanceof User && $doctorLogin->is_active) {
-                $people[$doctorLogin->id] = $doctorLogin;
-            }
-
-            if ($people !== []) {
-                $this->push->queueToUsers(
-                    $organization,
-                    array_keys($people),
-                    'Clinic staff',
-                    $title,
-                    $body,
-                    ['type' => 'appointment.reschedule_requested', 'request_id' => (int) $request->id, 'appointment_id' => (int) $request->appointment_id],
-                );
-            }
-
-            $addresses = [];
-
-            foreach ($people as $user) {
-                if (filled($user->email)) {
-                    $addresses[strtolower((string) $user->email)] = $user->name;
-                }
-            }
-
-            // A doctor without a login of their own may still have an address on file.
-            if ($settings->notifiesDoctor() && $doctorLogin === null && filled($request->doctor?->email)) {
-                $addresses[strtolower((string) $request->doctor->email)] = $request->doctor->name;
-            }
-
-            foreach ($addresses as $address => $name) {
-                $this->email->forOrganization($organization)->queue(
-                    EmailMessage::make(to: $address, subject: $title, body: $body),
-                    customerId: null,
-                    extra: ['recipient_name' => $name],
-                );
-            }
-        } catch (\Throwable $e) {
-            Log::warning('Reschedule request saved, but the clinic was not told', [
-                'request' => $request->getKey(),
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    /**
-     * Everybody at [$locationId] who could answer a request.
-     *
-     * @return list<User>
-     */
-    private function desk(Organization $organization, int $locationId): array
-    {
-        $users = User::query()
-            ->whereIn('id', BranchMembership::query()->where('location_id', $locationId)->select('user_id'))
-            ->where('is_active', true)
-            ->where(fn (Builder $query) => $query
-                ->whereNull('userable_type')
-                ->orWhereNotIn('userable_type', [Doctor::class, Customer::class]))
-            ->get();
-
-        return $users
-            ->filter(fn (User $user) => $this->permission->allows($organization, $user, 'appointments.reschedule', $locationId))
-            ->values()
-            ->all();
-    }
-
-    private function tellThePatient(Organization $organization, Appointment $visit, string $type, string $title, string $body): void
-    {
-        try {
-            $patient = $visit->customer()->first();
-
-            if ($patient !== null) {
-                $this->push->queue($organization, $patient, $title, $body, [
-                    'type' => $type,
-                    'appointment_id' => (int) $visit->id,
-                ]);
-            }
-        } catch (\Throwable $e) {
-            Log::warning('Reschedule answered, but the patient was not pushed', [
-                'appointment' => $visit->getKey(),
-                'error' => $e->getMessage(),
-            ]);
         }
     }
 

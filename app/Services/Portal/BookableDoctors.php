@@ -4,6 +4,7 @@ namespace App\Services\Portal;
 
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Doctor;
+use App\Models\Tenant\DoctorSchedule;
 use App\Models\Tenant\Location;
 use App\Repositories\Tenant\Contracts\DoctorRepositoryInterface;
 use App\Services\Opd\BookingService;
@@ -31,6 +32,9 @@ class BookableDoctors
     /** How far "next available" looks before saying nothing. */
     public const NEXT_AVAILABLE_WITHIN = 7;
 
+    /** What a doctor's card and the booking page say about each branch. */
+    public const LOCATION_COLUMNS = 'location:id,name,address,city';
+
     /** @var array<int, true>|null branches open to booking, resolved once */
     private ?array $bookable = null;
 
@@ -40,15 +44,15 @@ class BookableDoctors
         private readonly Permission $permission,
     ) {}
 
-    /** Active doctors with at least one active sitting, optionally searched. */
-    public function search(?string $term = null, ?string $specialisation = null): Collection
+    /** Active doctors with at least one active sitting, optionally searched or at one branch. */
+    public function search(?string $term = null, ?string $specialisation = null, ?int $locationId = null): Collection
     {
         $term = trim((string) $term);
 
         return $this->doctors->listing('active')
             ->with(['department', 'photograph', 'postings', 'schedules' => fn ($query) => $query
                 ->where('is_active', true)
-                ->with('location:id,name')])
+                ->with(self::LOCATION_COLUMNS)])
             ->whereHas('schedules', fn (Builder $query) => $query->where('is_active', true))
             ->when($term !== '', fn (Builder $query) => $query->where(
                 fn (Builder $inner) => $inner
@@ -56,6 +60,10 @@ class BookableDoctors
                     ->orWhere('specialisation', 'ilike', "%{$term}%")
             ))
             ->when(filled($specialisation), fn (Builder $query) => $query->where('specialisation', $specialisation))
+            ->when($locationId !== null, fn (Builder $query) => $query->whereHas(
+                'schedules',
+                fn (Builder $inner) => $inner->where('is_active', true)->where('location_id', $locationId),
+            ))
             ->orderBy('name')
             ->get();
     }
@@ -89,6 +97,40 @@ class BookableDoctors
             ->sort()
             ->values()
             ->all();
+    }
+
+    /**
+     * The branches a patient can choose between, for the filter on the doctors
+     * list: open, running OPD, and with a doctor sitting there.
+     *
+     * @return list<array{id: int, name: string, address: ?string}>
+     */
+    public function branches(Organization $organization): array
+    {
+        return $this->search()
+            ->flatMap(fn (Doctor $doctor) => $doctor->schedules->pluck('location'))
+            ->filter(fn (?Location $location) => $location !== null && $this->isBookable($organization, (int) $location->id))
+            ->unique('id')
+            ->sortBy('name')
+            ->map(fn (Location $location) => [
+                'id' => (int) $location->id,
+                'name' => (string) $location->name,
+                'address' => $location->addressLine(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Drop a doctor's loaded sittings at branches a patient cannot book, so
+     * that the branches and days their card lists are ones the booking page
+     * can actually offer — a closed branch is not a choice.
+     */
+    public function withoutClosedBranches(Organization $organization, Doctor $doctor): Doctor
+    {
+        return $doctor->setRelation('schedules', $doctor->schedules
+            ->filter(fn (DoctorSchedule $schedule) => $this->isBookable($organization, (int) $schedule->location_id))
+            ->values());
     }
 
     /**
@@ -131,19 +173,27 @@ class BookableDoctors
     }
 
     /**
-     * The first day, within the next week, this doctor has a free time.
+     * The first day, within the next week, this doctor has a free time — at
+     * one branch when asked, and saying which so the booking page opens there.
      *
-     * @return array{date: string, first_slot: string}|null
+     * @return array{date: string, first_slot: string, location_id: int}|null
      */
-    public function nextAvailable(Organization $organization, Doctor $doctor): ?array
+    public function nextAvailable(Organization $organization, Doctor $doctor, ?int $locationId = null): ?array
     {
         $day = today();
 
         for ($i = 0; $i < self::NEXT_AVAILABLE_WITHIN; $i++, $day = $day->copy()->addDay()) {
-            $sessions = $this->openSlots($organization, $doctor, $day);
+            $sessions = array_values(array_filter(
+                $this->openSlots($organization, $doctor, $day),
+                fn (array $session) => $locationId === null || $session['location_id'] === $locationId,
+            ));
 
             if ($sessions !== []) {
-                return ['date' => $day->toDateString(), 'first_slot' => $sessions[0]['slots'][0]];
+                return [
+                    'date' => $day->toDateString(),
+                    'first_slot' => $sessions[0]['slots'][0],
+                    'location_id' => $sessions[0]['location_id'],
+                ];
             }
         }
 

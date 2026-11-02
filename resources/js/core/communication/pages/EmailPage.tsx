@@ -12,10 +12,8 @@ import { SetupProgress } from '../components/SetupProgress';
 import { ChannelBenefits, EMAIL_BENEFITS } from '../components/ChannelBenefits';
 import { ChannelStats } from '../components/ChannelStats';
 import { TemplateTable } from '../components/TemplateTable';
-import { EmailPreview } from '../components/EmailPreview';
 import { AutomationRules } from '../components/AutomationRules';
 import { RecentMessages } from '../components/RecentMessages';
-import { ComplianceNote } from '../components/ComplianceNote';
 import { TestSendModal } from '../components/TestSendModal';
 import { TemplateFormModal } from '../components/TemplateFormModal';
 import { MessageDetailModal } from '../components/MessageDetailModal';
@@ -46,7 +44,7 @@ import type {
     MessageTemplate,
 } from '../types';
 
-const CATEGORIES = ['All', 'Appointment', 'Payments', 'Lab', 'Pharmacy', 'Follow-up', 'General'] as const;
+const CATEGORIES = ['All', 'Appointment', 'Payments', 'Lab', 'Pharmacy', 'Follow-up', 'General', 'Staff alert'] as const;
 
 type View = 'overview' | 'campaigns' | 'templates' | 'automation' | 'analytics' | 'settings';
 
@@ -297,29 +295,18 @@ It will reach ${reach} patients.` : ''),
                 )}
 
                 {view === 'templates' && (
-                    <div className="row g-3">
-                        <div className="col-12 col-xxl-8">
-                            <TemplateTable
-                                templates={data.templates}
-                                categories={CATEGORIES}
-                                selected={selected}
-                                onSelect={setSelected}
-                                filter="search"
-                                actionLabel="Edit"
-                                title="Email templates"
-                                onCreate={manage ? () => setEditing(false) : undefined}
-                                onEdit={manage ? setEditing : undefined}
-                                onRemove={manage ? setRemoving : undefined}
-                            />
-                        </div>
-
-                        <div className="col-12 col-xxl-4">
-                            <EmailPreview
-                                template={selected}
-                                onEdit={manage ? setEditing : undefined}
-                            />
-                        </div>
-                    </div>
+                    <TemplateTable
+                        templates={data.templates}
+                        categories={CATEGORIES}
+                        selected={selected}
+                        onSelect={setSelected}
+                        filter="search"
+                        actionLabel="Edit"
+                        title="Email templates"
+                        onCreate={manage ? () => setEditing(false) : undefined}
+                        onEdit={manage ? setEditing : undefined}
+                        onRemove={manage ? setRemoving : undefined}
+                    />
                 )}
 
                 {view === 'automation' && (
@@ -387,8 +374,6 @@ It will reach ${reach} patients.` : ''),
                     </div>
                 )}
             </div>
-
-            <ComplianceNote />
 
             <TestSendModal
                 open={testing}

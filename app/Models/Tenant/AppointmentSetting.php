@@ -8,14 +8,16 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * How appointments run across the organization. One row.
  *
- *   reschedule_notify   who hears when a patient asks to move a booking —
- *                       the desk that answers it, the doctor whose day it
- *                       changes, or both (an app notification and an email)
  *   check_in_by         who checks a patient in, calls them through, and
  *   call_by             starts their consultation — the desk, the doctor,
  *   consult_start_by    or either. Not every clinic has a receptionist.
  *
  * Every value is one of `desk`, `doctor`, `both`.
+ *
+ * `reschedule_notify` is no longer read. Who hears about a reschedule request
+ * is the "Tell staff: reschedule request" automation rule now, which was
+ * seeded from this column (2026_10_29_000100_add_recipients_to_automation_
+ * rules); the column stays as the record of what the clinic had chosen.
  */
 class AppointmentSetting extends Model
 {
@@ -40,7 +42,6 @@ class AppointmentSetting extends Model
     protected $connection = 'organization';
 
     protected $fillable = [
-        'reschedule_notify',
         'check_in_by',
         'call_by',
         'consult_start_by',
@@ -48,7 +49,6 @@ class AppointmentSetting extends Model
 
     /** Before anybody has saved the screen: what the software did before there was a choice. */
     protected $attributes = [
-        'reschedule_notify' => self::DESK,
         'check_in_by' => self::BOTH,
         'call_by' => self::BOTH,
         'consult_start_by' => self::DOCTOR,
@@ -68,16 +68,6 @@ class AppointmentSetting extends Model
     public function whoFor(string $step): string
     {
         return (string) $this->getAttribute(self::STEPS[$step]);
-    }
-
-    public function notifiesDesk(): bool
-    {
-        return in_array($this->reschedule_notify, [self::DESK, self::BOTH], true);
-    }
-
-    public function notifiesDoctor(): bool
-    {
-        return in_array($this->reschedule_notify, [self::DOCTOR, self::BOTH], true);
     }
 
     protected function historyLabel(): ?string

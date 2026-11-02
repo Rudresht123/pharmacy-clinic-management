@@ -11,7 +11,6 @@ use App\Models\Tenant\User as TenantUser;
 use App\Models\Tenant\UserPermissionOverride;
 use App\Services\Permissions\Permission;
 use App\Services\Tenant\DefaultRoleSeeder;
-use App\Support\Roles\RoleTemplates;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TenantTestCase;
 
@@ -50,22 +49,11 @@ class BranchManagerTest extends TenantTestCase
         }
 
         /*
-         * Provisioning seeded the library before those modules were granted,
-         * so it is rebuilt now the organization actually holds them — the
-         * seeder is idempotent by name, so the existing rows are dropped
-         * first rather than skipped.
+         * Each branch sets its own roles, so the library is seeded per branch
+         * — once the branches exist and the organization holds the modules
+         * the templates ask for.
          */
         $this->onTenant($this->organization, function () {
-            Role::on('organization')
-                ->whereIn('slug', array_column(RoleTemplates::all(), 'slug'))
-                ->get()
-                ->each(function (Role $role) {
-                    $role->capabilities()->delete();
-                    $role->delete();
-                });
-
-            app(DefaultRoleSeeder::class)->seed($this->organization);
-
             foreach (['Gurgaon' => 'M-GGN', 'Noida' => 'M-NOI'] as $name => $code) {
                 $id = Location::on('organization')->create([
                     'name' => $name,
@@ -76,6 +64,8 @@ class BranchManagerTest extends TenantTestCase
 
                 $name === 'Gurgaon' ? $this->gurgaon = $id : $this->noida = $id;
             }
+
+            app(DefaultRoleSeeder::class)->seed($this->organization);
 
             /*
              * Read once, here. Looking a role up through onTenant() from
@@ -100,21 +90,25 @@ class BranchManagerTest extends TenantTestCase
         ])->id);
     }
 
-    private function roleId(string $slug): int
+    /** A branch's own copy of a starting role — Gurgaon's unless another is named. */
+    private function roleId(string $slug, ?int $branch = null): int
     {
-        return (int) ($this->roles[$slug] ?? 0);
+        return (int) ($this->roles[Role::slugAt($slug, $branch ?? $this->gurgaon)] ?? 0);
     }
 
     public function test_the_role_library_is_seeded_from_what_the_organization_holds(): void
     {
         $slugs = $this->onTenant(
             $this->organization,
-            fn () => Role::on('organization')->pluck('slug')->all(),
+            fn () => Role::on('organization')->where('location_id', $this->gurgaon)->pluck('slug')->all(),
         );
 
-        foreach (['branch-manager', 'doctor', 'receptionist', 'pharmacist', 'head-office'] as $expected) {
-            $this->assertContains($expected, $slugs);
+        // Each branch gets its own — never Head office, which only ever meant every branch.
+        foreach (['branch-manager', 'doctor', 'receptionist', 'pharmacist'] as $expected) {
+            $this->assertContains(Role::slugAt($expected, $this->gurgaon), $slugs);
         }
+
+        $this->assertNotContains(Role::slugAt('head-office', $this->gurgaon), $slugs);
 
         /*
          * A branch manager holds `people.roles` — they write their own
@@ -123,7 +117,7 @@ class BranchManagerTest extends TenantTestCase
          */
         $manager = $this->onTenant(
             $this->organization,
-            fn () => Role::on('organization')->with('capabilities')->where('slug', 'branch-manager')->first(),
+            fn () => Role::on('organization')->with('capabilities')->where('slug', Role::slugAt('branch-manager', $this->gurgaon))->first(),
         );
 
         $this->assertContains('people.roles', $manager->capabilityKeys());
@@ -249,7 +243,7 @@ class BranchManagerTest extends TenantTestCase
         $this->onTenant($this->organization, fn () => BranchMembership::on('organization')->create([
             'user_id' => $neha,
             'location_id' => $this->noida,
-            'role_id' => $this->roleId('receptionist'),
+            'role_id' => $this->roleId('receptionist', $this->noida),
         ]));
 
         $this->signInAsStaff($this->organization);
@@ -339,7 +333,7 @@ class BranchManagerTest extends TenantTestCase
         $this->onTenant($this->organization, fn () => BranchMembership::on('organization')->create([
             'user_id' => $neha,
             'location_id' => $this->noida,
-            'role_id' => $this->roleId('receptionist'),
+            'role_id' => $this->roleId('receptionist', $this->noida),
         ]));
 
         $this->setStaffCapabilities($this->organization, ['people.view', 'people.edit']);

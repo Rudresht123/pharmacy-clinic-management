@@ -187,9 +187,10 @@ class CampaignController extends BaseApiController
             'preview_text' => ['nullable', 'string', 'max:255'],
             'content' => ['nullable', 'string'],
 
+            // A campaign goes to patients, so never in a staff alert's words.
             'message_template_id' => [
                 'nullable',
-                Rule::exists(MessageTemplate::class, 'id')->whereNull('deleted_at'),
+                Rule::exists(MessageTemplate::class, 'id')->whereNull('deleted_at')->where('audience', 'patient'),
             ],
 
             'from_name' => ['nullable', 'string', 'max:150'],

@@ -7,7 +7,6 @@ use App\Http\Requests\Api\V1\Tenant\Concerns\MergesFieldSettings;
 use App\Models\Tenant\Department;
 use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\Location;
-use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
 use App\Services\Tenancy\TenantBranchAccess;
 use App\Support\Fields\UserFields;
@@ -69,12 +68,13 @@ class StoreTenantUserRequest extends FormRequest
              * existed, so a branch role could be assigned here and quietly
              * apply everywhere.
              */
-            'role_id' => [
-                'nullable', 'integer',
-                'prohibited_if:role,'.User::OWNER,
-                Rule::exists(Role::class, 'id')
-                    ->where('scope', Role::SCOPE_ORGANIZATION),
-            ],
+            /*
+             * Nothing on the person any more. Each branch sets its own roles,
+             * so a member of staff holds one at each branch they work at
+             * (SaveUserBranchesRequest) — the only role left at the
+             * organization's level is the patient app's, never staff's.
+             */
+            'role_id' => ['nullable', 'prohibited'],
 
             /*
              * The department they work in — a receptionist in General
@@ -178,8 +178,7 @@ class StoreTenantUserRequest extends FormRequest
             'email.unique' => 'Somebody in your organization already uses this address.',
             'password.confirmed' => 'The two passwords do not match.',
             'role.in' => 'Choose either owner or staff.',
-            'role_id.prohibited_if' => 'An owner is not limited by a role.',
-            'role_id.exists' => 'Choose a role that applies across the whole organization. A branch role is given on the Branches panel instead.',
+            'role_id.prohibited' => 'Each branch sets its own roles — give them a role at their branch instead.',
             'location_id.prohibited_if' => 'An owner works across every branch.',
         ];
     }

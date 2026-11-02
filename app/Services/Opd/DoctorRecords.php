@@ -90,7 +90,8 @@ class DoctorRecords
             return [];
         }
 
-        $customers = Customer::on('organization')->whereIn('id', $ids)->get()->keyBy('id');
+        // With their photograph, so the list shows a face, as the desk's does.
+        $customers = Customer::on('organization')->with('photograph')->whereIn('id', $ids)->get()->keyBy('id');
 
         /*
          * The last thing this doctor wrote for each of them — what they were
@@ -120,6 +121,7 @@ class DoctorRecords
                     'customer_id' => (int) $row->customer_id,
                     'customer_name' => $customer?->name,
                     'customer_code' => $customer?->code,
+                    'customer_photo_url' => $customer?->photograph?->url,
                     'age' => $customer?->date_of_birth?->age,
                     'gender' => $customer?->gender,
                     'phone' => $customer?->phone,

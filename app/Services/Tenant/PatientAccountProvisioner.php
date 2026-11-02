@@ -38,6 +38,7 @@ class PatientAccountProvisioner
         'portal.appointments.book',
         'portal.messages',
         'portal.video_calls',
+        'portal.family',
     ];
 
     /**
@@ -72,14 +73,17 @@ class PatientAccountProvisioner
     }
 
     /**
-     * The shared "Patient" role, created once.
+     * The shared "Patient" role — the one role set at the organization's
+     * level, predefined from the day the organization exists.
      *
-     * Unlike the doctor role, its capabilities are written only when it is
-     * CREATED. After that the role is the owner's to shape — a clinic that
-     * does not want patients booking from the app takes that capability off
-     * the role, and the next sign-in must not quietly put it back.
+     * Its capabilities are written only when it is CREATED. After that the
+     * role is the owner's to shape — a clinic that does not want patients
+     * booking from the app takes that capability off the role, and the next
+     * sign-in must not quietly put it back.
+     *
+     * @param  list<string>  $modules  what the organization runs
      */
-    private function role(array $modules): Role
+    public function role(array $modules): Role
     {
         $role = Role::firstOrCreate(
             ['slug' => self::ROLE],
@@ -91,7 +95,12 @@ class PatientAccountProvisioner
             ],
         );
 
-        if ($role->wasRecentlyCreated) {
+        /*
+         * Written when it is created — or while it still holds nothing at all,
+         * since it now exists from the organization's first day, often before
+         * the appointments module that every patient permission belongs to.
+         */
+        if ($role->wasRecentlyCreated || $role->capabilities()->doesntExist()) {
             $role->syncCapabilities(array_values(array_intersect(
                 self::DEFAULTS,
                 ModuleRegistry::capabilitiesFor($modules),

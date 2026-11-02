@@ -36,13 +36,14 @@ class PortalDoctorResource extends JsonResource
             'photo_url' => $this->whenLoaded('photograph', fn () => $this->photograph?->url, null),
             // Their default; each branch below carries its own.
             'consultation_fee' => $this->default_consultation_fee,
-            'rating' => $this->rating ?? 4.8,
-            'reviews_count' => $this->reviews_count ?? 320,
-            'experience_years' => $this->experience_years ?? 10,
-            'is_verified' => true,
-            'about' => $this->bio ?? $this->about ?? null,
-            'specializations' => $this->specializations ?? ($this->specialisation ? [$this->specialisation] : []),
-            'languages' => $this->languages ?? ['English', 'Hindi'],
+
+            /*
+             * Only what the clinic actually recorded. A doctor has no rating,
+             * reviews, years of practice, languages, biography or "verified"
+             * mark in this database, so none is sent — a patient choosing a
+             * doctor reads every figure on the card as the clinic's word.
+             */
+            'specializations' => $this->specialisation ? [$this->specialisation] : [],
 
             // Where they sit, from their active sittings.
             'locations' => $schedules
@@ -50,6 +51,7 @@ class PortalDoctorResource extends JsonResource
                     ? [
                         'id' => $schedule->location->id,
                         'name' => $schedule->location->name,
+                        'address' => $schedule->location->addressLine(),
                         'consultation_fee' => $feeAt($schedule->location->id),
                     ]
                     : null)

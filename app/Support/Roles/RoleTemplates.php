@@ -89,15 +89,19 @@ class RoleTemplates
                 'description' => 'Runs one branch — its team, its day and its stock.',
                 'requires' => [],
                 'capabilities' => [
-                    'branches.view',
+                    'dashboard.view',
                     'people.view',
                     'people.create',
                     'people.edit',
                     'people.roles',
                     'customers.view',
+                    'customers.record',
+                    'customers.contact',
                     'customers.create',
                     'customers.edit',
                     'appointments.view',
+                    'appointments.queue_view',
+                    'appointments.doctors_view',
                     'appointments.book',
                     'appointments.queue',
                     'appointments.cancel',
@@ -185,22 +189,33 @@ class RoleTemplates
                 'key' => 'doctor',
                 'name' => 'Doctor',
                 'slug' => 'doctor',
-                'scope' => Role::SCOPE_ORGANIZATION,
+                'scope' => Role::SCOPE_BRANCH,
                 'icon' => 'ti ti-stethoscope',
                 'description' => 'Sees their own patients and their own day.',
                 /*
-                 * Organization-scoped on purpose, and it is the one exception
-                 * in this list. A doctor sits wherever their timings put them;
-                 * their branch reach comes from `doctor_locations` rather than
-                 * from a membership, and pinning the login to one branch would
-                 * hide the other branches' lists from the one person who has
-                 * to work them.
+                 * A branch role like every other: each branch a doctor is
+                 * posted to holds them on its own Doctor role
+                 * (DoctorPostings::seat), so what a doctor may do at a branch
+                 * is that branch's to say.
+                 *
+                 * Not the desk's screens — the appointments list, the queue
+                 * for every doctor, the roster. Those are a manager's, and a
+                 * doctor given them signs in to five entries about running a
+                 * clinic and one about seeing patients.
                  */
                 'requires' => ['appointments'],
                 'capabilities' => [
                     'customers.view',
-                    'appointments.view',
+                    'customers.record',
+                    'customers.contact',
                     'appointments.queue',
+
+                    // Their own screens, one tick each — and no dashboard: a
+                    // doctor lands on their day, not the manager's numbers.
+                    'appointments.my_day',
+                    'appointments.my_queue',
+                    'appointments.my_schedule',
+                    'appointments.my_patients',
 
                     /*
                      * The consultation is theirs, both ends of it. These two
@@ -270,11 +285,15 @@ class RoleTemplates
                  * `.process` or `.complete`.
                  */
                 'capabilities' => [
-                    'branches.view',
+                    'dashboard.view',
                     'customers.view',
+                    'customers.record',
+                    'customers.contact',
                     'customers.create',
                     'customers.edit',
                     'appointments.view',
+                    'appointments.queue_view',
+                    'appointments.doctors_view',
                     'appointments.book',
                     'appointments.queue',
                     // Patients' requests to move a booking land at the desk.
@@ -294,6 +313,10 @@ class RoleTemplates
                     'billing.view',
                     'billing.collect_payment',
                     'communication.view',
+
+                    // Its own thread with a patient, apart from the one they
+                    // may also have with a doctor.
+                    'appointments.messages_desk',
                 ],
             ],
 
@@ -321,8 +344,10 @@ class RoleTemplates
                 'description' => 'Works the lab bench — takes on orders, enters results, signs them off.',
                 'requires' => ['laboratory'],
                 'capabilities' => [
-                    'branches.view',
+                    'dashboard.view',
                     'customers.view',
+                    'customers.record',
+                    'customers.contact',
                     'laboratory.view',
                     'laboratory.process',
                     'laboratory.complete',
@@ -359,8 +384,10 @@ class RoleTemplates
                  * six reports are six capabilities rather than one.
                  */
                 'capabilities' => [
-                    'branches.view',
+                    'dashboard.view',
                     'customers.view',
+                    'customers.record',
+                    'customers.contact',
                     'medicines.view',
                     'prescriptions.view',
                     'pharmacy.view',
@@ -414,8 +441,10 @@ class RoleTemplates
                 'description' => 'Runs the branch\'s billing counter — invoices, payments and receipts.',
                 'requires' => ['billing'],
                 'capabilities' => [
-                    'branches.view',
+                    'dashboard.view',
                     'customers.view',
+                    'customers.record',
+                    'customers.contact',
                     'billing.view',
                     'billing.create',
                     'billing.edit',
@@ -447,6 +476,7 @@ class RoleTemplates
                 'description' => 'Administers the whole network rather than one branch.',
                 'requires' => [],
                 'capabilities' => [
+                    'dashboard.view',
                     'branches.view',
                     'branches.create',
                     'branches.edit',
@@ -457,6 +487,8 @@ class RoleTemplates
                     'people.across_branches',
                     'people.assign_branch',
                     'customers.view',
+                    'customers.record',
+                    'customers.contact',
                     'customers.create',
                     'customers.edit',
                     /* The Export Center, every tab and every branch, and who takes which columns. */
@@ -466,6 +498,8 @@ class RoleTemplates
                     'exports.communication',
                     'exports.columns',
                     'appointments.view',
+                    'appointments.queue_view',
+                    'appointments.doctors_view',
                     /* The doctor roster, organization-wide — see ModuleRegistry. */
                     'appointments.doctors',
                     'documents.view',

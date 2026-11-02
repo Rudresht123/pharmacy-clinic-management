@@ -105,6 +105,14 @@ class Location extends Model
         return $query->where('is_active', true);
     }
 
+    /** Where it is, on one line — what tells a patient which branch this is. */
+    public function addressLine(): ?string
+    {
+        $line = collect([$this->address, $this->city])->filter(fn ($part) => filled($part))->implode(', ');
+
+        return $line === '' ? null : $line;
+    }
+
     /**
      * This branch's decisions about the organization's modules.
      *
@@ -127,6 +135,12 @@ class Location extends Model
     public function memberships(): HasMany
     {
         return $this->hasMany(BranchMembership::class);
+    }
+
+    /** The roles this branch wrote for itself — every role is a branch's own. */
+    public function roles(): HasMany
+    {
+        return $this->hasMany(Role::class);
     }
 
     public function members(): BelongsToMany

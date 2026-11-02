@@ -11,10 +11,8 @@ import { SetupProgress } from '../components/SetupProgress';
 import { ChannelBenefits, WHATSAPP_BENEFITS } from '../components/ChannelBenefits';
 import { ChannelStats } from '../components/ChannelStats';
 import { TemplateTable } from '../components/TemplateTable';
-import { WhatsAppPreview } from '../components/WhatsAppPreview';
 import { AutomationRules } from '../components/AutomationRules';
 import { RecentMessages } from '../components/RecentMessages';
-import { ComplianceNote } from '../components/ComplianceNote';
 import { TestSendModal } from '../components/TestSendModal';
 import { TemplateFormModal } from '../components/TemplateFormModal';
 import { MessageDetailModal } from '../components/MessageDetailModal';
@@ -248,26 +246,15 @@ export default function WhatsAppPage() {
                 )}
 
                 {view === 'templates' && (
-                    <div className="row g-3">
-                        <div className="col-12 col-xxl-8">
-                            <TemplateTable
-                                templates={data.templates}
-                                categories={CATEGORIES}
-                                selected={selected}
-                                onSelect={setSelected}
-                                onCreate={manage ? () => setEditing(false) : undefined}
-                                onEdit={manage ? setEditing : undefined}
-                                onRemove={manage ? setRemoving : undefined}
-                            />
-                        </div>
-
-                        <div className="col-12 col-xxl-4">
-                            <WhatsAppPreview
-                                template={selected}
-                                onEdit={manage ? setEditing : undefined}
-                            />
-                        </div>
-                    </div>
+                    <TemplateTable
+                        templates={data.templates}
+                        categories={CATEGORIES}
+                        selected={selected}
+                        onSelect={setSelected}
+                        onCreate={manage ? () => setEditing(false) : undefined}
+                        onEdit={manage ? setEditing : undefined}
+                        onRemove={manage ? setRemoving : undefined}
+                    />
                 )}
 
                 {view === 'automation' && (
@@ -332,19 +319,11 @@ export default function WhatsAppPage() {
                 )}
 
                 {view === 'settings' && (
-                    <div className="row g-3">
-                        <div className="col-12 col-xxl-5">
-                            <SetupProgress
-                                steps={data.setup}
-                                onFinish={manage ? () => setTesting(true) : undefined}
-                                finishLabel="Send a test message"
-                            />
-                        </div>
-
-                        <div className="col-12 col-xxl-7">
-                            <ComplianceNote />
-                        </div>
-                    </div>
+                    <SetupProgress
+                        steps={data.setup}
+                        onFinish={manage ? () => setTesting(true) : undefined}
+                        finishLabel="Send a test message"
+                    />
                 )}
             </div>
 

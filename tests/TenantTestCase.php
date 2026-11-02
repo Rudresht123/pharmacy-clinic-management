@@ -10,12 +10,15 @@ use App\Models\Platform\PlatformRole;
 use App\Models\Platform\PlatformUser;
 use App\Models\Tenant\BillingSetting;
 use App\Models\Tenant\BranchMembership;
+use App\Models\Tenant\Doctor;
+use App\Models\Tenant\Location;
 use App\Models\Tenant\LocationModule;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User as TenantUser;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DefaultRoleSeeder;
+use App\Services\Tenant\DoctorPostings;
 use App\Support\Platform\OrganizationCode;
 
 /**
@@ -187,17 +190,19 @@ abstract class TenantTestCase extends TestCase
     {
         $this->onTenant($organization, function () use ($organization, $locationId) {
             /*
-             * Seeded here, not at provisioning, because the receptionist
-             * template `requires` the appointments module — and a test grants
-             * its modules after the organisation exists, by which time the
-             * provisioning seeder has already run and skipped the role. The
-             * seeder is idempotent and only ever adds, so calling it again is
-             * free and never touches a role somebody has edited.
+             * This branch's own starting roles, seeded here because the
+             * receptionist template `requires` the appointments module — and
+             * a test grants its modules after the branch exists. Idempotent by
+             * name, so calling it again never touches a role somebody edited.
              */
-            app(DefaultRoleSeeder::class)->seed($organization);
+            app(DefaultRoleSeeder::class)->seedBranch(
+                $organization,
+                Location::on(TenantConnectionService::CONNECTION)->findOrFail($locationId),
+            );
 
+            // Each branch sets its own roles: this branch's Receptionist.
             $role = Role::on(TenantConnectionService::CONNECTION)
-                ->where('slug', self::RECEPTIONIST_ROLE)
+                ->where('slug', Role::slugAt(self::RECEPTIONIST_ROLE, $locationId))
                 ->firstOrFail();
 
             $user = TenantUser::on(TenantConnectionService::CONNECTION)->firstOrCreate(
@@ -220,6 +225,19 @@ abstract class TenantTestCase extends TestCase
         });
 
         $this->signIn($organization, self::RECEPTIONIST_EMAIL);
+    }
+
+    /**
+     * Post a doctor to a branch — which seats their login there on that
+     * branch's own Doctor role, the only way a doctor's login gets
+     * permissions now that each branch sets its own roles.
+     */
+    protected function postDoctor(Organization $organization, int $doctorId, int $locationId): void
+    {
+        $this->onTenant($organization, fn () => app(DoctorPostings::class)->ensure(
+            Doctor::on(TenantConnectionService::CONNECTION)->findOrFail($doctorId),
+            $locationId,
+        ));
     }
 
     /**

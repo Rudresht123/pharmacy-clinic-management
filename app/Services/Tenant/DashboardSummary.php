@@ -103,6 +103,8 @@ class DashboardSummary
             [
                 'key' => 'branches',
                 'module' => null,
+                // Comparing branches is the network's view — the same
+                // organization-level tick as the Branches screen.
                 'capability' => 'branches.view',
                 'resolve' => fn (?array $allowed) => $this->branchHealth($allowed),
             ],
@@ -152,7 +154,9 @@ class DashboardSummary
             [
                 'key' => 'branch_info',
                 'module' => null,
-                'capability' => 'branches.view',
+                // The person's own branch — part of their dashboard, not the
+                // Branches screen, so a branch role keeps it.
+                'capability' => null,
                 'resolve' => fn (?array $allowed) => $this->branchInfo(
                     $this->permission->branchFor($user)
                 ),
@@ -217,7 +221,7 @@ class DashboardSummary
                 'capability' => null,
                 'resolve' => fn (?array $allowed) => $this->network->overview($organization, $user, $allowed, [
                     'branches' => $can('branches.view'),
-                    'doctors' => $can('appointments.view'),
+                    'doctors' => $can('appointments.doctors_view'),
                     'staff' => $can('people.view'),
                 ]),
             ],

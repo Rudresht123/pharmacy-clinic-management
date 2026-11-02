@@ -39,7 +39,51 @@ export interface MessageTemplate {
     is_default?: boolean;
     /** Branches sending their own wording; present where it was counted. */
     branch_wordings?: number;
+    /** Who it is written for — a staff alert never goes to a patient. */
+    audience: Audience;
     updated_at: string | null;
+}
+
+/** Whose wording a rule or a template is: the patient's, or the clinic's own people's. */
+export type Audience = 'patient' | 'staff';
+
+/**
+ * Somebody a rule names (App\Support\Communication\RuleRecipients): a place
+ * on the record — the patient, the doctor, whoever booked it, the branch
+ * manager, the desk — or a role, a named person, an address.
+ */
+export type RecipientType =
+    | 'patient'
+    | 'doctor'
+    | 'creator'
+    | 'branch_manager'
+    | 'front_desk'
+    | 'role'
+    | 'user'
+    | 'email';
+
+export interface RecipientEntry {
+    type: RecipientType;
+    /** A role's or a person's id. */
+    id?: number;
+    /** An email address typed in. */
+    address?: string;
+    /** What the screen calls it — sent by the server, not saved. */
+    label?: string;
+}
+
+/** To, CC, BCC on an email; only To ("Send to") on an App notification. */
+export interface RuleRecipients {
+    to: RecipientEntry[];
+    cc: RecipientEntry[];
+    bcc: RecipientEntry[];
+}
+
+/** What a rule can be addressed to. */
+export interface RecipientOptions {
+    places: { type: RecipientType; label: string }[];
+    roles: { id: number; name: string }[];
+    staff: { id: number; name: string; has_email: boolean }[];
 }
 
 /** Who a registered phone belongs to. */
@@ -98,6 +142,8 @@ export interface AutomationRule {
     id: number;
     channel: Channel;
     event_key: string;
+    audience: Audience;
+    recipients: RuleRecipients;
     title: string;
     description: string | null;
     icon: string | null;

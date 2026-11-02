@@ -8,21 +8,27 @@ use App\Models\Tenant\Conversation;
 use App\Models\Tenant\ConversationMessage;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
+use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
 use App\Services\Messaging\Messenger;
 use App\Services\Messaging\Participant;
+use App\Services\Permissions\Permission;
+use App\Services\Tenancy\TenantBranchAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Doctor-to-patient messages, from either end.
+ * Doctor-to-patient messages, from either end — and the desk's own thread
+ * with a patient.
  *
- * Mounted twice — under /tenant/messages for a doctor's login and under
- * /tenant/portal/messages for a patient's — and the same methods serve both.
+ * Mounted twice — under /tenant/messages for staff and under
+ * /tenant/portal/messages for a patient — and the same methods serve both.
  * Which side is asking comes from the login (see [participant]), never from
  * the request, and every conversation is checked to be that side's own before
- * anything is read from it or written to it.
+ * anything is read from it or written to it. The one thing the desk sends
+ * that a doctor does not is `location_id`: which branch's desk it is writing
+ * as, checked against where the login actually works.
  *
  * @group Tenant > Messages
  */
@@ -30,6 +36,8 @@ class ConversationController extends BaseApiController
 {
     public function __construct(
         private readonly Messenger $messenger,
+        private readonly Permission $permission,
+        private readonly TenantBranchAccess $branches,
     ) {}
 
     /** The inbox, newest first, with unread counts and the live channel. */
@@ -73,7 +81,7 @@ class ConversationController extends BaseApiController
     public function store(Request $request): JsonResponse
     {
         $me = $this->participant($request);
-        $key = $me->isDoctor() ? 'customer_id' : 'doctor_id';
+        $key = $me->side === Conversation::PATIENT ? 'doctor_id' : 'customer_id';
 
         $validated = $request->validate([$key => ['required', 'integer', 'min:1']]);
 
@@ -211,8 +219,10 @@ class ConversationController extends BaseApiController
      * Which side of a conversation this login is.
      *
      * A patient on the portal routes (EnsurePortalPatient has already found
-     * their record), or a doctor on the staff routes. Anybody else — a
-     * receptionist given the capability by mistake — has no side to be on.
+     * their record); a doctor on the staff routes; or, on the staff routes
+     * too, the desk at a branch (see [deskBranch]) — which the login must
+     * work at and hold `appointments.messages_desk` at. A doctor is asked
+     * first, so a doctor's login always writes as the doctor.
      */
     private function participant(Request $request): Participant
     {
@@ -227,11 +237,45 @@ class ConversationController extends BaseApiController
             ? Doctor::query()->find($user->userable_id)
             : null;
 
-        if ($doctor === null) {
-            abort(403, 'Messages are between doctors and their patients, and you are not signed in as either.');
+        if ($doctor !== null) {
+            return Participant::doctor($user, $doctor);
         }
 
-        return Participant::doctor($user, $doctor);
+        $branch = $user instanceof User ? $this->deskBranch($request, $user) : null;
+
+        if ($branch === null) {
+            abort(403, 'Messages are between patients and their doctors or the desk, and you are not signed in as either.');
+        }
+
+        return Participant::frontDesk($user, $branch);
+    }
+
+    /**
+     * The branch this login is writing for as the desk, when it may.
+     *
+     * The one named in `location_id`, or else the branch they work at — the
+     * same default the capability gate in front of these routes used.
+     */
+    private function deskBranch(Request $request, User $user): ?Location
+    {
+        $request->validate(['location_id' => ['nullable', 'integer', 'min:1']]);
+
+        $locationId = $request->filled('location_id')
+            ? $request->integer('location_id')
+            : $this->permission->branchFor($user);
+
+        if ($locationId === null || ! $this->branches->canUse($user, $locationId)) {
+            return null;
+        }
+
+        $allowed = $this->permission->allows(
+            $request->attributes->get('tenant.organization'),
+            $user,
+            'appointments.messages_desk',
+            $locationId,
+        );
+
+        return $allowed ? Location::query()->active()->find($locationId) : null;
     }
 
     /** Somebody else's conversation answers as if it did not exist. */

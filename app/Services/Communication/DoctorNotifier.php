@@ -22,9 +22,24 @@ use Illuminate\Support\Carbon;
  * message with a template to approve — every clinic event with a doctor on
  * it reaches them, unconditionally, on whatever they actually have: an app
  * login, an email on file.
+ *
+ * EXCEPT where the clinic now says who hears. A booking, a cancellation and a
+ * reschedule have staff rules of their own ("Tell staff: new booking" and the
+ * rest — AutomationSender, RuleRecipients), seeded to tell the doctor exactly
+ * as this did, and switchable. Telling the doctor here as well would be a
+ * second copy nobody can turn off.
  */
 class DoctorNotifier
 {
+    /** Events whose staff alert is the clinic's own rule. */
+    public const RULED = [
+        ClinicEvents::APPOINTMENT_BOOKED,
+        ClinicEvents::APPOINTMENT_CANCELLED,
+        ClinicEvents::RESCHEDULE_REQUESTED,
+        ClinicEvents::APPOINTMENT_RESCHEDULED,
+        ClinicEvents::RESCHEDULE_REJECTED,
+    ];
+
     public function __construct(
         private readonly PushManager $push,
         private readonly EmailManager $email,
@@ -32,6 +47,10 @@ class DoctorNotifier
 
     public function handle(ClinicEvent $event): void
     {
+        if (in_array($event->key, self::RULED, true)) {
+            return;
+        }
+
         $subject = $this->subject($event);
 
         if ($subject === null || $subject->doctor === null) {

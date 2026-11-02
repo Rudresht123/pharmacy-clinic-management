@@ -26,6 +26,9 @@ class MessageTemplateResource extends JsonResource
             'status' => $this->status,
             'is_active' => (bool) $this->is_active,
 
+            // A patient's wording or the clinic's own staff's.
+            'audience' => $this->audience ?? 'patient',
+
             // The screen lists templates a clinic wrote, so a row has to be
             // able to look like itself without the client keeping a map.
             'icon' => $this->icon,

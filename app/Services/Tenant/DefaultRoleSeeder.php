@@ -3,92 +3,169 @@
 namespace App\Services\Tenant;
 
 use App\Models\Platform\Organization;
+use App\Models\Tenant\Location;
 use App\Models\Tenant\Role;
-use App\Services\Modules\ModuleAccess;
+use App\Services\Modules\FeatureResolver;
 use App\Services\Tenancy\TenantConnectionService;
+use App\Support\Modules\ModuleRegistry;
 use App\Support\Roles\RoleTemplates;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Give an organization the roles a clinic actually staffs.
+ * Give each branch the roles a clinic actually staffs, as its own — and the
+ * organization its one role of its own, the patient app's.
  *
- * A service rather than a migration, and for a concrete reason: which roles
- * an organization should get depends on which MODULES it was sold, and that
- * lives in the master database. A migration cannot read it — Laravel's
- * migrator calls `setDefaultConnection('organization')` while it runs, which
- * mutates `database.default`, so any model without an explicit connection
- * resolves to the tenant's own database and `organizations` is not there.
+ * EACH BRANCH SETS ITS OWN ROLES, so these are a starting point a branch then
+ * edits, renames or deletes — written at the branch (`location_id` set), never
+ * shared across branches. Drawn from the modules running AT THAT BRANCH, so a
+ * branch that does not run the pharmacy is not given a Pharmacist.
  *
- * Both callers already hold the Organization, so neither has to discover it:
- * provisioning has just created it, and `tenants:migrate` is looping over
- * them. The connection is theirs to manage too — this is called with the
- * tenant already connected.
- *
- * IDEMPOTENT by name and slug. A tenant that already has a role called
- * "Doctor" — one somebody wrote by hand — keeps theirs untouched. This adds;
- * it never edits and never replaces.
+ * A service rather than a migration, for a concrete reason: which modules run
+ * where lives partly in the master database, which a migration cannot read.
+ * Called with the tenant already connected.
  */
 class DefaultRoleSeeder
 {
+    /**
+     * Templates that only ever meant "across every branch". Head office's
+     * job is the network's, and a branch copy of it would be a second Branch
+     * manager under a misleading name.
+     */
+    private const ACROSS_BRANCHES_ONLY = ['head_office'];
+
+    /*
+     * FeatureResolver rather than Permission: Permission remembers what it
+     * worked out for the rest of the request, and seeding runs while the
+     * organization is still being set up — a cached "no modules yet" would
+     * outlive the moment it was true.
+     */
     public function __construct(
-        private readonly ModuleAccess $modules,
+        private readonly FeatureResolver $features,
     ) {}
 
     /**
+     * Starting roles for every branch that has none yet.
+     *
+     * Only branches with no roles at all: a branch that deleted a starting
+     * role it did not want must not see it come back on the next deploy.
+     *
      * @return list<string> the slugs actually created, for the caller to report
      */
     public function seed(Organization $organization): array
     {
-        $modules = $this->modules->enabled($organization);
-        $connection = TenantConnectionService::CONNECTION;
+        // The patient app's role is predefined, and the organization's own.
+        app(PatientAccountProvisioner::class)->role($this->features->enabled($organization, null));
+
         $created = [];
-        $now = now();
 
-        foreach (RoleTemplates::all() as $template) {
-            if (! RoleTemplates::appliesTo($template, $modules)) {
-                continue;
-            }
+        $branches = Location::on(TenantConnectionService::CONNECTION)
+            ->whereDoesntHave('roles')
+            ->orderBy('id')
+            ->get();
 
-            $taken = Role::on($connection)
-                ->where(function ($query) use ($template) {
-                    $query->where('slug', $template['slug'])
-                        ->orWhereRaw('LOWER(name) = ?', [mb_strtolower($template['name'])]);
-                })
-                ->exists();
-
-            if ($taken) {
-                continue;
-            }
-
-            /*
-             * One transaction per role rather than one for all of them. A
-             * template that fails — a capability retired between releases,
-             * say — should not take the other four with it.
-             */
-            DB::connection($connection)->transaction(function () use ($template, $modules, $now, $connection) {
-                $role = Role::on($connection)->create([
-                    'name' => $template['name'],
-                    'slug' => $template['slug'],
-                    'scope' => $template['scope'],
-                    /*
-                     * Null: written by the ORGANIZATION, so offered at every
-                     * branch. A branch-scoped role with a null location is the
-                     * normal case — `scope` says where it can be assigned,
-                     * `location_id` says who wrote it.
-                     */
-                    'location_id' => null,
-                    'description' => $template['description'],
-                    'icon' => $template['icon'],
-                ]);
-
-                $role->forceFill(['created_at' => $now, 'updated_at' => $now])->saveQuietly();
-
-                $role->syncCapabilities(RoleTemplates::capabilitiesFor($template, $modules));
-            });
-
-            $created[] = $template['slug'];
+        foreach ($branches as $branch) {
+            array_push($created, ...$this->seedBranch($organization, $branch));
         }
 
         return $created;
+    }
+
+    /**
+     * One branch's starting roles.
+     *
+     * IDEMPOTENT by name and slug within the branch: a role the branch already
+     * has under that name — one somebody wrote by hand — is left untouched.
+     *
+     * @return list<string> the slugs actually created
+     */
+    public function seedBranch(Organization $organization, Location $branch): array
+    {
+        $modules = $this->features->enabled($organization, $branch->id);
+        $created = [];
+
+        foreach (RoleTemplates::all() as $template) {
+            if (in_array($template['key'], self::ACROSS_BRANCHES_ONLY, true)
+                || ! RoleTemplates::appliesTo($template, $modules)) {
+                continue;
+            }
+
+            $role = $this->seedOne($template, $branch, $modules);
+
+            if ($role !== null) {
+                $created[] = $role->slug;
+            }
+        }
+
+        return $created;
+    }
+
+    /**
+     * The branch's own copy of one starting role — found, or written now.
+     *
+     * How a doctor posted to a branch gets that branch's Doctor role without
+     * the branch having been seeded first.
+     *
+     * @param  array<string, mixed>  $template  one of RoleTemplates::all()
+     * @param  list<string>|null  $modules  what runs at the branch, when already known
+     */
+    public function roleAt(array $template, Location $branch, Organization $organization, ?array $modules = null): ?Role
+    {
+        $existing = Role::on(TenantConnectionService::CONNECTION)
+            ->where('location_id', $branch->id)
+            ->where('slug', Role::slugAt($template['slug'], $branch->id))
+            ->first();
+
+        return $existing ?? $this->seedOne($template, $branch, $modules ?? $this->features->enabled($organization, $branch->id));
+    }
+
+    /**
+     * @param  array<string, mixed>  $template
+     * @param  list<string>  $modules
+     */
+    private function seedOne(array $template, Location $branch, array $modules): ?Role
+    {
+        $connection = TenantConnectionService::CONNECTION;
+        $slug = Role::slugAt($template['slug'], $branch->id);
+
+        $taken = Role::on($connection)
+            ->where('location_id', $branch->id)
+            ->where(fn ($query) => $query
+                ->where('slug', $slug)
+                ->orWhereRaw('LOWER(name) = ?', [mb_strtolower($template['name'])]))
+            ->exists();
+
+        if ($taken) {
+            return null;
+        }
+
+        // A branch role holds branch-level permissions only.
+        $capabilities = array_values(array_filter(
+            RoleTemplates::capabilitiesFor($template, $modules),
+            fn (string $capability) => ModuleRegistry::capabilityScope($capability) !== ModuleRegistry::SCOPE_ORGANIZATION,
+        ));
+
+        if ($capabilities === []) {
+            return null;
+        }
+
+        /*
+         * One transaction per role rather than one for all of them. A template
+         * that fails — a capability retired between releases, say — should
+         * not take the others with it.
+         */
+        return DB::connection($connection)->transaction(function () use ($template, $branch, $slug, $capabilities, $connection) {
+            $role = Role::on($connection)->create([
+                'name' => $template['name'],
+                'slug' => $slug,
+                'scope' => Role::SCOPE_BRANCH,
+                'location_id' => $branch->id,
+                'description' => $template['description'],
+                'icon' => $template['icon'],
+            ]);
+
+            $role->syncCapabilities($capabilities);
+
+            return $role;
+        });
     }
 }

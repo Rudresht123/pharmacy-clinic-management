@@ -111,14 +111,23 @@ class LocationTest extends TenantTestCase
             ->assertJsonValidationErrors('code');
     }
 
-    public function test_staff_may_read_locations(): void
+    /**
+     * Branch staff pick their own branch in every dropdown, with no tick for
+     * it — but the Branches screen itself is the organization's.
+     */
+    public function test_staff_get_their_branches_for_pickers_but_not_the_branches_screen(): void
     {
         $organization = $this->provisionOrganization();
         $location = $this->makeLocation($organization);
+        $this->placeStaffAt($organization, $location->id);
         $this->signIn($organization, self::STAFF_EMAIL);
 
-        $this->getJson('/api/v1/tenant/locations')->assertOk();
-        $this->getJson("/api/v1/tenant/locations/{$location->id}")->assertOk();
+        $this->getJson('/api/v1/tenant/locations?all=1')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $location->id);
+
+        $this->getJson('/api/v1/tenant/locations')->assertForbidden();
+        $this->getJson("/api/v1/tenant/locations/{$location->id}")->assertForbidden();
     }
 
     /**

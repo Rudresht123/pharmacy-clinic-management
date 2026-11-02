@@ -91,7 +91,7 @@ class PatientRecord
     {
         $can = fn (string $capability) => $this->permission->allows($organization, $user, $capability);
 
-        $visits = $can('customers.view')
+        $visits = $can('customers.record')
             && $this->permission->hasModule($organization, 'appointments', $this->permission->branchFor($user));
 
         return [

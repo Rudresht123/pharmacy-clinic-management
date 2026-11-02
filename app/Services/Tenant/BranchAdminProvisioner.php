@@ -33,10 +33,12 @@ class BranchAdminProvisioner
      * `appointments.schedule`; registering a new doctor is head office's.
      */
     private const WANTED = [
-        'branches.view',
+        'dashboard.view',
         'people.view', 'people.create', 'people.edit', 'people.delete', 'people.roles',
-        'customers.view', 'customers.create', 'customers.edit', 'customers.delete',
-        'appointments.view', 'appointments.book', 'appointments.queue',
+        'customers.view', 'customers.record', 'customers.contact',
+        'customers.create', 'customers.edit', 'customers.delete',
+        'appointments.view', 'appointments.queue_view', 'appointments.doctors_view',
+        'appointments.book', 'appointments.queue',
         'appointments.cancel', 'appointments.schedule',
         'prescriptions.view', 'prescriptions.write', 'prescriptions.cancel',
         'medicines.view',
@@ -87,27 +89,29 @@ class BranchAdminProvisioner
             ->where('slug', 'branch-admin-'.$branch->id)
             ->first();
 
-        if (! $role) {
-            $role = Role::create([
-                'name' => 'Branch Admin',
-                'slug' => 'branch-admin-'.$branch->id,
-                'scope' => Role::SCOPE_BRANCH,
-                'location_id' => $branch->id,
-                'icon' => 'ti ti-briefcase',
-                'description' => 'Runs '.$branch->name.' — its staff, its patients and its diary.',
-            ]);
+        // The branch's own once written: a second admin joins it as it stands.
+        if ($role) {
+            return $role;
         }
+
+        $role = Role::create([
+            'name' => 'Branch Admin',
+            'slug' => 'branch-admin-'.$branch->id,
+            'scope' => Role::SCOPE_BRANCH,
+            'location_id' => $branch->id,
+            'icon' => 'ti ti-briefcase',
+            'description' => 'Runs '.$branch->name.' — its staff, its patients and its diary.',
+        ]);
 
         /*
          * Only what this branch actually runs. A capability whose module is
          * switched off here would be a permission that means nothing, and
          * SaveRoleRequest would refuse it anyway — better to never offer it.
          */
-        $available = ModuleRegistry::capabilitiesFor($modulesHere);
-
-        $role->load('capabilities')->syncCapabilities(
-            array_values(array_intersect(self::WANTED, $available))
-        );
+        $role->syncCapabilities(array_values(array_intersect(
+            self::WANTED,
+            ModuleRegistry::capabilitiesFor($modulesHere),
+        )));
 
         return $role;
     }

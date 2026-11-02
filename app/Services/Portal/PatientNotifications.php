@@ -15,6 +15,9 @@ use Illuminate\Database\Eloquent\Collection;
  * that raise a notification sit alongside them rather than in whatever
  * controller happened to trigger one, so every screen that raises one says
  * it the same way.
+ *
+ * A family member's are written on their own record and read by whoever looks
+ * after them, so the wording names them rather than saying "your".
  */
 class PatientNotifications
 {
@@ -36,7 +39,8 @@ class PatientNotifications
             'appointment_booked',
             'Appointment confirmed',
             sprintf(
-                'Your appointment with %s is confirmed for %s.',
+                '%s appointment with %s is confirmed for %s.',
+                $this->whose($appointment),
                 $appointment->doctor?->name ?? 'your doctor',
                 $appointment->appointment_date?->format('d M Y') ?? 'the booked date',
             ),
@@ -50,7 +54,8 @@ class PatientNotifications
             'appointment_cancelled',
             'Appointment cancelled',
             sprintf(
-                'Your appointment with %s on %s has been cancelled.',
+                '%s appointment with %s on %s has been cancelled.',
+                $this->whose($appointment),
                 $appointment->doctor?->name ?? 'your doctor',
                 $appointment->appointment_date?->format('d M Y') ?? 'the booked date',
             ),
@@ -65,7 +70,8 @@ class PatientNotifications
             'appointment_rescheduled',
             'Appointment rescheduled',
             sprintf(
-                'Your appointment with %s is now on %s%s.',
+                '%s appointment with %s is now on %s%s.',
+                $this->whose($appointment),
                 $appointment->doctor?->name ?? 'your doctor',
                 $appointment->appointment_date?->format('d M Y') ?? 'the new date',
                 $appointment->slot_at ? ' at '.date('g:i A', strtotime((string) $appointment->slot_at)) : '',
@@ -81,13 +87,22 @@ class PatientNotifications
             'appointment_reschedule_rejected',
             'Reschedule not possible',
             trim(sprintf(
-                'Your appointment with %s stays on %s%s. %s',
+                '%s appointment with %s stays on %s%s. %s',
+                $this->whose($appointment),
                 $appointment->doctor?->name ?? 'your doctor',
                 $appointment->appointment_date?->format('d M Y') ?? 'its date',
                 $appointment->slot_at ? ' at '.date('g:i A', strtotime((string) $appointment->slot_at)) : '',
                 $note ? 'The clinic says: '.$note : '',
             )),
         );
+    }
+
+    /** "Your" on their own visit; the name on a family member's. */
+    private function whose(Appointment $appointment): string
+    {
+        $patient = $appointment->customer;
+
+        return $patient?->familyLink === null ? 'Your' : "{$patient->name}'s";
     }
 
     private function write(Appointment $appointment, string $type, string $title, string $body): void
@@ -109,6 +124,6 @@ class PatientNotifications
 
     private function of(Customer $patient): Builder
     {
-        return PatientNotification::query()->where('customer_id', $patient->id);
+        return PatientNotification::query()->whereIn('customer_id', $patient->familyIds());
     }
 }

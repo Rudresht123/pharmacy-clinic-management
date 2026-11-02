@@ -13,7 +13,6 @@ use App\Models\Tenant\EntityFieldSetting;
 use App\Models\Tenant\File;
 use App\Repositories\Tenant\Contracts\DoctorRepositoryInterface;
 use App\Services\Fields\FieldSchema;
-use App\Services\Permissions\Permission;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DoctorAccountProvisioner;
 use App\Services\Tenant\DoctorPostings;
@@ -37,7 +36,6 @@ class DoctorController extends BaseApiController
 
     public function __construct(
         private readonly DoctorRepositoryInterface $doctors,
-        private readonly Permission $permission,
     ) {}
 
     /**
@@ -112,11 +110,11 @@ class DoctorController extends BaseApiController
          * fails against an account nobody can see.
          */
         $doctor = DB::connection(TenantConnectionService::CONNECTION)
-            ->transaction(function () use ($data, $account, $request, $accounts) {
+            ->transaction(function () use ($data, $account, $accounts) {
                 $doctor = $this->doctors->create($data);
 
                 if ($account) {
-                    $accounts->open($doctor, $account, $this->modules($request));
+                    $accounts->open($doctor, $account);
                 }
 
                 return $doctor;
@@ -139,7 +137,7 @@ class DoctorController extends BaseApiController
         unset($data['account'], $data['branch_fees']);
 
         $updated = DB::connection(TenantConnectionService::CONNECTION)
-            ->transaction(function () use ($doctor, $data, $account, $branchFees, $request, $accounts) {
+            ->transaction(function () use ($doctor, $data, $account, $branchFees, $accounts) {
                 $updated = $this->doctors->update($doctor, $data);
 
                 // What they charge at each of their branches, beside the default.
@@ -148,7 +146,7 @@ class DoctorController extends BaseApiController
                 }
 
                 if ($account) {
-                    $accounts->open($updated, $account, $this->modules($request));
+                    $accounts->open($updated, $account);
                 } else {
                     /*
                      * The section was switched off, so the login goes. Sent
@@ -248,18 +246,6 @@ class DoctorController extends BaseApiController
         $data['specialisation'] = $department?->topLevelName();
 
         return $data;
-    }
-
-    /**
-     * What this organization runs, for bounding the doctor role.
-     *
-     * @return list<string>
-     */
-    private function modules(Request $request): array
-    {
-        $organization = $request->attributes->get('tenant.organization');
-
-        return $organization ? $this->permission->modulesAt($organization, null) : [];
     }
 
     public function destroy(Doctor $doctor): JsonResponse

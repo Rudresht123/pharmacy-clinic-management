@@ -85,7 +85,7 @@ export function PushTemplatesPanel({
 
     return (
         <Card
-            className="ph-card"
+            className="ph-card ph-tpl-card"
             title="Notification templates"
             icon="ti ti-file-text"
             description="Manage push notification templates for common events"

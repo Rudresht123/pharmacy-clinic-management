@@ -25,20 +25,29 @@ class DoctorController extends PortalController
         $request->validate([
             'q' => ['nullable', 'string', 'max:80'],
             'specialisation' => ['nullable', 'string', 'max:120'],
+            'location_id' => ['nullable', 'integer'],
         ]);
 
         $organization = $this->organization($request);
+        $locationId = $request->filled('location_id') ? $request->integer('location_id') : null;
 
         $doctors = $this->doctors
-            ->search($request->input('q'), $request->input('specialisation'))
+            ->search($request->input('q'), $request->input('specialisation'), $locationId)
+            ->map(fn (Doctor $doctor) => $this->doctors->withoutClosedBranches($organization, $doctor))
+            // Sitting only at branches that have closed: nowhere to book them.
+            ->filter(fn (Doctor $doctor) => $doctor->schedules->isNotEmpty())
+            ->values()
             ->each(fn (Doctor $doctor) => $doctor->setAttribute(
                 'next_available',
-                $this->doctors->nextAvailable($organization, $doctor),
+                $this->doctors->nextAvailable($organization, $doctor, $locationId),
             ));
 
         return $this->ok(
             PortalDoctorResource::collection($doctors),
-            meta: ['specialisations' => $this->doctors->specialisations()],
+            meta: [
+                'specialisations' => $this->doctors->specialisations(),
+                'branches' => $this->doctors->branches($organization),
+            ],
         );
     }
 
@@ -48,7 +57,9 @@ class DoctorController extends PortalController
 
         $doctor->load(['department', 'photograph', 'postings', 'schedules' => fn ($query) => $query
             ->where('is_active', true)
-            ->with('location:id,name')]);
+            ->with(BookableDoctors::LOCATION_COLUMNS)]);
+
+        $this->doctors->withoutClosedBranches($this->organization($request), $doctor);
 
         $doctor->setAttribute('next_available', $this->doctors->nextAvailable($this->organization($request), $doctor));
 

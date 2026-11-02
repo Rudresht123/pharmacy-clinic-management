@@ -422,8 +422,9 @@ export default function CampaignWizardPage({ channel = 'email' }: { channel?: Ch
                                         >
                                             <option value="">Write it myself</option>
 
+                                            {/* A campaign goes to patients: never a staff alert's words. */}
                                             {templates
-                                                .filter((item) => item.status === 'approved')
+                                                .filter((item) => item.status === 'approved' && item.audience !== 'staff')
                                                 .map((item) => (
                                                     <option key={item.id} value={item.id}>
                                                         {item.name}

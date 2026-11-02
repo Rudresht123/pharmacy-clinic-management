@@ -3,6 +3,7 @@ import { Avatar } from '@/shared/components/ui/Avatar';
 import { formatDate, formatDateTime } from '@/shared/utils/format';
 import { PAYMENT_STATUS_LABELS, type Sale } from '../sales';
 import { PAYMENT_METHOD_LABELS } from '../types';
+import { PatientPhone, useCanOpenRecord } from '@/core/customers/components/PatientRecordLink';
 
 const money = (value: number) => `${value < 0 ? '−' : ''}₹${Math.abs(value).toFixed(2)}`;
 
@@ -34,6 +35,7 @@ const STATUS_TONES: Record<string, string> = {
  */
 export function SaleBillView({ sale }: { sale: Sale }) {
     const customer = sale.customer ?? null;
+    const canOpenRecord = useCanOpenRecord();
     const returned = sale.returned_amount ?? 0;
     const place = customer ? [customer.city, customer.state].filter(Boolean).join(', ') : '';
     const gender = customer?.gender ? customer.gender.charAt(0).toUpperCase() + customer.gender.slice(1) : null;
@@ -70,9 +72,7 @@ export function SaleBillView({ sale }: { sale: Sale }) {
                             {(customer?.phone ?? sale.walk_in_phone) && (
                                 <li>
                                     <i className="ti ti-phone" aria-hidden="true" />
-                                    <a href={`tel:${customer?.phone ?? sale.walk_in_phone}`}>
-                                        {customer?.phone ?? sale.walk_in_phone}
-                                    </a>
+                                    <PatientPhone phone={String(customer?.phone ?? sale.walk_in_phone)} />
                                 </li>
                             )}
                             {place && (
@@ -84,10 +84,12 @@ export function SaleBillView({ sale }: { sale: Sale }) {
                         </ul>
 
                         {customer ? (
-                            <Link className="sb-link" to={`/customers/${customer.id}`}>
-                                Open patient file
-                                <i className="ti ti-arrow-right" aria-hidden="true" />
-                            </Link>
+                            canOpenRecord && (
+                                <Link className="sb-link" to={`/customers/${customer.id}`}>
+                                    Open patient file
+                                    <i className="ti ti-arrow-right" aria-hidden="true" />
+                                </Link>
+                            )
                         ) : (
                             <span className="sb-note">Not a registered patient — sold at the counter by name.</span>
                         )}

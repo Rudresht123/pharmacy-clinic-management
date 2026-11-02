@@ -116,11 +116,26 @@ class MessageTemplateController extends BaseApiController
             'tone' => ['nullable', 'string', 'max:20'],
             'is_active' => ['boolean'],
             'sort_order' => ['integer'],
+
+            // Who it is written for: a patient, or the clinic's own staff.
+            'audience' => ['sometimes', Rule::in(AutomationRule::AUDIENCES)],
         ], [
             'subject.required' => 'An app notification needs a title.',
         ]);
 
         $this->assertKnownVariables($channel, $validated);
+
+        /*
+         * A template a rule sends keeps its reader: staff wording turned
+         * "patient" would be offered to campaigns while the staff alert went
+         * on sending it, and the other way round a patient would stop hearing.
+         */
+        if ($template !== null && isset($validated['audience']) && $validated['audience'] !== $template->audience
+            && AutomationRule::query()->where('message_template_id', $template->id)->exists()) {
+            throw ValidationException::withMessages([
+                'audience' => 'An automation rule sends this template. Choose another template on that rule first.',
+            ]);
+        }
 
         return $validated;
     }

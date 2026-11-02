@@ -8,18 +8,8 @@ import { notify } from '@/shared/utils/notify';
 import { useConfigurableEntities } from '@/core/field-settings/api';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { tenantNavigation } from '@/app/tenant-navigation';
-import { locationsHooks } from '@/core/locations/api';
-import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
-import {
-    rolesHooks,
-    useBranchRolePermissions,
-    useGrantable,
-    useRoleMembers,
-    useRoleTemplates,
-    useSaveBranchRolePermissions,
-} from '../api';
+import { rolesHooks, useGrantable, useRoleMembers, useRoleTemplates } from '../api';
 import { ROLE_ICONS, type GrantableModule, type Role, type RoleScope } from '../types';
-import { SCOPE_INFO, ScopeBadge } from '../scope';
 
 /**
  * A module's colour, keyed by the module itself.
@@ -77,6 +67,10 @@ function toDraft(role: Role): Draft {
 
 /**
  * Level three of the permission flow — what a person may do.
+ *
+ * EACH BRANCH SETS ITS OWN ROLES. A branch admin sees and writes their
+ * branch's; the owner sees the one role set for the whole organisation, the
+ * patient app's, and otherwise decides which modules each branch runs.
  *
  * A split view rather than a list and a separate form: a role is only
  * meaningful next to the others, since "who can delete a patient" is answered
@@ -164,26 +158,15 @@ export default function RolesPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pool, selected]);
 
-    /*
-     * The WHOLE registry, unscoped — never what is rendered as ticks, only
-     * what "X of Y" and the cross-role spread chart divide by. Those compare
-     * roles of possibly different scopes against one shared ceiling; dividing
-     * by the SELECTED role's own (smaller, scope-filtered) pool would make
-     * that ceiling jump every time a different role was clicked, and would
-     * make an organization role's bar look artificially short next to a
-     * branch role's.
-     */
-    const { data: allModules } = useGrantable();
-
     const { data: members, isLoading: membersLoading } = useRoleMembers(
         current?.id,
         tab === 'members',
     );
 
-    /** How many there are, in total, to hold — "4 of 9" says more than "4". */
+    /** How many there are to hold here — "4 of 9" says more than "4". */
     const totalCapabilities = useMemo(
-        () => (allModules ?? []).reduce((sum, module) => sum + module.capabilities.length, 0),
-        [allModules],
+        () => modules.reduce((sum, module) => sum + module.capabilities.length, 0),
+        [modules],
     );
 
     const totalMembers = useMemo(
@@ -221,7 +204,7 @@ export default function RolesPage() {
      * that would drift the first time a screen moved, and a preview that lies
      * is worse than none.
      */
-    const { modules: orgModules, user, activeBranch, refreshSession, can, ownerRestricted } = useTenantAuth();
+    const { modules: orgModules, user, can, ownerRestricted } = useTenantAuth();
     const { data: entities } = useConfigurableEntities();
 
     const labels = useMemo(
@@ -281,15 +264,12 @@ export default function RolesPage() {
                       ...toDraft(from),
                       id: 0,
                       name: `${from.name} copy`,
-                      // Only an owner writes organization-wide roles; a copy
-                      // made by anybody else is their branch's own.
-                      scope: user?.role === 'owner' ? from.scope : 'branch',
+                      scope: 'branch',
                   }
                 : {
                       ...BLANK,
                       name: '',
-                      // A new role starts in the view it was asked for from.
-                      scope: user?.role === 'owner' ? shownView : 'branch',
+                      scope: 'branch',
                   },
         );
         setErrors({});
@@ -305,26 +285,33 @@ export default function RolesPage() {
     /**
      * Tick or untick one, keeping the module coherent.
      *
-     * Every module's `.view` capability is implied by the others in it:
-     * "add and edit customers" without "view customers" is not a narrower
-     * permission, it is a broken one — the list would answer 403 while the
-     * save button worked. So anything ticked brings view with it, and
-     * unticking view takes its whole module away rather than leaving that
-     * state reachable by a different route.
+     * A module's actions rest on its list: "add and edit customers" without
+     * the customer list is not a narrower permission, it is a broken one. So
+     * ticking an action brings the list with it, and unticking the list takes
+     * the actions done from it — not the module's other screens.
+     *
+     * OPD is the exception: its actions (book, check in, cancel) are done from
+     * several screens, and a role made only for chat must not be handed the
+     * appointments list by ticking it.
      */
     function toggle(key: string) {
         const module = (modules ?? []).find((entry) =>
             entry.capabilities.some((capability) => capability.key === key),
         );
 
-        const viewKey = module?.capabilities.find((capability) =>
-            capability.key.endsWith('.view'),
-        )?.key;
+        const viewKey =
+            module && module.key !== 'appointments'
+                ? module.capabilities.find((capability) => capability.key === `${module.key}.view`)?.key
+                : undefined;
+
+        const isScreen = Boolean(module?.capabilities.find((capability) => capability.key === key)?.screen);
 
         if (draft.capabilities.includes(key)) {
             const drop =
                 key === viewKey && module
-                    ? module.capabilities.map((capability) => capability.key)
+                    ? module.capabilities
+                          .filter((capability) => capability.key === key || !capability.screen)
+                          .map((capability) => capability.key)
                     : [key];
 
             patch({
@@ -337,18 +324,9 @@ export default function RolesPage() {
             return;
         }
 
-        const add = viewKey && key !== viewKey ? [key, viewKey] : [key];
+        const add = viewKey && key !== viewKey && !isScreen ? [key, viewKey] : [key];
 
         patch({ capabilities: [...new Set([...draft.capabilities, ...add])] });
-    }
-
-    /** Whether a branch may take this one away — the organization's answer. */
-    function toggleLock(key: string) {
-        patch({
-            locked: draft.locked.includes(key)
-                ? draft.locked.filter((entry) => entry !== key)
-                : [...draft.locked, key],
-        });
     }
 
     function toggleModule(module: GrantableModule) {
@@ -377,27 +355,12 @@ export default function RolesPage() {
             description: draft.description.trim() || null,
             icon: draft.icon,
             capabilities: draft.capabilities,
-
-            /*
-             * Omitted entirely rather than sent empty when this screen is not
-             * in a position to set locks. The server reads a missing `locked`
-             * as "leave them alone" and an empty one as "unlock everything" —
-             * so a branch manager editing a role must say nothing, or they
-             * would silently undo the organization's locks by saving a name.
-             */
-            ...(canLock ? { locked: draft.locked } : {}),
-
-            // Chosen once, on creation. The server ignores it from anybody
-            // but the owner, and never changes a saved role's scope.
-            ...(selected === 'new' ? { scope: draft.scope } : {}),
         };
 
         try {
             if (selected === 'new') {
                 const created = (await create.mutateAsync(payload)) as unknown as Role;
 
-                // Follow it into its own view, so it is on the list beside it.
-                setView(created.scope);
                 setSelected(created.id);
                 setDraft(toDraft(created));
             } else {
@@ -504,74 +467,33 @@ export default function RolesPage() {
     const mayWriteRoles = can('people.roles');
 
     /*
-     * The list, in the three groups a role can belong to.
-     *
-     * Grouped by the role's own `scope` — never by its name — so a custom
-     * role lands where it belongs. Organization-wide roles are shown to the
-     * people who can give them (the owner and organization HR,
-     * `people.across_branches`, the same line the server draws); to a branch
-     * admin they are only clutter they could not use. The patient app's role
-     * is the owner's to see, and sits apart: it is nobody's job at work.
+     * The list. The owner sees the one role set for the whole organisation,
+     * the patient app's — every staff role is a branch's to set. Anybody else
+     * sees their own branch's roles, which is all the server sends them.
      */
-    const organizationLevel = isOwner || can('people.across_branches');
-
-    /*
-     * One kind of access at a time.
-     *
-     * The two are different jobs — who works across the network, and what
-     * somebody does at one counter — and one long list of both made an
-     * organization admin read a page of branch roles to find the three that
-     * were theirs. An organization admin opens on organization-wide roles and
-     * switches to branch roles when they mean to (the organization writes the
-     * shared ones every branch uses, so the switch has to exist). A branch
-     * admin has only branch roles, and no switch at all.
-     */
-    const [view, setView] = useState<RoleScope>(organizationLevel ? 'organization' : 'branch');
-    const shownView: RoleScope = organizationLevel ? view : 'branch';
-
-    function switchView(next: RoleScope) {
-        if (next === shownView) return;
-
-        setView(next);
-        // Land on the first role of the new view rather than keep one the
-        // list no longer shows.
-        setSelected(null);
-        setDraft(BLANK);
-        setErrors({});
-        setEditingMeta(false);
-    }
-
     const railGroups = useMemo(() => {
         const list = roles ?? [];
-        const staff = list.filter((role) => role.audience !== 'patient');
 
-        return [
-            {
-                key: 'organization',
-                show: shownView === 'organization',
-                title: SCOPE_INFO.organization.label,
-                note: 'Given to a person directly. Works at every branch.',
-                empty: 'No organization-wide roles yet.',
-                roles: staff.filter((role) => role.scope === 'organization'),
-            },
-            {
-                key: 'branch',
-                show: shownView === 'branch',
-                title: SCOPE_INFO.branch.label,
-                note: 'Given per branch. Works only at that branch.',
-                empty: 'No branch roles yet.',
-                roles: staff.filter((role) => role.scope === 'branch'),
-            },
-            {
-                key: 'patient',
-                show: isOwner && shownView === 'organization',
-                title: 'Patient app',
-                note: 'For patients signing in to the app. Never given to staff.',
-                empty: '',
-                roles: list.filter((role) => role.audience === 'patient'),
-            },
-        ].filter((group) => group.show && (group.roles.length > 0 || group.key !== 'patient'));
-    }, [roles, shownView, isOwner]);
+        return isOwner
+            ? [
+                  {
+                      key: 'patient',
+                      title: 'Patient app',
+                      note: 'What patients can do in the app. Each branch sets its own staff roles.',
+                      empty: 'No patient app role yet.',
+                      roles: list.filter((role) => role.audience === 'patient'),
+                  },
+              ]
+            : [
+                  {
+                      key: 'branch',
+                      title: 'This branch’s roles',
+                      note: 'Your branch sets its own. Give one to somebody from their page under Staff.',
+                      empty: 'No roles yet — start one with New Role.',
+                      roles: list.filter((role) => role.audience !== 'patient'),
+                  },
+              ];
+    }, [roles, isOwner]);
 
     const railRoles = useMemo(() => railGroups.flatMap((group) => group.roles), [railGroups]);
 
@@ -585,160 +507,10 @@ export default function RolesPage() {
     }, [railRoles, selected]);
 
     /*
-     * A role written by the organization but assignable per branch — "Branch
-     * manager", "Receptionist" and the like. Editing it outright changes what
-     * every branch's holders may do; customising it is the alternative that
-     * touches one branch alone.
+     * Whether this person may change THIS role. A branch admin writes their
+     * branch's; the owner writes the patient app's.
      */
-    const branchScoped = Boolean(current) && current?.location_id === null
-        && (current?.is_customisable_by_branch ?? false);
-
-    /*
-     * Which branch a BRANCH MANAGER is customising for — always their own,
-     * the one the header switcher already says they are working at.
-     *
-     * The owner has no such branch: the header switcher hides itself for
-     * them (they work across the network, not at one counter), so they pick
-     * one explicitly below instead of it being implied by where they are.
-     */
-    // Only the owner's branch picker reads this; anybody else asking would
-    // only be refused.
-    const { data: branchList } = locationsHooks.useList({ all: 1 }, { enabled: isOwner });
-    const [ownerBranch, setOwnerBranch] = useState<number | ''>('');
-
-    // A role picked on the previous screen must not leave a branch silently
-    // selected on this one — that would customise the WRONG role the moment
-    // somebody chose a new one without noticing the picker was still set.
-    useEffect(() => {
-        setOwnerBranch('');
-    }, [current?.id]);
-
-    const effectiveBranch = isOwner ? (ownerBranch || null) : activeBranch;
-
-    /*
-     * Whether this person may change THIS role, rather than roles in general.
-     *
-     * The owner may change any — but while they have picked a branch to
-     * customise below, that picker is what they mean to edit, not the
-     * organization's own copy, so writing here is turned off exactly as it
-     * would be for a branch manager doing the same thing.
-     *
-     * Anybody else may change only their own branch's: an organization role
-     * is shared by every branch, so editing one here would quietly change
-     * what a receptionist may do everywhere — which is the whole reason a
-     * branch writes its own instead.
-     */
-    const canWrite = mayWriteRoles
-        && (!current || (isOwner ? effectiveBranch === null : false) || current.location_id !== null);
-
-    /*
-     * Whether the lock column means anything here.
-     *
-     * A lock is the organization telling BRANCHES "not this one", so it needs
-     * both a role branches share and somebody speaking for the organization.
-     * A branch's own role has no third party to be locked against, and a new
-     * role written here is organization-wide and branch-assigned, which is
-     * exactly the kind that does.
-     */
-    const canLock = mayWriteRoles && isOwner && effectiveBranch === null
-        && (current?.is_customisable_by_branch ?? true);
-
-    /*
-     * The other way to change what a role means here.
-     *
-     * A branch manager cannot edit the organization's role — that would change
-     * it at every branch — but may take capabilities off it FOR THEIR OWN
-     * BRANCH. Before this level existed the only answer was "copy it to this
-     * branch", which is how a chain ends up with five Receptionists that drift
-     * apart; the copy is still offered, for when a branch genuinely wants a
-     * different job rather than a narrower version of the same one.
-     *
-     * The owner reaches the same screen by picking a branch below, rather
-     * than by being refused the direct edit — they are never refused
-     * anything, they are choosing to act on one branch instead of all of them.
-     */
-    const branchCustomising = branchScoped && effectiveBranch !== null;
-
-    const { data: branchPermissions } = useBranchRolePermissions(
-        branchCustomising ? effectiveBranch : undefined,
-        branchCustomising ? current?.id : undefined,
-    );
-
-    const saveBranch = useSaveBranchRolePermissions(effectiveBranch, current?.id);
-
-    /*
-     * What this role actually grants HERE: the organization's set, minus what
-     * this branch has already taken off it. Held in its own state because it
-     * is a different thing being edited from `draft` — the role itself is not
-     * changing at all.
-     */
-    const [branchAllowed, setBranchAllowed] = useState<string[] | null>(null);
-
-    useEffect(() => {
-        setBranchAllowed(
-            branchPermissions
-                ? branchPermissions.inherited.filter(
-                      (key) => !branchPermissions.removed.includes(key),
-                  )
-                : null,
-        );
-    }, [branchPermissions]);
-
-    const branchLocked = branchPermissions?.locked ?? [];
-    const branchDirty =
-        branchAllowed !== null &&
-        branchPermissions !== undefined &&
-        [...branchAllowed].sort().join() !==
-            branchPermissions.inherited
-                .filter((key) => !branchPermissions.removed.includes(key))
-                .sort()
-                .join();
-
-    function toggleForBranch(key: string) {
-        if (branchAllowed === null || branchLocked.includes(key)) {
-            return;
-        }
-
-        setBranchAllowed(
-            branchAllowed.includes(key)
-                ? branchAllowed.filter((entry) => entry !== key)
-                : [...branchAllowed, key],
-        );
-    }
-
-    /** The same "all of this module" switch, bounded by what a branch may touch. */
-    function toggleModuleForBranch(module: GrantableModule) {
-        if (branchAllowed === null) return;
-
-        const mine = module.capabilities
-            .map((capability) => capability.key)
-            .filter(
-                (key) =>
-                    (branchPermissions?.inherited ?? []).includes(key) &&
-                    !branchLocked.includes(key),
-            );
-
-        const all = mine.every((key) => branchAllowed.includes(key));
-
-        setBranchAllowed(
-            all
-                ? branchAllowed.filter((key) => !mine.includes(key))
-                : [...new Set([...branchAllowed, ...mine])],
-        );
-    }
-
-    async function saveForBranch() {
-        if (branchAllowed === null) return;
-
-        try {
-            await saveBranch.mutateAsync(branchAllowed);
-
-            // This may have just changed what the person saving it may do.
-            await refreshSession();
-        } catch (error) {
-            notify.error(resolveErrorMessage(error));
-        }
-    }
+    const canWrite = mayWriteRoles && (!current || isOwner || current.location_id !== null);
 
     function railItem(role: Role) {
         return (
@@ -755,13 +527,11 @@ export default function RolesPage() {
                 <span className="rp-role-text">
                     <b className="ras-name">
                         <span>{role.name}</span>
-                        {role.audience === 'patient' ? (
+                        {role.audience === 'patient' && (
                             <span className="ras-badge is-patient">
                                 <i className="ti ti-device-mobile" aria-hidden="true" />
                                 Patients
                             </span>
-                        ) : (
-                            <ScopeBadge scope={role.scope} />
                         )}
                     </b>
 
@@ -771,27 +541,6 @@ export default function RolesPage() {
                         {role.users_count === 1 ? 'member' : 'members'}
                     </small>
                 </span>
-
-                {/*
-                    Who wrote it — shown to everybody except the owner, for
-                    whom it is noise because every role here is theirs. For a
-                    branch it is the difference between a role they may change
-                    and one they may only copy, and reading that off the list
-                    is faster than clicking each to find out.
-
-                    "Shared", not "Organization": this says who WROTE the
-                    role, not where it may be ASSIGNED (that's `role.scope`,
-                    shown nowhere in this list). "Branch manager" is written
-                    by the organization — offered at every branch as a
-                    starting point — but is itself branch-scoped; labelling
-                    that "Organization" read as a contradiction of the role's
-                    own name.
-                */}
-                {!isOwner && (
-                    <span className={`rp-owner${role.location_id === null ? ' is-shared' : ''}`}>
-                        {role.location_id === null ? 'Shared' : (role.location ?? 'Branch')}
-                    </span>
-                )}
 
                 {/* Marks the row being edited while it has changes pending, so
                     switching away is a visible decision rather than a
@@ -805,12 +554,12 @@ export default function RolesPage() {
         <>
             <PageHeader
                 title="Roles & Permissions"
-                subtitle="Manage roles and control access across your organization."
+                subtitle={isOwner ? 'What patients can do in the app. Each branch sets its own staff roles.' : 'Your branch sets its own roles, and what each one can open and do.'}
                 icon="ti ti-shield-lock"
                 tone="violet"
                 crumbs={[{ label: 'Roles & Permissions' }]}
                 actions={
-                    mayWriteRoles ? (
+                    mayWriteRoles && !isOwner ? (
                         <Button icon="ti ti-plus" onClick={() => startNew()}>
                             New Role
                         </Button>
@@ -844,40 +593,12 @@ export default function RolesPage() {
                         </span>
                     </div>
 
-                    {organizationLevel && (
-                        <div className="ras-views">
-                            <nav className="ras-tabs" role="tablist" aria-label="Kind of access">
-                                {(['organization', 'branch'] as RoleScope[]).map((scope) => {
-                                    const count = (roles ?? []).filter(
-                                        (role) => role.scope === scope && role.audience !== 'patient',
-                                    ).length;
-
-                                    return (
-                                        <button
-                                            key={scope}
-                                            type="button"
-                                            role="tab"
-                                            aria-selected={shownView === scope}
-                                            className={`ras-tab${shownView === scope ? ' is-on' : ''}`}
-                                            onClick={() => switchView(scope)}
-                                        >
-                                            <i className={SCOPE_INFO[scope].icon} aria-hidden="true" />
-                                            {SCOPE_INFO[scope].label}
-                                            <em>{count}</em>
-                                        </button>
-                                    );
-                                })}
-                            </nav>
-                            <p className="ras-views-note">{SCOPE_INFO[shownView].description}</p>
-                        </div>
-                    )}
-
                     <div className="rp-split">
                         {/* --- the roles -------------------------------- */}
                         <aside className="rp-rail">
                             <header className="rp-rail-head">
                                 <h6>Roles</h6>
-                                {mayWriteRoles && (
+                                {mayWriteRoles && !isOwner && (
                                     <button
                                         type="button"
                                         className="rp-rail-add"
@@ -912,12 +633,8 @@ export default function RolesPage() {
                                             heading repeating them is only noise.
                                             Without tabs, or for the patient app's
                                             role, it is what says what the list is. */}
-                                        {(!organizationLevel || group.key === 'patient') && (
-                                            <>
-                                                <p className="rp-rail-group">{group.title}</p>
-                                                <p className="ras-group-note">{group.note}</p>
-                                            </>
-                                        )}
+                                        <p className="rp-rail-group">{group.title}</p>
+                                        <p className="ras-group-note">{group.note}</p>
 
                                         {group.roles.length > 0 ? (
                                             group.roles.map(railItem)
@@ -952,13 +669,11 @@ export default function RolesPage() {
                                                             ? draft.name.trim() || 'New role'
                                                             : (current?.name ?? draft.name)}
                                                     </span>
-                                                    {forPatients ? (
+                                                    {forPatients && (
                                                         <span className="ras-badge is-patient">
                                                             <i className="ti ti-device-mobile" aria-hidden="true" />
                                                             Patients
                                                         </span>
-                                                    ) : (
-                                                        <ScopeBadge scope={grantScope} />
                                                     )}
                                                 </h5>
 
@@ -973,140 +688,71 @@ export default function RolesPage() {
                                                 </p>
                                             </div>
 
-                                            <div className="rp-head-actions">
-                                                {/*
-                                                    An organization role is shared by
-                                                    every branch. Rather than only
-                                                    refusing the edit, offer the way
-                                                    out: a copy this branch owns and
-                                                    may change freely.
-                                                */}
-                                                {mayWriteRoles && !canWrite && current && (
-                                                    <button
-                                                        type="button"
-                                                        className="rp-act"
-                                                        onClick={() => startNew(current)}
-                                                    >
-                                                        <i className="ti ti-copy" />
-                                                        Copy to this branch
-                                                    </button>
-                                                )}
-
-                                                {canWrite && (
-                                                    <button
-                                                        type="button"
-                                                        className="rp-act"
-                                                        onClick={() => setEditingMeta((on) => !on)}
-                                                    >
-                                                        <i className="ti ti-pencil" />
-                                                        Edit
-                                                    </button>
-                                                )}
-
-                                                {canWrite && current && (
-                                                    <button
-                                                        type="button"
-                                                        className="rp-act is-danger"
-                                                        onClick={() => onDelete(current)}
-                                                    >
-                                                        <i className="ti ti-trash" />
-                                                        Delete
-                                                    </button>
-                                                )}
-
-                                                {mayWriteRoles && current && (
-                                                    <div className="rp-menu">
+                                            {/*
+                                                The patient app's role is predefined:
+                                                only its ticks change — never its name,
+                                                and it is never deleted or copied.
+                                            */}
+                                            {!forPatients && (
+                                                <div className="rp-head-actions">
+                                                    {canWrite && (
                                                         <button
                                                             type="button"
-                                                            className="rp-act is-icon"
-                                                            aria-label="More"
-                                                            aria-expanded={menuOpen}
-                                                            onClick={() =>
-                                                                setMenuOpen((open) => !open)
-                                                            }
+                                                            className="rp-act"
+                                                            onClick={() => setEditingMeta((on) => !on)}
                                                         >
-                                                            <i className="ti ti-dots-vertical" />
+                                                            <i className="ti ti-pencil" />
+                                                            Edit
                                                         </button>
+                                                    )}
 
-                                                        {menuOpen && (
-                                                            <div className="rp-menu-list">
-                                                                {/* The fastest way to a role
-                                                                    that is "the receptionist,
-                                                                    but without deletions". */}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        startNew(current)
-                                                                    }
-                                                                >
-                                                                    <i className="ti ti-copy" />
-                                                                    Duplicate role
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
+                                                    {canWrite && current && (
+                                                        <button
+                                                            type="button"
+                                                            className="rp-act is-danger"
+                                                            onClick={() => onDelete(current)}
+                                                        >
+                                                            <i className="ti ti-trash" />
+                                                            Delete
+                                                        </button>
+                                                    )}
 
-                                        {/*
-                                            What this role's scope means, in a
-                                            sentence — for a new role, the choice
-                                            itself. Fixed once saved, because
-                                            changing a live role's scope would
-                                            move every holder's access.
-                                        */}
-                                        {selected === 'new' ? (
-                                            isOwner ? (
-                                                <div
-                                                    className="ras-choose"
-                                                    role="radiogroup"
-                                                    aria-label="Where this role works"
-                                                >
-                                                    {(['organization', 'branch'] as RoleScope[]).map(
-                                                        (scope) => (
+                                                    {canWrite && current && (
+                                                        <div className="rp-menu">
                                                             <button
-                                                                key={scope}
                                                                 type="button"
-                                                                role="radio"
-                                                                aria-checked={draft.scope === scope}
-                                                                className={`ras-option${draft.scope === scope ? ' is-on' : ''}`}
-                                                                onClick={() => patch({ scope })}
+                                                                className="rp-act is-icon"
+                                                                aria-label="More"
+                                                                aria-expanded={menuOpen}
+                                                                onClick={() => setMenuOpen((open) => !open)}
                                                             >
-                                                                <span className="ras-option-icon" aria-hidden="true">
-                                                                    <i className={SCOPE_INFO[scope].icon} />
-                                                                </span>
-                                                                <span className="ras-option-text">
-                                                                    <b>{SCOPE_INFO[scope].label}</b>
-                                                                    <small>{SCOPE_INFO[scope].description}</small>
-                                                                </span>
-                                                                <i
-                                                                    className={`ras-option-tick ti ${draft.scope === scope ? 'ti-circle-check-filled' : 'ti-circle'}`}
-                                                                    aria-hidden="true"
-                                                                />
+                                                                <i className="ti ti-dots-vertical" />
                                                             </button>
-                                                        ),
+
+                                                            {menuOpen && (
+                                                                <div className="rp-menu-list">
+                                                                    {/* The fastest way to a role
+                                                                        that is "the receptionist,
+                                                                        but without deletions". */}
+                                                                    <button type="button" onClick={() => startNew(current)}>
+                                                                        <i className="ti ti-copy" />
+                                                                        Duplicate role
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
-                                            ) : (
-                                                <p className="ras-scope-line">
-                                                    <ScopeBadge scope="branch" />
-                                                    Roles you write work only at your branch.
-                                                </p>
-                                            )
-                                        ) : forPatients ? (
+                                            )}
+                                        </div>
+
+                                        {forPatients && (
                                             <p className="ras-scope-line">
                                                 <i className="ti ti-info-circle" aria-hidden="true" />
                                                 Patients get this role automatically when they sign in to
-                                                the app. It is never given to staff.
+                                                the app. It is set once, for the whole organisation, and
+                                                holds only what patients can do in the app.
                                             </p>
-                                        ) : (
-                                            current && (
-                                                <p className="ras-scope-line">
-                                                    <i className="ti ti-info-circle" aria-hidden="true" />
-                                                    {SCOPE_INFO[current.scope].description}
-                                                </p>
-                                            )
                                         )}
 
                                         {editingMeta ? (
@@ -1199,60 +845,15 @@ export default function RolesPage() {
                                                                 roles. You can read this one, not
                                                                 change it.
                                                             </>
-                                                        ) : branchCustomising ? (
+                                                        ) : (
                                                             <>
-                                                                These permissions come from your
-                                                                organisation. You can switch them
-                                                                off for this branch alone — every
-                                                                other branch keeps its own. A
-                                                                padlock means your organisation
-                                                                does not allow that one to be
-                                                                changed here.
-                                                            </>
-                                        ) : (
-                                                            <>
-                                                                This role belongs to the whole
-                                                                organization, so changing it here
-                                                                would change it at every branch.
-                                                                Copy it to this branch to make your
-                                                                own version.
+                                                                This role is not one you can change
+                                                                here.
                                                             </>
                                                         )}
                                                     </p>
                                                 )}
 
-                                                {/*
-                                                    The owner's way into the same per-branch
-                                                    screen a branch manager gets automatically.
-                                                    Without this an owner could only ever edit
-                                                    the organization's own copy — there was no
-                                                    button that meant "just at Gorakhpur". Behind
-                                                    `mayWriteRoles` too: a restricted owner who
-                                                    cannot write any role has nothing to pick a
-                                                    branch for.
-                                                */}
-                                                {mayWriteRoles && isOwner && branchScoped && (
-                                                    <label className="rp-field rp-branch-pick">
-                                                        <span>Editing</span>
-                                                        <SearchableSelect
-                                                            value={ownerBranch === '' ? '' : String(ownerBranch)}
-                                                            onChange={(next) =>
-                                                                setOwnerBranch(next ? Number(next) : '')
-                                                            }
-                                                            clearable
-                                                            placeholder="The whole organisation"
-                                                            options={(branchList ?? []).map((branch) => ({
-                                                                value: String(branch.id),
-                                                                label: branch.name,
-                                                            }))}
-                                                        />
-                                                        <small className="form-hint">
-                                                            {branchCustomising
-                                                                ? 'Changes here apply only at this branch — every other branch keeps the organisation’s own copy.'
-                                                                : 'Leave this on "the whole organisation" to change what every branch inherits, or pick one branch to switch a permission off there alone.'}
-                                                        </small>
-                                                    </label>
-                                                )}
                                             </>
                                         )}
 
@@ -1337,48 +938,10 @@ export default function RolesPage() {
                                                         modules={visibleModules}
                                                         active={activeModule}
                                                         onFocus={setFocusedModule}
-                                                        held={
-                                                            branchCustomising
-                                                                ? (branchAllowed ?? [])
-                                                                : draft.capabilities
-                                                        }
-                                                        locked={
-                                                            branchCustomising
-                                                                ? branchLocked
-                                                                : draft.locked
-                                                        }
-                                                        lockMode={
-                                                            branchCustomising
-                                                                ? 'show'
-                                                                : canLock
-                                                                  ? 'edit'
-                                                                  : 'none'
-                                                        }
-                                                        onToggleLock={toggleLock}
-                                                        /*
-                                                         * In branch mode only what the
-                                                         * organization already grants
-                                                         * this role can be touched —
-                                                         * everything else is not a
-                                                         * choice this branch has.
-                                                         */
-                                                        toggleable={
-                                                            branchCustomising
-                                                                ? (branchPermissions?.inherited ??
-                                                                  [])
-                                                                : null
-                                                        }
-                                                        canWrite={mayWriteRoles && (branchCustomising || canWrite)}
-                                                        onToggle={
-                                                            branchCustomising
-                                                                ? toggleForBranch
-                                                                : toggle
-                                                        }
-                                                        onToggleModule={
-                                                            branchCustomising
-                                                                ? toggleModuleForBranch
-                                                                : toggleModule
-                                                        }
+                                                        held={draft.capabilities}
+                                                        canWrite={canWrite}
+                                                        onToggle={toggle}
+                                                        onToggleModule={toggleModule}
                                                     />
                                                 )}
                                             </>
@@ -1392,121 +955,41 @@ export default function RolesPage() {
                                         says what is pending without them
                                         having to remember.
                                     */}
-                                    {/*
-                                        The branch's own footer. Says whose
-                                        change this is — the organization's role
-                                        is not being touched — because the same
-                                        table above edits two different things
-                                        depending on who is looking at it.
-                                    */}
-                                    {branchCustomising ? (
-                                        <footer
-                                            className={`rp-foot${branchDirty ? ' is-dirty' : ''}`}
-                                            hidden={!mayWriteRoles}
-                                        >
-                                            <span className="rp-foot-state">
-                                                {branchDirty ? (
-                                                    <>
-                                                        <i className="ti ti-point-filled" />
-                                                        Unsaved changes for this branch
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <i className="ti ti-building-store" />
-                                                        {(branchPermissions?.removed.length ?? 0) >
-                                                        0
-                                                            ? `${branchPermissions?.removed.length} switched off for this branch`
-                                                            : 'Using your organisation’s settings'}
-                                                    </>
-                                                )}
-                                            </span>
-
-                                            {/*
-                                                Back to the organisation's own
-                                                answer — every customisation
-                                                this branch has made, dropped.
-                                                Offered only when there is
-                                                something to drop.
-                                            */}
-                                            {(branchPermissions?.removed.length ?? 0) > 0 && (
-                                                <Button
-                                                    variant="light"
-                                                    icon="ti ti-rotate"
-                                                    disabled={saveBranch.isPending}
-                                                    onClick={() =>
-                                                        setBranchAllowed(
-                                                            branchPermissions?.inherited ?? [],
-                                                        )
-                                                    }
-                                                >
-                                                    Use organisation settings
-                                                </Button>
+                                    <footer
+                                        className={`rp-foot${dirty ? ' is-dirty' : ''}`}
+                                        hidden={!canWrite}
+                                    >
+                                        <span className="rp-foot-state">
+                                            {dirty ? (
+                                                <>
+                                                    <i className="ti ti-point-filled" />
+                                                    {changes} unsaved change
+                                                    {changes === 1 ? '' : 's'}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <i className="ti ti-circle-check" />
+                                                    All changes saved
+                                                </>
                                             )}
+                                        </span>
 
-                                            <Button
-                                                variant="light"
-                                                disabled={!branchDirty || saveBranch.isPending}
-                                                onClick={() =>
-                                                    setBranchAllowed(
-                                                        branchPermissions
-                                                            ? branchPermissions.inherited.filter(
-                                                                  (key) =>
-                                                                      !branchPermissions.removed.includes(
-                                                                          key,
-                                                                      ),
-                                                              )
-                                                            : null,
-                                                    )
-                                                }
-                                            >
-                                                Discard Changes
-                                            </Button>
-
-                                            <Button
-                                                loading={saveBranch.isPending}
-                                                disabled={!branchDirty}
-                                                onClick={saveForBranch}
-                                            >
-                                                Save for this branch
-                                            </Button>
-                                        </footer>
-                                    ) : (
-                                        <footer
-                                            className={`rp-foot${dirty ? ' is-dirty' : ''}`}
-                                            hidden={!canWrite}
+                                        <Button
+                                            variant="light"
+                                            disabled={!dirty || saving}
+                                            onClick={discard}
                                         >
-                                            <span className="rp-foot-state">
-                                                {dirty ? (
-                                                    <>
-                                                        <i className="ti ti-point-filled" />
-                                                        {changes} unsaved change
-                                                        {changes === 1 ? '' : 's'}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <i className="ti ti-circle-check" />
-                                                        All changes saved
-                                                    </>
-                                                )}
-                                            </span>
+                                            Discard Changes
+                                        </Button>
 
-                                            <Button
-                                                variant="light"
-                                                disabled={!dirty || saving}
-                                                onClick={discard}
-                                            >
-                                                Discard Changes
-                                            </Button>
-
-                                            <Button
-                                                loading={saving}
-                                                disabled={!dirty || !draft.name.trim()}
-                                                onClick={onSave}
-                                            >
-                                                Save Changes
-                                            </Button>
-                                        </footer>
-                                    )}
+                                        <Button
+                                            loading={saving}
+                                            disabled={!dirty || !draft.name.trim()}
+                                            onClick={onSave}
+                                        >
+                                            Save Changes
+                                        </Button>
+                                    </footer>
                                 </>
                             )}
                         </div>
@@ -1540,10 +1023,6 @@ function PermissionMatrix({
     active,
     onFocus,
     held,
-    locked,
-    lockMode,
-    onToggleLock,
-    toggleable,
     canWrite,
     onToggle,
     onToggleModule,
@@ -1553,27 +1032,6 @@ function PermissionMatrix({
     active: GrantableModule | null;
     onFocus: (key: string) => void;
     held: string[];
-    /** Which of those a branch may not take away for itself. */
-    locked: string[];
-    /**
-     * What the lock column is for here, if anything.
-     *
-     *   edit  the organization deciding what branches may not remove
-     *   show  a branch being told which of those it may not remove
-     *   none  neither applies, and the column is absent rather than empty —
-     *         a row of padlocks nobody can press promises a control that is
-     *         not there
-     */
-    lockMode: 'edit' | 'show' | 'none';
-    onToggleLock: (key: string) => void;
-    /**
-     * Which capabilities may be switched at all, or null for "any of them".
-     *
-     * A branch customising the organization's role may only turn OFF what it
-     * already has; a capability the organization never granted is not a choice
-     * this screen has, so its switch is dead rather than misleading.
-     */
-    toggleable: string[] | null;
     canWrite: boolean;
     onToggle: (key: string) => void;
     onToggleModule: (module: GrantableModule) => void;
@@ -1659,108 +1117,67 @@ function PermissionMatrix({
                             <tr>
                                 <th>Permission</th>
                                 <th className="rp-matrix-grant-col">Grant</th>
-                                {lockMode !== 'none' && (
-                                    <th
-                                        className="rp-matrix-grant-col"
-                                        title="Branches cannot remove a locked permission"
-                                    >
-                                        Locked
-                                    </th>
-                                )}
                             </tr>
                         </thead>
 
                         <tbody>
-                            {active.capabilities.map((capability) => {
-                                const on = held.includes(capability.key);
-                                const isLocked = locked.includes(capability.key);
+                            {/*
+                                The screens it opens, then what it can do on
+                                them — the two questions somebody setting a
+                                role is actually asking.
+                            */}
+                            {(
+                                [
+                                    ['Can open', active.capabilities.filter((capability) => capability.screen)],
+                                    ['Can do', active.capabilities.filter((capability) => !capability.screen)],
+                                ] as [string, typeof active.capabilities][]
+                            )
+                                .filter(([, rows]) => rows.length > 0)
+                                .map(([label, rows]) => [
+                                    <tr key={label} className="rp-matrix-group">
+                                        <th colSpan={2}>{label}</th>
+                                    </tr>,
+                                    ...rows.map((capability) => {
+                                        const on = held.includes(capability.key);
 
-                                // Null means every capability is this screen's
-                                // to switch; a list means only those are.
-                                const mine = toggleable === null || toggleable.includes(capability.key);
+                                        /*
+                                         * Says why this one cannot be unticked
+                                         * alone: the module's actions rest on it.
+                                         */
+                                        const required =
+                                            active.key !== 'appointments' &&
+                                            capability.key === `${active.key}.view` &&
+                                            activeHeld > 1 &&
+                                            on;
 
-                                /*
-                                 * Says why this one cannot be unticked alone:
-                                 * the rest of the module rests on it.
-                                 */
-                                const required = capability.key.endsWith('.view') && activeHeld > 1 && on;
+                                        return (
+                                            <tr key={capability.key} className={on ? 'is-on' : undefined}>
+                                                <td>
+                                                    <b>{capability.name}</b>
+                                                    {required && (
+                                                        <div className="rp-matrix-key">
+                                                            <em>needed by the rest</em>
+                                                        </div>
+                                                    )}
+                                                </td>
 
-                                return (
-                                    <tr key={capability.key} className={on ? 'is-on' : undefined}>
-                                        <td>
-                                            <b>{capability.name}</b>
-                                            <div className="rp-matrix-key">
-                                                <code>{capability.key}</code>
-                                                {required && <em>needed by the rest</em>}
-                                            </div>
-                                        </td>
-
-                                        <td className="rp-matrix-grant-col">
-                                            <div className="form-check form-switch m-0">
-                                                <input
-                                                    type="checkbox"
-                                                    className="form-check-input"
-                                                    role="switch"
-                                                    aria-label={capability.name}
-                                                    checked={on}
-                                                    disabled={
-                                                        !canWrite ||
-                                                        !mine ||
-                                                        (lockMode === 'show' && isLocked)
-                                                    }
-                                                    onChange={() => onToggle(capability.key)}
-                                                />
-                                            </div>
-                                        </td>
-
-                                        {lockMode !== 'none' && (
-                                            <td className="rp-matrix-grant-col">
-                                                {/*
-                                                    A padlock only where it says
-                                                    something: on what the role
-                                                    actually holds for an owner
-                                                    setting them, and only on
-                                                    what is actually locked for
-                                                    a branch being told.
-                                                */}
-                                                {lockMode === 'edit' && on && (
-                                                    <button
-                                                        type="button"
-                                                        className={`rp-lock${isLocked ? ' is-on' : ''}`}
-                                                        aria-pressed={isLocked}
-                                                        aria-label={`Lock ${capability.name} against branch changes`}
-                                                        title={
-                                                            isLocked
-                                                                ? 'Branches cannot remove this'
-                                                                : 'Branches may remove this'
-                                                        }
-                                                        disabled={!canWrite}
-                                                        onClick={() => onToggleLock(capability.key)}
-                                                    >
-                                                        <i
-                                                            className={
-                                                                isLocked
-                                                                    ? 'ti ti-lock'
-                                                                    : 'ti ti-lock-open'
-                                                            }
-                                                            aria-hidden="true"
+                                                <td className="rp-matrix-grant-col">
+                                                    <div className="form-check form-switch m-0">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="form-check-input"
+                                                            role="switch"
+                                                            aria-label={capability.name}
+                                                            checked={on}
+                                                            disabled={!canWrite}
+                                                            onChange={() => onToggle(capability.key)}
                                                         />
-                                                    </button>
-                                                )}
-
-                                                {lockMode === 'show' && isLocked && (
-                                                    <span
-                                                        className="rp-lock is-on"
-                                                        title="Locked by your organisation"
-                                                    >
-                                                        <i className="ti ti-lock" aria-hidden="true" />
-                                                    </span>
-                                                )}
-                                            </td>
-                                        )}
-                                    </tr>
-                                );
-                            })}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }),
+                                ])}
                         </tbody>
                     </table>
                 </div>

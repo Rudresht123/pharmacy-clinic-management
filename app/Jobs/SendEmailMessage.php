@@ -31,10 +31,10 @@ class SendEmailMessage implements ShouldQueue
 
     /**
      * @param  array<string, mixed>  $content
-     *         Subject, body and variables ride here rather than on the log
-     *         row: the jobs table row is deleted when this finishes, so
-     *         patient names live for seconds instead of forever in a delivery
-     *         log support staff can read.
+     *                                         Subject, body and variables ride here rather than on the log
+     *                                         row: the jobs table row is deleted when this finishes, so
+     *                                         patient names live for seconds instead of forever in a delivery
+     *                                         log support staff can read.
      */
     public function __construct(
         public readonly int $organizationId,
@@ -104,6 +104,9 @@ class SendEmailMessage implements ShouldQueue
                 body: (string) ($this->content['body'] ?? ''),
                 template: $this->content['template'] ?? $log->template_name,
                 variables: $this->content['variables'] ?? [],
+                alsoTo: $this->content['also_to'] ?? [],
+                cc: $this->content['cc'] ?? [],
+                bcc: $this->content['bcc'] ?? [],
             ),
             $log,
         );

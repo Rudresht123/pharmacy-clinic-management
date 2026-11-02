@@ -10,15 +10,17 @@ use App\Services\Opd\BookingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use RuntimeException;
 
 /**
- * One patient's appointments — read, and booked by themselves.
+ * One patient's appointments — read, and booked by themselves — along with
+ * those of the family they look after.
  *
  * Every query starts from the patient, so nothing here can be asked about
- * anybody else. Booking itself is BookingService's, exactly as at the desk;
- * this only adds what is different about a patient doing it.
+ * anybody outside that family. Booking itself is BookingService's, exactly as
+ * at the desk; this only adds what is different about a patient doing it.
  */
 class PatientAppointments
 {
@@ -38,6 +40,9 @@ class PatientAppointments
         Appointment::STATUS_IN_CONSULTATION,
         ...Appointment::AWAITING,
     ];
+
+    /** What a visit needs loaded for PortalAppointmentResource to describe it. */
+    public const RELATIONS = ['customer.familyLink', 'doctor.photograph', 'location', 'liveVideoCall', 'latestRescheduleRequest'];
 
     public function __construct(
         private readonly BookingService $booking,
@@ -84,9 +89,12 @@ class PatientAppointments
      * closed, or a time that passed while they were choosing, is refused here
      * even though BookingService alone would allow it.
      *
+     * @param  Customer|null  $member  somebody in their family, already
+     *                                 checked to be; null for their own visit
+     *
      * @throws RuntimeException with a sentence the patient can act on
      */
-    public function book(Organization $organization, Customer $patient, array $data): Appointment
+    public function book(Organization $organization, Customer $patient, array $data, ?Customer $member = null): Appointment
     {
         $doctor = Doctor::query()->findOrFail($data['doctor_id']);
         $date = Carbon::parse($data['appointment_date']);
@@ -107,29 +115,48 @@ class PatientAppointments
         /*
          * One live booking per doctor per day. A patient tapping "Confirm"
          * twice on a slow connection should not hold two of a doctor's
-         * morning slots, and nobody needs two.
+         * morning slots, and nobody needs two. Per person: a parent and a
+         * child may well see the same doctor together.
          */
-        $already = $this->of($patient)
+        $seeing = $member ?? $patient;
+
+        $already = Appointment::query()
+            ->where('customer_id', $seeing->id)
             ->where('doctor_id', $doctor->id)
             ->whereDate('appointment_date', $date->toDateString())
             ->whereIn('status', self::LIVE)
             ->exists();
 
         if ($already) {
-            throw new RuntimeException("You already have an appointment with {$doctor->name} that day.");
+            throw new RuntimeException(
+                $member === null
+                    ? "You already have an appointment with {$doctor->name} that day."
+                    : "{$member->name} already has an appointment with {$doctor->name} that day."
+            );
         }
 
-        return $this->booking
-            ->book([
-                'customer_id' => $patient->id,
+        try {
+            $appointment = $this->booking->book([
+                'customer_id' => $seeing->id,
                 'doctor_id' => $doctor->id,
                 'location_id' => $locationId,
                 'appointment_date' => $date->toDateString(),
                 'slot_at' => $data['slot_at'],
                 'mode' => $data['mode'] ?? Appointment::MODE_IN_CLINIC,
                 'notes' => $data['notes'] ?? null,
-            ])
-            ->load(['doctor.photograph', 'location', 'liveVideoCall', 'latestRescheduleRequest']);
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            /*
+             * Two patients tapped the same time together: both passed the
+             * check above, and `appointments_slot_unique` let one of them in.
+             * The other is told so in words, not handed the SQL error — which
+             * is a RuntimeException too, and would otherwise reach the patient
+             * verbatim through the controller's catch.
+             */
+            throw new RuntimeException('That time was just taken or is no longer available. Please pick another.');
+        }
+
+        return $appointment->load(self::RELATIONS);
     }
 
     /**
@@ -174,7 +201,7 @@ class PatientAppointments
     private function of(Customer $patient): Builder
     {
         return Appointment::query()
-            ->with(['doctor.photograph', 'location', 'liveVideoCall', 'latestRescheduleRequest'])
-            ->where('customer_id', $patient->id);
+            ->with(self::RELATIONS)
+            ->whereIn('customer_id', $patient->familyIds());
     }
 }

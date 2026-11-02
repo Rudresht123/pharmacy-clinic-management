@@ -5,11 +5,12 @@ namespace App\Services\Opd;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\AutomationDelivery;
 use App\Models\Tenant\Doctor;
+use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
 use App\Services\Billing\BillingTriggerResolver;
-use App\Services\Communication\AppointmentReminders;
 use App\Services\Clinic\ClinicEvent;
 use App\Services\Clinic\ClinicEventDispatcher;
+use App\Services\Communication\AppointmentReminders;
 use App\Support\Clinic\ClinicEvents;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
@@ -214,11 +215,16 @@ class BookingService
      * The token is issued here rather than at booking, so a patient who
      * never turns up leaves no gap in the day's numbering.
      *
-     * Allocation is `max + 1` inside a transaction, and two receptionists
-     * clicking at the same moment will both read the same maximum. The
-     * unique index on (doctor, location, date, token) is what stops them
-     * both winning; this retries around the collision rather than handing
-     * one of them an error they cannot act on.
+     * One run of numbers per branch per day, whichever doctor the patient is
+     * seeing: the desk hands out 1, 2, 3 in arrival order, so no two people
+     * in the waiting room hold the same number.
+     *
+     * Allocation is `max + 1` inside a transaction. The branch's row is
+     * locked first, so two receptionists checking somebody in at the same
+     * moment take their numbers one after the other instead of both reading
+     * the same maximum. The unique index on (doctor, location, date, token)
+     * stays as the backstop, and this still retries around a collision
+     * rather than handing anyone an error they cannot act on.
      */
     public function checkIn(Appointment $appointment): Appointment
     {
@@ -227,8 +233,9 @@ class BookingService
         for ($attempt = 0; $attempt < 5; $attempt++) {
             try {
                 return DB::connection('organization')->transaction(function () use ($appointment) {
+                    Location::on('organization')->whereKey($appointment->location_id)->lockForUpdate()->first();
+
                     $next = Appointment::on('organization')
-                        ->where('doctor_id', $appointment->doctor_id)
                         ->where('location_id', $appointment->location_id)
                         ->whereDate('appointment_date', $appointment->appointment_date)
                         ->max('token_no');
@@ -408,7 +415,7 @@ class BookingService
              * at the desk would recognise.
              */
             ->orderByRaw(
-                "CASE status
+                'CASE status
                     WHEN ? THEN 0
                     WHEN ? THEN 1
                     WHEN ? THEN 2
@@ -416,7 +423,7 @@ class BookingService
                     WHEN ? THEN 3
                     WHEN ? THEN 3
                     ELSE 4
-                 END",
+                 END',
                 [
                     Appointment::STATUS_CHECKED_IN,
                     Appointment::STATUS_IN_CONSULTATION,

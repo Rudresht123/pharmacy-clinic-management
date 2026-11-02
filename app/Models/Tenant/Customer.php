@@ -6,6 +6,8 @@ use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -111,6 +113,42 @@ class Customer extends Model
     public function user(): MorphOne
     {
         return $this->morphOne(User::class, 'userable');
+    }
+
+    /** The people this patient added to their family from the app. */
+    public function family(): HasMany
+    {
+        return $this->hasMany(FamilyMember::class, 'customer_id');
+    }
+
+    /** The row that makes this record somebody's family member, when it is one. */
+    public function familyLink(): HasOne
+    {
+        return $this->hasOne(FamilyMember::class, 'member_id');
+    }
+
+    /**
+     * This patient and everybody in their family — whose visits their app
+     * shows, and may move or call off.
+     *
+     * @return list<int>
+     */
+    public function familyIds(): array
+    {
+        return [
+            (int) $this->getKey(),
+            ...$this->family()->whereHas('member')->pluck('member_id')->map(fn ($id) => (int) $id)->all(),
+        ];
+    }
+
+    /**
+     * The patient whose app answers for this record, when it is a family
+     * member's: they have no number of their own, so whoever books for them
+     * is who hears about their visits.
+     */
+    public function accountHolder(): ?self
+    {
+        return $this->familyLink?->account;
     }
 
     /**

@@ -5,6 +5,7 @@ import { NavigationLoader } from './NavigationLoader';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { EXPORT_CAPABILITIES } from '@/core/exports/capabilities';
 import { RequireAnyCapability, RequireCapability, RequireModule, RequireOwner } from './tenant-guards';
+import { firstScreen, tenantNavigation } from './tenant-navigation';
 import { TenantShell } from './TenantShell';
 
 const OrganizationSetupPage = lazy(() => import('@/core/org-setup/pages/OrganizationSetupPage'));
@@ -159,22 +160,23 @@ function TenantProtectedRoute() {
 }
 
 /**
- * Where a signed-in person belongs.
- *
- * A doctor's home is their own list. The dashboard counts branches, staff and
- * revenue — a manager's reading of the business — and landing a doctor there
- * shows them somebody else's job before their own. One helper, so login, the
+ * Where a signed-in person belongs: the first screen their role opens, in
+ * menu order — My day for a doctor given it, the dashboard for a role given
+ * that, Messages for a role given only Messages. One helper, so login, the
  * root path and a stale /dashboard bookmark all agree. Before setup is
  * finished the owner's home is the setup.
  */
 function useHome(): string {
-    const { doctorId, setupCompleted, user } = useTenantAuth();
+    const { doctorId, setupCompleted, user, modules, capabilities } = useTenantAuth();
 
     if (!setupCompleted && user?.role === 'owner') {
         return '/setup';
     }
 
-    return doctorId ? '/my-day' : '/dashboard';
+    return (
+        firstScreen(tenantNavigation(user?.role, undefined, modules, capabilities, doctorId, setupCompleted)) ??
+        '/guide'
+    );
 }
 
 /** Mirrors app/guards.tsx's GuestRoute, against the tenant auth context. */
@@ -189,11 +191,12 @@ function TenantGuestRoute() {
     return <Outlet />;
 }
 
-/** The organization's dashboard, or a doctor's list in its place. */
+/** The organization's dashboard, for a role given it; otherwise where they land. */
 function HomeRoute() {
+    const { can } = useTenantAuth();
     const home = useHome();
 
-    return home === '/dashboard' ? <TenantDashboardPage /> : <Navigate to={home} replace />;
+    return can('dashboard.view') ? <TenantDashboardPage /> : <Navigate to={home} replace />;
 }
 
 /**
@@ -309,7 +312,7 @@ export function TenantAppRoutes() {
                                 doctor reads a patient without being able to
                                 change them.
                             */}
-                            <Route element={<RequireCapability capability="customers.view" />}>
+                            <Route element={<RequireCapability capability="customers.record" />}>
                                 <Route path="/customers/:id" element={<PatientPage />} />
                             </Route>
 
@@ -354,30 +357,12 @@ export function TenantAppRoutes() {
                                 the server asks them: is the module running
                                 here at all, and may this person use it. */}
                             <Route element={<RequireModule module="appointments" />}>
-                                {/*
-                                    A doctor's own list names `appointments.queue`,
-                                    not `appointments.view` — the wider one opens
-                                    the department's screens, which is not what
-                                    this is.
-                                */}
-                                <Route
-                                    element={
-                                        <RequireCapability capability="appointments.queue" />
-                                    }
-                                >
+                                {/* A doctor's own screens, one tick each. */}
+                                <Route element={<RequireCapability capability="appointments.my_day" />}>
                                     <Route path="/my-day" element={<MyDayPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="appointments.my_queue" />}>
                                     <Route path="/my-queue" element={<MyQueuePage />} />
-                                    <Route path="/my-schedule" element={<MySchedulePage />} />
-
-                                    {/*
-                                        Readings of the same rows, so one
-                                        component with a prop rather than
-                                        near-identical files.
-                                    */}
-                                    <Route
-                                        path="/my-appointments"
-                                        element={<MyRecordsPage view="appointments" />}
-                                    />
                                     {/*
                                         Consultations are worked, not read: the
                                         list and the write-up on one screen,
@@ -386,6 +371,20 @@ export function TenantAppRoutes() {
                                     <Route
                                         path="/my-consultations"
                                         element={<MyConsultationsPage />}
+                                    />
+                                </Route>
+                                <Route element={<RequireCapability capability="appointments.my_schedule" />}>
+                                    <Route path="/my-schedule" element={<MySchedulePage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="appointments.my_patients" />}>
+                                    {/*
+                                        Readings of the same rows, so one
+                                        component with a prop rather than
+                                        near-identical files.
+                                    */}
+                                    <Route
+                                        path="/my-appointments"
+                                        element={<MyRecordsPage view="appointments" />}
                                     />
                                     <Route
                                         path="/my-prescriptions"
@@ -410,18 +409,24 @@ export function TenantAppRoutes() {
                                     />
                                 </Route>
 
+                                {/* One tick per screen, as the menu shows them. */}
                                 <Route
-                                    element={<RequireCapability capability="appointments.view" />}
+                                    element={<RequireCapability capability="appointments.doctors_view" />}
                                 >
                                     <Route path="/doctors" element={<DoctorListPage />} />
                                     <Route path="/availability" element={<AvailabilityPage />} />
+                                </Route>
 
+                                <Route
+                                    element={<RequireCapability capability="appointments.view" />}
+                                >
                                     <Route path="/opd" element={<OpdTodayPage />} />
+                                </Route>
+
+                                <Route
+                                    element={<RequireCapability capability="appointments.queue_view" />}
+                                >
                                     <Route path="/opd/queue" element={<QueuePage />} />
-                                    <Route
-                                        path="/settings/appointments"
-                                        element={<AppointmentSettingsPage />}
-                                    />
 
                                     {/*
                                         The old address. Anybody who bookmarked
@@ -431,6 +436,15 @@ export function TenantAppRoutes() {
                                     <Route
                                         path="/queue"
                                         element={<Navigate to="/opd/queue" replace />}
+                                    />
+                                </Route>
+
+                                <Route
+                                    element={<RequireCapability capability="appointments.settings" />}
+                                >
+                                    <Route
+                                        path="/settings/appointments"
+                                        element={<AppointmentSettingsPage />}
                                     />
                                 </Route>
 

@@ -6,6 +6,8 @@ export interface Capability {
     scope?: RoleScope;
     /** Who it is for. Absent means staff; `patient` is the patient app's own. */
     audience?: RoleAudience;
+    /** Opens a screen ("Can open"), rather than an action on one ("Can do"). */
+    screen?: boolean;
 }
 
 export type RoleScope = 'organization' | 'branch';

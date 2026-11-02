@@ -10,6 +10,7 @@ use App\Services\Portal\PatientAppointments;
 use App\Services\Portal\PatientNotifications;
 use App\Services\Portal\PatientRecords;
 use App\Services\Portal\PatientVitals;
+use App\Support\Phone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -47,6 +48,10 @@ class HomeController extends PortalController
                 'id' => $patient->id,
                 'name' => $patient->name,
                 'code' => $patient->code,
+
+                // The number this login answers to, masked the way the sign-in
+                // shows it — enough to recognise, not to read off a screen.
+                'phone' => filled($patient->phone) ? Phone::masked(Phone::digits($patient->phone)) : null,
             ],
             'next_appointment' => $upcoming->isEmpty()
                 ? null

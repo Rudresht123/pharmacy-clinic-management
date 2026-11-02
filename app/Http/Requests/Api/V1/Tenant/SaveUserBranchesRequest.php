@@ -94,30 +94,14 @@ class SaveUserBranchesRequest extends FormRequest
                     }
 
                     /*
-                     * A membership carries a BRANCH-scoped role. An
-                     * organization role goes on `users.role_id` and applies
-                     * everywhere; putting one here would be a limit that reads
-                     * as branch-specific and is not.
+                     * Only one of THIS branch's roles. Each branch sets its
+                     * own, so a role written anywhere else — another branch,
+                     * or the software's own — is not one this branch offers.
                      */
-                    if ($role->isOrganizationScoped()) {
+                    if ((int) $role->location_id !== (int) ($row['location_id'] ?? 0)) {
                         $validator->errors()->add(
                             "branches.{$index}.role_id",
-                            "\"{$role->name}\" applies across the whole organization and cannot be given at one branch."
-                        );
-
-                        continue;
-                    }
-
-                    /*
-                     * A role one branch wrote for itself is offered at that
-                     * branch alone (Role::scopeAssignableAt). Without this the
-                     * list hid it and the request did not: a Delhi role could
-                     * be posted onto a Lucknow membership by id.
-                     */
-                    if ($role->location_id !== null && (int) $role->location_id !== (int) ($row['location_id'] ?? 0)) {
-                        $validator->errors()->add(
-                            "branches.{$index}.role_id",
-                            "\"{$role->name}\" belongs to another branch and can only be given there."
+                            "\"{$role->name}\" is not one of this branch's roles."
                         );
 
                         continue;

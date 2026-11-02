@@ -19,10 +19,27 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * A rule with no template cannot fire. That is deliberate rather than an
  * oversight to guard against — switching a rule on before choosing what it
  * sends should be possible, and is caught when it tries to send.
+ *
+ * WHO IT TELLS. `audience` says whose wording the rule sends — the patient's
+ * ("Your appointment is confirmed") or the clinic's own people's ("Rahul is
+ * booked with Dr. Anjali") — so one event can have one of each per channel.
+ * `recipients` names the people, by place rather than by name where it can:
+ * the patient, the visit's doctor, whoever booked it, the branch manager, the
+ * front desk, a role, a named member of staff, an address
+ * (App\Support\Communication\RuleRecipients). Null is the patient alone —
+ * every rule before there was a choice.
  */
 class AutomationRule extends Model
 {
     use RecordsHistory, SoftDeletes;
+
+    /** The patient's own wording, to the patient — and whoever is copied in. */
+    public const PATIENT = 'patient';
+
+    /** The clinic's people, told in their own words. Never the patient. */
+    public const STAFF = 'staff';
+
+    public const AUDIENCES = [self::PATIENT, self::STAFF];
 
     public const APPOINTMENT_CONFIRMED = 'appointment.confirmed';
 
@@ -38,6 +55,15 @@ class AutomationRule extends Model
 
     public const PATIENT_REGISTERED = 'patient.registered';
 
+    /** A patient asked, from the app, to move a booking. Staff only. */
+    public const APPOINTMENT_RESCHEDULE_REQUESTED = 'appointment.reschedule_requested';
+
+    /** The clinic said yes and the visit moved. */
+    public const APPOINTMENT_RESCHEDULED = 'appointment.rescheduled';
+
+    /** The clinic said no; the visit stays where it was. */
+    public const APPOINTMENT_RESCHEDULE_REJECTED = 'appointment.reschedule_rejected';
+
     protected $connection = 'organization';
 
     protected $table = 'automation_rules';
@@ -52,6 +78,7 @@ class AutomationRule extends Model
         'is_enabled',
         'lead_minutes',
         'sort_order',
+        'recipients',
         'updated_by',
     ];
 
@@ -61,7 +88,13 @@ class AutomationRule extends Model
             'is_enabled' => 'boolean',
             'lead_minutes' => 'integer',
             'sort_order' => 'integer',
+            'recipients' => 'array',
         ];
+    }
+
+    public function isForStaff(): bool
+    {
+        return $this->audience === self::STAFF;
     }
 
     public function scopeForChannel(Builder $query, string $channel): Builder

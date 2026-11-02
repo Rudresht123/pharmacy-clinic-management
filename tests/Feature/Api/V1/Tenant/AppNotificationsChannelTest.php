@@ -170,7 +170,7 @@ class AppNotificationsChannelTest extends TenantTestCase
     |--------------------------------------------------------------------------
     */
 
-    public function test_every_clinic_starts_with_the_platform_templates_and_every_rule_off(): void
+    public function test_every_clinic_starts_with_the_platform_templates_and_its_patient_rules_off(): void
     {
         [$templates, $rules, $channel] = $this->onTenant($this->organization, fn () => [
             MessageTemplate::query()->where('channel', CommunicationChannel::PUSH)->get(),
@@ -178,13 +178,25 @@ class AppNotificationsChannelTest extends TenantTestCase
             CommunicationChannel::forChannel(CommunicationChannel::PUSH),
         ]);
 
-        // Confirmed, reminder, cancelled, payment, registered.
-        $this->assertCount(5, $templates);
+        // Confirmed, reminder, cancelled, payment, registered; the two
+        // reschedule answers; the four staff alerts.
+        $this->assertCount(11, $templates);
         $this->assertTrue($templates->every(fn ($t) => $t->status === MessageTemplate::APPROVED && $t->is_active));
+        $this->assertCount(4, $templates->where('audience', AutomationRule::STAFF));
 
-        // Confirmed, reminder day, reminder hour, cancelled, payment, registered.
-        $this->assertCount(6, $rules);
-        $this->assertTrue($rules->every(fn ($r) => ! $r->is_enabled && $r->message_template_id !== null));
+        [$patient, $staff] = $rules->partition(fn ($r) => $r->audience === AutomationRule::PATIENT);
+
+        // Messaging a patient is the clinic's to switch on — all but the two
+        // answers to a reschedule request, which always reached the patient.
+        $answers = [AutomationRule::APPOINTMENT_RESCHEDULED, AutomationRule::APPOINTMENT_RESCHEDULE_REJECTED];
+
+        $this->assertCount(8, $patient);
+        $this->assertTrue($patient->every(fn ($r) => $r->message_template_id !== null
+            && $r->is_enabled === in_array($r->event_key, $answers, true)));
+
+        // The staff alerts replace ones that already went out, so they start on.
+        $this->assertCount(4, $staff);
+        $this->assertTrue($staff->every(fn ($r) => $r->is_enabled && $r->message_template_id !== null));
 
         $this->assertFalse($channel->is_connected);
 

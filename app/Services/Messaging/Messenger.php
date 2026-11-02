@@ -14,7 +14,9 @@ use App\Models\Tenant\ConversationMessage;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\File;
+use App\Models\Tenant\Location;
 use App\Models\Tenant\User;
+use App\Services\Permissions\Permission;
 use App\Services\Push\PushManager;
 use App\Services\Tenancy\TenantConnectionService;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,21 +28,28 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
- * Doctor-to-patient messaging, for both sides.
+ * Doctor-to-patient messaging, for both sides — and the desk's own, separate
+ * thread with a patient, which rides beside it rather than inside it.
  *
  * The staff and portal routes reach the same methods with a different
  * [Participant]; nothing here asks which app the request came from. Three
  * rules hold everywhere:
  *
- *   1. A conversation is OPENED only between a doctor and a patient who share
- *      an appointment that was not cancelled. Once open it stays usable — a
- *      thread does not vanish because the visit it started from was moved.
+ *   1. A conversation is OPENED only between people allowed to find each
+ *      other: a doctor and a patient who share an appointment that was not
+ *      cancelled, or the desk and a patient registered at its branch. Once
+ *      open it stays usable — a thread does not vanish because the visit it
+ *      started from was moved.
  *   2. Every read and write is narrowed to the participant's own threads
  *      (Participant::scope). A guessed id answers 404, not someone else's
  *      messages.
  *   3. Saving is the only thing that must succeed. Telling the other side —
  *      live over Reverb, and by push — happens after the commit and can fail
  *      without failing the send; the next fetch finds the message regardless.
+ *
+ * A row is one or the other kind by whether `doctor_id` or `branch_id` is
+ * set — never both, never neither — and `Conversation::isDeskThread()` is the
+ * one place that reads the difference.
  */
 class Messenger
 {
@@ -57,6 +66,7 @@ class Messenger
 
     public function __construct(
         private readonly PushManager $push,
+        private readonly Permission $permission,
     ) {}
 
     /**
@@ -70,19 +80,20 @@ class Messenger
      */
     public function inbox(Organization $organization, Participant $me, ?string $search = null): array
     {
-        $other = Conversation::otherSide($me->side);
         $readColumn = Conversation::readColumn($me->side);
+        $term = trim((string) $search);
 
         $conversations = $me->scope(Conversation::query())
             ->whereNotNull('last_message_at')
-            ->with(['doctor.photograph', 'doctor.user', 'customer.user', 'latestMessage.file'])
+            ->with(['doctor.photograph', 'doctor.user', 'branch', 'customer.user', 'latestMessage.file'])
             ->withCount(['messages as unread_count' => fn (Builder $query) => $query
-                ->where('sender_side', $other)
+                ->where('sender_side', '!=', $me->side)
                 ->whereColumn('conversation_messages.id', '>', "conversations.{$readColumn}")])
-            ->when(filled($search), fn (Builder $query) => $query->whereHas(
-                $me->isDoctor() ? 'customer' : 'doctor',
-                fn (Builder $who) => $who->where('name', 'ilike', '%'.trim((string) $search).'%'),
-            ))
+            ->when($term !== '', fn (Builder $query) => $me->side === Conversation::PATIENT
+                ? $query->where(fn (Builder $q) => $q
+                    ->whereHas('doctor', fn (Builder $w) => $w->where('name', 'ilike', "%{$term}%"))
+                    ->orWhereHas('branch', fn (Builder $w) => $w->where('name', 'ilike', "%{$term}%")))
+                : $query->whereHas('customer', fn (Builder $w) => $w->where('name', 'ilike', "%{$term}%")))
             ->orderByDesc('last_message_at')
             ->orderByDesc('id')
             ->limit(200)
@@ -108,15 +119,12 @@ class Messenger
     /** Unread messages across every thread — the tab's badge. */
     public function unreadTotal(Participant $me): int
     {
-        $other = Conversation::otherSide($me->side);
         $readColumn = Conversation::readColumn($me->side);
 
         return ConversationMessage::query()
             ->join('conversations', 'conversations.id', '=', 'conversation_messages.conversation_id')
-            ->where($me->isDoctor() ? 'conversations.doctor_id' : 'conversations.customer_id', $me->isDoctor()
-                ? $me->doctor->getKey()
-                : $me->customer->getKey())
-            ->where('conversation_messages.sender_side', $other)
+            ->where('conversations.'.$me->ownColumn(), $me->ownId())
+            ->where('conversation_messages.sender_side', '!=', $me->side)
             ->whereColumn('conversation_messages.id', '>', "conversations.{$readColumn}")
             ->count();
     }
@@ -127,12 +135,15 @@ class Messenger
     /**
      * Who this participant may start a conversation with.
      *
-     * The other side of every appointment they share that was not cancelled,
-     * with when they were last seen and the thread id where one already
-     * exists. Most recently seen first: a doctor with hundreds of patients is
-     * nearly always writing to somebody from this week, and an alphabetical
-     * first page buries them. `total` is everybody who matches, so the screen
-     * can say "248 patients" while showing the first hundred.
+     * A doctor's and a patient's contacts are the other side of every
+     * appointment they share that was not cancelled. The desk's are simpler —
+     * every patient registered at its branch, appointment or not, since the
+     * desk's relationship with them starts at sign-up rather than a visit.
+     * Every list carries when they were last seen and the thread id where one
+     * already exists. Most recently seen first: a doctor with hundreds of
+     * patients is nearly always writing to somebody from this week, and an
+     * alphabetical first page buries them. `total` is everybody who matches,
+     * so the screen can say "248 patients" while showing the first hundred.
      *
      * @return array{rows: list<array<string, mixed>>, total: int}
      */
@@ -166,6 +177,46 @@ class Messenger
 
             $threads = Conversation::query()
                 ->where('doctor_id', $doctorId)
+                ->whereIn('customer_id', $people->modelKeys())
+                ->pluck('id', 'customer_id');
+
+            return [
+                'rows' => $people->map(fn (Customer $customer) => $this->patientCard($customer) + [
+                    'conversation_id' => $threads[$customer->getKey()] ?? null,
+                    'last_visit_on' => $this->day($customer->getAttribute('last_visit_on')),
+                ])->values()->all(),
+                'total' => $matching->count(),
+            ];
+        }
+
+        if ($me->isFrontDesk()) {
+            $branchId = $me->branch->getKey();
+
+            // Registered here, not merely seen here: the desk's relationship
+            // with a patient is who it signed up, not a shared appointment —
+            // a doctor's own patients are theirs by the visit instead.
+            $matching = Customer::query()
+                ->active()
+                ->where('registered_location_id', $branchId)
+                ->when($term !== '', fn (Builder $query) => $query->where(fn (Builder $q) => $q
+                    ->where('name', 'ilike', "%{$term}%")
+                    ->orWhere('code', 'ilike', "%{$term}%")
+                    ->orWhere('phone', 'ilike', "%{$term}%")));
+
+            $people = (clone $matching)
+                ->with('user')
+                ->addSelect(['last_visit_on' => Appointment::query()
+                    ->where('status', '<>', Appointment::STATUS_CANCELLED)
+                    ->selectRaw('max(appointment_date)')
+                    ->whereColumn('appointments.customer_id', 'customers.id')
+                    ->where('appointment_date', '<=', $today)])
+                ->orderByRaw('last_visit_on desc nulls last')
+                ->orderBy('name')
+                ->limit(self::CONTACTS)
+                ->get();
+
+            $threads = Conversation::query()
+                ->where('branch_id', $branchId)
                 ->whereIn('customer_id', $people->modelKeys())
                 ->pluck('id', 'customer_id');
 
@@ -225,10 +276,15 @@ class Messenger
      * Refused unless the two share a visit. A patient may not open one with a
      * doctor who has no login, because nobody would ever read it; a doctor may
      * write to a patient who has not installed the app yet, since they will
-     * see it the day they do.
+     * see it the day they do. The desk's rule is simpler, since it is not
+     * riding on a visit: the patient has to be registered at its branch.
      */
     public function open(Participant $me, int $counterpartId): Conversation
     {
+        if ($me->isFrontDesk()) {
+            return $this->openDeskThread($me, $counterpartId);
+        }
+
         [$doctorId, $customerId] = $me->isDoctor()
             ? [(int) $me->doctor->getKey(), $counterpartId]
             : [$counterpartId, (int) $me->customer->getKey()];
@@ -269,12 +325,41 @@ class Messenger
         ]);
     }
 
+    /** The desk's half of [open] — a branch and a patient registered there. */
+    private function openDeskThread(Participant $me, int $customerId): Conversation
+    {
+        $branchId = (int) $me->branch->getKey();
+
+        $existing = Conversation::query()
+            ->where('branch_id', $branchId)
+            ->where('customer_id', $customerId)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $registeredHere = Customer::query()->active()
+            ->where('registered_location_id', $branchId)
+            ->whereKey($customerId)
+            ->exists();
+
+        if (! $registeredHere) {
+            throw new HttpException(403, 'You can only message patients registered at this branch.');
+        }
+
+        return Conversation::query()->firstOrCreate([
+            'branch_id' => $branchId,
+            'customer_id' => $customerId,
+        ]);
+    }
+
     /** One thread as the participant sees it, for the chat screen's header. */
     public function describe(Participant $me, Conversation $conversation): array
     {
-        $conversation->loadMissing(['doctor.photograph', 'doctor.user', 'customer.user', 'latestMessage.file']);
+        $conversation->loadMissing(['doctor.photograph', 'doctor.user', 'branch', 'customer.user', 'latestMessage.file']);
 
-        $other = Conversation::otherSide($me->side);
+        $other = $conversation->counterpartSide($me->side);
 
         $conversation->setAttribute('unread_count', $conversation->messages()
             ->where('sender_side', $other)
@@ -411,7 +496,7 @@ class Messenger
 
         $this->broadcast(new ConversationRead(
             $organization->uuid,
-            $this->loginsOf(Conversation::otherSide($me->side), $conversation),
+            $this->loginsOf($organization, $conversation->counterpartSide($me->side), $conversation),
             ['conversation_id' => $conversation->getKey(), 'side' => $me->side, 'last_read_id' => $target],
         ));
 
@@ -439,7 +524,7 @@ class Messenger
 
         $this->broadcast(new ConversationDelivered(
             $organization->uuid,
-            $this->loginsOf(Conversation::otherSide($me->side), $conversation),
+            $this->loginsOf($organization, $conversation->counterpartSide($me->side), $conversation),
             ['conversation_id' => (int) $conversation->getKey(), 'side' => $me->side, 'last_delivered_id' => $target],
         ));
 
@@ -456,7 +541,7 @@ class Messenger
     {
         $this->broadcast(new ConversationTyping(
             $organization->uuid,
-            $this->loginsOf(Conversation::otherSide($me->side), $conversation),
+            $this->loginsOf($organization, $conversation->counterpartSide($me->side), $conversation),
             ['conversation_id' => (int) $conversation->getKey(), 'side' => $me->side],
         ));
     }
@@ -470,12 +555,18 @@ class Messenger
     /** A thread can be written to while both people are still on the books. */
     private function assertStillOpen(Conversation $conversation): void
     {
-        $conversation->loadMissing(['doctor', 'customer']);
+        $conversation->loadMissing(['doctor', 'branch', 'customer']);
 
-        $doctor = $conversation->doctor;
+        if ($conversation->isDeskThread()) {
+            if ($conversation->branch === null || ! $conversation->branch->is_active) {
+                throw new HttpException(422, 'This branch is no longer available to message.');
+            }
+        } else {
+            $doctor = $conversation->doctor;
 
-        if ($doctor === null || $doctor->trashed() || ! $doctor->is_active) {
-            throw new HttpException(422, 'This doctor is no longer available to message.');
+            if ($doctor === null || $doctor->trashed() || ! $doctor->is_active) {
+                throw new HttpException(422, 'This doctor is no longer available to message.');
+            }
         }
 
         if ($conversation->customer === null || ! $conversation->customer->is_active) {
@@ -486,11 +577,13 @@ class Messenger
     /** Live to both sides, then a push to the other. Never fails the send. */
     private function announce(Organization $organization, Participant $me, Conversation $conversation, array $row): void
     {
+        $staffSide = $conversation->isDeskThread() ? Conversation::FRONT_DESK : Conversation::DOCTOR;
+
         $this->broadcast(new MessageSent(
             $organization->uuid,
             array_values(array_unique([
-                ...$this->loginsOf(Conversation::DOCTOR, $conversation),
-                ...$this->loginsOf(Conversation::PATIENT, $conversation),
+                ...$this->loginsOf($organization, $staffSide, $conversation),
+                ...$this->loginsOf($organization, Conversation::PATIENT, $conversation),
             ])),
             [
                 'conversation_id' => $conversation->getKey(),
@@ -499,13 +592,18 @@ class Messenger
             ],
         ));
 
-        $recipients = $this->loginsOf(Conversation::otherSide($me->side), $conversation);
+        $other = $conversation->counterpartSide($me->side);
+        $recipients = $this->loginsOf($organization, $other, $conversation);
 
         if ($recipients === []) {
             return;
         }
 
-        $recipient = $me->isDoctor() ? $conversation->customer : $conversation->doctor;
+        $recipient = match ($other) {
+            Conversation::DOCTOR => $conversation->doctor,
+            Conversation::FRONT_DESK => $conversation->branch,
+            default => $conversation->customer,
+        };
 
         /*
          * Who wrote, and what kind of thing — never the words. A lock screen
@@ -528,7 +626,7 @@ class Messenger
                 ['type' => 'message.received', 'conversation_id' => (int) $conversation->getKey()],
                 array_filter([
                     'recipient_name' => $recipient?->name,
-                    'customer_id' => $me->isDoctor() ? $conversation->customer_id : null,
+                    'customer_id' => $other === Conversation::PATIENT ? $conversation->customer_id : null,
                 ], fn ($value) => $value !== null),
             );
         } catch (\Throwable $e) {
@@ -561,9 +659,9 @@ class Messenger
      *
      * @return list<int>
      */
-    private function loginsOf(string $side, Conversation $conversation): array
+    private function loginsOf(Organization $organization, string $side, Conversation $conversation): array
     {
-        $conversation->loadMissing(['doctor.user', 'customer']);
+        $conversation->loadMissing(['doctor.user', 'branch', 'customer']);
 
         if ($side === Conversation::DOCTOR) {
             $login = $conversation->doctor?->user;
@@ -571,7 +669,22 @@ class Messenger
             return $this->hasLogin($login) ? [(int) $login->getKey()] : [];
         }
 
+        if ($side === Conversation::FRONT_DESK) {
+            return $conversation->branch ? $this->deskLoginsAt($organization, $conversation->branch) : [];
+        }
+
         return $conversation->customer ? $this->push->loginsFor($conversation->customer) : [];
+    }
+
+    /** Everybody at [branch] who may write to a patient as the desk, right now. */
+    private function deskLoginsAt(Organization $organization, Location $branch): array
+    {
+        return $branch->members
+            ->filter(fn (User $user) => $this->hasLogin($user)
+                && $this->permission->allows($organization, $user, 'appointments.messages_desk', (int) $branch->getKey()))
+            ->map(fn (User $user) => (int) $user->getKey())
+            ->values()
+            ->all();
     }
 
     private function hasLogin(?User $user): bool
@@ -592,9 +705,11 @@ class Messenger
 
         return [
             'id' => $conversation->getKey(),
-            'counterpart' => $me->isDoctor()
-                ? $this->patientCard($conversation->customer)
-                : $this->doctorCard($conversation->doctor),
+            'counterpart' => match (true) {
+                $me->side === Conversation::PATIENT && $conversation->isDeskThread() => $this->branchCard($conversation->branch),
+                $me->side === Conversation::PATIENT => $this->doctorCard($conversation->doctor),
+                default => $this->patientCard($conversation->customer),
+            },
             'last_message' => $latest ? $this->messageRow($latest) : null,
             'last_message_at' => $conversation->last_message_at?->toIso8601String(),
             'unread' => (int) ($conversation->unread_count ?? 0),
@@ -607,7 +722,7 @@ class Messenger
 
     public function counterpartRead(Participant $me, Conversation $conversation): int
     {
-        return (int) $conversation->getAttribute(Conversation::readColumn(Conversation::otherSide($me->side)));
+        return (int) $conversation->getAttribute(Conversation::readColumn($conversation->counterpartSide($me->side)));
     }
 
     /** Never behind what they have read — a message read was received. */
@@ -615,7 +730,7 @@ class Messenger
     {
         return max(
             $this->counterpartRead($me, $conversation),
-            (int) $conversation->getAttribute(Conversation::deliveredColumn(Conversation::otherSide($me->side))),
+            (int) $conversation->getAttribute(Conversation::deliveredColumn($conversation->counterpartSide($me->side))),
         );
     }
 
@@ -665,6 +780,19 @@ class Messenger
             'subtitle' => $doctor?->specialisation,
             'photo_url' => $doctor?->photograph?->url,
             'on_app' => $this->hasLogin($doctor?->user),
+        ];
+    }
+
+    /** The desk's card, shown to a patient the way a doctor's or a patient's is. */
+    private function branchCard(?Location $branch): array
+    {
+        return [
+            'kind' => Conversation::FRONT_DESK,
+            'id' => $branch?->getKey(),
+            'name' => $branch?->name ?? 'The desk',
+            'subtitle' => 'Front desk',
+            'photo_url' => null,
+            'on_app' => true,
         ];
     }
 

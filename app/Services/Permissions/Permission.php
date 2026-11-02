@@ -79,6 +79,9 @@ class Permission
      */
     private const DESK_CAPABILITIES = [
         'appointments.queue',
+
+        // Writing to a patient as the desk is working it, the same as calling them in.
+        'appointments.messages_desk',
     ];
 
     /**
@@ -130,7 +133,10 @@ class Permission
         'people.view', 'people.create', 'people.edit', 'people.delete',
         'people.across_branches', 'people.assign_branch',
 
-        'appointments.view', 'appointments.doctors', 'appointments.schedule',
+        'appointments.view', 'appointments.doctors_view', 'appointments.doctors', 'appointments.schedule',
+
+        // Where they land.
+        'dashboard.view',
 
         'billing.view', 'billing.finance',
 

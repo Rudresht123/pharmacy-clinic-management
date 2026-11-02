@@ -393,15 +393,18 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             ->name('devices.test-push');
 
         /*
-        | The workspace's first screen. Ungated here because anybody who may
-        | sign in may open their own dashboard; every panel inside it is gated
-        | on its own capability and narrowed to their branches.
+        | The workspace's first screen, behind its own tick — a role made for
+        | one job does not land on the manager's numbers. Every panel inside
+        | is still gated on its own capability and narrowed to their branches.
         */
-        Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('dashboard', [DashboardController::class, 'index'])
+            ->middleware('permission:dashboard.view')
+            ->name('dashboard');
 
         // One card re-asked with its own filter. Gated inside, the same way
         // as the panel on the full dashboard — see DashboardSummary::panel().
         Route::get('dashboard/{panel}', [DashboardController::class, 'panel'])
+            ->middleware('permission:dashboard.view')
             ->where('panel', '[a-z_]+')
             ->name('dashboard.panel');
         Route::post('auth/logout', [TenantAuthController::class, 'logout']);
@@ -450,8 +453,8 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         Route::get('locations/fields', [LocationController::class, 'fields'])
             ->middleware('permission:branches.view')
             ->name('locations.fields');
+        // The dropdown reading needs no tick; the screen's is checked inside.
         Route::get('locations', [LocationController::class, 'index'])
-            ->middleware('permission:branches.view')
             ->name('locations.index');
         Route::get('locations/{location}', [LocationController::class, 'show'])
             ->middleware('permission:branches.view')
@@ -477,9 +480,13 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             Route::get('customers/stats', [CustomerController::class, 'stats'])
                 ->name('customers.stats');
             Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
-            Route::get('customers/{customer}', [CustomerController::class, 'show'])
-                ->name('customers.show');
         });
+
+        // Finding somebody is the list; reading about them is the record —
+        // or the edit form, which opens on the same row.
+        Route::get('customers/{customer}', [CustomerController::class, 'show'])
+            ->middleware('permission:customers.record,customers.edit')
+            ->name('customers.show');
 
         /*
         | Adding, changing and removing are three capabilities rather than one
@@ -522,6 +529,10 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             Route::get('patient-records/export', [PatientRecordController::class, 'export'])
                 ->middleware('permission:exports.patients')
                 ->name('patient-records.export');
+        });
+
+        // One patient's own record — its own tick, apart from the list above.
+        Route::middleware('permission:customers.record')->group(function () {
             Route::get('patient-records/{customer}', [PatientRecordController::class, 'show'])
                 ->whereNumber('customer')
                 ->name('patient-records.show');
@@ -1219,7 +1230,12 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | is not running here, which reads very differently from every
             | request inside it failing separately.
             */
-            Route::middleware('permission:appointments.view')->group(function () {
+            /*
+            | Read by every OPD screen that names a doctor — the registry
+            | itself, booking, the queue's filter, the rota — so open to any
+            | of their ticks rather than one.
+            */
+            Route::middleware('permission:appointments.doctors_view,appointments.view,appointments.queue_view,appointments.book,appointments.schedule,appointments.doctors')->group(function () {
                 Route::get('doctors/fields', [DoctorController::class, 'fields'])
                     ->name('doctors.fields');
                 Route::get('doctors', [DoctorController::class, 'index'])->name('doctors.index');
@@ -1234,7 +1250,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | that weekday, minus what is cancelled, with changed hours
             | applied, plus anything extra.
             */
-            Route::middleware('permission:appointments.view')->group(function () {
+            Route::middleware('permission:appointments.doctors_view,appointments.view,appointments.book')->group(function () {
                 Route::get('availability/day', [AvailabilityController::class, 'day'])
                     ->name('availability.day');
                 Route::get('availability/week', [AvailabilityController::class, 'week'])
@@ -1260,51 +1276,45 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | reason to hold, and it returns branches this person would be
             | refused at the moment they picked one.
             */
-            Route::middleware('permission:appointments.view')->group(function () {
-                Route::get('opd/branches', [OpdController::class, 'branches'])
-                    ->name('opd.branches');
-                Route::get('opd/today', [OpdController::class, 'today'])
-                    ->name('opd.today');
-            });
+            Route::get('opd/branches', [OpdController::class, 'branches'])
+                ->middleware('permission:appointments.view,appointments.queue_view,appointments.doctors_view,appointments.book')
+                ->name('opd.branches');
 
-            /*
-            | A doctor's own list.
-            |
-            | Behind `appointments.queue` rather than `appointments.view`: this
-            | is the screen somebody works the queue from, and it is the
-            | capability every doctor login is given. The doctor is taken from
-            | the session, never the query string.
-            */
-            /*
-            | A patient's own record — who they are and what has happened.
-            |
-            | Behind `customers.view`, the same capability as the list it is
-            | opened from: being able to see a patient at all is what makes
-            | their visits readable, and a doctor holds it.
-            */
+            // Today's numbers: the OPD dashboard, the queue's counts, and the
+            // home dashboard on the phone.
+            Route::get('opd/today', [OpdController::class, 'today'])
+                ->middleware('permission:appointments.view,appointments.queue_view,dashboard.view')
+                ->name('opd.today');
+
+            // A patient's visits are part of their record, behind the same tick.
             Route::get('customers/{customer}/visits', [CustomerController::class, 'visits'])
-                ->middleware('permission:customers.view')
+                ->middleware('permission:customers.record')
                 ->name('customers.visits');
 
+            /*
+            | A doctor's own screens, each behind its own tick and open to the
+            | others that read the same rows. The doctor is taken from the
+            | session, never the query string.
+            */
             Route::get('opd/my-day', [OpdController::class, 'myDay'])
-                ->middleware('permission:appointments.queue')
+                ->middleware('permission:appointments.my_day,appointments.my_queue')
                 ->name('opd.my-day');
 
             Route::get('opd/my-month', [OpdController::class, 'myMonth'])
-                ->middleware('permission:appointments.queue')
+                ->middleware('permission:appointments.my_schedule,appointments.my_day')
                 ->name('opd.my-month');
 
             Route::get('opd/my-records', [OpdController::class, 'myRecords'])
-                ->middleware('permission:appointments.queue')
+                ->middleware('permission:appointments.my_patients,appointments.my_day,appointments.my_queue')
                 ->name('opd.my-records');
 
             /*
-            | A doctor's messages with their own patients. The patient's half
-            | is in routes/api/v1/portal.php, on the same controller; which
-            | side is asking comes from the login, and every thread is
-            | checked to be that doctor's own.
+            | A doctor's messages with their own patients, and the desk's with
+            | the branch's. The patient's half is in routes/api/v1/portal.php,
+            | on the same controller; which side is asking comes from the
+            | login, and every thread is checked to be that side's own.
             */
-            Route::middleware('permission:appointments.messages')
+            Route::middleware('permission:appointments.messages,appointments.messages_desk')
                 ->prefix('messages')
                 ->name('messages.')
                 ->group(function () {
@@ -1395,11 +1405,12 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('appointments.consultation.reopen');
             });
 
+            // The list, which the queue is a reading of too.
             Route::get('appointments', [AppointmentController::class, 'index'])
-                ->middleware('permission:appointments.view')
+                ->middleware('permission:appointments.view,appointments.queue_view')
                 ->name('appointments.index');
             Route::get('appointments/slots/{doctor}', [AppointmentController::class, 'slots'])
-                ->middleware('permission:appointments.view')
+                ->middleware('permission:appointments.view,appointments.book')
                 ->name('appointments.slots');
 
             Route::post('appointments', [AppointmentController::class, 'store'])
@@ -1754,6 +1765,8 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('communication.templates.index');
                 Route::get('communication/automation-rules', [AutomationRuleController::class, 'index'])
                     ->name('communication.rules.index');
+                Route::get('communication/automation-rules/recipients', [AutomationRuleController::class, 'recipients'])
+                    ->name('communication.rules.recipients');
 
                 Route::get('communication/campaigns', [CampaignController::class, 'index'])
                     ->name('communication.campaigns.index');

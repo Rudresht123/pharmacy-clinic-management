@@ -105,21 +105,26 @@ export function tenantNavigation(
      * and filing it under a section made the first thing in the menu look like
      * a member of a group it has nothing to do with.
      */
-    sections.push({
-        title: '',
-        items: [
-            /*
-             * A doctor lands on their own list, not the organization's.
-             *
-             * The dashboard counts branches, staff and revenue — a manager's
-             * reading of the business. A doctor opening it is being shown
-             * somebody else's job before their own.
-             */
-            isDoctor
-                ? { label: 'My day', to: '/my-day', icon: 'ti ti-stethoscope', match: '/my-day' }
-                : { label: 'Dashboard', to: '/dashboard', icon: 'ti ti-layout-dashboard' },
-        ],
-    });
+    /*
+     * Each behind its own tick: what a role is given is what it sees, and a
+     * role made for one job (only chat, only the lab) lands on that job rather
+     * than on a dashboard it was never meant to read. "My day" also needs a
+     * login that belongs to a doctor — that is data, not permission: there is
+     * no day to show anybody else.
+     */
+    const landing: NavItem[] = [];
+
+    if (isDoctor && hasModule('appointments') && can('appointments.my_day')) {
+        landing.push({ label: 'My day', to: '/my-day', icon: 'ti ti-stethoscope', match: '/my-day' });
+    }
+
+    if (can('dashboard.view')) {
+        landing.push({ label: 'Dashboard', to: '/dashboard', icon: 'ti ti-layout-dashboard' });
+    }
+
+    if (landing.length > 0) {
+        sections.push({ title: '', items: landing });
+    }
 
     /*
      * Who works here, and what they may do.
@@ -371,87 +376,73 @@ export function tenantNavigation(
     /* --- a doctor's own section ------------------------------------------ */
 
     /*
-     * A doctor's menu is their work, not the department's.
+     * A doctor's own screens, one tick each.
      *
-     * They hold `appointments.queue` and `customers.view` and nothing wider, so
-     * the OPD group below — the board, the desk's queue, the doctor registry,
-     * the branch rota — never renders for them.
+     * Every entry here is scoped to the signed-in doctor by its endpoint, so
+     * it needs a doctor's login to have anything in it — but whether it shows
+     * is the role's to say, the same as everything below. Nothing returns
+     * early any more: a doctor whose role is also given the desk's screens
+     * sees those too, and one given less sees less.
      *
-     * Every entry here is scoped to the signed-in doctor by its endpoint. The
-     * department's versions of the same screens exist already, behind
-     * capabilities a doctor does not hold.
+     * Documents are a TAB on the consultation rather than a screen of their
+     * own: a scan is read while the patient is in the room.
      */
-    if (isDoctor) {
-        const mine: NavItem[] = [
-            { label: 'My queue', to: '/my-queue', icon: 'ti ti-list-numbers', match: '/my-queue' },
-            {
-                label: 'Consultations',
-                to: '/my-consultations',
-                icon: 'ti ti-clipboard-text',
-                match: '/my-consultations',
-            },
-        ];
+    if (isDoctor && hasModule('appointments')) {
+        const mine: NavItem[] = [];
 
-        if (can('customers.view')) {
-            mine.push({
-                label: labels?.customer ?? 'Patients',
-                to: '/customers',
-                icon: 'ti ti-users',
-                match: '/customers',
-            });
+        if (can('appointments.my_queue')) {
+            mine.push(
+                { label: 'My queue', to: '/my-queue', icon: 'ti ti-list-numbers', match: '/my-queue' },
+                {
+                    label: 'Consultations',
+                    to: '/my-consultations',
+                    icon: 'ti ti-clipboard-text',
+                    match: '/my-consultations',
+                },
+            );
         }
 
-        mine.push(
-            {
-                label: 'Appointments',
-                to: '/my-appointments',
-                icon: 'ti ti-calendar',
-                match: '/my-appointments',
-            },
-            {
-                label: 'Prescriptions',
-                to: '/my-prescriptions',
-                icon: 'ti ti-file-text',
-                match: '/my-prescriptions',
-            },
-            {
-                label: 'Investigations',
-                to: '/my-investigations',
-                icon: 'ti ti-microscope',
-                match: '/my-investigations',
-            },
-            {
-                label: 'Follow-ups',
-                to: '/my-follow-ups',
-                icon: 'ti ti-calendar-repeat',
-                match: '/my-follow-ups',
-            },
-            {
+        if (can('appointments.my_patients')) {
+            mine.push(
+                {
+                    label: 'Appointments',
+                    to: '/my-appointments',
+                    icon: 'ti ti-calendar',
+                    match: '/my-appointments',
+                },
+                {
+                    label: 'Prescriptions',
+                    to: '/my-prescriptions',
+                    icon: 'ti ti-file-text',
+                    match: '/my-prescriptions',
+                },
+                {
+                    label: 'Investigations',
+                    to: '/my-investigations',
+                    icon: 'ti ti-microscope',
+                    match: '/my-investigations',
+                },
+                {
+                    label: 'Follow-ups',
+                    to: '/my-follow-ups',
+                    icon: 'ti ti-calendar-repeat',
+                    match: '/my-follow-ups',
+                },
+            );
+        }
+
+        if (can('appointments.my_schedule')) {
+            mine.push({
                 label: 'My schedule',
                 to: '/my-schedule',
                 icon: 'ti ti-clock-hour-4',
                 match: '/my-schedule',
-            },
+            });
+        }
 
-            /*
-             * Documents used to sit here as "coming soon". They are built now,
-             * and they are a TAB on the consultation rather than a screen of
-             * their own: a scan is read while the patient is in the room, and
-             * a separate page would mean leaving the write-up to look at it.
-             * A menu row leading somewhere that only repeats what is already
-             * on screen is worse than no row.
-             */
-        );
-
-        sections.push({ title: 'My work', items: mine });
-
-        /*
-         * And nothing else. A doctor has no branches to run, no staff to
-         * administer and no field settings to change — returning here rather
-         * than falling through means none of those sections can appear by
-         * accident as capabilities move around.
-         */
-        return sections;
+        if (mine.length > 0) {
+            sections.push({ title: 'My work', items: mine });
+        }
     }
 
     /* --- the work -------------------------------------------------------- */
@@ -504,63 +495,67 @@ export function tenantNavigation(
     const customersUnderPharmacy =
         pharmacy && !hasModule('appointments') && can('customers.view');
 
-    if (hasModule('appointments') && can('appointments.view')) {
+    /*
+     * One tick per screen: the board, the queue, the roster and the rota are
+     * four different things to be allowed, and the group shows whichever of
+     * them this role holds — opening on the first.
+     */
+    const opd: NavItem[] = [];
+
+    if (hasModule('appointments')) {
+        if (can('appointments.view')) {
+            opd.push({ label: 'Dashboard', to: '/opd', icon: 'ti ti-layout-dashboard' });
+        }
+
+        if (can('appointments.queue_view')) {
+            opd.push({
+                label: 'Queue management',
+                to: '/opd/queue',
+                icon: 'ti ti-list-check',
+                match: '/opd/queue',
+            });
+        }
+
+        // Patients asking, from the app, to move a booking.
+        if (can('appointments.reschedule')) {
+            opd.push({
+                label: 'Reschedule requests',
+                to: '/opd/reschedule-requests',
+                icon: 'ti ti-calendar-repeat',
+                match: '/opd/reschedule-requests',
+            });
+        }
+
+        if (can('appointments.doctors_view')) {
+            opd.push({ label: 'Doctors', to: '/doctors', icon: 'ti ti-stethoscope', match: '/doctors' });
+        }
+
+        /*
+         * Directly under Doctors, because it is the same subject one step on:
+         * who they are, then when they sit. Its own capability — looking at
+         * the roster is not rewriting it.
+         */
+        if (can('appointments.schedule')) {
+            opd.push({ label: 'Schedules', to: '/schedules', icon: 'ti ti-calendar-cog', match: '/schedules' });
+        }
+
+        if (can('appointments.doctors_view')) {
+            opd.push({
+                label: 'Availability',
+                to: '/availability',
+                icon: 'ti ti-calendar-time',
+                match: '/availability',
+            });
+        }
+    }
+
+    if (opd.length > 0) {
         clinical.push({
             label: 'OPD',
-            to: '/opd',
+            to: opd[0].to,
             icon: 'ti ti-building-hospital',
             match: ['/opd', '/doctors', '/schedules', '/availability'],
-            children: [
-                { label: 'Dashboard', to: '/opd', icon: 'ti ti-layout-dashboard' },
-                {
-                    label: 'Queue management',
-                    to: '/opd/queue',
-                    icon: 'ti ti-list-check',
-                    match: '/opd/queue',
-                },
-                /*
-                 * Patients asking, from the app, to move a booking. Whoever
-                 * answers them — the desk, by default.
-                 */
-                ...(can('appointments.reschedule')
-                    ? [
-                          {
-                              label: 'Reschedule requests',
-                              to: '/opd/reschedule-requests',
-                              icon: 'ti ti-calendar-repeat',
-                              match: '/opd/reschedule-requests',
-                          },
-                      ]
-                    : []),
-                {
-                    label: 'Doctors',
-                    to: '/doctors',
-                    icon: 'ti ti-stethoscope',
-                    match: '/doctors',
-                },
-                /*
-                 * Directly under Doctors, because it is the same subject one
-                 * step on: who they are, then when they sit. Its own capability
-                 * too — a receptionist who may look at the roster is not
-                 * necessarily somebody who may rewrite it.
-                 */
-                ...(can('appointments.schedule')
-                    ? [
-                          {
-                              label: 'Schedules',
-                              to: '/schedules',
-                              icon: 'ti ti-calendar-cog',
-                              match: '/schedules',
-                          },
-                      ]
-                    : []),
-                {
-                    label: 'Availability',
-                    to: '/availability',
-                    icon: 'ti ti-calendar-time',
-                    match: '/availability',
-                },
-            ],
+            children: opd,
         });
     }
 
@@ -972,4 +967,31 @@ export function tenantNavigation(
     });
 
     return sections;
+}
+
+/**
+ * The first screen in the menu this person may actually open — where they
+ * land. Built from the same menu, so a role given only Messages lands on
+ * Messages and never on a dashboard it was not given.
+ */
+export function firstScreen(sections: NavSection[]): string | null {
+    for (const section of sections) {
+        for (const item of section.items) {
+            if (item.soon) {
+                continue;
+            }
+
+            const child = item.children?.find((c) => !c.soon);
+
+            if (child) {
+                return child.to;
+            }
+
+            if (!item.children) {
+                return item.to;
+            }
+        }
+    }
+
+    return null;
 }

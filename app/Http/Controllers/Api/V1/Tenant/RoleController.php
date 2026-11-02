@@ -10,6 +10,7 @@ use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
 use App\Services\Permissions\Permission;
 use App\Services\Permissions\StaffScope;
+use App\Services\Tenant\PatientAccountProvisioner;
 use App\Support\Modules\ModuleRegistry;
 use App\Support\Roles\RoleTemplates;
 use Illuminate\Http\JsonResponse;
@@ -18,11 +19,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * The roles an owner hands to their staff — level three of the permission flow.
+ * Each branch's own roles — level three of the permission flow.
  *
- * Owner-only on the route, and deliberately not reachable through a capability.
- * A role able to edit roles could grant itself every other one, which would
- * leave the other two levels deciding nothing.
+ * EACH BRANCH SETS ITS OWN. Whoever holds `people.roles` at a branch writes
+ * that branch's roles from the modules running there; the owner decides which
+ * modules each branch runs (the Modules screen). The one role at the
+ * organization's level is the patient app's — the owner's alone, and never
+ * shown to a branch.
  *
  * @group Tenant > Users, Roles & Permissions
  */
@@ -102,38 +105,20 @@ class RoleController extends BaseApiController
         $modules = $this->permission->modulesAt($organization, $branch);
         $pool = ModuleRegistry::capabilitiesFor($modules);
 
-        /*
-         * Only an owner writes organization-wide roles (RoleController::store),
-         * so only for them, and only when they say that is what they are
-         * writing, do templates keep their organization-level permissions.
-         */
-        $organizationWide = $request->query('scope') === Role::SCOPE_ORGANIZATION
-            && $user instanceof User
-            && $user->isOwner();
-
         $templates = [];
 
         foreach (RoleTemplates::all() as $template) {
-            $capabilities = RoleTemplates::capabilitiesFor($template, $modules);
-
-            /*
-             * Narrowed to what a BRANCH ROLE may actually hold.
-             *
-             * Every role this screen creates comes out branch-scoped — the
-             * payload it sends has no scope field, so the server defaults it
-             * to branch whoever is asking (see RoleController::store()). An
-             * organization-only capability in a template — `head_office`
-             * carries several — would tick a box that `SaveRoleRequest`
-             * refuses the moment the role is saved, which is the same
-             * "offered something that cannot be honoured" bug as the main
-             * capability list.
-             */
-            if (! $organizationWide) {
-                $capabilities = array_values(array_filter(
-                    $capabilities,
-                    fn (string $capability) => ModuleRegistry::capabilityScope($capability) !== ModuleRegistry::SCOPE_ORGANIZATION,
-                ));
+            // Every role is a branch's own, so a job that only ever meant
+            // "across every branch" (Head office) is not a starting point.
+            if ($template['scope'] === Role::SCOPE_ORGANIZATION) {
+                continue;
             }
+
+            // Narrowed to what a branch role may actually hold.
+            $capabilities = array_values(array_filter(
+                RoleTemplates::capabilitiesFor($template, $modules),
+                fn (string $capability) => ModuleRegistry::capabilityScope($capability) !== ModuleRegistry::SCOPE_ORGANIZATION,
+            ));
 
             // A template that would grant nothing here is not offered at all.
             if ($capabilities === []) {
@@ -157,7 +142,8 @@ class RoleController extends BaseApiController
          */
         $readOnly = array_values(array_filter(
             $pool,
-            fn (string $key) => str_ends_with($key, '.view'),
+            fn (string $key) => str_ends_with($key, '.view')
+                && ModuleRegistry::capabilityScope($key) !== ModuleRegistry::SCOPE_ORGANIZATION,
         ));
 
         if ($readOnly !== []) {
@@ -179,16 +165,21 @@ class RoleController extends BaseApiController
         $user = $request->user();
 
         /*
-         * The organization's own roles, plus the ones this branch wrote.
-         * Another branch's are not narrower — they are somebody else's, and
-         * listing them here would let one branch's choices leak into another's.
+         * This branch's roles. Another branch's are somebody else's, and the
+         * patient app's is the organization's.
          *
-         * The owner sees everything: nothing is somebody else's to them.
+         * The owner reads every branch's — they add staff at any branch and
+         * pick that branch's role — and the patient app's, which is theirs to
+         * set. Never the seeded `staff` row, which nobody is given any more.
          */
         $query = Role::query()->with(['capabilities', 'location']);
 
         if ($user instanceof User && ! $user->isOwner()) {
             $query->assignableAt($this->permission->branchFor($user));
+        } else {
+            $query->where(fn ($roles) => $roles
+                ->whereNotNull('location_id')
+                ->orWhere('slug', PatientAccountProvisioner::ROLE));
         }
 
         $roles = $query->withCount(['users', 'memberships'])
@@ -219,11 +210,14 @@ class RoleController extends BaseApiController
     }
 
     /**
-     * Whether this person may write this role, or write one here at all.
+     * The branch this person writes roles for — refused unless they may.
      *
-     * The owner may write any. Anybody else may write only their own branch's,
-     * and only while holding `people.roles` there — an organization-wide role
-     * is the owner's, and another branch's is that branch's.
+     * Only somebody holding `people.roles` at a branch, and only that
+     * branch's roles. The owner writes one role only, the patient app's —
+     * the organization's part is that and which modules each branch runs;
+     * the branch decides the rest.
+     *
+     * Null for the owner's patient role, which belongs to no branch.
      */
     private function mustBeWritable(Request $request, ?Role $role = null): ?int
     {
@@ -235,27 +229,27 @@ class RoleController extends BaseApiController
         }
 
         if ($user->isOwner()) {
-            // Null unless they said otherwise — the owner writes for the
-            // organization by default.
-            return $role?->location_id;
+            if ($role !== null && $role->slug === PatientAccountProvisioner::ROLE) {
+                return null;
+            }
+
+            abort(403, 'Each branch sets its own roles. As the owner, you set the patient app role and decide which modules each branch runs.');
         }
 
         $branch = $this->permission->branchFor($user);
 
         if ($branch === null
             || ! $this->permission->allows($organization, $user, 'people.roles')) {
-            abort(403, 'Only an owner can write roles for the whole organization.');
+            abort(403, 'This action is not available to you.');
         }
 
-        if ($role !== null && $role->location_id !== $branch) {
+        if ($role !== null && (int) $role->location_id !== $branch) {
             /*
-             * 404 rather than 403 for another branch's role, matching how a
-             * staff record out of reach behaves: answering 403 would confirm
+             * 404 rather than 403 for any role not this branch's, matching how
+             * a staff record out of reach behaves: answering 403 would confirm
              * the id exists to somebody who may not see it.
              */
-            abort($role->isOrganizationWide() ? 403 : 404, $role->isOrganizationWide()
-                ? 'This role belongs to the whole organization. Only an owner can change it.'
-                : 'Resource not found.');
+            abort(404, 'Resource not found.');
         }
 
         return $branch;
@@ -280,11 +274,7 @@ class RoleController extends BaseApiController
             $role = Role::create([
                 'name' => $data['name'],
                 'slug' => $this->uniqueSlug($data['name']),
-                // A branch writing its own gets a branch-scoped role; an
-                // organization-wide one only makes sense from the owner.
-                'scope' => $branch !== null
-                    ? Role::SCOPE_BRANCH
-                    : ($data['scope'] ?? Role::SCOPE_BRANCH),
+                'scope' => Role::SCOPE_BRANCH,
                 'location_id' => $branch,
                 'description' => $data['description'] ?? null,
                 'icon' => $data['icon'] ?? Role::DEFAULT_ICON,
@@ -411,6 +401,11 @@ class RoleController extends BaseApiController
     public function destroy(Request $request, Role $role): JsonResponse
     {
         $this->mustBeWritable($request, $role);
+
+        // The patient app's role is the software's: every patient login is put on it.
+        if ($role->slug === PatientAccountProvisioner::ROLE) {
+            abort(422, 'The patient app role cannot be deleted.');
+        }
 
         /*
          * Refused with a count rather than left to the foreign key. Deleting a

@@ -137,7 +137,7 @@ class PatientRecordTest extends TenantTestCase
 
     public function test_staff_see_only_their_own_branches_records(): void
     {
-        $this->staffAtGurgaon(['customers.view', 'billing.view']);
+        $this->staffAtGurgaon(['customers.view', 'customers.record', 'billing.view']);
 
         $record = $this->record($this->asha, $this->gurgaon);
 
@@ -166,7 +166,7 @@ class PatientRecordTest extends TenantTestCase
 
     public function test_a_section_the_caller_cannot_read_is_absent_not_zero(): void
     {
-        $this->staffAtGurgaon(['customers.view']);
+        $this->staffAtGurgaon(['customers.view', 'customers.record']);
 
         $record = $this->record($this->asha, $this->gurgaon);
 

@@ -329,7 +329,7 @@ class OrganizationDashboardTest extends TenantTestCase
 
         // The diagnosis is a clinical note: somebody at the branch with the
         // patient list but not the notes sees who, not why.
-        $this->setStaffCapabilities($this->organization, ['customers.view', 'appointments.view']);
+        $this->setStaffCapabilities($this->organization, ['dashboard.view', 'customers.view', 'appointments.view']);
         $this->placeStaffAt($this->organization, $this->gurgaon);
         $this->signInAsStaff($this->organization);
 
@@ -422,7 +422,7 @@ class OrganizationDashboardTest extends TenantTestCase
     /** Money is `billing.finance`; somebody without it sees none of it. */
     public function test_money_needs_the_finance_capability(): void
     {
-        $this->setStaffCapabilities($this->organization, ['customers.view', 'branches.view']);
+        $this->setStaffCapabilities($this->organization, ['dashboard.view', 'customers.view', 'branches.view']);
         $this->signInAsStaff($this->organization);
 
         $data = $this->dashboard();
@@ -451,7 +451,7 @@ class OrganizationDashboardTest extends TenantTestCase
      */
     public function test_a_branch_dashboard_is_the_same_screen_about_its_branch(): void
     {
-        $this->setStaffCapabilities($this->organization, ['customers.view', 'branches.view', 'billing.finance']);
+        $this->setStaffCapabilities($this->organization, ['dashboard.view', 'customers.view', 'branches.view', 'billing.finance']);
         $this->placeStaffAt($this->organization, $this->gurgaon);
         $this->signInAsStaff($this->organization);
 

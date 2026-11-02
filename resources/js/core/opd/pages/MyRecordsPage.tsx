@@ -11,6 +11,7 @@ import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { http } from '@/shared/api/http';
 import { resourceKey } from '@/shared/hooks/useResource';
 import type { ApiResponse } from '@/shared/types/api';
+import { PatientRecordLink, useCanOpenRecord } from '@/core/customers/components/PatientRecordLink';
 
 /** A prescription or investigation line. The two differ by one field. */
 interface Line {
@@ -176,6 +177,7 @@ function useRecords(view: RecordView, from: string, to: string) {
  */
 export default function MyRecordsPage({ view }: { view: RecordView }) {
     const meta = VIEWS[view];
+    const canOpenRecord = useCanOpenRecord();
 
     const [from, setFrom] = useState(daysAgo(30));
     const [to, setTo] = useState(today());
@@ -349,7 +351,8 @@ export default function MyRecordsPage({ view }: { view: RecordView }) {
                 icon="ti ti-clipboard-text"
                 size="lg"
                 footer={
-                    reading && (
+                    reading &&
+                    canOpenRecord && (
                         <Link
                             className="cn-save"
                             to={`/customers/${reading.customer_id}`}
@@ -559,10 +562,10 @@ function summarise(of: WriteUp | null): string {
 function Patient({ row }: { row: Row }) {
     return (
         <td data-label="Patient">
-            <Link className="rec-who" to={`/customers/${row.customer_id}`}>
+            <PatientRecordLink className="rec-who" customerId={row.customer_id}>
                 <b>{row.customer_name ?? 'Unnamed'}</b>
                 {row.customer_code && <small>{row.customer_code}</small>}
-            </Link>
+            </PatientRecordLink>
         </td>
     );
 }

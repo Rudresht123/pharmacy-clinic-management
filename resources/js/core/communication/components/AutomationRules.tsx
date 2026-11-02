@@ -1,6 +1,6 @@
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
-import type { AutomationRule, MessageTemplate } from '../types';
+import type { AutomationRule, MessageTemplate, RuleRecipients } from '../types';
 
 /**
  * The rules the server actually sends today (App\Services\Communication).
@@ -10,10 +10,46 @@ import type { AutomationRule, MessageTemplate } from '../types';
 const WIRED = [
     'appointment.confirmed',
     'appointment.cancelled',
+    'appointment.reschedule_requested',
+    'appointment.rescheduled',
+    'appointment.reschedule_rejected',
     'payment.received',
+    'lab.report_ready',
+    'patient.registered',
     'appointment.reminder_day',
     'appointment.reminder_hour',
 ];
+
+/**
+ * "To: Doctor · CC: Branch manager" — who a rule tells, in one line.
+ *
+ * Null for WhatsApp, which only ever goes to the patient's own number and has
+ * nothing to choose.
+ */
+export function recipientSummary(rule: AutomationRule): string | null {
+    if (rule.channel !== 'email' && rule.channel !== 'push') {
+        return null;
+    }
+
+    const fields: [keyof RuleRecipients, string][] =
+        rule.channel === 'email'
+            ? [
+                  ['to', 'To'],
+                  ['cc', 'CC'],
+                  ['bcc', 'BCC'],
+              ]
+            : [['to', 'Send to']];
+
+    const parts = fields
+        .map(([field, name]) => {
+            const names = (rule.recipients?.[field] ?? []).map((entry) => entry.label ?? entry.type);
+
+            return names.length ? `${name}: ${names.join(', ')}` : null;
+        })
+        .filter((part): part is string => part !== null);
+
+    return parts.length ? parts.join(' · ') : 'Nobody chosen yet';
+}
 
 interface Readiness {
     tone: 'is-live' | 'is-wait' | 'is-fail' | 'is-muted';
@@ -47,7 +83,9 @@ function readiness(
         return { tone: 'is-muted', label: 'Not sent automatically yet' };
     }
 
-    if (!connected) {
+    // A staff alert is the clinic running itself, not patient messaging: it
+    // does not wait on the channel being connected for patients.
+    if (!connected && rule.audience !== 'staff') {
         return {
             tone: 'is-wait',
             label: 'Waiting: account not connected',
@@ -81,7 +119,10 @@ function readiness(
     return {
         tone: 'is-live',
         label: 'Sending',
-        title: 'Sent to every patient who has an address on this channel.',
+        title:
+            rule.audience === 'staff'
+                ? 'Sent to everybody this rule names who can be reached on this channel.'
+                : 'Sent to every patient who has an address on this channel.',
     };
 }
 
@@ -144,6 +185,86 @@ export function AutomationRules({
     description: string;
     saving?: boolean;
 }) {
+    /*
+     * The patient's messages first, then the clinic's own alerts — two
+     * readers, two kinds of wording, and the second list is the one a clinic
+     * opens to decide who on staff hears about what.
+     */
+    const groups = [
+        { key: 'patient', title: 'To patients', rules: rules.filter((rule) => rule.audience !== 'staff') },
+        { key: 'staff', title: 'To staff', rules: rules.filter((rule) => rule.audience === 'staff') },
+    ].filter((group) => group.rules.length > 0);
+
+    const row = (rule: AutomationRule) => {
+        const timing = lead(rule.lead_minutes);
+        const ready =
+            connected === undefined || templates === undefined
+                ? null
+                : readiness(rule, connected, templates);
+        const who = recipientSummary(rule);
+
+        return (
+            <li key={rule.id}>
+                <i className={rule.icon ?? 'ti ti-bolt'} aria-hidden="true" />
+
+                <span className="comm-rule-text">
+                    <b>{rule.title}</b>
+                    <small>{rule.description}</small>
+
+                    <span className="comm-rule-meta">
+                        {who && (
+                            <span className="comm-tag comm-recip-tag" title={who}>
+                                <i className="ti ti-users" aria-hidden="true" />
+                                {who}
+                            </span>
+                        )}
+
+                        {timing && (
+                            <span className="comm-tag">
+                                <i className="ti ti-clock" aria-hidden="true" />
+                                {timing}
+                            </span>
+                        )}
+
+                        {rule.template_name ? (
+                            <span className="comm-tag">{rule.template_name}</span>
+                        ) : (
+                            <span className="comm-pill is-wait">No template</span>
+                        )}
+
+                        {ready && (
+                            <span className={`comm-pill ${ready.tone}`} title={ready.title}>
+                                {ready.label}
+                            </span>
+                        )}
+                    </span>
+                </span>
+
+                <div className="form-check form-switch m-0">
+                    <input
+                        className="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        id={`rule-${rule.id}`}
+                        checked={rule.is_enabled}
+                        disabled={saving || !onToggle}
+                        onChange={() => onToggle?.(rule)}
+                    />
+
+                    <label className="visually-hidden" htmlFor={`rule-${rule.id}`}>
+                        {rule.title}
+                    </label>
+                </div>
+
+                {onEdit && (
+                    <Button variant="light" size="sm" onClick={() => onEdit(rule)}>
+                        Edit
+                    </Button>
+                )}
+            </li>
+        );
+    };
+
     return (
         <Card
             className="comm-card comm-rules-card"
@@ -156,70 +277,18 @@ export function AutomationRules({
                     <i className="ti ti-mood-empty" aria-hidden="true" />
                     No automation set up for this channel yet.
                 </p>
+            ) : groups.length === 1 ? (
+                <ul className="comm-rules">{groups[0].rules.map(row)}</ul>
             ) : (
-                <ul className="comm-rules">
-                    {rules.map((rule) => {
-                        const timing = lead(rule.lead_minutes);
-                        const ready =
-                            connected === undefined || templates === undefined
-                                ? null
-                                : readiness(rule, connected, templates);
-
-                        return (
-                            <li key={rule.id}>
-                                <i className={rule.icon ?? 'ti ti-bolt'} aria-hidden="true" />
-
-                                <span className="comm-rule-text">
-                                    <b>{rule.title}</b>
-                                    <small>{rule.description}</small>
-
-                                    <span className="comm-rule-meta">
-                                        {timing && (
-                                            <span className="comm-tag">
-                                                <i className="ti ti-clock" aria-hidden="true" />
-                                                {timing}
-                                            </span>
-                                        )}
-
-                                        {rule.template_name ? (
-                                            <span className="comm-tag">{rule.template_name}</span>
-                                        ) : (
-                                            <span className="comm-pill is-wait">No template</span>
-                                        )}
-
-                                        {ready && (
-                                            <span className={`comm-pill ${ready.tone}`} title={ready.title}>
-                                                {ready.label}
-                                            </span>
-                                        )}
-                                    </span>
-                                </span>
-
-                                <div className="form-check form-switch m-0">
-                                    <input
-                                        className="form-check-input"
-                                        type="checkbox"
-                                        role="switch"
-                                        id={`rule-${rule.id}`}
-                                        checked={rule.is_enabled}
-                                        disabled={saving || !onToggle}
-                                        onChange={() => onToggle?.(rule)}
-                                    />
-
-                                    <label className="visually-hidden" htmlFor={`rule-${rule.id}`}>
-                                        {rule.title}
-                                    </label>
-                                </div>
-
-                                {onEdit && (
-                                    <Button variant="light" size="sm" onClick={() => onEdit(rule)}>
-                                        Edit
-                                    </Button>
-                                )}
-                            </li>
-                        );
-                    })}
-                </ul>
+                // One scroller for both groups — `.comm-rules` is what scrolls.
+                <div className="comm-rules">
+                    {groups.map((group) => (
+                        <section key={group.key} className="comm-rule-group">
+                            <h6>{group.title}</h6>
+                            <ul className="comm-rule-list">{group.rules.map(row)}</ul>
+                        </section>
+                    ))}
+                </div>
             )}
         </Card>
     );

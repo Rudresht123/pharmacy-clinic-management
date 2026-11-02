@@ -201,21 +201,25 @@ class Role extends Model
     }
 
     /**
-     * Roles that may be assigned at one branch.
+     * Roles that may be assigned at one branch: that branch's own, and only
+     * those.
      *
-     * The organization's own, plus that branch's. A role another branch wrote
-     * is not narrower — it is somebody else's, and offering it here would let
-     * one branch's choices leak into another's.
+     * EACH BRANCH SETS ITS OWN ROLES. The organization decides which modules a
+     * branch runs and nothing about who does what there — so there is no
+     * organization role a branch borrows, and another branch's is somebody
+     * else's. A null branch is assigned nothing.
      */
     public function scopeAssignableAt(Builder $query, ?int $locationId): Builder
     {
-        return $query->where(function (Builder $scoped) use ($locationId) {
-            $scoped->whereNull('location_id');
+        return $locationId === null
+            ? $query->whereRaw('1 = 0')
+            : $query->where('location_id', $locationId);
+    }
 
-            if ($locationId !== null) {
-                $scoped->orWhere('location_id', $locationId);
-            }
-        });
+    /** The branch's own copy of a starting role, found by the slug it was seeded under. */
+    public static function slugAt(string $templateSlug, int $locationId): string
+    {
+        return "{$templateSlug}-{$locationId}";
     }
 
     /**

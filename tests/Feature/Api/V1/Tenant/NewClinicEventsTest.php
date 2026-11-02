@@ -12,8 +12,8 @@ use App\Models\Tenant\Location;
 use App\Models\Tenant\MessageLog;
 use App\Models\Tenant\MessageTemplate;
 use App\Repositories\Tenant\CustomerRepository;
-use App\Services\Laboratory\LabOrders;
 use App\Services\Communication\OptionalModuleTemplateSeeder;
+use App\Services\Laboratory\LabOrders;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TenantTestCase;
@@ -50,30 +50,38 @@ class NewClinicEventsTest extends TenantTestCase
     {
         $organization = $this->provisionOrganization('NE');
 
-        [$emailTemplates, $emailRules, $pushTemplates, $pushRules, $labRule] = $this->onTenant(
+        // The patient's side; the staff alerts are counted at the end.
+        [$emailTemplates, $emailRules, $pushTemplates, $pushRules, $labRule, $staffRules] = $this->onTenant(
             $organization,
             fn () => [
-                MessageTemplate::query()->where('channel', CommunicationChannel::EMAIL)->get(),
-                AutomationRule::query()->where('channel', CommunicationChannel::EMAIL)->get(),
-                MessageTemplate::query()->where('channel', CommunicationChannel::PUSH)->get(),
-                AutomationRule::query()->where('channel', CommunicationChannel::PUSH)->get(),
+                MessageTemplate::query()->where('channel', CommunicationChannel::EMAIL)->where('audience', AutomationRule::PATIENT)->get(),
+                AutomationRule::query()->where('channel', CommunicationChannel::EMAIL)->where('audience', AutomationRule::PATIENT)->get(),
+                MessageTemplate::query()->where('channel', CommunicationChannel::PUSH)->where('audience', AutomationRule::PATIENT)->get(),
+                AutomationRule::query()->where('channel', CommunicationChannel::PUSH)->where('audience', AutomationRule::PATIENT)->get(),
                 AutomationRule::query()->where('event_key', AutomationRule::LAB_REPORT_READY)->first(),
+                AutomationRule::query()->where('audience', AutomationRule::STAFF)->get(),
             ],
         );
 
-        // Confirmed, reminder, cancelled, payment, registered.
-        $this->assertCount(5, $emailTemplates);
+        // Confirmed, reminder, cancelled, payment, registered, and the two
+        // answers to a reschedule request.
+        $this->assertCount(7, $emailTemplates);
         $this->assertTrue($emailTemplates->every(
             fn (MessageTemplate $t) => $t->status === MessageTemplate::APPROVED && $t->is_active,
         ));
 
-        // Confirmed, reminder day, reminder hour, cancelled, payment, registered.
-        $this->assertCount(6, $emailRules);
+        // Confirmed, reminder day, reminder hour, cancelled, payment,
+        // registered, rescheduled, reschedule refused.
+        $this->assertCount(8, $emailRules);
         $this->assertTrue($emailRules->every(fn (AutomationRule $r) => ! $r->is_enabled && $r->message_template_id !== null));
 
         // Push gained the same new "registered" entry.
-        $this->assertCount(5, $pushTemplates);
-        $this->assertCount(6, $pushRules);
+        $this->assertCount(7, $pushTemplates);
+        $this->assertCount(8, $pushRules);
+
+        // Four staff alerts on each of email and push, switched on.
+        $this->assertCount(8, $staffRules);
+        $this->assertTrue($staffRules->every(fn (AutomationRule $r) => $r->is_enabled));
 
         // No laboratory module granted — no lab default, on any channel.
         $this->assertNull($labRule);

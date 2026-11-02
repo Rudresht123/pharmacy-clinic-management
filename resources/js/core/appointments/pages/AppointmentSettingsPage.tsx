@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -40,13 +41,6 @@ const QUEUE: Choice[] = [
     },
 ];
 
-const NOTIFY: Choice = {
-    key: 'reschedule_notify',
-    title: 'Who is told about a reschedule request',
-    help: 'An app notification and an email when a patient asks, from the app, to move a booking. The front desk answers it either way.',
-    labels: { desk: 'Front desk', doctor: 'Doctor', both: 'Both' },
-};
-
 const OPTIONS: Who[] = ['desk', 'doctor', 'both'];
 
 /**
@@ -55,6 +49,10 @@ const OPTIONS: Who[] = ['desk', 'doctor', 'both'];
  * Not every clinic has a receptionist: a doctor working alone checks in,
  * calls and starts everybody, and the queue's buttons follow whatever is set
  * here — for everybody, on the web and in the app.
+ *
+ * Who is TOLD about a booking or a reschedule request is not here: it is the
+ * "Tell staff" automation rules, with To, CC and BCC, beside every other
+ * message the clinic sends — one place to look.
  */
 export default function AppointmentSettingsPage() {
     const { can, refreshSession } = useTenantAuth();
@@ -105,7 +103,7 @@ export default function AppointmentSettingsPage() {
         <>
             <PageHeader
                 title="Appointments"
-                subtitle="Who runs the queue, and who hears about reschedule requests"
+                subtitle="Who runs the queue"
                 icon="ti ti-calendar-cog"
             />
 
@@ -123,8 +121,13 @@ export default function AppointmentSettingsPage() {
                     </Card>
 
                     <Card className="mt-3">
-                        <h6 className="mb-3">Reschedule requests</h6>
-                        {row(NOTIFY)}
+                        <h6 className="mb-1">Who hears about bookings and reschedule requests</h6>
+                        <p className="text-muted small mb-0">
+                            Set in Communication, on the “Tell staff” rules — the doctor, whoever booked
+                            it, the branch manager, the front desk, a role or anybody you name, on To, CC
+                            or BCC. See <Link to="/communication/email">Email</Link> and{' '}
+                            <Link to="/communication/push">App notifications</Link>.
+                        </p>
                     </Card>
 
                     {editable && (

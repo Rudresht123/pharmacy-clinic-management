@@ -10,6 +10,7 @@ use App\Jobs\SendPushMessage;
 use App\Models\Platform\Module;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
+use App\Models\Tenant\BranchMembership;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\Location;
@@ -79,6 +80,9 @@ class MessagingTest extends TenantTestCase
                 'is_active' => true,
                 'account' => ['email' => "{$key}@clinic.test", 'password' => 'doctor-secret-1'],
             ])->assertCreated()->json('data.id');
+
+            // Posted here, so their login holds this branch's Doctor role.
+            $this->postDoctor($this->organization, $this->doctors[$key], $this->branchId);
         }
 
         foreach (array_keys($this->doctors) as $key) {
@@ -361,12 +365,196 @@ class MessagingTest extends TenantTestCase
         $this->asDoctor('vikram')->getJson(self::STAFF_DOCTOR."/conversations/{$conversationId}")->assertNotFound();
     }
 
-    /** Messaging is a doctor's, not the desk's — even the owner has no side. */
+    /** Not a doctor, and not writing for a branch's desk — no side to be on. */
     public function test_staff_who_are_not_doctors_have_no_inbox(): void
     {
         $this->signInAsOwner($this->organization);
 
         $this->getJson(self::STAFF_DOCTOR.'/conversations')->assertForbidden();
+        $this->getJson(self::STAFF_DOCTOR.'/conversations?location_id='.$this->branchId)->assertForbidden();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | The desk's own thread
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * A receptionist at [branchId], signed in.
+     *
+     * @return string token
+     */
+    private function receptionist(string $email = 'priya@clinic.test', ?int $branchId = null): string
+    {
+        $this->onTenant($this->organization, function () use ($email, $branchId) {
+            $user = TenantUser::on('organization')->create([
+                'name' => 'Priya',
+                'email' => $email,
+                'password' => bcrypt('desk-secret-1'),
+                'is_active' => true,
+                'role' => TenantUser::STAFF,
+            ]);
+
+            // This organization was given appointments after its roles were
+            // seeded, so the desk's role is written here.
+            $role = Role::on('organization')->firstOrCreate(
+                ['slug' => 'receptionist'],
+                ['name' => 'Receptionist', 'scope' => Role::SCOPE_BRANCH],
+            );
+            $role->syncCapabilities(['appointments.view', 'appointments.queue', 'appointments.messages_desk']);
+
+            BranchMembership::on('organization')->create([
+                'user_id' => $user->id,
+                'location_id' => $branchId ?? $this->branchId,
+                'role_id' => $role->id,
+            ]);
+        });
+
+        $this->fresh();
+        $this->flushHeaders();
+
+        return $this->postJson('/api/v1/tenant/auth/token', [
+            'subdomain' => $this->organization->subdomain,
+            'email' => $email,
+            'password' => 'desk-secret-1',
+        ])->assertOk()->json('data.token');
+    }
+
+    /** A patient registered at this test's branch, with an app login. */
+    private function registeredHere(string $name): array
+    {
+        [$customerId, $token] = $this->patient($name, null);
+
+        $this->onTenant($this->organization, fn () => Customer::on('organization')
+            ->whereKey($customerId)
+            ->update(['registered_location_id' => $this->branchId]));
+
+        return [$customerId, $token];
+    }
+
+    public function test_the_desk_and_a_patient_write_to_each_other_apart_from_the_doctor(): void
+    {
+        [$customerId, $patientToken] = $this->registeredHere('Rahul Tiwari');
+        $deskToken = $this->receptionist();
+        $desk = self::STAFF_DOCTOR;
+        $at = '?location_id='.$this->branchId;
+
+        // Every patient registered at the branch, visit or not.
+        $this->as($deskToken)->getJson("{$desk}/contacts{$at}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $customerId)
+            ->assertJsonPath('meta.total', 1);
+
+        $conversationId = $this->as($deskToken)
+            ->postJson("{$desk}/conversations{$at}", ['customer_id' => $customerId])
+            ->assertOk()
+            ->assertJsonPath('meta.side', 'front_desk')
+            ->json('data.id');
+
+        $this->as($deskToken)
+            ->postJson("{$desk}/conversations/{$conversationId}/messages{$at}", ['body' => 'Your report is ready.'])
+            ->assertCreated()
+            ->assertJsonPath('data.sender_side', 'front_desk');
+
+        // The patient sees it as the branch's desk, unread, and answers.
+        $this->as($patientToken)->getJson(self::PORTAL.'/conversations')
+            ->assertOk()
+            ->assertJsonPath('meta.unread', 1)
+            ->assertJsonPath('data.0.counterpart.kind', 'front_desk')
+            ->assertJsonPath('data.0.counterpart.name', 'Gurgaon')
+            ->assertJsonPath('data.0.unread', 1);
+
+        $this->as($patientToken)
+            ->postJson(self::PORTAL."/conversations/{$conversationId}/messages", ['body' => 'Thank you'])
+            ->assertCreated();
+
+        $this->as($deskToken)->getJson("{$desk}/unread{$at}")->assertOk()->assertJsonPath('data.unread', 1);
+
+        // Not the doctor's: it never reaches their inbox.
+        $this->asDoctor()->getJson(self::STAFF_DOCTOR.'/conversations')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+        $this->asDoctor()->getJson(self::STAFF_DOCTOR."/conversations/{$conversationId}")->assertNotFound();
+    }
+
+    public function test_a_patient_registered_elsewhere_is_not_the_desks_to_message(): void
+    {
+        [$customerId] = $this->patient('Rahul Tiwari');
+        $deskToken = $this->receptionist();
+
+        $this->as($deskToken)
+            ->postJson(self::STAFF_DOCTOR.'/conversations?location_id='.$this->branchId, ['customer_id' => $customerId])
+            ->assertForbidden();
+    }
+
+    public function test_the_desk_writes_only_for_a_branch_it_works_at(): void
+    {
+        $noida = $this->onTenant($this->organization, fn () => Location::on('organization')->create([
+            'name' => 'Noida',
+            'code' => 'NOI',
+            'type' => Location::CLINIC,
+            'is_active' => true,
+        ])->id);
+
+        $deskToken = $this->receptionist();
+
+        // Their own branch when none is named; never one they do not work at.
+        $this->as($deskToken)->getJson(self::STAFF_DOCTOR.'/conversations')
+            ->assertOk()
+            ->assertJsonPath('meta.side', 'front_desk');
+        $this->as($deskToken)->getJson(self::STAFF_DOCTOR."/conversations?location_id={$noida}")->assertForbidden();
+    }
+
+    public function test_one_branchs_desk_cannot_read_anothers_thread(): void
+    {
+        [$customerId] = $this->registeredHere('Rahul Tiwari');
+        $deskToken = $this->receptionist();
+
+        $conversationId = $this->as($deskToken)
+            ->postJson(self::STAFF_DOCTOR.'/conversations?location_id='.$this->branchId, ['customer_id' => $customerId])
+            ->json('data.id');
+
+        $noida = $this->onTenant($this->organization, fn () => Location::on('organization')->create([
+            'name' => 'Noida',
+            'code' => 'NOI',
+            'type' => Location::CLINIC,
+            'is_active' => true,
+        ])->id);
+
+        $otherDesk = $this->receptionist('meena@clinic.test', $noida);
+
+        $this->as($otherDesk)
+            ->getJson(self::STAFF_DOCTOR."/conversations/{$conversationId}?location_id={$noida}")
+            ->assertNotFound();
+    }
+
+    public function test_a_patients_message_reaches_every_receptionist_at_the_branch(): void
+    {
+        [$customerId, $patientToken] = $this->registeredHere('Rahul Tiwari');
+        $deskToken = $this->receptionist();
+        $this->receptionist('meena@clinic.test');
+
+        $conversationId = $this->as($deskToken)
+            ->postJson(self::STAFF_DOCTOR.'/conversations?location_id='.$this->branchId, ['customer_id' => $customerId])
+            ->assertOk()
+            ->json('data.id');
+
+        $this->as($patientToken)
+            ->postJson(self::PORTAL."/conversations/{$conversationId}/messages", ['body' => 'Is the clinic open today?'])
+            ->assertCreated();
+
+        $deskLogins = $this->onTenant($this->organization, fn () => TenantUser::query()
+            ->whereIn('email', ['priya@clinic.test', 'meena@clinic.test'])
+            ->pluck('id')
+            ->sort()
+            ->values()
+            ->all());
+
+        Queue::assertPushed(SendPushMessage::class, fn (SendPushMessage $job) => collect($job->content['user_ids'])->sort()->values()->all() === $deskLogins
+            && $job->content['title'] === 'Rahul Tiwari'
+            && $job->content['data']['conversation_id'] === $conversationId);
     }
 
     public function test_the_two_apps_routes_do_not_cross(): void

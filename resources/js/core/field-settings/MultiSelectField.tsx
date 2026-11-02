@@ -126,7 +126,7 @@ export function MultiSelectField<T extends FieldValues>({
                                     <span
                                         role="button"
                                         tabIndex={-1}
-                                        aria-label={`Remove ${value}`}
+                                        aria-label={`Remove ${options.find((option) => option.value === value)?.label ?? value}`}
                                         onClick={(event) => {
                                             event.stopPropagation();
                                             toggle(value);

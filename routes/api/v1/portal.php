@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Tenant\ConversationController;
 use App\Http\Controllers\Api\V1\Tenant\DeviceController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\AppointmentController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\DoctorController;
+use App\Http\Controllers\Api\V1\Tenant\Portal\FamilyController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\HomeController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\LabReportController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\PrescriptionController;
@@ -93,6 +94,21 @@ Route::middleware([
         Route::get('appointments', [AppointmentController::class, 'index'])
             ->middleware('permission:portal.appointments.view')
             ->name('appointments.index');
+
+        /*
+        | The people a patient books for — each one a patient record of the
+        | clinic's own. Booking for them is `member_id` on appointments above,
+        | which asks for this same capability.
+        */
+        Route::middleware('permission:portal.family')
+            ->prefix('family')
+            ->name('family.')
+            ->group(function () {
+                Route::get('/', [FamilyController::class, 'index'])->name('index');
+                Route::post('/', [FamilyController::class, 'store'])->middleware('throttle:20,1')->name('store');
+                Route::put('{member}', [FamilyController::class, 'update'])->whereNumber('member')->name('update');
+                Route::delete('{member}', [FamilyController::class, 'destroy'])->whereNumber('member')->name('destroy');
+            });
 
         /*
         | Messages with the doctors they have seen. The doctor's half is in

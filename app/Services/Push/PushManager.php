@@ -21,6 +21,8 @@ use Illuminate\Support\Carbon;
  * A patient is reached through their OWN app logins in this organization —
  * never through anything a request named. One with no app login has no
  * address on this channel, exactly as one with no email has none on email.
+ * The exception is a family member added from the app, whose appointment
+ * messages also go to the patient who books for them (queue()).
  */
 class PushManager
 {
@@ -54,7 +56,14 @@ class PushManager
         array $data = [],
         array $extra = [],
     ): ?MessageLog {
-        $logins = $this->loginsFor($customer);
+        // Not in loginsFor(): that also says who can answer a video call, and
+        // only the patient themselves can.
+        $holder = $customer->accountHolder();
+
+        $logins = array_values(array_unique([
+            ...$this->loginsFor($customer),
+            ...($holder === null ? [] : $this->loginsFor($holder)),
+        ]));
 
         if ($logins === []) {
             return null;

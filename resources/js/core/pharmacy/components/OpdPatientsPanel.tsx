@@ -138,7 +138,7 @@ function RowMenu({ patient }: { patient: OpdPatient }) {
     }, [open]);
 
     // The only thing it offers is the patient's file; without that there is no menu.
-    if (patient.patient.id === null || !can('customers.view')) {
+    if (patient.patient.id === null || !can('customers.record')) {
         return <span className="opd-hand-menu-gap" aria-hidden="true" />;
     }
 

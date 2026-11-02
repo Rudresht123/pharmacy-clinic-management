@@ -115,6 +115,107 @@ class ChannelSender
     }
 
     /**
+     * Queue one rule's message to everybody it names (RecipientResolver),
+     * and answer with the delivery-log rows.
+     *
+     * Email is ONE message carrying To, CC and BCC — the copies are copies,
+     * as in any mail client — filed against the patient when they are on it.
+     * An App notification is one to the patient, logged against them, and one
+     * to the staff named. WhatsApp goes to the patient's own number only.
+     *
+     * The caller has checked whatever this rule's audience needs checking
+     * (AutomationSender::send); this checks the template.
+     *
+     * @param  array<string, scalar|null>  $variables
+     * @param  array<string, mixed>  $extra
+     * @param  array<string, scalar|null>  $data
+     * @return list<MessageLog>
+     */
+    public function queueTo(
+        Organization $organization,
+        string $channel,
+        Recipients $recipients,
+        ?Customer $customer,
+        MessageTemplate $template,
+        array $variables,
+        ?int $locationId = null,
+        array $extra = [],
+        array $data = [],
+    ): array {
+        if (! in_array($channel, self::DELIVERABLE, true) || ! self::sendable($template, $channel) || $recipients->isEmpty()) {
+            return [];
+        }
+
+        if ($channel === CommunicationChannel::WHATSAPP) {
+            $log = $recipients->patient && $customer !== null
+                ? $this->queue($organization, $channel, $customer, $template, $variables, $locationId, $extra, $data)
+                : null;
+
+            return $log === null ? [] : [$log];
+        }
+
+        [$subject, $content] = $this->wording($template, $locationId);
+        $extra += ['message_template_id' => $template->id];
+        $logs = [];
+
+        if ($channel === CommunicationChannel::EMAIL) {
+            foreach ($recipients->envelopes() as $envelope) {
+                $to = array_keys($envelope['to']);
+                $everybody = [...$to, ...array_keys($envelope['cc']), ...array_keys($envelope['bcc'])];
+                $withPatient = $recipients->patientAddress !== null && in_array($recipients->patientAddress, $everybody, true);
+
+                $logs[] = $this->email->forOrganization($organization)->queue(
+                    EmailMessage::make(
+                        to: $to[0],
+                        subject: (string) ($subject ?: $template->name),
+                        body: $content,
+                        template: $template->name,
+                        variables: $variables,
+                        alsoTo: array_slice($to, 1),
+                        cc: array_keys($envelope['cc']),
+                        bcc: array_keys($envelope['bcc']),
+                    ),
+                    $withPatient ? $customer?->id : null,
+                    $extra + ['recipient_name' => mb_substr((string) reset($envelope['to']), 0, 150)],
+                );
+            }
+
+            return $logs;
+        }
+
+        $title = MessageVariables::fill($subject ?: $template->name, $variables);
+        $body = MessageVariables::fill($content, $variables);
+
+        // The log keeps the wording UNFILLED, as email does.
+        $logged = $extra + ['subject' => $subject, 'template_name' => $template->name];
+
+        if ($recipients->patient && $customer !== null) {
+            $log = $this->push->queue($organization, $customer, $title, $body, $data, $logged);
+
+            if ($log !== null) {
+                $logs[] = $log;
+            }
+        }
+
+        if ($recipients->staff !== []) {
+            $names = array_values($recipients->staff);
+            $label = count($names) === 1 ? $names[0] : $names[0].' +'.(count($names) - 1);
+
+            $logs[] = $this->push->queueToUsers(
+                $organization,
+                array_keys($recipients->staff),
+                $label,
+                $title,
+                $body,
+                $data,
+                $logged + ['recipient_name' => mb_substr($label, 0, 150)],
+            );
+        }
+
+        return $logs;
+    }
+
+    /**
      * Wording written on the message itself — a campaign's own subject and
      * body rather than a template's. Email and App notifications only: a
      * WhatsApp message may only ever be a template the provider approved.
@@ -161,12 +262,18 @@ class ChannelSender
     ): ?MessageLog {
         $extra += ['recipient_name' => $customer->name];
 
+        // A family member added from the app has no number or address of their
+        // own: whoever books for them is who hears about their visits.
+        $holder = blank($customer->email) || blank($customer->phone) ? $customer->accountHolder() : null;
+        $email = filled($customer->email) ? $customer->email : $holder?->email;
+        $phone = filled($customer->phone) ? $customer->phone : $holder?->phone;
+
         return match ($channel) {
-            CommunicationChannel::EMAIL => blank($customer->email) ? null : $this->email
+            CommunicationChannel::EMAIL => blank($email) ? null : $this->email
                 ->forOrganization($organization)
                 ->queue(
                     EmailMessage::make(
-                        to: (string) $customer->email,
+                        to: (string) $email,
                         subject: (string) ($subject ?: $name),
                         body: $content,
                         template: $name,
@@ -176,11 +283,11 @@ class ChannelSender
                     $extra,
                 ),
 
-            CommunicationChannel::WHATSAPP => blank($customer->phone) ? null : $this->whatsapp
+            CommunicationChannel::WHATSAPP => blank($phone) ? null : $this->whatsapp
                 ->forOrganization($organization)
                 ->queue(
                     WhatsAppMessage::template(
-                        phone: (string) $customer->phone,
+                        phone: (string) $phone,
                         template: $name,
                         variables: $variables,
                     ),

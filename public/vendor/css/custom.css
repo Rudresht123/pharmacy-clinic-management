@@ -17130,6 +17130,23 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 .comm-rule-meta .comm-tag{ display:inline-flex; align-items:center; gap:4px; }
 .comm-rule-meta .comm-tag i{ font-size:12px; }
 
+/* Two readers, two lists: the patient's messages, then the clinic's own alerts.
+   One scroller holds both (.comm-rules), so the inner lists only lay out. */
+.comm-rule-group + .comm-rule-group{ margin-top:10px; }
+.comm-rule-group h6{ margin:4px 0 2px; font-size:10.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
+.comm-rule-list{ display:grid; gap:2px; margin:0; padding:0; list-style:none; }
+.comm-rule-list > li{ display:flex; align-items:center; }
+.comm-rule-list > li > i{ display:grid; place-items:center; width:34px; height:34px; flex:0 0 auto; border-radius:10px; background:rgba(var(--brand), .09); color:rgb(var(--brand)); font-size:17px; }
+/* Who it tells can be a long line; it ends rather than pushing the row wide. */
+.comm-rule-meta .comm-recip-tag{ display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+.comm-rule-meta .comm-recip-tag i{ margin-right:4px; vertical-align:-1px; }
+
+/* The rule form's To / CC / BCC. */
+.comm-recip{ margin-top:4px; padding-top:14px; border-top:1px solid var(--line); }
+.comm-recip-head{ margin-bottom:10px; }
+.comm-recip-head b{ display:block; font-size:12.5px; font-weight:700; color:var(--ink); }
+.comm-recip-head span{ display:block; margin-top:2px; font-size:11.5px; line-height:1.5; color:var(--muted); }
+
 /*
    The phone mock.
 
@@ -26054,6 +26071,8 @@ select.dt-input {
     margin-bottom: 18px;
 }
 
+/* A plain white card like every other: the tint stays on the icon, where it
+   says which figure this is, not washed over the whole tile. */
 .ph-stat {
     --tint: 59, 130, 246;
     --ink-tint: #1d4ed8;
@@ -26063,9 +26082,10 @@ select.dt-input {
     gap: 14px;
     min-width: 0;
     padding: 18px;
-    border: 1px solid rgba(var(--tint), 0.14);
+    border: 1px solid transparent;
     border-radius: 16px;
-    background: rgba(var(--tint), 0.07);
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(var(--brand), 0.06), 0 12px 32px rgba(var(--brand), 0.1);
 }
 
 .ph-stat.is-green { --tint: 16, 185, 129; --ink-tint: #047857; }
@@ -26094,7 +26114,7 @@ select.dt-input {
 .ph-stat-label {
     font-size: 13px;
     font-weight: 600;
-    color: var(--ink-tint);
+    color: var(--ink-3);
 }
 
 .ph-stat-value {
@@ -26137,6 +26157,40 @@ select.dt-input {
 .ph-split > .card {
     height: auto;
     margin-bottom: 0;
+}
+
+/*
+   The templates card: as tall as the device table beside it and never
+   taller — its list scrolls inside. `contain: size` takes the list's own
+   length out of the row's height, so a long library no longer stretches
+   the devices card with empty space; the min-height keeps it a usable
+   size when that card is short, and is its height on a phone.
+*/
+.ph-grid > .ph-tpl-card {
+    contain: size;
+    min-height: 560px;
+    display: flex;
+    flex-direction: column;
+}
+
+.ph-tpl-card > .card-header { flex: 0 0 auto; }
+
+.ph-tpl-card > .card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.ph-tpl-card .ph-subtabs,
+.ph-tpl-card .ph-search,
+.ph-tpl-card .ph-empty { flex: 0 0 auto; }
+
+.ph-tpl-card .ph-tpl {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .ph-split {
@@ -26508,26 +26562,6 @@ select.dt-input {
 }
 
 /* The list and the column beside it, each card at its own height. */
-.ph-templates {
-    display: grid;
-    grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr);
-    gap: 16px;
-    align-items: start;
-}
-
-.ph-side {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-width: 0;
-}
-
-.ph-templates > .card,
-.ph-side > .card {
-    height: auto;
-    margin-bottom: 0;
-}
-
 .ph-card > .card-header {
     align-items: center;
 }
@@ -26780,7 +26814,6 @@ select.dt-input {
 }
 
 @media (max-width: 1199.98px) {
-    .ph-templates,
     .ph-grid,
     .ph-split { grid-template-columns: minmax(0, 1fr); }
 }
@@ -26811,63 +26844,13 @@ select.dt-input {
 [data-theme='dark'] .ph-change.is-good { color: #6fd6a6; }
 [data-theme='dark'] .ph-change.is-bad,
 [data-theme='dark'] .ph-bad { color: #fca5a5 !important; }
-[data-theme='dark'] .ph-stat { --ink-tint: #93c5fd; background: rgba(var(--tint), 0.1); }
+[data-theme='dark'] .ph-stat { --ink-tint: #93c5fd; background: var(--surface); border-color: var(--line); }
 [data-theme='dark'] .ph-stat.is-green { --ink-tint: #6ee7b7; }
 [data-theme='dark'] .ph-stat.is-orange { --ink-tint: #fdba74; }
 [data-theme='dark'] .ph-stat.is-red { --ink-tint: #fca5a5; }
 [data-theme='dark'] .ph-platform.is-ios { color: var(--ink); }
 [data-theme='dark'] .ph-icon-btn.is-boxed.is-danger { color: #fca5a5; }
 [data-theme='dark'] .ph-tpl-icon { filter: brightness(1.35); }
-
-.bw-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.bw-list > li {
-    padding: 10px 12px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--surface);
-}
-
-.bw-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.bw-name {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--ink);
-}
-
-.bw-text {
-    margin: 8px 0 0;
-    font-size: 13px;
-    color: var(--ink-2);
-}
-
-.bw-editor {
-    margin-top: 10px;
-}
-
-.bw-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-top: 10px;
-}
 
 /* =========================================================
    Billing settings (bset-)

@@ -16,6 +16,7 @@ use App\Services\Permissions\Permission;
 use App\Services\Tenancy\TenantBranchAccess;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\BranchAdminProvisioner;
+use App\Services\Tenant\DefaultRoleSeeder;
 use App\Support\Fields\LocationFields;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,19 +50,34 @@ class LocationController extends BaseApiController
         );
     }
 
+    /**
+     * Two readings of one list.
+     *
+     * `all=1` is the dropdown every screen that names a branch uses — the
+     * active branches this person works at (the repository narrows it), so
+     * it needs no tick: being able to pick your own branch is part of every
+     * screen that asks. Anything else is the Branches screen itself — every
+     * site with its manager, paged — which is `branches.view`, an
+     * organization-level tick a branch role cannot hold.
+     */
     public function index(Request $request): JsonResponse
     {
-        $query = $this->locations->listing(
-            type: $request->string('type')->toString() ?: null,
-            activeOnly: $request->boolean('active_only'),
-        );
-
-        // `all=1` is the dropdown case — every active location, unpaginated.
         if ($request->boolean('all')) {
             return $this->ok(
                 LocationResource::collection($this->locations->activeOrdered())
             );
         }
+
+        abort_unless(
+            $this->permission->allows($request->attributes->get('tenant.organization'), $request->user(), 'branches.view'),
+            403,
+            'This action is not available to you.',
+        );
+
+        $query = $this->locations->listing(
+            type: $request->string('type')->toString() ?: null,
+            activeOnly: $request->boolean('active_only'),
+        );
 
         return $this->paginated(
             $this->tableQuery(
@@ -101,10 +117,14 @@ class LocationController extends BaseApiController
         $location = DB::connection(TenantConnectionService::CONNECTION)
             ->transaction(function () use ($data, $admin, $request, $provisioner) {
                 $location = $this->locations->create($data);
+                $organization = $request->attributes->get('tenant.organization');
+
+                // Its own starting roles, which the branch then sets as it likes.
+                if ($organization) {
+                    app(DefaultRoleSeeder::class)->seedBranch($organization, $location);
+                }
 
                 if ($admin) {
-                    $organization = $request->attributes->get('tenant.organization');
-
                     /*
                      * The role is built from what this branch actually runs,
                      * not from the whole catalogue — an admin at a

@@ -35,6 +35,7 @@ import {
     VitalsHistory,
     VitalsLatest,
 } from '../components/PatientFileSections';
+import { PatientPhone } from '@/core/customers/components/PatientRecordLink';
 
 function useRecord(id: string | undefined) {
     return useQuery({
@@ -268,7 +269,7 @@ export default function PatientPage() {
                         {patient.phone && (
                             <li>
                                 <i className="ti ti-phone" aria-hidden="true" />
-                                <a href={`tel:${patient.phone}`}>{patient.phone}</a>
+                                <PatientPhone phone={patient.phone} />
                             </li>
                         )}
 

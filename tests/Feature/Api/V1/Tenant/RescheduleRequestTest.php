@@ -8,6 +8,7 @@ use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\AppointmentRescheduleRequest;
 use App\Models\Tenant\AppointmentSetting;
+use App\Models\Tenant\AutomationRule;
 use App\Models\Tenant\CommunicationChannel;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
@@ -18,6 +19,7 @@ use App\Models\Tenant\PatientNotification;
 use App\Models\Tenant\User as TenantUser;
 use App\Services\Tenant\DoctorPostings;
 use App\Services\Tenant\PatientAccountProvisioner;
+use App\Support\Communication\StaffAlertDefaults;
 use App\Support\Opd\Weekday;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -198,11 +200,30 @@ class RescheduleRequestTest extends TenantTestCase
         $this->onTenant($this->organization, fn () => AppointmentSetting::current()->fill($values)->save());
     }
 
+    /** Who "Tell staff: reschedule request" names, on both its channels. */
+    private function tellAboutRequests(array $to): void
+    {
+        $this->onTenant($this->organization, fn () => AutomationRule::query()
+            ->where('event_key', AutomationRule::APPOINTMENT_RESCHEDULE_REQUESTED)
+            ->where('audience', AutomationRule::STAFF)
+            ->get()
+            ->each(fn (AutomationRule $rule) => $rule->forceFill(['recipients' => ['to' => $to]])->save()));
+    }
+
+    /** Patient messages are the communication module's, on a connected channel. */
+    private function appNotificationsOn(): void
+    {
+        $this->grantModule($this->organization, 'communication');
+
+        $this->onTenant($this->organization, fn () => CommunicationChannel::forChannel(CommunicationChannel::PUSH)
+            ->forceFill(['is_connected' => true])->save());
+    }
+
     /** Who was pushed about a new request. @return list<int> */
     private function pushedAboutRequests(): array
     {
         return collect(Queue::pushed(SendPushMessage::class))
-            ->filter(fn (SendPushMessage $job) => ($job->content['data']['type'] ?? null) === 'appointment.reschedule_requested')
+            ->filter(fn (SendPushMessage $job) => ($job->content['data']['type'] ?? null) === 'reschedule_requested')
             ->flatMap(fn (SendPushMessage $job) => $job->content['user_ids'])
             ->sort()->values()->all();
     }
@@ -255,6 +276,8 @@ class RescheduleRequestTest extends TenantTestCase
             ->assertJsonPath('data.0.reason', 'Travelling on Monday')
             ->json('data.0.id');
 
+        $this->appNotificationsOn();
+
         $this->asReceptionist()->postJson(self::STAFF."/reschedule-requests/{$requestId}/approve")
             ->assertOk()
             ->assertJsonPath('data.status', 'approved')
@@ -266,11 +289,16 @@ class RescheduleRequestTest extends TenantTestCase
         $this->assertSame('10:30', substr((string) $visit->slot_at, 0, 5));
         $this->assertSame(Appointment::STATUS_BOOKED, $visit->status);
 
-        // The patient is told, in the app and by push.
+        // The patient is told, in the app and by push ("Send reschedule
+        // confirmation") — and the doctor, whose day it changed ("Tell
+        // staff: appointment moved").
         $this->assertTrue($this->onTenant($this->organization, fn () => PatientNotification::query()
             ->where('customer_id', $patient['customer'])->where('type', 'appointment_rescheduled')->exists()));
         Queue::assertPushed(SendPushMessage::class, fn (SendPushMessage $job) => $job->content['user_ids'] === [$patient['login']]
             && $job->content['data']['type'] === 'appointment.rescheduled');
+        Queue::assertPushed(SendPushMessage::class, fn (SendPushMessage $job) => $job->content['user_ids'] === [$this->login('anjali@clinic.test')]
+            && $job->content['data']['type'] === 'appointment_rescheduled'
+            && $job->content['data']['appointment_id'] === $patient['visit']);
 
         // Monday 10:00 is free again for somebody else.
         $this->patientWithBooking('Meera Nair', '10:00');
@@ -384,14 +412,25 @@ class RescheduleRequestTest extends TenantTestCase
         $doctorLogin = $this->login('anjali@clinic.test');
         $receptionist = $this->login(self::RECEPTIONIST_EMAIL);
 
-        $this->setting(['reschedule_notify' => AppointmentSetting::DOCTOR]);
+        $this->tellAboutRequests([['type' => 'doctor']]);
         $this->askToMove($this->patientWithBooking('Rahul Tiwari', '10:00'))->assertOk();
         $this->assertSame([$doctorLogin], $this->pushedAboutRequests());
         $this->assertSame(['anjali@clinic.test'], $this->emailedAboutRequests());
 
-        $this->setting(['reschedule_notify' => AppointmentSetting::BOTH]);
+        $this->tellAboutRequests([['type' => 'front_desk'], ['type' => 'doctor']]);
         $this->askToMove($this->patientWithBooking('Meera Nair', '10:30'), '11:00')->assertOk();
         $this->assertSame(collect([$doctorLogin, $doctorLogin, $receptionist])->sort()->values()->all(), $this->pushedAboutRequests());
+    }
+
+    /** What a clinic had answered on the old Appointment Settings screen is who the rule starts with. */
+    public function test_the_old_setting_becomes_who_the_rule_starts_with(): void
+    {
+        $startsWith = fn (string $notify) => collect(StaffAlertDefaults::rules($notify))
+            ->firstWhere('event_key', AutomationRule::APPOINTMENT_RESCHEDULE_REQUESTED)['recipients']['to'];
+
+        $this->assertSame([['type' => 'front_desk']], $startsWith(AppointmentSetting::DESK));
+        $this->assertSame([['type' => 'doctor']], $startsWith(AppointmentSetting::DOCTOR));
+        $this->assertSame([['type' => 'front_desk'], ['type' => 'doctor']], $startsWith(AppointmentSetting::BOTH));
     }
 
     public function test_only_the_settings_holder_changes_them(): void
@@ -399,15 +438,16 @@ class RescheduleRequestTest extends TenantTestCase
         $this->asReceptionist()->putJson(self::STAFF.'/appointment-settings', ['check_in_by' => 'doctor'])->assertForbidden();
 
         $this->asOwner()->putJson(self::STAFF.'/appointment-settings', [
-            'reschedule_notify' => 'both',
             'check_in_by' => 'doctor',
         ])->assertOk()->assertJsonPath('data.check_in_by', 'doctor')->assertJsonPath('data.call_by', 'both');
 
         $this->asOwner()->putJson(self::STAFF.'/appointment-settings', ['call_by' => 'nobody'])->assertUnprocessable();
 
         // Anybody who works appointments can read them, to draw their buttons.
+        // Who hears about a request is no longer one of them: it is a rule.
         $this->asReceptionist()->getJson(self::STAFF.'/appointment-settings')->assertOk()
-            ->assertJsonPath('data.reschedule_notify', 'both');
+            ->assertJsonPath('data.check_in_by', 'doctor')
+            ->assertJsonMissingPath('data.reschedule_notify');
     }
 
     /*

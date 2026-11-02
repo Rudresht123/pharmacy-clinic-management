@@ -3,487 +3,447 @@
 <head>
 <meta charset="utf-8">
 <title>Billing and Payments: User Guide</title>
-<meta name="description" content="A step-by-step manual in simple English, with flow charts: how OPD, lab and pharmacy bills are made, how to take a payment, give a refund, collect a pharmacy balance and take back medicines, what the payment rules mean, who can do what, how to read the Finance screen, and what to do when something does not work.">
+<meta name="description" content="A complete step-by-step staff guide and working flow: OPD, lab and pharmacy bills, taking payments (full, part, split cash/UPI/card), managing outstanding invoices and aging, payments register and daily cashier reconciliation, refunds, cancellations, and troubleshooting.">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-    @page { margin: 16mm 14mm 18mm 14mm; }
-    body { font-family: 'DejaVu Sans', sans-serif; font-size: 9.5pt; color: #1e293b; line-height: 1.45; }
-    h1 { font-size: 20pt; color: #2e37a4; margin: 0 0 4px 0; }
-    h2 { font-size: 13.5pt; color: #2e37a4; margin: 22px 0 8px 0; padding-bottom: 4px; border-bottom: 1.2pt solid #c7cbf0; }
-    h3 { font-size: 10.5pt; color: #0f172a; margin: 14px 0 6px 0; }
-    p { margin: 0 0 7px 0; }
-    .sub { color: #64748b; font-size: 9pt; margin-bottom: 14px; }
-    .band { background-color: #eef0fb; border: 0.8pt solid #c7cbf0; padding: 10px 12px; margin: 10px 0 12px 0; }
-    .note { background-color: #fff8e6; border: 0.8pt solid #f1d9a0; padding: 8px 10px; margin: 8px 0; }
-    .ok { background-color: #e9f8ef; border: 0.8pt solid #a7dbbd; padding: 8px 10px; margin: 8px 0; }
-    .warn { background-color: #fdecee; border: 0.8pt solid #f3b8c0; padding: 8px 10px; margin: 8px 0; }
+    @page { margin: 15mm 13mm 16mm 13mm; }
+    body { font-family: 'DejaVu Sans', sans-serif; font-size: 9pt; color: #1e293b; line-height: 1.45; }
+    h1 { font-size: 19pt; color: #1e3a8a; margin: 0 0 4px 0; }
+    h2 { font-size: 13pt; color: #1e3a8a; margin: 20px 0 8px 0; padding-bottom: 4px; border-bottom: 1.2pt solid #c7d2fe; }
+    h3 { font-size: 10pt; color: #0f172a; margin: 13px 0 5px 0; }
+    p { margin: 0 0 6px 0; }
+    .sub { color: #64748b; font-size: 8.8pt; margin-bottom: 12px; }
+    .band { background-color: #eef2ff; border: 0.8pt solid #c7d2fe; padding: 9px 12px; margin: 9px 0 11px 0; border-radius: 4px; }
+    .note { background-color: #fffbeb; border: 0.8pt solid #fde68a; padding: 7px 10px; margin: 7px 0; border-radius: 3px; }
+    .ok { background-color: #f0fdf4; border: 0.8pt solid #bbf7d0; padding: 7px 10px; margin: 7px 0; border-radius: 3px; }
+    .warn { background-color: #fef2f2; border: 0.8pt solid #fecaca; padding: 7px 10px; margin: 7px 0; border-radius: 3px; }
     table { width: 100%; border-collapse: collapse; margin: 6px 0 10px 0; }
-    th { background-color: #2e37a4; color: #ffffff; text-align: left; font-size: 8.5pt; padding: 5px 6px; border: 0.6pt solid #2e37a4; }
-    td { border: 0.6pt solid #cbd5e1; padding: 5px 6px; vertical-align: top; font-size: 8.8pt; }
-    code { font-family: 'DejaVu Sans Mono', monospace; font-size: 8.3pt; color: #1e3a8a; }
+    th { background-color: #1e3a8a; color: #ffffff; text-align: left; font-size: 8.3pt; padding: 5px 6px; border: 0.6pt solid #1e3a8a; }
+    td { border: 0.6pt solid #cbd5e1; padding: 5px 6px; vertical-align: top; font-size: 8.5pt; }
+    code { font-family: 'DejaVu Sans Mono', monospace; font-size: 8pt; color: #1e40af; background: #f1f5f9; padding: 1px 3px; }
     .path { font-weight: bold; color: #0f172a; }
-    ol, ul { margin: 2px 0 8px 0; padding-left: 18px; }
+    ol, ul { margin: 2px 0 7px 0; padding-left: 17px; }
     li { margin-bottom: 3px; }
-    .small { font-size: 8.3pt; color: #475569; }
+    .small { font-size: 8pt; color: #475569; }
     .keep { page-break-inside: avoid; }
     h2, h3, .chart-title { page-break-after: avoid; }
     .break { page-break-before: always; }
     tr { page-break-inside: avoid; }
     thead { display: table-header-group; }
-    .yes { color: #047857; font-weight: bold; }
-    .no { color: #be123c; font-weight: bold; }
+    .yes { color: #059669; font-weight: bold; }
+    .no { color: #dc2626; font-weight: bold; }
 
-    /* Flow charts: plain tables, so the browser and the PDF draw them the same way. */
-    .chart { margin: 10px 0 14px 0; page-break-inside: avoid; }
-    .chart-title { font-size: 8.5pt; font-weight: bold; color: #475569; text-transform: uppercase; letter-spacing: 0.4pt; margin-bottom: 6px; }
+    /* Flow charts */
+    .chart { margin: 9px 0 13px 0; page-break-inside: avoid; }
+    .chart-title { font-size: 8.3pt; font-weight: bold; color: #475569; text-transform: uppercase; letter-spacing: 0.4pt; margin-bottom: 5px; }
     table.flow { width: 100%; border-collapse: collapse; margin: 0; }
-    table.flow td { border: 0; padding: 0; text-align: center; vertical-align: middle; font-size: 8.6pt; }
-    .box { border: 1pt solid #2e37a4; background-color: #eef0fb; padding: 6px 8px; margin: 0 4px; }
+    table.flow td { border: 0; padding: 0; text-align: center; vertical-align: middle; font-size: 8.3pt; }
+    .box { border: 1pt solid #1e3a8a; background-color: #eef2ff; padding: 5px 7px; margin: 0 3px; border-radius: 3px; }
     .box b { color: #0f172a; }
-    .box .who { display: block; font-size: 7.4pt; color: #475569; margin-top: 2px; }
-    .start { background-color: #2e37a4; color: #ffffff; }
+    .box .who { display: block; font-size: 7.2pt; color: #475569; margin-top: 2px; }
+    .start { background-color: #1e3a8a; color: #ffffff; }
     .start b { color: #ffffff; }
-    .money { background-color: #e9f8ef; border-color: #2f9e63; }
-    .ask { background-color: #fff8e6; border-color: #d9a520; }
-    .stop { background-color: #fdecee; border-color: #d9475b; }
-    .side { background-color: #f8fafc; border: 0.8pt dashed #94a3b8; padding: 5px 7px; margin: 0 4px; text-align: left; font-size: 8pt; color: #334155; }
-    .arrow { color: #64748b; font-size: 12pt; line-height: 1.1; padding: 1px 0; }
-    .lbl { font-size: 7.6pt; font-weight: bold; color: #475569; }
+    .money { background-color: #f0fdf4; border-color: #16a34a; }
+    .ask { background-color: #fffbeb; border-color: #d97706; }
+    .stop { background-color: #fef2f2; border-color: #dc2626; }
+    .side { background-color: #f8fafc; border: 0.8pt dashed #94a3b8; padding: 4px 6px; margin: 0 3px; text-align: left; font-size: 7.8pt; color: #334155; border-radius: 3px; }
+    .arrow { color: #64748b; font-size: 11pt; line-height: 1.1; padding: 1px 0; }
+    .lbl { font-size: 7.3pt; font-weight: bold; color: #475569; }
+
+    /* Badges */
+    .badge { display: inline-block; padding: 1px 5px; font-size: 7.5pt; font-weight: bold; border-radius: 3px; }
+    .badge-paid { background-color: #dcfce7; color: #15803d; }
+    .badge-unpaid { background-color: #fee2e2; color: #b91c1c; }
+    .badge-part { background-color: #fef3c7; color: #b45309; }
+    .badge-refund { background-color: #fee2e2; color: #b91c1c; }
+    .badge-method { background-color: #eff6ff; color: #1d4ed8; border: 0.5pt solid #bfdbfe; }
+    .kpi-row { display: table; width: 100%; margin: 6px 0 10px 0; }
+    .kpi-cell { display: table-cell; width: 25%; padding: 6px 8px; background: #f8fafc; border: 0.6pt solid #cbd5e1; vertical-align: top; }
+    .kpi-cell b { display: block; font-size: 11pt; color: #0f172a; margin: 2px 0; }
+    .kpi-cell span { font-size: 7.5pt; color: #64748b; }
 </style>
 </head>
 <body>
 
 <h1>Billing and Payments: User Guide</h1>
-<p class="sub">HMS &middot; For reception, cashiers, doctors, pharmacists, lab staff, managers and owners &middot; October 2026</p>
+<p class="sub">HMS &middot; Standard Staff Operational Manual &middot; Updated October 2026</p>
 
 <div class="band">
-    <b>In one line:</b> the OPD, the lab and the pharmacy each make their own bill and take their own money.
-    Medicines are never added to the doctor's bill, and tests are never added to the doctor's fee.
-    Owners and managers see all the money in one place, <span class="path">Billing &rsaquo; Finance</span>, where every rupee is counted once.
+    <b>In one sentence:</b> The OPD desk, the lab counter and the pharmacy POS each manage their own billing and payments without double-counting.
+    Clinic owners, managers, cashiers and accountants monitor the entire money lifecycle in one place through
+    <span class="path">Billing &rsaquo; Dashboard</span>, <span class="path">Billing &rsaquo; Payments</span> and <span class="path">Billing &rsaquo; Outstanding</span>.
 </div>
 
-<h3>What is in this guide</h3>
+<h3>Guide Table of Contents</h3>
 <table>
-    <thead><tr><th style="width:8%">#</th><th>Section</th><th style="width:38%">Read this if you are&hellip;</th></tr></thead>
+    <thead><tr><th style="width:7%">#</th><th style="width:38%">Working Flow Section</th><th style="width:35%">Key Topic Covered</th><th style="width:20%">Target Audience</th></tr></thead>
     <tbody>
-        <tr><td>1</td><td>The three bills of a visit</td><td>Everyone</td></tr>
-        <tr><td>2</td><td>Who can do what (roles)</td><td>Owner, manager</td></tr>
-        <tr><td>3</td><td>Setting up billing for the first time</td><td>Owner, manager</td></tr>
-        <tr><td>4</td><td>OPD: from check-in to payment</td><td>Reception, cashier, doctor</td></tr>
-        <tr><td>5</td><td>Taking a payment</td><td>Reception, cashier</td></tr>
-        <tr><td>6</td><td>Refunds, cancelling and correcting a bill</td><td>Cashier, manager</td></tr>
-        <tr><td>7</td><td>Lab bills</td><td>Lab staff, cashier</td></tr>
-        <tr><td>8</td><td>The pharmacy counter: sales, balances and returns</td><td>Pharmacist</td></tr>
-        <tr><td>9</td><td>The Finance screen</td><td>Owner, manager, accountant</td></tr>
-        <tr><td>10</td><td>When something does not work</td><td>Everyone</td></tr>
-        <tr><td>11</td><td>Where to find things</td><td>Everyone</td></tr>
+        <tr><td>1</td><td>The Big Picture &amp; 3 Counters</td><td>OPD, Lab &amp; Pharmacy separation, unified reporting</td><td>All Staff</td></tr>
+        <tr><td>2</td><td>Roles &amp; Permissions</td><td>Who can view, create, edit, collect and refund</td><td>Owner, Admin</td></tr>
+        <tr><td>3</td><td>First-Time Setup</td><td>Prefixes, payment rules, GST/tax, services &amp; prices</td><td>Owner, Manager</td></tr>
+        <tr><td>4</td><td>OPD Working Flow</td><td>Check-in &rarr; Doctor consult &rarr; Bill &rarr; Payment &rarr; Receipt</td><td>Reception, Cashier, Doctor</td></tr>
+        <tr><td>5</td><td>The Billing Dashboard</td><td>Top 4 KPIs, Revenue trend, Services donut, Invoices table</td><td>Owner, Accountant, Manager</td></tr>
+        <tr><td>6</td><td>Taking Payments &amp; Split Tenders</td><td>Pay in Full, Partial, Credit, split cash + UPI + card</td><td>Cashier, Receptionist</td></tr>
+        <tr><td>7</td><td>Outstanding Invoices &amp; Aging</td><td>Tracking debt, aging buckets (0&ndash;30, 31&ndash;60, 90+ days), recovery</td><td>Cashier, Accountant</td></tr>
+        <tr><td>8</td><td>Payments Register &amp; Day-End Close</td><td>Payment ledger, tender breakdown, cashier drawer reconciliation</td><td>Cashier, Accountant</td></tr>
+        <tr><td>9</td><td>Laboratory Orders &amp; Billing</td><td>Test pricing, automated billing, payment verification</td><td>Lab Staff, Cashier</td></tr>
+        <tr><td>10</td><td>Pharmacy Counter &amp; POS Sales</td><td>Counter sales, batch FIFO, credit balances, medicine returns</td><td>Pharmacist</td></tr>
+        <tr><td>11</td><td>Refunds, Corrections &amp; Cancelling</td><td>Refund slips (<code>RFD</code>), editing rules, cancellation audit</td><td>Cashier, Manager</td></tr>
+        <tr><td>12</td><td>Troubleshooting Guide</td><td>Common error messages and their immediate solutions</td><td>All Staff</td></tr>
+        <tr><td>13</td><td>Screen Navigation Directory</td><td>Exact menu paths for every operational task</td><td>All Staff</td></tr>
     </tbody>
 </table>
 
 <!-- ================================================================== -->
-<h2>1. The three bills of a visit</h2>
-<p>One patient visit can create up to three separate bills. Each one is paid at its own counter. Because they are separate, nothing is ever charged twice.</p>
+<h2>1. The Big Picture: How Clinic Billing Works</h2>
+<p>In HMS, one patient visit can generate up to three independent bills. Each bill belongs strictly to its department counter so that responsibilities and stock remain clean:</p>
 
 <div class="chart">
-    <div class="chart-title">Flow chart 1 &middot; One visit, three bills, one Finance view</div>
+    <div class="chart-title">Flow chart 1 &middot; The Three Billing Counters and Consolidated Finance</div>
     <table class="flow">
-        <tr><td colspan="3"><div class="box start"><b>The patient comes to the clinic</b></div></td></tr>
+        <tr><td colspan="3"><div class="box start"><b>Patient Arrives at Clinic</b><span class="who">Reception Desk Check-in</span></div></td></tr>
         <tr><td class="arrow">&darr;</td><td class="arrow">&darr;</td><td class="arrow">&darr;</td></tr>
         <tr>
-            <td style="width:33%"><div class="box"><b>OPD bill</b><span class="who">Doctor's fee and visit services</span><span class="who">Paid at the billing desk</span></div></td>
-            <td style="width:34%"><div class="box"><b>Lab bill</b><span class="who">One bill for each lab order</span><span class="who">Paid at the billing desk</span></div></td>
-            <td style="width:33%"><div class="box"><b>Pharmacy bill</b><span class="who">Medicines and products</span><span class="who">Paid at the pharmacy counter</span></div></td>
+            <td style="width:33%"><div class="box"><b>1. OPD Bill</b><span class="who">Doctor's fee, visit charges, procedures</span><span class="who">Paid at: <b>Billing Desk</b></span></div></td>
+            <td style="width:34%"><div class="box"><b>2. Lab Bill</b><span class="who">Blood tests, scans, pathology orders</span><span class="who">Paid at: <b>Billing Desk / Lab</b></span></div></td>
+            <td style="width:33%"><div class="box"><b>3. Pharmacy POS Bill</b><span class="who">Dispensed medicines, consumables</span><span class="who">Paid at: <b>Pharmacy Counter</b></span></div></td>
         </tr>
         <tr><td class="arrow">&darr;</td><td class="arrow">&darr;</td><td class="arrow">&darr;</td></tr>
-        <tr><td colspan="3"><div class="box money"><b>Billing &rsaquo; Finance</b><span class="who">Every payment and every refund from all three counters, counted once</span></div></td></tr>
+        <tr>
+            <td colspan="3"><div class="box money"><b>Centralized Billing Management</b><span class="who"><b>Billing &rsaquo; Dashboard</b> &middot; <b>Billing &rsaquo; Payments</b> &middot; <b>Billing &rsaquo; Outstanding</b></span><span class="who">Every rupee collected, owed, or refunded across all counters is reconciled once without duplicate entries.</span></div></td>
+        </tr>
     </table>
 </div>
 
 <table>
-    <thead><tr><th>Bill</th><th>What is on it</th><th>When it is made</th><th>Where it is paid</th></tr></thead>
+    <thead><tr><th>Department</th><th>What is billed</th><th>Trigger Timing Options</th><th>Counter Responsible</th></tr></thead>
     <tbody>
-        <tr><td><b>OPD</b></td><td>The doctor's consultation fee (or follow-up fee) and any "per visit" or "procedure" services</td><td>At check-in, after the consultation, or only when the desk makes it &mdash; you choose (section 3)</td><td><span class="path">Billing</span> &rarr; open the bill &rarr; <b>Take payment</b></td></tr>
-        <tr><td><b>Lab</b></td><td>The tests on that order, at the price on the day of the order</td><td>When the tests are ordered, or when the lab signs off</td><td><span class="path">Billing</span> &rarr; open the bill &rarr; <b>Take payment</b></td></tr>
-        <tr><td><b>Pharmacy</b></td><td>Medicines and other products</td><td>Always at the moment of sale</td><td>At the pharmacy counter itself</td></tr>
+        <tr><td><b>OPD</b></td><td>Consultation fee, follow-up, dressing, ECG, nursing charge</td><td>At check-in, after consultation, or on manual desk click</td><td>Reception / Billing counter</td></tr>
+        <tr><td><b>Laboratory</b></td><td>Ordered tests, profiles, panels, pathology tests</td><td>When tests ordered, or after lab results sign-off</td><td>Billing desk or Lab counter</td></tr>
+        <tr><td><b>Pharmacy</b></td><td>Dispensed medicines, surgicals, retail health items</td><td>At the moment of counter dispensing (POS)</td><td>Pharmacy counter directly</td></tr>
     </tbody>
 </table>
 
 <!-- ================================================================== -->
-<h2>2. Who can do what</h2>
-<p>What a person can do depends on their <b>role</b>. The owner sets roles in <span class="path">Roles &amp; Permissions</span>.</p>
+<h2>2. Who Can Do What (Roles &amp; Access)</h2>
+<p>Access is managed in <span class="path">Roles &amp; Permissions</span>. Each clinic role has specific permissions configured:</p>
 
 <table>
-    <thead><tr><th>Job</th><th>Permission to switch on</th><th>Group</th><th>Usually given to</th></tr></thead>
+    <thead><tr><th>Role</th><th>Primary Capabilities</th><th>Billing Permissions Needed</th></tr></thead>
     <tbody>
-        <tr><td>Check a patient in and call them</td><td>Check in patients and call them through</td><td>Appointments</td><td>Receptionist (doctors too, in small clinics)</td></tr>
-        <tr><td>Start and finish a consultation</td><td>Start a consultation / Complete and reopen a consultation</td><td>Appointments</td><td>Doctor</td></tr>
-        <tr><td>See bills</td><td>View invoices and payments</td><td>Billing &amp; Payments</td><td>Receptionist, cashier, accountant, manager</td></tr>
-        <tr><td>Take a payment</td><td>Record a payment</td><td>Billing &amp; Payments</td><td>Receptionist, cashier, accountant, manager</td></tr>
-        <tr><td>Make a bill by hand</td><td>Create invoices</td><td>Billing &amp; Payments</td><td>Accountant, manager</td></tr>
-        <tr><td>Correct an unpaid bill</td><td>Edit an invoice before payment</td><td>Billing &amp; Payments</td><td>Accountant, manager</td></tr>
-        <tr><td>Cancel a bill</td><td>Cancel an invoice</td><td>Billing &amp; Payments</td><td>Manager</td></tr>
-        <tr><td>Give money back</td><td>Refund a payment</td><td>Billing &amp; Payments</td><td>Accountant, manager</td></tr>
-        <tr><td>See all departments' money</td><td>View finance across OPD, lab and pharmacy</td><td>Billing &amp; Payments</td><td>Accountant, manager, head office</td></tr>
-        <tr><td>Sell at the pharmacy</td><td>Sell at the counter</td><td>Pharmacy</td><td>Pharmacist</td></tr>
-        <tr><td>Take back medicines, cancel a pharmacy bill</td><td>Cancel a bill or take goods back</td><td>Pharmacy</td><td>Senior pharmacist, manager</td></tr>
+        <tr><td><b>Receptionist / Cashier</b></td><td>Check in patients, create manual bills, record payments, print receipts</td><td><code>View invoices and payments</code>, <code>Record a payment</code></td></tr>
+        <tr><td><b>Doctor</b></td><td>Conduct consultations, order lab tests, prescribe medicines, add procedures</td><td><code>Start/complete consultations</code>, <code>Order lab tests</code></td></tr>
+        <tr><td><b>Pharmacist</b></td><td>Dispense medicines, collect counter sales, manage batch returns</td><td><code>Sell at counter</code>, <code>Cancel pharmacy bill/return</code></td></tr>
+        <tr><td><b>Accountant / Manager</b></td><td>Audit collections, manage refunds, correct unpaid bills, export registers</td><td><code>Create invoices</code>, <code>Edit before payment</code>, <code>Refund payment</code>, <code>Cancel invoice</code></td></tr>
+        <tr><td><b>Owner / Admin</b></td><td>Overall clinic finance, change payment policies, branch series, doctor fees</td><td><code>Full administrative access</code></td></tr>
     </tbody>
 </table>
 
-<h3>How to change a role</h3>
+<div class="warn"><b>Important for Reception Desks:</b> If your clinic collects consultation fees upfront at check-in, ensure the Receptionist role has both <b>View invoices and payments</b> and <b>Record a payment</b> switched on. Otherwise, the bill will generate but the desk cannot record the money.</div>
+
+<!-- ================================================================== -->
+<h2>3. First-Time Setup (Settings &rsaquo; Billing)</h2>
+<p>Before issuing real bills, configure clinic billing parameters once under <span class="path">Settings &rsaquo; Billing</span>:</p>
+
+<div class="chart">
+    <div class="chart-title">Flow chart 2 &middot; First-Time Clinic Billing Configuration</div>
+    <table class="flow">
+        <tr>
+            <td style="width:23%"><div class="box"><b>1. Payment Policy</b><span class="who">Pay in full / Part / Credit</span></div></td>
+            <td class="arrow" style="width:3%">&rarr;</td>
+            <td style="width:23%"><div class="box"><b>2. Accepted Methods</b><span class="who">Cash, UPI, Card, Bank</span></div></td>
+            <td class="arrow" style="width:3%">&rarr;</td>
+            <td style="width:23%"><div class="box"><b>3. Tax &amp; Printed Bill</b><span class="who">GST %, Terms, Footer note</span></div></td>
+            <td class="arrow" style="width:3%">&rarr;</td>
+            <td style="width:22%"><div class="box"><b>4. Document Series</b><span class="who">INV, RCP, RFD per branch</span></div></td>
+        </tr>
+    </table>
+</div>
+
 <ol>
-    <li>Open <span class="path">Roles &amp; Permissions</span> from the sidebar.</li>
-    <li>Click the role on the left, for example <b>Receptionist</b>.</li>
-    <li>Open the <b>Permissions</b> tab and click a group, for example <b>Billing &amp; Payments</b>.</li>
-    <li>Switch each permission on or off.</li>
-    <li>Click <b>Save Changes</b>.</li>
+    <li><b>Payment Policy:</b> Choose <b>Pay in full</b> (recommended for standard OPD), <b>Part payment allowed</b> (for procedures/instalments), or <b>Pay later (credit)</b> (allows registered patients to carry balances).</li>
+    <li><b>Payment Methods:</b> Enable the payment modes accepted at your counter: <b>Cash</b>, <b>UPI</b>, <b>Credit/Debit Card</b>, <b>Bank Transfer</b>, <b>Cheque</b>.</li>
+    <li><b>Document Number Series:</b> Customize official numbering prefixes per branch (e.g. <code>GKP/INV/26-27/00001</code> for invoices, <code>GKP/RCP/26-27/00001</code> for receipts, <code>GKP/RFD/26-27/00001</code> for refund vouchers). All sequences automatically restart each financial year on 1 April.</li>
+    <li><b>Department Timing:</b> Specify when OPD bills trigger (e.g. <b>After consultation</b>) and when Lab bills trigger (e.g. <b>When tests ordered</b>).</li>
+    <li><b>Services &amp; Pricing:</b> In <span class="path">Billing &rsaquo; Services &amp; Prices</span> and Doctor profiles, set doctor consultation fees, follow-up rules, registration fees, and nursing/procedure charges.</li>
 </ol>
-<p>The <b>Editing</b> box above the tabs says where the change applies. Leave it on <b>The whole organisation</b> to change every branch. Pick one branch to switch a permission off at that branch only. A branch can only take a permission away; it can never add one.</p>
-
-<div class="warn"><b>Check your receptionist.</b> If your clinic bills at check-in, the receptionist must also have <b>View invoices and payments</b> and <b>Record a payment</b>. Otherwise the bill is made but nobody at the desk can take the money. Organisations set up before October 2026 should check this once.</div>
-<div class="note">The owner can do almost everything, but <b>cannot check patients in</b>. That is the desk's job, so the owner needs a staff login for it.</div>
 
 <!-- ================================================================== -->
-<h2>3. Setting up billing for the first time</h2>
-<p>Do these steps once, in this order. Most of them are in <span class="path">Settings &rsaquo; Billing</span>.</p>
+<h2>4. OPD Working Flow: Check-in to Receipt</h2>
+<p>The standard lifecycle of an OPD patient visit and its billing:</p>
 
 <div class="chart">
-    <div class="chart-title">Flow chart 2 &middot; First-time setup</div>
+    <div class="chart-title">Flow chart 3 &middot; OPD Patient Visit and Payment Flow</div>
     <table class="flow">
         <tr>
-            <td style="width:23%"><div class="box"><b>1. Payment rule</b><span class="who">Full, part or later</span></div></td>
-            <td class="arrow" style="width:3%">&rarr;</td>
-            <td style="width:23%"><div class="box"><b>2. Payment methods</b><span class="who">Cash, card, UPI&hellip;</span></div></td>
-            <td class="arrow" style="width:3%">&rarr;</td>
-            <td style="width:23%"><div class="box"><b>3. Tax and printed bill</b><span class="who">Tax, terms, footer</span></div></td>
-            <td class="arrow" style="width:3%">&rarr;</td>
-            <td style="width:22%"><div class="box"><b>4. Bill numbers</b><span class="who">One prefix per branch</span></div></td>
-        </tr>
-        <tr><td colspan="7" class="arrow">&darr;</td></tr>
-        <tr>
-            <td><div class="box"><b>5. OPD timing</b><span class="who">When the OPD bill is made</span></div></td>
-            <td class="arrow">&rarr;</td>
-            <td><div class="box"><b>6. Lab timing</b><span class="who">When the lab bill is made</span></div></td>
-            <td class="arrow">&rarr;</td>
-            <td><div class="box"><b>7. Prices</b><span class="who">Doctor fees, services</span></div></td>
-            <td class="arrow">&rarr;</td>
-            <td><div class="box money"><b>8. Roles</b><span class="who">Who can take money</span></div></td>
-        </tr>
-    </table>
-</div>
-
-<table>
-    <thead><tr><th style="width:24%">Step</th><th>Where</th><th>What to choose</th></tr></thead>
-    <tbody>
-        <tr><td>1. Payment rule</td><td>Settings &rsaquo; Billing &rsaquo; Payments</td><td><b>Pay in full</b>, <b>Part payment allowed</b> or <b>Pay later (credit)</b>. See section 5.</td></tr>
-        <tr><td>2. Payment methods</td><td>Settings &rsaquo; Billing &rsaquo; Payments</td><td>Tick every method you accept. The pharmacy uses the same list. "Credit" is not a method; it is the payment rule above.</td></tr>
-        <tr><td>3. Tax and printed bill</td><td>Settings &rsaquo; Billing &rsaquo; Tax, Printed bill</td><td>Whether prices already include tax, the default tax rate, and the terms and footer printed on every bill. A change affects new bills only.</td></tr>
-        <tr><td>4. Bill numbers</td><td>Settings &rsaquo; Billing &rsaquo; Per branch</td><td>Each branch numbers its own bills, receipts, refunds, pharmacy bills and pharmacy returns, for example <code>GGN/INV/26-27/00001</code>. Numbers restart every 1 April. Bills already issued keep their numbers.</td></tr>
-        <tr><td>5. OPD timing</td><td>Settings &rsaquo; Billing &rsaquo; Billing by department &rsaquo; OPD</td><td><b>When the patient checks in</b> (fee taken first), <b>After the consultation</b> (most common), or <b>Only when the desk bills it</b>.</td></tr>
-        <tr><td>6. Lab timing</td><td>Settings &rsaquo; Billing &rsaquo; Billing by department &rsaquo; Laboratory</td><td><b>When the tests are ordered</b>, <b>After the lab signs off</b>, or <b>Only when the lab counter bills it</b>.</td></tr>
-        <tr><td>7. Prices</td><td>Doctors (each doctor's profile) and Billing &rsaquo; Services &amp; prices</td><td>Set each doctor's consultation fee. Add services such as a registration charge, a follow-up fee or a dressing. A branch can have its own price for a service.</td></tr>
-        <tr><td>8. Roles</td><td>Roles &amp; Permissions</td><td>Make sure the people at the billing desk can view bills and record payments (section 2).</td></tr>
-    </tbody>
-</table>
-<div class="ok">Pharmacy settings (price basis, tax, walk-in sales, credit sales, prescription check) are in <span class="path">Pharmacy &rsaquo; Settings</span>. The Pharmacy card on the Billing settings page shows a summary and a link.</div>
-
-<!-- ================================================================== -->
-<h2>4. OPD: from check-in to payment</h2>
-
-<div class="chart">
-    <div class="chart-title">Flow chart 3 &middot; The OPD visit and its bill</div>
-    <table class="flow">
-        <tr>
-            <td style="width:44%"><div class="box start"><b>Book an appointment or take a walk-in</b><span class="who" style="color:#dfe3ff">Reception</span></div></td>
-            <td style="width:6%"></td>
-            <td style="width:50%"></td>
+            <td style="width:46%"><div class="box start"><b>1. Patient Arrives &amp; Checks In</b><span class="who">Reception &middot; OPD &rsaquo; Today</span></div></td>
+            <td style="width:8%"></td>
+            <td style="width:46%"><div class="side">If OPD timing is <b>When patient checks in</b>, the invoice is generated immediately.</div></td>
         </tr>
         <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
         <tr>
-            <td><div class="box"><b>Check in</b><span class="who">Reception &middot; OPD &rsaquo; Today</span></div></td>
+            <td><div class="box"><b>2. Doctor Consultation &amp; Services</b><span class="who">Doctor completes diagnosis, adds procedures</span></div></td>
             <td class="arrow">&rarr;</td>
-            <td><div class="side">If OPD timing is <b>When the patient checks in</b>, the bill is made now.</div></td>
+            <td><div class="side">If OPD timing is <b>After consultation</b>, invoice triggers upon doctor sign-off.</div></td>
         </tr>
         <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
         <tr>
-            <td><div class="box"><b>Doctor starts the consultation</b><span class="who">Doctor</span></div></td>
+            <td><div class="box"><b>3. Bill Ready at Desk</b><span class="who">Invoice listed under Billing &rsaquo; Dashboard / Invoices</span></div></td>
             <td></td><td></td>
         </tr>
         <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
         <tr>
-            <td><div class="box"><b>Doctor completes the consultation</b><span class="who">Doctor</span></div></td>
-            <td class="arrow">&rarr;</td>
-            <td><div class="side">If OPD timing is <b>After the consultation</b>, the bill is made now. If it is <b>Only when the desk bills it</b>, the desk presses <b>Bill visit</b> on OPD &rsaquo; Today.</div></td>
-        </tr>
-        <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr>
-            <td><div class="box money"><b>Patient pays at the billing desk</b><span class="who">Billing &rsaquo; Outstanding &rarr; open the bill &rarr; Take payment</span></div></td>
+            <td><div class="box money"><b>4. Collect Payment</b><span class="who">Click <b>Take payment</b> &rarr; Enter tenders (Cash / UPI / Card)</span></div></td>
             <td></td><td></td>
         </tr>
         <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
         <tr>
-            <td><div class="box ask"><b>Is the bill fully paid?</b></div></td>
-            <td class="arrow"><span class="lbl">No</span><br>&rarr;</td>
-            <td><div class="box stop"><b>The visit waits as "Payment pending"</b><span class="who">Unless the payment rule is Pay later and the patient is registered: then the visit closes and the amount shows in Outstanding.</span></div></td>
+            <td><div class="box ask"><b>Is Bill Paid in Full?</b></div></td>
+            <td class="arrow"><span class="lbl">No</span> &rarr;</td>
+            <td><div class="box stop"><b>Outstanding Debt Logged</b><span class="who">Balance reflects in <b>Billing &rsaquo; Outstanding</b>.</span></div></td>
         </tr>
         <tr><td class="arrow"><span class="lbl">Yes</span> &darr;</td><td></td><td></td></tr>
         <tr>
-            <td><div class="box start"><b>The visit is complete</b></div></td>
+            <td><div class="box start"><b>5. Official Receipt Issued (RCP)</b><span class="who">Receipt generated with QR code &middot; Print or WhatsApp</span></div></td>
             <td></td><td></td>
         </tr>
     </table>
 </div>
 
-<h3>What goes on the OPD bill</h3>
+<!-- ================================================================== -->
+<h2>5. The Billing Dashboard (<code>/billing</code>)</h2>
+<p>The primary control center for monitoring clinic revenue, billing performance, and operational invoices:</p>
+
+<div class="kpi-row">
+    <div class="kpi-cell">
+        <span>TOTAL INVOICES</span>
+        <b>124</b>
+        <span>+12% vs last month &middot; Month: 28</span>
+    </div>
+    <div class="kpi-cell">
+        <span>TOTAL BILLED</span>
+        <b>₹1,24,850</b>
+        <span>+8% vs last month &middot; Month: ₹32,400</span>
+    </div>
+    <div class="kpi-cell">
+        <span>OUTSTANDING</span>
+        <b>₹18,450</b>
+        <span>12 invoices awaiting recovery</span>
+    </div>
+    <div class="kpi-cell">
+        <span>COLLECTED</span>
+        <b>₹1,06,400</b>
+        <span>112 invoices fully settled</span>
+    </div>
+</div>
+
+<h3>Middle Analytics Row</h3>
 <ul>
-    <li><b>The doctor's fee</b> &mdash; the "default consultation fee" on the doctor's profile.</li>
-    <li><b>A follow-up fee instead</b> &mdash; if the patient comes back to the same doctor within the follow-up days the doctor wrote last time, and you have a "Follow-up fee" service. Set its price to 0 to make follow-ups free.</li>
-    <li><b>"Per visit" and "Procedure" services</b> &mdash; added to every visit automatically. If a branch has its own price for a service, only the branch price is used.</li>
+    <li><b>Revenue Trend:</b> Multi-series bar and line chart displaying Billed revenue (blue bars) against Collections (green line) across customizable daily, weekly, or monthly timeframes. Hovering reveals day-by-day totals.</li>
+    <li><b>Collection by Service:</b> Donut chart showing exact revenue distribution across clinic service lines: <b>Consultation (OPD)</b>, <b>Lab Tests</b>, <b>Pharmacy</b>, <b>Procedures</b>, and <b>Others</b>, complete with percentage share and rupee values.</li>
+    <li><b>Payment Status:</b> Donut breakdown of invoice states: <span class="badge badge-paid">Paid</span>, <span class="badge badge-part">Part Paid</span>, and <span class="badge badge-unpaid">Unpaid</span>.</li>
 </ul>
-<p><b>Example.</b> Dr. Mehta's fee is ₹500 and the clinic has a ₹100 "Registration" per-visit service. Every new visit to Dr. Mehta makes one bill of ₹600: <code>GGN/INV/26-27/00042</code>.</p>
-<div class="ok">One visit has only one OPD bill. Checking in again, reopening the consultation or pressing Bill visit twice brings back the same bill. It never makes a second one.</div>
+
+<h3>Invoices Register &amp; Quick Tabs</h3>
+<p>Directly beneath the analytics cards is the interactive invoice ledger with 5 filter tabs:</p>
+<ul>
+    <li><b>All Invoices:</b> Complete chronological register of all invoices raised in the selected date window.</li>
+    <li><b>Outstanding:</b> Only invoices with unpaid balances requiring cashier follow-up.</li>
+    <li><b>Open Visits:</b> Draft bills still collecting procedure or consultation charges while the patient is in the clinic.</li>
+    <li><b>Paid:</b> Fully cleared invoices with zero balance.</li>
+    <li><b>Cancelled:</b> Invoices voided before payment or fully refunded.</li>
+</ul>
 
 <!-- ================================================================== -->
-<h2>5. Taking a payment</h2>
+<h2>6. Taking Payments &amp; Split Tenders</h2>
+<p>When taking payments at the desk, HMS provides full support for single and split payment methods:</p>
 
 <div class="chart">
-    <div class="chart-title">Flow chart 4 &middot; Taking a payment at the billing desk</div>
+    <div class="chart-title">Flow chart 4 &middot; Cashier Payment Collection &amp; Split Tender Flow</div>
     <table class="flow">
-        <tr>
-            <td style="width:44%"><div class="box start"><b>Open the bill</b><span class="who" style="color:#dfe3ff">Billing &rsaquo; Outstanding or Billing &rsaquo; Invoices</span></div></td>
-            <td style="width:6%"></td><td style="width:50%"></td>
-        </tr>
+        <tr><td style="width:46%"><div class="box start"><b>Open Invoice &rarr; Click "Take Payment"</b></div></td><td style="width:8%"></td><td style="width:46%"></td></tr>
         <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box"><b>Click Take payment</b></div></td><td></td><td></td></tr>
-        <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box"><b>Choose the method and type the amount</b></div></td><td></td><td></td></tr>
+        <tr><td><div class="box"><b>Select Method 1 &amp; Enter Amount</b><span class="who">e.g. ₹500 Cash</span></div></td><td></td><td></td></tr>
         <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
         <tr>
-            <td><div class="box ask"><b>Is the patient paying in two ways?</b><span class="who">For example ₹400 cash and ₹200 UPI</span></div></td>
-            <td class="arrow"><span class="lbl">Yes</span><br>&rarr;</td>
-            <td><div class="box">Click <b>Split across another method</b> and add the second part (up to 5 parts)</div></td>
+            <td><div class="box ask"><b>Is Patient Splitting Payment?</b><span class="who">e.g. ₹500 Cash + ₹700 UPI</span></div></td>
+            <td class="arrow"><span class="lbl">Yes</span> &rarr;</td>
+            <td><div class="box">Click <b>+ Split across another method</b><br>Select Method 2 (UPI) &amp; Enter Remaining ₹700</div></td>
         </tr>
         <tr><td class="arrow"><span class="lbl">No</span> &darr;</td><td></td><td></td></tr>
-        <tr>
-            <td><div class="box ask"><b>Does it clear the whole bill?</b><span class="who">Only matters under Pay in full</span></div></td>
-            <td class="arrow"><span class="lbl">No</span><br>&rarr;</td>
-            <td><div class="box stop">The button stays off and the system says <b>"This clinic takes bills in full"</b>. Take the full amount, split if needed.</div></td>
-        </tr>
-        <tr><td class="arrow"><span class="lbl">Yes</span> &darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box money"><b>Click Record payment</b><span class="who">A receipt is made for each part, e.g. GGN/RCP/26-27/00015</span></div></td><td></td><td></td></tr>
+        <tr><td><div class="box money"><b>Click "Record Payment"</b><span class="who">Official Receipt (<code>RCP</code>) created with unique receipt number</span></div></td><td></td><td></td></tr>
         <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box start"><b>Print the receipt, or click Done</b></div></td><td></td><td></td></tr>
+        <tr><td><div class="box start"><b>Print Receipt or Send via WhatsApp / Email</b></div></td><td></td><td></td></tr>
     </table>
 </div>
 
-<h3>The three payment rules</h3>
-<table>
-    <thead><tr><th style="width:24%">Rule</th><th>What happens at the desk</th><th style="width:30%">Good for</th></tr></thead>
-    <tbody>
-        <tr><td><b>Pay in full</b> (default)</td><td>The whole amount must be paid in one go. The patient can still pay with two methods at once using <b>Split across another method</b>.</td><td>Most clinics</td></tr>
-        <tr><td><b>Part payment allowed</b></td><td>The patient can pay some now and the rest later. The visit shows "Payment pending" until it is cleared.</td><td>Clinics that take instalments</td></tr>
-        <tr><td><b>Pay later (credit)</b></td><td>A registered patient can leave without paying. The visit closes and the amount waits in <span class="path">Billing &rsaquo; Outstanding</span>. Walk-in patients cannot use credit.</td><td>Regular patients with an account</td></tr>
-    </tbody>
-</table>
-<div class="ok"><b>Clicking twice is safe.</b> Each payment window has its own hidden ID. If the button is clicked twice, or the internet drops and the request is sent again, the second click returns the first payment. Money is never recorded twice.</div>
+<h3>Split Tender Example</h3>
+<p>A bill of ₹1,200 is settled with ₹500 in cash and ₹700 via GooglePay UPI. The cashier adds both lines in the payment popup. The system generates one unified receipt <code>GKP/RCP/26-27/00045</code> documenting both tenders for auditing.</p>
+
+<div class="ok"><b>Double-Click Protection:</b> The payment dialog generates a unique transaction signature. If a cashier clicks "Record Payment" twice or network flickers, the system detects the signature and executes the transaction only once. Money is never double-charged.</div>
 
 <!-- ================================================================== -->
-<h2>6. Refunds, cancelling and correcting a bill</h2>
+<h2>7. Outstanding Invoices &amp; Debt Recovery (<code>/billing/outstanding</code>)</h2>
+<p>The dedicated recovery dashboard for tracking unpaid balances and credit accounts:</p>
 
-<div class="chart">
-    <div class="chart-title">Flow chart 5 &middot; A bill is wrong &mdash; what can I do?</div>
-    <table class="flow">
-        <tr>
-            <td style="width:44%"><div class="box ask"><b>Has any money been taken on this bill?</b></div></td>
-            <td style="width:6%" class="arrow"><span class="lbl">Yes</span><br>&rarr;</td>
-            <td style="width:50%"><div class="box stop"><b>The bill cannot be edited.</b><span class="who">Give a refund for the money (below). To cancel the bill, refund all of it first, then cancel and make a new bill.</span></div></td>
-        </tr>
-        <tr><td class="arrow"><span class="lbl">No</span> &darr;</td><td></td><td></td></tr>
-        <tr>
-            <td><div class="box ask"><b>Is "Let staff correct a bill until money is taken" on, and do you have the Edit permission?</b></div></td>
-            <td class="arrow"><span class="lbl">No</span><br>&rarr;</td>
-            <td><div class="box">Cancel the bill and make a new one</div></td>
-        </tr>
-        <tr><td class="arrow"><span class="lbl">Yes</span> &darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box money"><b>Edit the bill</b><span class="who">Every change is saved in the bill's history</span></div></td><td></td><td></td></tr>
-    </table>
+<div class="kpi-row">
+    <div class="kpi-cell">
+        <span>TOTAL OUTSTANDING</span>
+        <b style="color:#b91c1c;">₹1,750.00</b>
+        <span>Across 4 active invoices</span>
+    </div>
+    <div class="kpi-cell">
+        <span>PENDING INVOICES</span>
+        <b>4</b>
+        <span>Invoices awaiting balance</span>
+    </div>
+    <div class="kpi-cell">
+        <span>UNPAID INVOICES</span>
+        <b>2</b>
+        <span>Total unpaid: ₹1,100.00</span>
+    </div>
+    <div class="kpi-cell">
+        <span>PARTIALLY PAID</span>
+        <b>2</b>
+        <span>Total balance: ₹650.00</span>
+    </div>
 </div>
 
-<h3>How to give a refund</h3>
+<h3>Aging Filter &amp; Overdue Days</h3>
+<p>Staff can filter outstanding accounts by age to prioritize recovery:</p>
+<ul>
+    <li><b>0&ndash;30 Days:</b> Current month visits. Normal grace period.</li>
+    <li><b>31&ndash;60 Days:</b> Follow-up required via WhatsApp reminder or phone call.</li>
+    <li><b>61&ndash;90 Days:</b> Overdue balances. Requires manager intervention before scheduling new appointments.</li>
+    <li><b>90+ Days:</b> Delinquent balances for audit or write-off review.</li>
+</ul>
+
+<h3>Collecting an Outstanding Balance</h3>
 <ol>
-    <li>Open the bill.</li>
-    <li>In the <b>Payments</b> list, click <b>Refund</b> next to the payment you are giving back.</li>
-    <li>Type the amount and the reason, then click <b>Refund</b>.</li>
-    <li>A refund slip is made, for example <code>GGN/RFD/26-27/00003</code>. Print it from the same list.</li>
-</ol>
-<p><b>A refund lowers the bill.</b> The patient is not asked for that money again.</p>
-<table>
-    <thead><tr><th>Example</th><th>Status after</th><th>Still owed</th></tr></thead>
-    <tbody>
-        <tr><td>₹600 bill, ₹600 paid, ₹100 refunded as a discount</td><td>Part refunded</td><td>₹0</td></tr>
-        <tr><td>₹600 bill, ₹600 paid, ₹600 refunded</td><td>Refunded</td><td>₹0</td></tr>
-    </tbody>
-</table>
-<div class="note">Nothing is ever deleted. A cancelled bill, a refund or a correction stays on the record with who did it and when.</div>
-
-<!-- ================================================================== -->
-<h2>7. Lab bills</h2>
-
-<div class="chart">
-    <div class="chart-title">Flow chart 6 &middot; A lab order and its bill</div>
-    <table class="flow">
-        <tr>
-            <td style="width:44%"><div class="box start"><b>The doctor orders tests</b></div></td>
-            <td style="width:6%" class="arrow">&rarr;</td>
-            <td style="width:50%"><div class="side">If Lab timing is <b>When the tests are ordered</b>, the lab bill is made now.</div></td>
-        </tr>
-        <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr>
-            <td><div class="box ask"><b>Is the order changed before anyone pays?</b></div></td>
-            <td class="arrow"><span class="lbl">Yes</span><br>&rarr;</td>
-            <td><div class="box">The bill updates itself to match the order</div></td>
-        </tr>
-        <tr><td class="arrow"><span class="lbl">No</span> &darr;</td><td></td><td></td></tr>
-        <tr>
-            <td><div class="box ask"><b>Is the whole order cancelled?</b></div></td>
-            <td class="arrow"><span class="lbl">Yes</span><br>&rarr;</td>
-            <td><div class="box stop">Unpaid bill: cancelled automatically. Paid bill: it stays &mdash; give a refund.</div></td>
-        </tr>
-        <tr><td class="arrow"><span class="lbl">No</span> &darr;</td><td></td><td></td></tr>
-        <tr>
-            <td><div class="box"><b>The lab signs off the results</b></div></td>
-            <td class="arrow">&rarr;</td>
-            <td><div class="side">If Lab timing is <b>After the lab signs off</b>, the lab bill is made now.</div></td>
-        </tr>
-        <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box money"><b>Patient pays at the billing desk</b><span class="who">Same as an OPD bill (section 5)</span></div></td><td></td><td></td></tr>
-    </table>
-</div>
-<ul>
-    <li>Each lab order has its own bill. It shows as <b>Laboratory</b> in <span class="path">Billing &rsaquo; Invoices</span>.</li>
-    <li>The price is the price on the day of the order.</li>
-    <li>If the lab module is switched off later, old lab bills still show in Billing and Finance.</li>
-</ul>
-<div class="note">The lab's own screens are still being built. Until they are ready, choose <b>When the tests are ordered</b> or <b>After the lab signs off</b>, so lab bills are made automatically.</div>
-
-<!-- ================================================================== -->
-<h2>8. The pharmacy counter</h2>
-<p>The pharmacy takes its own money. A patient never goes to the billing desk to pay for medicines.</p>
-
-<div class="chart">
-    <div class="chart-title">Flow chart 7 &middot; A pharmacy sale</div>
-    <table class="flow">
-        <tr>
-            <td style="width:44%"><div class="box start"><b>Open the counter</b><span class="who" style="color:#dfe3ff">Pharmacy &rsaquo; Sales (POS)</span></div></td>
-            <td style="width:6%"></td><td style="width:50%"></td>
-        </tr>
-        <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box"><b>Add the medicines</b><span class="who">The oldest batch that has not expired is used first</span></div></td><td></td><td></td></tr>
-        <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box"><b>Choose the patient, or sell to a walk-in</b></div></td><td></td><td></td></tr>
-        <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box"><b>Take the money</b><span class="who">Only the methods ticked in Settings &rsaquo; Billing</span></div></td><td></td><td></td></tr>
-        <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr>
-            <td><div class="box ask"><b>Is anything left unpaid?</b></div></td>
-            <td class="arrow"><span class="lbl">Yes</span><br>&rarr;</td>
-            <td><div class="box stop">Allowed only if <b>credit sales</b> are on in Pharmacy &rsaquo; Settings and the patient is registered. The bill shows <b>Owed</b>.</div></td>
-        </tr>
-        <tr><td class="arrow"><span class="lbl">No</span> &darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box money"><b>The bill is Paid and printed</b><span class="who">e.g. GGN/PH/26-27/00120</span></div></td><td></td><td></td></tr>
-    </table>
-</div>
-
-<h3>Opening a pharmacy bill</h3>
-<p>Go to <span class="path">Pharmacy &rsaquo; Bills</span>, search by bill number, name or phone, and click <b>View</b>. The bill shows:</p>
-<ul>
-    <li><b>The patient</b> &mdash; name, patient ID, age, gender, phone, town, and <b>Open patient file</b>. A walk-in shows a "Walk-in" tag.</li>
-    <li><b>The bill</b> &mdash; date and time, store, who billed it, the doctor (if it came from a prescription), and the payment status.</li>
-    <li><b>The items</b> &mdash; with "10 back" under any quantity that was returned.</li>
-    <li><b>Money in and out</b> &mdash; every payment, refund and return, next to the totals. "Owed" is red; "Settled" is green.</li>
-</ul>
-
-<h3>Collecting a balance later</h3>
-<ol>
-    <li>Open the bill in <span class="path">Pharmacy &rsaquo; Bills</span>.</li>
-    <li>Click <b>Take payment &middot; ₹&hellip;</b> at the bottom.</li>
-    <li>Choose the method, check the amount, and click <b>Take payment</b>.</li>
+    <li>Navigate to <span class="path">Billing &rsaquo; Outstanding</span>.</li>
+    <li>Locate the patient's record by searching name, phone number, or invoice number.</li>
+    <li>Click the blue <b>Take payment</b> button directly on the row.</li>
+    <li>Enter the collected amount, select payment method, and submit. The invoice status instantly updates to <span class="badge badge-paid">Paid</span> when fully cleared.</li>
 </ol>
 
+<!-- ================================================================== -->
+<h2>8. Payments Register &amp; Daily Cashier Reconciliation (<code>/billing/payments</code>)</h2>
+<p>The financial audit ledger tracking every rupee entering or leaving clinic accounts:</p>
+
+<div class="kpi-row">
+    <div class="kpi-cell">
+        <span>TOTAL COLLECTED</span>
+        <b style="color:#15803d;">₹1,24,850</b>
+        <span>Gross receipts in window</span>
+    </div>
+    <div class="kpi-cell">
+        <span>TRANSACTIONS</span>
+        <b>286</b>
+        <span>Individual payment events</span>
+    </div>
+    <div class="kpi-cell">
+        <span>TOTAL REFUNDS</span>
+        <b style="color:#b91c1c;">₹3,200</b>
+        <span>Refund vouchers issued</span>
+    </div>
+    <div class="kpi-cell">
+        <span>NET COLLECTIONS</span>
+        <b>₹1,21,650</b>
+        <span>Net retained revenue</span>
+    </div>
+</div>
+
+<h3>Tender Tabs for Shift &amp; Day-End Close</h3>
+<p>At the end of every shift or business day, cashiers verify collected tenders using the tender tabs:</p>
+<table>
+    <thead><tr><th>Tender Tab</th><th>What to Reconcile</th><th>Verification Target</th></tr></thead>
+    <tbody>
+        <tr><td><span class="badge badge-method">Cash</span></td><td>Physical cash inside cashier drawer</td><td>Must exactly match physical currency count</td></tr>
+        <tr><td><span class="badge badge-method">UPI</span></td><td>Digital QR payments (PhonePe, GPay, Paytm)</td><td>Match against merchant UPI app statement</td></tr>
+        <tr><td><span class="badge badge-method">Card</span></td><td>POS Card swipe machine settlement summary</td><td>Match POS machine day-end settlement slip</td></tr>
+        <tr><td><span class="badge badge-method">Bank Transfer</span></td><td>Direct NEFT / IMPS / RTGS credit entries</td><td>Match online bank account statement</td></tr>
+        <tr><td><span class="badge badge-method">Other</span></td><td>Cheques, insurance vouchers, demand drafts</td><td>Match physical draft slips</td></tr>
+    </tbody>
+</table>
+
+<!-- ================================================================== -->
+<h2>9. Laboratory Orders &amp; Billing</h2>
 <div class="chart">
-    <div class="chart-title">Flow chart 8 &middot; Taking medicines back</div>
+    <div class="chart-title">Flow chart 5 &middot; Lab Investigation &amp; Billing Lifecycle</div>
     <table class="flow">
         <tr>
-            <td style="width:44%"><div class="box start"><b>Open the bill and click Take a return</b></div></td>
-            <td style="width:6%"></td><td style="width:50%"></td>
+            <td style="width:46%"><div class="box start"><b>Doctor Orders Diagnostic Tests</b></div></td>
+            <td style="width:8%"></td>
+            <td style="width:46%"><div class="side">Bill generates immediately or upon lab sign-off based on Settings.</div></td>
         </tr>
         <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box"><b>Type how many of each item came back, and why</b></div></td><td></td><td></td></tr>
+        <tr><td><div class="box"><b>Patient Pays at Billing Desk</b><span class="who">Receipt generated with itemized test list</span></div></td><td></td><td></td></tr>
         <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box"><b>Click Record return</b><span class="who">The stock goes back to its own batch</span></div></td><td></td><td></td></tr>
+        <tr><td><div class="box money"><b>Sample Collection &amp; Processing</b><span class="who">Lab verifies payment receipt before processing</span></div></td><td></td><td></td></tr>
         <tr><td class="arrow">&darr;</td><td></td><td></td></tr>
-        <tr>
-            <td><div class="box ask"><b>Had the patient paid more than the new total?</b></div></td>
-            <td class="arrow"><span class="lbl">Yes</span><br>&rarr;</td>
-            <td><div class="box money">The extra is refunded, by the method you choose</div></td>
-        </tr>
-        <tr><td class="arrow"><span class="lbl">No</span> &darr;</td><td></td><td></td></tr>
-        <tr><td><div class="box">The amount still owed goes down instead</div></td><td></td><td></td></tr>
+        <tr><td><div class="box start"><b>Results Uploaded &amp; Signed Off</b></div></td><td></td><td></td></tr>
     </table>
 </div>
-<p><b>Example.</b> A patient paid ₹84 by card for 30 Dolo 650 tablets and one ORS packet. They bring back 10 tablets. The return is worth ₹20.70, so ₹20.70 goes back to the card. The return gets its own number, <code>GGN/PHR/26-27/00001</code>, and the bill shows "10 back".</p>
-<p><b>Cancel this bill</b> puts every item back on the shelf and records any money taken as a refund. The bill stays on the record, marked Cancelled.</p>
 
 <!-- ================================================================== -->
-<h2>9. The Finance screen</h2>
-<p><span class="path">Billing &rsaquo; Finance</span> shows the money of the OPD, the lab and the pharmacy together. Pick the dates at the top right. A branch manager sees their own branch; head office sees every branch.</p>
+<h2>10. Pharmacy Counter Billing &amp; Returns</h2>
+<p>The pharmacy operates on dedicated POS sales counters with automatic inventory batch allocation:</p>
+<ul>
+    <li><b>FIFO Batch Allocation:</b> When medicines are added to a cart, HMS automatically assigns the earliest expiring batch that is in stock.</li>
+    <li><b>Credit Sales to Registered Patients:</b> Regular registered patients can be extended credit if enabled in <span class="path">Pharmacy &rsaquo; Settings</span>. Walk-in buyers must always pay in full.</li>
+    <li><b>Medicine Returns:</b> When a patient returns unopened strips/syrups, click <b>Take a return</b> on the pharmacy bill. The returned units automatically increment the correct batch inventory, and a refund or balance credit is issued.</li>
+</ul>
 
+<!-- ================================================================== -->
+<h2>11. Refunds, Corrections &amp; Cancellations</h2>
+<div class="chart">
+    <div class="chart-title">Flow chart 6 &middot; Decision Tree: Modifying or Voiding a Bill</div>
+    <table class="flow">
+        <tr>
+            <td style="width:46%"><div class="box ask"><b>Has any payment been collected on this bill?</b></div></td>
+            <td style="width:8%" class="arrow"><span class="lbl">Yes</span> &rarr;</td>
+            <td style="width:46%"><div class="box stop"><b>Invoice Locked from Direct Editing</b><span class="who">Issue a partial or full refund voucher (<code>RFD</code>). If voiding, refund in full then cancel.</span></div></td>
+        </tr>
+        <tr><td class="arrow"><span class="lbl">No</span> &darr;</td><td></td><td></td></tr>
+        <tr>
+            <td><div class="box ask"><b>Is bill unpaid and user has Edit permission?</b></div></td>
+            <td class="arrow"><span class="lbl">Yes</span> &rarr;</td>
+            <td><div class="box money"><b>Edit Invoice Lines directly</b><span class="who">Change items, adjust discounts, add services. Audit trail saved.</span></div></td>
+        </tr>
+        <tr><td class="arrow"><span class="lbl">No</span> &darr;</td><td></td><td></td></tr>
+        <tr><td><div class="box"><b>Cancel Invoice</b><span class="who">Invoice marked Cancelled with reason. Cannot be resurrected.</span></div></td><td></td><td></td></tr>
+    </table>
+</div>
+
+<!-- ================================================================== -->
+<h2>12. Troubleshooting Guide</h2>
 <table>
-    <thead><tr><th style="width:22%">Figure</th><th>What it means</th></tr></thead>
+    <thead><tr><th style="width:32%">Symptom / Message</th><th style="width:38%">Root Cause</th><th style="width:30%">Action to Fix</th></tr></thead>
     <tbody>
-        <tr><td><b>Billed</b></td><td>The total of the bills raised in the dates you picked. Cancelled bills are not counted.</td></tr>
-        <tr><td><b>Collected</b></td><td>The money actually received in those dates, from payments only.</td></tr>
-        <tr><td><b>Refunded</b></td><td>The money given back in those dates.</td></tr>
-        <tr><td><b>Net collections</b></td><td>Collected minus refunded &mdash; what really stayed with you.</td></tr>
-        <tr><td><b>Outstanding</b></td><td>What patients owe <b>today</b>, whenever the bill was made.</td></tr>
+        <tr><td><b>"This clinic takes bills in full"</b></td><td>Clinic setting is set to Pay in Full, but cashier entered partial amount.</td><td>Collect remaining balance or split across methods (e.g. Cash + UPI).</td></tr>
+        <tr><td><b>No "Take payment" button visible</b></td><td>Invoice is already 100% paid, or logged-in user lacks <code>Record payment</code> permission.</td><td>Check invoice status or ask Admin to update user role permissions.</td></tr>
+        <tr><td><b>Doctor fee not appearing on check-in</b></td><td>Doctor profile has ₹0 or empty consultation fee, or billing timing is set to Post-consultation.</td><td>Update doctor profile fees in <span class="path">Doctors</span> list.</td></tr>
+        <tr><td><b>Patient visit stays "Payment Pending"</b></td><td>One department bill (OPD, Lab, or Pharmacy) still carries an outstanding balance.</td><td>Open <span class="path">Billing &rsaquo; Outstanding</span> to identify and clear the unpaid bill.</td></tr>
+        <tr><td><b>Cannot edit invoice items</b></td><td>A receipt has already been generated against this invoice.</td><td>Issue a refund voucher first, or cancel after full refund.</td></tr>
+        <tr><td><b>Cash drawer does not tally with system</b></td><td>Cashier collected cash but recorded as UPI, or gave cash change without recording.</td><td>Filter <span class="path">Billing &rsaquo; Payments</span> by <b>Cash</b> to identify discrepancies.</td></tr>
     </tbody>
 </table>
-<p>Below the figures you see the same numbers <b>by department</b>, <b>by payment method</b>, <b>by branch</b> and <b>day by day</b>, and one list of every bill from all three departments. Switch on <b>Only bills still owed</b> to see who has to pay.</p>
-<div class="ok"><b>Example.</b> In October the OPD billed ₹1,750 that is still unpaid and the pharmacy has ₹13,575 on credit. Outstanding shows <b>₹15,325</b>, and the department table shows the two parts separately.</div>
 
 <!-- ================================================================== -->
-<h2>10. When something does not work</h2>
+<h2>13. Screen Navigation &amp; Quick Directory</h2>
 <table>
-    <thead><tr><th style="width:34%">What you see</th><th>Why, and what to do</th></tr></thead>
+    <thead><tr><th style="width:38%">What you want to do</th><th style="width:35%">Go to Menu</th><th style="width:27%">Shortcut / Action</th></tr></thead>
     <tbody>
-        <tr><td>"This clinic takes bills in full"</td><td>The payment rule is Pay in full. Take the whole amount (split it across methods if needed), or ask the owner to choose Part payment allowed.</td></tr>
-        <tr><td>No <b>Take payment</b> button</td><td>Your role does not have <b>Record a payment</b>, or the bill is already paid or cancelled. Ask the owner to check your role (section 2).</td></tr>
-        <tr><td>No bill after check-in</td><td>Check the OPD timing in Settings &rsaquo; Billing. Check that the doctor has a consultation fee. Check that billing is switched on for that branch.</td></tr>
-        <tr><td>The visit stays "Payment pending"</td><td>A bill for this visit still owes money: the OPD bill, a lab bill or a pharmacy bill. Clear it, or use the Pay later rule for registered patients.</td></tr>
-        <tr><td>"has had money taken against it, so it cannot be edited"</td><td>A paid bill is never changed. Refund the payment, or refund all of it and cancel the bill, then make a new one.</td></tr>
-        <tr><td>"This clinic does not take &hellip;"</td><td>That payment method is not ticked in Settings &rsaquo; Billing &rsaquo; Payments.</td></tr>
-        <tr><td>No <b>Finance</b> in the menu</td><td>Your role needs <b>View finance across OPD, lab and pharmacy</b>.</td></tr>
-        <tr><td>A pharmacy sale will not save with money left unpaid</td><td>Credit sales are off in Pharmacy &rsaquo; Settings, or the buyer is a walk-in. Take the full amount or choose a registered patient.</td></tr>
-        <tr><td>I clicked Record payment twice</td><td>Nothing to do. The second click returned the first payment; there is only one receipt.</td></tr>
-    </tbody>
-</table>
-
-<!-- ================================================================== -->
-<h2>11. Where to find things</h2>
-<table>
-    <thead><tr><th style="width:40%">I want to&hellip;</th><th>Go to</th></tr></thead>
-    <tbody>
-        <tr><td>See who still has to pay</td><td><span class="path">Billing &rsaquo; Outstanding</span></td></tr>
-        <tr><td>Find any OPD or lab bill</td><td><span class="path">Billing &rsaquo; Invoices</span></td></tr>
-        <tr><td>See every payment taken</td><td><span class="path">Billing &rsaquo; Payments</span></td></tr>
-        <tr><td>See all departments' money</td><td><span class="path">Billing &rsaquo; Finance</span></td></tr>
-        <tr><td>Change prices and services</td><td><span class="path">Billing &rsaquo; Services &amp; prices</span></td></tr>
-        <tr><td>Change payment rules, tax, numbers, timings</td><td><span class="path">Settings &rsaquo; Billing</span></td></tr>
-        <tr><td>Bill a finished visit by hand</td><td><span class="path">OPD &rsaquo; Today</span> &rarr; <b>Bill visit</b> (only when OPD timing is "Only when the desk bills it")</td></tr>
-        <tr><td>Sell medicines</td><td><span class="path">Pharmacy &rsaquo; Sales (POS)</span></td></tr>
-        <tr><td>Open a pharmacy bill, collect a balance, take a return</td><td><span class="path">Pharmacy &rsaquo; Bills</span> &rarr; <b>View</b></td></tr>
-        <tr><td>Change pharmacy rules (credit, walk-in, prices)</td><td><span class="path">Pharmacy &rsaquo; Settings</span></td></tr>
-        <tr><td>Give or take away permissions</td><td><span class="path">Roles &amp; Permissions</span></td></tr>
-        <tr><td>Read this guide again</td><td><span class="path">Help &rsaquo; Guide</span></td></tr>
+        <tr><td>View clinic financial overview &amp; trends</td><td><span class="path">Billing &rsaquo; Dashboard</span></td><td>KPIs, Analytics, Invoices</td></tr>
+        <tr><td>Find all outstanding unpaid bills</td><td><span class="path">Billing &rsaquo; Outstanding</span></td><td>Aging buckets &amp; Take payment</td></tr>
+        <tr><td>Audit individual receipts &amp; tender breakdown</td><td><span class="path">Billing &rsaquo; Payments</span></td><td>Cash, UPI, Card tabs</td></tr>
+        <tr><td>Search and filter all invoices</td><td><span class="path">Billing &rsaquo; Invoices</span></td><td>Full search &amp; Export</td></tr>
+        <tr><td>Configure doctor fees &amp; service charges</td><td><span class="path">Billing &rsaquo; Services &amp; prices</span></td><td>Branch-specific pricing</td></tr>
+        <tr><td>Configure document prefixes &amp; rules</td><td><span class="path">Settings &rsaquo; Billing</span></td><td>Series, GST %, Rules</td></tr>
+        <tr><td>Dispense medicines &amp; pharmacy billing</td><td><span class="path">Pharmacy &rsaquo; Sales (POS)</span></td><td>Counter checkout</td></tr>
+        <tr><td>Process medicine returns</td><td><span class="path">Pharmacy &rsaquo; Bills</span></td><td>Open bill &rarr; Take a return</td></tr>
+        <tr><td>Manage staff billing permissions</td><td><span class="path">Roles &amp; Permissions</span></td><td>Permissions &rarr; Billing</td></tr>
+        <tr><td>Read in-app guides</td><td><span class="path">Help &rsaquo; Guide</span></td><td>Open Guide / Download PDF</td></tr>
     </tbody>
 </table>
 

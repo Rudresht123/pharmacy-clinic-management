@@ -153,15 +153,25 @@ class PermissionTest extends TenantTestCase
 
         sort($held);
 
+        /*
+         * Since then: each screen is its own tick (the split into
+         * queue_view, doctors_view, record, contact and dashboard.view), and
+         * the Branches screen is the organization's, so this branch role no
+         * longer holds `branches.view`.
+         */
         $this->assertSame([
             'appointments.book',
             'appointments.cancel',
+            'appointments.doctors_view',
             'appointments.queue',
+            'appointments.queue_view',
             'appointments.view',
-            'branches.view',
+            'customers.contact',
             'customers.create',
             'customers.edit',
+            'customers.record',
             'customers.view',
+            'dashboard.view',
         ], $held);
 
         // The keys the split replaced are gone, not lying around unmatched.
@@ -956,12 +966,12 @@ class PermissionTest extends TenantTestCase
         )->pluck('key')->all();
 
         // The core modules, billing and the Export Center among them: nothing has been sold yet.
-        $this->assertSame(['branches', 'people', 'customers', 'exports', 'settings', 'billing'], $keys());
+        $this->assertSame(['dashboard', 'branches', 'people', 'customers', 'exports', 'settings', 'billing'], $keys());
 
         $this->grantModule($organization, 'appointments');
 
         $this->assertSame(
-            ['branches', 'people', 'customers', 'exports', 'settings', 'billing', 'appointments'],
+            ['dashboard', 'branches', 'people', 'customers', 'exports', 'settings', 'billing', 'appointments'],
             $keys(),
         );
     }

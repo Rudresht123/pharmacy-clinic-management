@@ -8,9 +8,11 @@ use App\Models\Tenant\ActivityLog;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Consultation;
 use App\Models\Tenant\Customer;
+use App\Models\Tenant\File;
 use App\Models\Tenant\Location;
 use App\Support\Opd\Weekday;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TenantTestCase;
 
 /**
@@ -511,6 +513,38 @@ class ConsultationTest extends TenantTestCase
         $this->signInAsDoctor($organization, 'vikram@clinic.test');
 
         $this->assertSame([], $this->getJson('/api/v1/tenant/opd/my-records?view=patients')->assertOk()->json('data'));
+    }
+
+    /** My patients puts a face beside each name, as the desk's list does: the photograph, when there is one. */
+    public function test_my_patients_carry_their_photograph(): void
+    {
+        Storage::fake('public');
+
+        [$organization] = $this->clinic();
+
+        $this->signInAsDoctor($organization, 'anjali@clinic.test');
+
+        // No photograph yet: null, so the app shows initials rather than a broken picture.
+        $this->assertNull($this->getJson('/api/v1/tenant/opd/my-records?view=patients')->json('data.0.customer_photo_url'));
+
+        // Set as the server sets it -- a file id, never a posted field.
+        $this->onTenant($organization, function () {
+            $file = File::on('organization')->create([
+                'file_name' => 'asha.jpg',
+                'file_path' => 'customers/asha.jpg',
+                'disk' => 'public',
+                'mime_type' => 'image/jpeg',
+                'file_size' => 1024,
+                'extension' => 'jpg',
+            ]);
+
+            Customer::on('organization')->where('name', 'Asha Rane')->firstOrFail()->forceFill(['photo' => $file->id])->save();
+        });
+
+        $this->assertSame(
+            Storage::disk('public')->url('customers/asha.jpg'),
+            $this->getJson('/api/v1/tenant/opd/my-records?view=patients')->assertOk()->json('data.0.customer_photo_url'),
+        );
     }
 
     /**

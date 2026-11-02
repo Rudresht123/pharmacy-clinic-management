@@ -56,6 +56,10 @@ class EnsureSubscriptionAllowsAccess
         'devices/*',
     ];
 
+    /** What a patient is told when the clinic's account stops their writes. */
+    private const PATIENT_PAUSED = 'Booking, messages and calls through the app are paused at this clinic for now. '
+        .'Your appointments and records are still here — please contact the clinic directly.';
+
     /** The portal's own sign-out and device paths, under /api/v1/tenant/portal/. */
     private const PORTAL_OPEN_WHEN_LOCKED = [
         'devices/*',
@@ -80,14 +84,16 @@ class EnsureSubscriptionAllowsAccess
                 return $next($request);
             }
 
-            return $this->refuse($organization, 'subscription_locked', $this->lockedMessage($organization));
+            return $this->refuse($organization, 'subscription_locked', $this->lockedMessage($organization, $area));
         }
 
         if (! $reading && ! $this->entitlements->canWrite($organization) && ! $this->openWhenLocked($request, $area)) {
             return $this->refuse(
                 $organization,
                 'subscription_read_only',
-                'Your subscription has expired and is in its grace period, read-only. Renew it to make changes again.',
+                $area === 'portal'
+                    ? self::PATIENT_PAUSED
+                    : 'Your subscription has expired and is in its grace period, read-only. Renew it to make changes again.',
             );
         }
 
@@ -108,8 +114,14 @@ class EnsureSubscriptionAllowsAccess
         return false;
     }
 
-    private function lockedMessage(Organization $organization): string
+    private function lockedMessage(Organization $organization, string $area): string
     {
+        // A patient cannot renew anything, and the clinic's billing is not
+        // theirs to be told about — only what it means for them.
+        if ($area === 'portal') {
+            return self::PATIENT_PAUSED;
+        }
+
         $status = $this->entitlements->status($organization);
 
         return $status['lock_reason'] === 'billing_suspended'

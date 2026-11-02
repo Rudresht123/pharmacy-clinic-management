@@ -77,6 +77,14 @@ class ModuleRegistry
 
     public const AUDIENCE_PATIENT = 'patient';
 
+    /*
+     * `'screen' => true` marks a capability that opens a screen (the
+     * dashboard, the queue, a report) rather than an action on one (book,
+     * check in, refund). Nothing is enforced by it — the role screen uses it
+     * to list "Can open" apart from "Can do", which is how somebody who is not
+     * a developer reads a role.
+     */
+
     /**
      * @return list<array{
      *     key: string,
@@ -102,6 +110,23 @@ class ModuleRegistry
             | cheaper organization, it is a broken one, and a super admin
             | should not be able to produce that state by mistake.
             */
+            /*
+             * Where somebody lands — its own tick, so a role made for one job
+             * (only chat, only the lab bench) is not handed the manager's
+             * reading of the day on the way to it. Core: every organization
+             * has a dashboard, whatever else it bought.
+             */
+            [
+                'key' => 'dashboard',
+                'name' => 'Dashboard',
+                'description' => 'The home screen: today at a glance.',
+                'icon' => 'ti ti-layout-dashboard',
+                'group' => self::GROUP_FOUNDATION,
+                'is_core' => true,
+                'capabilities' => [
+                    ['key' => 'dashboard.view', 'screen' => true, 'name' => 'See the home dashboard', 'scope' => self::SCOPE_BRANCH],
+                ],
+            ],
             [
                 'key' => 'branches',
                 'name' => 'Branches',
@@ -116,11 +141,20 @@ class ModuleRegistry
                  * an owner delegating any of the three had to delegate all
                  * three. The same split runs through every module below.
                  */
+                /*
+                 * ORGANIZATION-SCOPED, all four. The Branches screen is the
+                 * network's — which sites exist, their addresses, who runs
+                 * them — so a branch role cannot hold any of it (SaveRoleRequest
+                 * refuses it). `branches.view` used to be branch-scoped because
+                 * every dropdown that names a branch read the same list; those
+                 * now read the branches the person works at with no tick at
+                 * all (LocationController::index), so this is purely the screen.
+                 */
                 'capabilities' => [
-                    ['key' => 'branches.view', 'name' => 'View branches', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'branches.create', 'name' => 'Add branches', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'branches.edit', 'name' => 'Edit branches', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'branches.delete', 'name' => 'Remove branches', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'branches.view', 'screen' => true, 'name' => 'See the Branches screen', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'branches.create', 'name' => 'Add branches', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'branches.edit', 'name' => 'Edit branches', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'branches.delete', 'name' => 'Remove branches', 'scope' => self::SCOPE_ORGANIZATION],
 
                     /*
                      * Who runs a branch — organization-scoped, and held apart
@@ -144,7 +178,7 @@ class ModuleRegistry
                 'group' => self::GROUP_FOUNDATION,
                 'is_core' => true,
                 'capabilities' => [
-                    ['key' => 'people.view', 'name' => 'View staff', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'people.view', 'screen' => true, 'name' => 'View staff', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'people.create', 'name' => 'Add staff', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'people.edit', 'name' => 'Edit staff', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'people.delete', 'name' => 'Remove staff', 'scope' => self::SCOPE_BRANCH],
@@ -189,7 +223,21 @@ class ModuleRegistry
                 'group' => self::GROUP_FOUNDATION,
                 'is_core' => true,
                 'capabilities' => [
-                    ['key' => 'customers.view', 'name' => 'View customers', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'customers.view', 'screen' => true, 'name' => 'See the customer list and search it', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * Finding somebody is not reading about them. A desk that
+                     * books by name needs the list; the record — visits,
+                     * history, every module's tab — is its own tick.
+                     */
+                    ['key' => 'customers.record', 'screen' => true, 'name' => 'Open a customer\'s record', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * The phone and WhatsApp buttons on a record. A screen
+                     * action rather than an endpoint: the number is on the
+                     * record either way, this decides whether the app dials it.
+                     */
+                    ['key' => 'customers.contact', 'name' => 'Call or WhatsApp a customer from the app', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'customers.create', 'name' => 'Add customers', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'customers.edit', 'name' => 'Edit customers', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'customers.delete', 'name' => 'Remove customers', 'scope' => self::SCOPE_BRANCH],
@@ -247,8 +295,8 @@ class ModuleRegistry
                 'group' => self::GROUP_FOUNDATION,
                 'is_core' => true,
                 'capabilities' => [
-                    ['key' => 'settings.manage', 'name' => 'Change field settings and naming', 'scope' => self::SCOPE_ORGANIZATION],
-                    ['key' => 'settings.audit', 'name' => 'Read the organization-wide activity log', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'settings.manage', 'screen' => true, 'name' => 'Change field settings and naming', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'settings.audit', 'screen' => true, 'name' => 'Read the organization-wide activity log', 'scope' => self::SCOPE_ORGANIZATION],
 
                     /*
                      * The organization's own account with the platform: its
@@ -261,7 +309,7 @@ class ModuleRegistry
                      * is locked: renewing is how a locked organization gets
                      * back in.
                      */
-                    ['key' => 'settings.subscription', 'name' => 'View and renew the subscription, and buy add-ons', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'settings.subscription', 'screen' => true, 'name' => 'View and renew the subscription, and buy add-ons', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             /*
@@ -289,7 +337,7 @@ class ModuleRegistry
                 'group' => self::GROUP_BILLING,
                 'is_core' => true,
                 'capabilities' => [
-                    ['key' => 'billing.view', 'name' => 'View invoices and payments', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'billing.view', 'screen' => true, 'name' => 'View invoices and payments', 'scope' => self::SCOPE_BRANCH],
 
                     /*
                      * Drawing an invoice is one act; editing an unpaid one is
@@ -318,8 +366,8 @@ class ModuleRegistry
                      * medicine master is — an invoice reads the same at every
                      * branch that raises it.
                      */
-                    ['key' => 'billing.manage_settings', 'name' => 'Change billing settings', 'scope' => self::SCOPE_ORGANIZATION],
-                    ['key' => 'billing.manage_services', 'name' => 'Manage billable services', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'billing.manage_settings', 'screen' => true, 'name' => 'Change billing settings', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'billing.manage_services', 'screen' => true, 'name' => 'Manage billable services', 'scope' => self::SCOPE_ORGANIZATION],
 
                     /*
                      * The money across every department — OPD and lab
@@ -331,7 +379,7 @@ class ModuleRegistry
                      * branch manager reads their branch, head office reads
                      * every branch.
                      */
-                    ['key' => 'billing.finance', 'name' => 'View finance across OPD, lab and pharmacy', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'billing.finance', 'screen' => true, 'name' => 'View finance across OPD, lab and pharmacy', 'scope' => self::SCOPE_BRANCH],
                 ],
             ],
 
@@ -366,7 +414,28 @@ class ModuleRegistry
                  * somebody takes leave.
                  */
                 'capabilities' => [
-                    ['key' => 'appointments.view', 'name' => 'View doctors, availability and the queue', 'scope' => self::SCOPE_BRANCH],
+                    /*
+                     * ONE TICK PER SCREEN. These three were one capability,
+                     * and a role that should only see the queue got the
+                     * doctor registry and the day's numbers with it. Each is
+                     * now what its own screen — and the endpoints only that
+                     * screen reads — asks for.
+                     */
+                    ['key' => 'appointments.view', 'screen' => true, 'name' => 'See appointments and the OPD dashboard', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'appointments.queue_view', 'screen' => true, 'name' => 'See today\'s queue', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'appointments.doctors_view', 'screen' => true, 'name' => 'See doctors, their schedules and availability', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * A doctor's own screens, one tick each. They still need a
+                     * login that belongs to a doctor to have anything in them
+                     * — that is data, not permission — but whether a doctor's
+                     * app shows them is now the role's to say.
+                     */
+                    ['key' => 'appointments.my_day', 'screen' => true, 'name' => 'Doctors: see My day', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'appointments.my_queue', 'screen' => true, 'name' => 'Doctors: see My queue and consultations', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'appointments.my_schedule', 'screen' => true, 'name' => 'Doctors: see My schedule', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'appointments.my_patients', 'screen' => true, 'name' => 'Doctors: see My patients, prescriptions, investigations and follow-ups', 'scope' => self::SCOPE_BRANCH],
+
                     ['key' => 'appointments.book', 'name' => 'Book appointments and take walk-ins', 'scope' => self::SCOPE_BRANCH],
 
                     /*
@@ -415,13 +484,13 @@ class ModuleRegistry
                      * the doctor running late that day, a patient moved twice
                      * already.
                      */
-                    ['key' => 'appointments.reschedule', 'name' => 'Approve or reject patients\' reschedule requests', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'appointments.reschedule', 'screen' => true, 'name' => 'Approve or reject patients\' reschedule requests', 'scope' => self::SCOPE_BRANCH],
 
                     /*
                      * How appointments behave across the organization — today,
                      * who is told when a patient asks to reschedule.
                      */
-                    ['key' => 'appointments.settings', 'name' => 'Change appointment settings', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'appointments.settings', 'screen' => true, 'name' => 'Change appointment settings', 'scope' => self::SCOPE_ORGANIZATION],
 
                     /*
                      * A doctor writing to their own patients, and reading what
@@ -430,7 +499,17 @@ class ModuleRegistry
                      * they have an appointment with, and nobody else — which
                      * the controller checks, since no capability can.
                      */
-                    ['key' => 'appointments.messages', 'name' => 'Message their own patients', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'appointments.messages', 'screen' => true, 'name' => 'Message their own patients', 'scope' => self::SCOPE_BRANCH],
+
+                    /*
+                     * The desk writing to the branch's patients, as "the
+                     * desk" rather than as any one doctor — a separate thread
+                     * from whichever doctor the patient also messages. Not
+                     * tied to a visit the way a doctor's half is: the desk's
+                     * relationship with a patient is being registered there,
+                     * which the controller checks the same way.
+                     */
+                    ['key' => 'appointments.messages_desk', 'screen' => true, 'name' => 'Message the branch\'s patients, as the desk', 'scope' => self::SCOPE_BRANCH],
 
                     /*
                      * Seeing a patient on video instead of in a room. Only a
@@ -461,7 +540,7 @@ class ModuleRegistry
                      * floor, without touching the doctor's profile at all.
                      */
                     ['key' => 'appointments.doctors', 'name' => 'Add and edit doctors', 'scope' => self::SCOPE_ORGANIZATION],
-                    ['key' => 'appointments.schedule', 'name' => 'Assign doctors to this branch, and set their timings, leave and extra sessions', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'appointments.schedule', 'screen' => true, 'name' => 'Assign doctors to this branch, and set their timings, leave and extra sessions', 'scope' => self::SCOPE_BRANCH],
 
                     /*
                      * The patient's side of the same module, in the patient
@@ -475,10 +554,11 @@ class ModuleRegistry
                      * Organization-scoped: a patient is not posted to a
                      * branch, and books at whichever one their doctor sits at.
                      */
-                    ['key' => 'portal.appointments.view', 'name' => 'Patients: see their own appointments', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
-                    ['key' => 'portal.appointments.book', 'name' => 'Patients: find a doctor and book for themselves', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
-                    ['key' => 'portal.messages', 'name' => 'Patients: message the doctors they have seen', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
+                    ['key' => 'portal.appointments.view', 'screen' => true, 'name' => 'Patients: see their own appointments', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
+                    ['key' => 'portal.appointments.book', 'screen' => true, 'name' => 'Patients: find a doctor and book for themselves', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
+                    ['key' => 'portal.messages', 'screen' => true, 'name' => 'Patients: message the doctors they have seen', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
                     ['key' => 'portal.video_calls', 'name' => 'Patients: book video visits and take the doctor\'s call', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
+                    ['key' => 'portal.family', 'screen' => true, 'name' => 'Patients: add family members and book for them', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
                 ],
             ],
             [
@@ -494,7 +574,7 @@ class ModuleRegistry
                  */
                 'requires' => ['medicines'],
                 'capabilities' => [
-                    ['key' => 'prescriptions.view', 'name' => 'Read prescriptions', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'prescriptions.view', 'screen' => true, 'name' => 'Read prescriptions', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'prescriptions.write', 'name' => 'Write prescriptions', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'prescriptions.cancel', 'name' => 'Cancel prescriptions', 'scope' => self::SCOPE_BRANCH],
                 ],
@@ -526,7 +606,7 @@ class ModuleRegistry
                 'is_core' => false,
                 'requires' => ['appointments'],
                 'capabilities' => [
-                    ['key' => 'laboratory.view', 'name' => 'View lab orders and results', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'laboratory.view', 'screen' => true, 'name' => 'View lab orders and results', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'laboratory.order', 'name' => 'Order tests at a consultation', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'laboratory.process', 'name' => 'Take on lab work and enter results', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'laboratory.complete', 'name' => 'Sign off and cancel lab orders', 'scope' => self::SCOPE_BRANCH],
@@ -566,8 +646,8 @@ class ModuleRegistry
                  * chosen at upload is recorded with the uploader's name.
                  */
                 'capabilities' => [
-                    ['key' => 'documents.view', 'name' => 'View ID, insurance and billing documents', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'documents.view_clinical', 'name' => 'View medical documents (reports, scans, summaries)', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'documents.view', 'screen' => true, 'name' => 'View ID, insurance and billing documents', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'documents.view_clinical', 'screen' => true, 'name' => 'View medical documents (reports, scans, summaries)', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'documents.upload', 'name' => 'Attach documents to a patient or visit', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'documents.delete', 'name' => 'Remove documents', 'scope' => self::SCOPE_BRANCH],
 
@@ -592,7 +672,7 @@ class ModuleRegistry
                      * decisions — the last one is what every patient handed a
                      * document after it will see.
                      */
-                    ['key' => 'documents.template_view', 'name' => 'View document templates', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'documents.template_view', 'screen' => true, 'name' => 'View document templates', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'documents.template_edit', 'name' => 'Edit this branch’s document templates', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'documents.template_publish', 'name' => 'Put a template version into use', 'scope' => self::SCOPE_BRANCH],
 
@@ -610,7 +690,7 @@ class ModuleRegistry
                      * a manager cannot be given it for their own branch and
                      * thereby reach everybody else's.
                      */
-                    ['key' => 'documents.template_org', 'name' => 'Manage every branch’s templates and lock fields', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'documents.template_org', 'screen' => true, 'name' => 'Manage every branch’s templates and lock fields', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             [
@@ -626,7 +706,7 @@ class ModuleRegistry
                  * sells, so it is an organization decision.
                  */
                 'capabilities' => [
-                    ['key' => 'medicines.view', 'name' => 'View medicines', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'medicines.view', 'screen' => true, 'name' => 'View medicines', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'medicines.manage', 'name' => 'Add, edit and remove medicines', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
@@ -646,16 +726,16 @@ class ModuleRegistry
                  * organization decisions.
                  */
                 'capabilities' => [
-                    ['key' => 'pharmacy.view', 'name' => 'View stock and the dispensing queue', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.view', 'screen' => true, 'name' => 'View stock and the dispensing queue', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.dispense', 'name' => 'Dispense prescriptions', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'pharmacy.sell', 'name' => 'Sell at the counter', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.sell', 'screen' => true, 'name' => 'Sell at the counter', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.sale_cancel', 'name' => 'Cancel a bill or take goods back', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.inward', 'name' => 'Receive stock (GRN)', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.adjust', 'name' => 'Adjust stock', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.transfer', 'name' => 'Transfer stock between stores', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.batches', 'name' => 'Manage batches', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.reverse', 'name' => 'Reverse a dispensing', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'pharmacy.stores', 'name' => 'Set up stores', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'pharmacy.stores', 'screen' => true, 'name' => 'Set up stores', 'scope' => self::SCOPE_ORGANIZATION],
                     ['key' => 'pharmacy.restore', 'name' => 'Restore removed pharmacy records', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
@@ -684,10 +764,10 @@ class ModuleRegistry
                 'is_core' => false,
                 'requires' => ['pharmacy'],
                 'capabilities' => [
-                    ['key' => 'reports.sales', 'name' => 'View the sales report', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'reports.purchases', 'name' => 'View the purchases report', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'reports.stock', 'name' => 'View the stock report', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'reports.expiry', 'name' => 'View the expiry report', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'reports.sales', 'screen' => true, 'name' => 'View the sales report', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'reports.purchases', 'screen' => true, 'name' => 'View the purchases report', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'reports.stock', 'screen' => true, 'name' => 'View the stock report', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'reports.expiry', 'screen' => true, 'name' => 'View the expiry report', 'scope' => self::SCOPE_BRANCH],
 
                     /*
                      * Commercially sensitive — what the shop actually makes,
@@ -695,8 +775,8 @@ class ModuleRegistry
                      * so an owner can staff a counter that sees stock and
                      * sales without seeing margins.
                      */
-                    ['key' => 'reports.profit', 'name' => 'View the profit report', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'reports.gst', 'name' => 'View the GST report', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'reports.profit', 'screen' => true, 'name' => 'View the profit report', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'reports.gst', 'screen' => true, 'name' => 'View the GST report', 'scope' => self::SCOPE_BRANCH],
                 ],
             ],
             [
@@ -707,7 +787,7 @@ class ModuleRegistry
                 'group' => self::GROUP_COMMUNICATION,
                 'is_core' => false,
                 'capabilities' => [
-                    ['key' => 'communication.view', 'name' => 'View communication logs and dashboards', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'communication.view', 'screen' => true, 'name' => 'View communication logs and dashboards', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'communication.manage', 'name' => 'Manage communication settings and integrations', 'scope' => self::SCOPE_ORGANIZATION],
 
                     /*
