@@ -379,6 +379,7 @@ class VideoCalls
                 'date' => $call->appointment?->appointment_date?->toDateString(),
                 'slot_at' => $call->appointment?->slot_at ? substr((string) $call->appointment->slot_at, 0, 5) : null,
                 'token_no' => $call->appointment?->token_no,
+                'token_label' => $call->appointment?->tokenLabel(),
             ],
             'rang_at' => $call->created_at?->toIso8601String(),
             'ring_expires_at' => $call->ringExpiresAt()?->toIso8601String(),

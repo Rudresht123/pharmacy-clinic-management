@@ -34,6 +34,12 @@ const DoctorListPage = lazy(() => import('@/core/doctors/pages/DoctorListPage'))
 const DoctorFormPage = lazy(() => import('@/core/doctors/pages/DoctorFormPage'));
 const MyDayPage = lazy(() => import('@/core/opd/pages/MyDayPage'));
 const MyQueuePage = lazy(() => import('@/core/opd/pages/MyQueuePage'));
+const QueueBoardPage = lazy(() => import('@/core/queue/pages/QueueBoardPage'));
+const DoctorQueuePage = lazy(() => import('@/core/queue/pages/DoctorQueuePage'));
+const QueueSettingsPage = lazy(() => import('@/core/queue/pages/QueueSettingsPage'));
+const QueueDisplaysPage = lazy(() => import('@/core/queue/pages/QueueDisplaysPage'));
+const QueueDisplayFormPage = lazy(() => import('@/core/queue/pages/QueueDisplayFormPage'));
+const DisplayPreviewPage = lazy(() => import('@/core/queue/pages/DisplayPreviewPage'));
 const MySchedulePage = lazy(() => import('@/core/opd/pages/MySchedulePage'));
 const MyRecordsPage = lazy(() => import('@/core/opd/pages/MyRecordsPage'));
 const MyConsultationsPage = lazy(() => import('@/core/opd/pages/MyConsultationsPage'));
@@ -117,6 +123,35 @@ function SetupPending() {
 }
 
 /**
+ * What somebody sees when the platform has not granted what they need yet.
+ *
+ * Nothing is included by default, so a new organization starts here. The setup
+ * also lands here until Branches is granted: it cannot finish without a branch,
+ * and the owner would otherwise hit a refusal partway through it.
+ */
+function ModulesPending() {
+    const { organization, logout } = useTenantAuth();
+
+    return (
+        <div className="d-flex align-items-center justify-content-center min-vh-100 px-3">
+            <div className="org-pending">
+                <i className="ti ti-puzzle" />
+                <h6>{organization?.name ?? 'Your organisation'} is waiting for its modules</h6>
+                <p>
+                    Your ZEVRO administrator has not switched on what this organisation needs yet.
+                    You can sign in and start working as soon as they have.
+                </p>
+
+                <button type="button" className="btn btn-light mt-3" onClick={() => void logout()}>
+                    <i className="ti ti-logout me-1" />
+                    Sign out
+                </button>
+            </div>
+        </div>
+    );
+}
+
+/**
  * Mirrors app/guards.tsx's ProtectedRoute, against the tenant auth context.
  *
  * Also keeps the workspace closed until organisation setup is finished: the
@@ -129,8 +164,15 @@ function SetupPending() {
  */
 const OPEN_WHEN_LOCKED = [/^\/subscription(\/|$)/, /^\/profile(\/|$)/, /^\/guide(\/|$)/] as const;
 
+/**
+ * What stays open while waiting for modules. Not the guides: with nothing in the
+ * menu /guide is where somebody lands, and it would hide the reason they are
+ * looking at a nearly empty screen.
+ */
+const OPEN_WITHOUT_MODULES = [/^\/subscription(\/|$)/, /^\/profile(\/|$)/] as const;
+
 function TenantProtectedRoute() {
-    const { isAuthenticated, setupCompleted, user, subscription } = useTenantAuth();
+    const { isAuthenticated, setupCompleted, user, subscription, modules } = useTenantAuth();
     const location = useLocation();
 
     if (!isAuthenticated) {
@@ -144,6 +186,12 @@ function TenantProtectedRoute() {
      */
     if (subscription?.locked && !OPEN_WHEN_LOCKED.some((path) => path.test(location.pathname))) {
         return <SubscriptionLockedPage />;
+    }
+
+    const cannotStart = modules.length === 0 || (!setupCompleted && !modules.includes('branches'));
+
+    if (cannotStart && !OPEN_WITHOUT_MODULES.some((path) => path.test(location.pathname))) {
+        return <ModulesPending />;
     }
 
     if (!setupCompleted) {
@@ -261,6 +309,12 @@ export function TenantAppRoutes() {
                             <Route path="/setup" element={<OrganizationSetupPage />} />
                         </Route>
 
+                        <Route element={<RequireModule module="queue" />}>
+                            <Route element={<RequireCapability capability="queue.displays" />}>
+                                <Route path="/settings/tv-displays/:id/preview" element={<DisplayPreviewPage />} />
+                            </Route>
+                        </Route>
+
                         <Route element={<TenantShell />}>
                             <Route path="/dashboard" element={<HomeRoute />} />
 
@@ -318,11 +372,10 @@ export function TenantAppRoutes() {
 
                             {/*
                                 One patient's history from every module, beside
-                                the register. Each tab inside asks for its own
-                                module's capability; the page needs only to be
-                                able to see a patient at all.
+                                the register, behind its own tick. Each tab
+                                inside asks for its own module's capability.
                             */}
-                            <Route element={<RequireCapability capability="customers.view" />}>
+                            <Route element={<RequireCapability capability="customers.records_view" />}>
                                 <Route path="/patient-records" element={<PatientRecordsPage />} />
                             </Route>
 
@@ -351,6 +404,32 @@ export function TenantAppRoutes() {
                                     path="/locations/:id/edit"
                                     element={<LocationFormPage />}
                                 />
+                            </Route>
+
+                            {/*
+                                The Smart Queue, a module of its own: sold to the
+                                organization, run per branch, then one tick per
+                                screen. The board and a doctor's own queue are the
+                                day's work; rooms, tokens and televisions are set
+                                up under Settings. A preview sits outside this
+                                shell, so it looks the way the wall does.
+                            */}
+                            <Route element={<RequireModule module="queue" />}>
+                                <Route element={<RequireCapability capability="queue.board" />}>
+                                    <Route path="/opd/live-queue" element={<QueueBoardPage />} />
+                                    <Route path="/opd/live-queue/:doctorId" element={<DoctorQueuePage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="queue.my_console" />}>
+                                    <Route path="/my-live-queue" element={<DoctorQueuePage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="queue.settings" />}>
+                                    <Route path="/settings/queue" element={<QueueSettingsPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="queue.displays" />}>
+                                    <Route path="/settings/tv-displays" element={<QueueDisplaysPage />} />
+                                    <Route path="/settings/tv-displays/new" element={<QueueDisplayFormPage />} />
+                                    <Route path="/settings/tv-displays/:id/edit" element={<QueueDisplayFormPage />} />
+                                </Route>
                             </Route>
 
                             {/* Two questions for OPD, asked in the same order
@@ -603,9 +682,9 @@ export function TenantAppRoutes() {
                             </Route>
 
                             {/*
-                                Billing. Core module — always mounted, but
-                                every route inside asks for the capability
-                                too, so the sidebar and the URL agree.
+                                Billing. Every route inside asks for the
+                                capability too, so the sidebar and the URL
+                                agree.
                              */}
                             <Route element={<RequireModule module="billing" />}>
                                 {/*
@@ -707,10 +786,9 @@ export function TenantAppRoutes() {
                                 />
                             </Route>
 
-                            {/* Level three of the permission flow. Reading is
-                                open to anybody who administers staff; writing
-                                is decided per role on the server. */}
-                            <Route element={<RequireCapability capability="people.view" />}>
+                            {/* Level three of the permission flow, behind its own
+                                tick. Writing is decided per role on the server. */}
+                            <Route element={<RequireCapability capability="people.roles_view" />}>
                                 <Route path="/roles" element={<RolesPage />} />
                             </Route>
 

@@ -6,6 +6,8 @@ use App\Models\Tenant\Appointment;
 use App\Models\Tenant\AppointmentSetting;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\User;
+use App\Services\Permissions\Permission;
+use App\Services\Tenancy\CurrentTenant;
 
 /**
  * Who may move a patient through the queue at this clinic.
@@ -58,6 +60,15 @@ class QueueSteps
      */
     public function authorize(User $user, string $step, Appointment $visit): void
     {
+        $this->authorizeForDoctor($user, $step, (int) $visit->doctor_id, (int) $visit->location_id);
+    }
+
+    /**
+     * The same refusal for a whole doctor's queue, with no one visit in hand:
+     * "Call next" has not chosen anybody yet when it is asked.
+     */
+    public function authorizeForDoctor(User $user, string $step, int $doctorId, int $locationId): void
+    {
         $settings = AppointmentSetting::current();
 
         if (! $this->permits($user, $step, $settings)) {
@@ -70,7 +81,26 @@ class QueueSteps
             });
         }
 
-        if ($this->sideOf($user) === AppointmentSetting::DOCTOR && (int) $user->userable_id !== (int) $visit->doctor_id) {
+        $this->authorizeQueue($user, $doctorId, $locationId);
+    }
+
+    /**
+     * Whether this is a queue [$user] may drive at all, whatever the step.
+     *
+     * The desk drives every queue at its branch: that is its job. A doctor
+     * drives their own, and another doctor's only with the explicit
+     * `queue.any_doctor` tick.
+     */
+    public function authorizeQueue(User $user, int $doctorId, int $locationId): void
+    {
+        if ($this->sideOf($user) !== AppointmentSetting::DOCTOR || (int) $user->userable_id === $doctorId) {
+            return;
+        }
+
+        $organization = CurrentTenant::organization();
+
+        if ($organization === null
+            || ! app(Permission::class)->allows($organization, $user, 'queue.any_doctor', $locationId)) {
             abort(403, 'That visit belongs to another doctor.');
         }
     }

@@ -10,16 +10,11 @@ export interface CatalogueModule {
     description: string | null;
     group: string;
     icon: string | null;
-    is_core: boolean;
 
-    /**
-     * Null for core modules — every organization has them, so a count would
-     * report zero and read as "nobody", which is the opposite of the truth.
-     */
-    organizations: number | null;
+    organizations: number;
     /** Bound at all, including revoked, scheduled and lapsed. */
-    assigned: number | null;
-    expiring_soon: number | null;
+    assigned: number;
+    expiring_soon: number;
 
     capabilities: ModuleCapability[];
 }

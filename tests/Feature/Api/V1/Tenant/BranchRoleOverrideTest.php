@@ -245,9 +245,10 @@ class BranchRoleOverrideTest extends TenantTestCase
             );
 
         // And it is still running there.
-        $this->getJson("/api/v1/tenant/locations/{$this->delhi}/modules")
-            ->assertOk()
-            ->assertJsonPath('data.modules.0.is_enabled', true)
-            ->assertJsonPath('data.modules.0.is_locked', true);
+        $row = collect($this->getJson("/api/v1/tenant/locations/{$this->delhi}/modules")->assertOk()->json('data.modules'))
+            ->firstWhere('key', 'appointments');
+
+        $this->assertTrue($row['is_enabled']);
+        $this->assertTrue($row['is_locked']);
     }
 }

@@ -27,13 +27,13 @@ class ModulePriceController extends BaseApiController
         private readonly PricingCatalog $catalog,
     ) {}
 
-    /** Every bindable module, its current price, its history, and the plans that include it. */
+    /** Every module, its current price, its history, and the plans that include it. */
     public function index(): JsonResponse
     {
         $prices = ModulePrice::query()->orderByDesc('effective_from')->get()->groupBy('module_id');
         $plans = Plan::query()->with('modules:id')->where('status', '!=', Plan::ARCHIVED)->get();
 
-        $rows = Module::query()->bindable()->orderBy('sort_order')->get()->map(function (Module $module) use ($prices, $plans) {
+        $rows = Module::query()->orderBy('sort_order')->get()->map(function (Module $module) use ($prices, $plans) {
             $history = $prices->get($module->id, collect());
             $current = $history->first(fn (ModulePrice $p) => $p->effective_from <= now()
                 && ($p->effective_to === null || $p->effective_to > now()));
@@ -73,8 +73,6 @@ class ModulePriceController extends BaseApiController
             'is_public' => ['boolean'],
             'effective_from' => ['nullable', 'date'],
         ]);
-
-        abort_if($module->is_core, 422, 'Core modules come with every organization and have no price of their own.');
 
         $from = isset($data['effective_from']) ? Carbon::parse($data['effective_from']) : now();
 

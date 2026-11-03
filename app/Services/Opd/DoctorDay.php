@@ -405,6 +405,7 @@ class DoctorDay
         return [
             'id' => $row->id,
             'token_no' => $row->token_no,
+            'token_label' => $row->tokenLabel(),
 
             /*
              * The patient, not just their name. Every screen that shows a row

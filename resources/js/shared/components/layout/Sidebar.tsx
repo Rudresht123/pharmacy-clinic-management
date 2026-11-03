@@ -3,6 +3,11 @@ import { NavLink, useLocation } from 'react-router-dom';
 import type { NavSection } from '@/app/navigation';
 import { useAppSettings } from '@/shared/hooks/useAppSettings';
 import { cn } from '@/shared/utils/cn';
+import { NavChildLink } from './NavChildLink';
+import { isItemActive, under } from './navMatch';
+import { useRailFlyout } from './useRailFlyout';
+
+const WORKSPACE = '__workspace';
 
 interface SidebarProps {
     /**
@@ -10,7 +15,10 @@ interface SidebarProps {
      * own workspace are different menus over the same chrome.
      */
     navigation: NavSection[];
+    /** Down to the icon rail, whose labels and sub-menus open in a card. */
     collapsed: boolean;
+    /** Off where the rail is the chosen menu style, not a state of the sidebar. */
+    canCollapse: boolean;
     onToggleCollapse: () => void;
     /** Closes the mobile drawer after a link is followed. */
     onNavigate: () => void;
@@ -25,6 +33,7 @@ interface SidebarProps {
 export function Sidebar({
     navigation,
     collapsed,
+    canCollapse,
     onToggleCollapse,
     onNavigate,
     footer,
@@ -33,16 +42,18 @@ export function Sidebar({
 }: SidebarProps) {
     const { pathname } = useLocation();
     const { settings, resolvedTheme } = useAppSettings();
+    const flyout = useRailFlyout();
 
     /*
-     * Which groups are open, by their own path.
+     * Which group is open, by its own path. Only ever one: opening a group
+     * closes the last, so the rail never grows into a wall of sub-menus.
      *
      * An earlier version opened a group whenever one of its screens was on,
      * which meant the chevron was decoration — it pointed down and nothing
      * could make it point right. Held as state, the group is something you
      * open and close, and the arrow says which it is.
      */
-    const [open, setOpen] = useState<string[]>([]);
+    const [open, setOpen] = useState<string | null>(null);
 
     /*
      * Navigating INTO a group opens it, once.
@@ -54,18 +65,27 @@ export function Sidebar({
         const inside = navigation
             .flatMap((section) => section.items)
             .filter((item) => item.children?.length)
-            .filter((item) => under(pathname, item.match ?? item.to))
-            .map((item) => item.to);
+            .find((item) => under(pathname, item.match ?? item.to));
 
-        if (inside.length > 0) {
-            setOpen((was) => Array.from(new Set([...was, ...inside])));
+        if (inside) {
+            setOpen(inside.to);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pathname]);
 
-    // The navy wordmark disappears on a dark or brand-coloured sidebar, and
-    // the dark theme turns every sidebar dark whatever its own setting says.
-    const onDarkSurface = settings.sidebar !== 'light' || resolvedTheme === 'dark';
+    // The navy wordmark disappears on a dark sidebar, and the dark theme turns
+    // every sidebar dark whatever its own setting says. A brand-coloured one
+    // puts the logo on a white cap, so the navy version is the one that reads.
+    const onDarkSurface = settings.sidebar === 'dark' || resolvedTheme === 'dark';
+
+    const hasWorkspace = Boolean(footer || help || extra);
+
+    const flyoutItem =
+        flyout.openKey && flyout.openKey !== WORKSPACE
+            ? navigation
+                  .flatMap((section) => section.items)
+                  .find((item) => item.to === flyout.openKey)
+            : undefined;
 
     return (
         <aside className="app-sidebar">
@@ -83,18 +103,20 @@ export function Sidebar({
                     <img src="/assets/img/zevro-mark.png" alt="" className="app-brand-mark" />
                 </NavLink>
 
-                <button
-                    type="button"
-                    className="app-collapse-btn d-none d-lg-grid"
-                    onClick={onToggleCollapse}
-                    aria-label="Collapse sidebar"
-                    title="Collapse sidebar"
-                >
-                    <i className="ti ti-layout-sidebar-left-collapse" />
-                </button>
+                {canCollapse && (
+                    <button
+                        type="button"
+                        className="app-collapse-btn d-none d-lg-grid"
+                        onClick={onToggleCollapse}
+                        aria-label="Collapse sidebar"
+                        title="Collapse sidebar"
+                    >
+                        <i className="ti ti-layout-sidebar-left-collapse" />
+                    </button>
+                )}
             </div>
 
-            <nav className="app-nav">
+            <nav className="app-nav" onScroll={collapsed ? flyout.close : undefined}>
                 {navigation.map((section, index) => (
                     <div className="app-nav-section" key={section.title || `section-${index}`}>
                         {/* A section can be untitled — Dashboard sits above
@@ -107,11 +129,7 @@ export function Sidebar({
 
                         <ul className="app-nav-list">
                             {section.items.map((item) => {
-                                // `match` lets a parent stay active on its child routes,
-                                // e.g. /organizations/3/edit.
-                                const active = item.match
-                                    ? under(pathname, item.match)
-                                    : pathname === item.to;
+                                const active = isItemActive(item, pathname);
 
                                 if (item.soon) {
                                     return (
@@ -129,7 +147,7 @@ export function Sidebar({
                                     );
                                 }
 
-                                const expanded = open.includes(item.to);
+                                const expanded = open === item.to;
 
                                 /*
                                  * A parent whose group is open does not also
@@ -142,20 +160,35 @@ export function Sidebar({
                                  * parent keeps only the bright text; the child
                                  * list underneath says where you actually are.
                                  */
-                                const parentOfOpenGroup = Boolean(item.children) && expanded;
+                                const parentOfOpenGroup =
+                                    Boolean(item.children) && expanded && !collapsed;
+
+                                const anchor = collapsed
+                                    ? flyout.anchorProps(item.to, Boolean(item.children))
+                                    : undefined;
 
                                 return (
-                                    <li key={item.to}>
+                                    <li
+                                        key={item.to}
+                                        className={cn(parentOfOpenGroup && 'is-open-group')}
+                                    >
                                         <NavLink
                                             to={item.to}
                                             className={cn(
                                                 'app-nav-item',
                                                 active && 'is-active',
                                                 active && parentOfOpenGroup && 'is-open-parent',
+                                                collapsed &&
+                                                    flyout.openKey === item.to &&
+                                                    'is-flyout',
                                             )}
-                                            onClick={onNavigate}
-                                            // Tooltip is the only label left when collapsed.
-                                            title={collapsed ? item.label : undefined}
+                                            // The label is hidden on the rail.
+                                            aria-label={collapsed ? item.label : undefined}
+                                            {...anchor}
+                                            onClick={(event) => {
+                                                anchor?.onClick?.(event);
+                                                onNavigate();
+                                            }}
                                         >
                                             <i className={item.icon} />
                                             <span>{item.label}</span>
@@ -184,11 +217,7 @@ export function Sidebar({
                                                         event.stopPropagation();
 
                                                         setOpen((was) =>
-                                                            was.includes(item.to)
-                                                                ? was.filter(
-                                                                      (at) => at !== item.to,
-                                                                  )
-                                                                : [...was, item.to],
+                                                            was === item.to ? null : item.to,
                                                         );
                                                     }}
                                                     onKeyDown={(event) => {
@@ -203,11 +232,7 @@ export function Sidebar({
                                                         event.stopPropagation();
 
                                                         setOpen((was) =>
-                                                            was.includes(item.to)
-                                                                ? was.filter(
-                                                                      (at) => at !== item.to,
-                                                                  )
-                                                                : [...was, item.to],
+                                                            was === item.to ? null : item.to,
                                                         );
                                                     }}
                                                 >
@@ -219,51 +244,19 @@ export function Sidebar({
                                         {/*
                                             Open because somebody opened it —
                                             or because they navigated in, which
-                                            counts as opening it. Hidden
-                                            entirely when the rail is collapsed
-                                            to icons, where an indented row has
-                                            nothing left to indent from.
+                                            counts as opening it. On the rail
+                                            these rows live in the card instead.
                                         */}
                                         {item.children && expanded && !collapsed && (
                                             <ul className="app-nav-sub">
-                                                {item.children.map((child) => {
-                                                    /*
-                                                     * A child whose link carries a
-                                                     * query string is an action,
-                                                     * not a place — it shares its
-                                                     * pathname with a sibling, and
-                                                     * without this both rows would
-                                                     * light up together, saying
-                                                     * you are in two places at
-                                                     * once.
-                                                     */
-                                                    const isAction = child.to.includes('?');
-
-                                                    return (
-                                                        <li key={child.to}>
-                                                            <NavLink
-                                                                to={child.to}
-                                                                end={!child.match}
-                                                                className={({ isActive }) =>
-                                                                    cn(
-                                                                        'app-nav-child',
-                                                                        !isAction &&
-                                                                            (child.match
-                                                                                ? under(
-                                                                                      pathname,
-                                                                                      child.match,
-                                                                                  )
-                                                                                : isActive) &&
-                                                                            'is-active',
-                                                                    )
-                                                                }
-                                                                onClick={onNavigate}
-                                                            >
-                                                                {child.label}
-                                                            </NavLink>
-                                                        </li>
-                                                    );
-                                                })}
+                                                {item.children.map((child) => (
+                                                    <li key={child.to}>
+                                                        <NavChildLink
+                                                            child={child}
+                                                            onClick={onNavigate}
+                                                        />
+                                                    </li>
+                                                ))}
                                             </ul>
                                         )}
                                     </li>
@@ -280,35 +273,71 @@ export function Sidebar({
 
             {help && !collapsed && <div className="app-sidebar-help">{help}</div>}
 
-            {collapsed && (
-                <div className="app-sidebar-foot d-none d-lg-block">
-                    <button
-                        type="button"
-                        className="app-expand-btn"
-                        onClick={onToggleCollapse}
-                        aria-label="Expand sidebar"
-                        title="Expand sidebar"
-                    >
-                        <i className="ti ti-layout-sidebar-right-collapse" />
-                    </button>
+            {collapsed && (hasWorkspace || canCollapse) && (
+                <div className="app-sidebar-foot">
+                    {/* The branch switcher has to stay reachable on the rail. */}
+                    {hasWorkspace && (
+                        <button
+                            type="button"
+                            className={cn(
+                                'app-nav-item app-rail-btn',
+                                flyout.openKey === WORKSPACE && 'is-flyout',
+                            )}
+                            aria-label="Workspace"
+                            aria-expanded={flyout.openKey === WORKSPACE}
+                            {...flyout.anchorProps(WORKSPACE, true)}
+                        >
+                            <i className="ti ti-building-store" />
+                        </button>
+                    )}
+
+                    {canCollapse && (
+                        <button
+                            type="button"
+                            className="app-expand-btn"
+                            onClick={onToggleCollapse}
+                            aria-label="Expand sidebar"
+                            title="Expand sidebar"
+                        >
+                            <i className="ti ti-layout-sidebar-right-collapse" />
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {collapsed && flyout.openKey && (
+                <div
+                    ref={flyout.popRef}
+                    className={cn(
+                        'app-flyout',
+                        flyoutItem && !flyoutItem.children && 'app-flyout--label',
+                        flyout.openKey === WORKSPACE && 'app-flyout--workspace',
+                    )}
+                    {...flyout.popProps}
+                >
+                    {flyoutItem ? (
+                        <>
+                            <NavLink
+                                to={flyoutItem.to}
+                                className="app-flyout-title"
+                                onClick={onNavigate}
+                            >
+                                {flyoutItem.label}
+                            </NavLink>
+
+                            {flyoutItem.children?.map((child) => (
+                                <NavChildLink key={child.to} child={child} onClick={onNavigate} />
+                            ))}
+                        </>
+                    ) : (
+                        <>
+                            {extra && <div className="app-sidebar-extra">{extra}</div>}
+                            {footer && <div className="app-sidebar-card">{footer}</div>}
+                            {help && <div className="app-sidebar-help">{help}</div>}
+                        </>
+                    )}
                 </div>
             )}
         </aside>
-    );
-}
-
-/**
- * Whether the current path sits under a menu entry.
- *
- * A prefix, or any of several — a group whose screens live at unrelated paths
- * still has to light up when you are on one of them.
- *
- * The prefix is compared at a segment boundary, so /doctors does not claim
- * /doctors-on-call. Startswith alone is the bug where an unrelated screen
- * silently highlights somebody else's menu.
- */
-function under(pathname: string, match: string | string[]): boolean {
-    return (Array.isArray(match) ? match : [match]).some(
-        (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     );
 }

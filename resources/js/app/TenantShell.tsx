@@ -64,6 +64,7 @@ export function TenantShell() {
             user={user}
             onLogout={logout}
             profileTo="/profile"
+            workspaceName={(atOneBranch ? here?.name : organization?.name) ?? undefined}
             sidebarFooter={
                 organization && (
                     <div className="app-org">

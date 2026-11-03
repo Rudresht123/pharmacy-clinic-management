@@ -3738,7 +3738,6 @@ html::-webkit-scrollbar-track {
 
 .cat-tag i{ font-size:13px; }
 
-.cat-tag.is-core{ background:rgba(var(--brand),.1); color:rgb(var(--brand)); }
 .cat-tag.is-warn{ background:rgba(217,119,6,.14); color:#b45309; }
 
 .cat-count{
@@ -4047,9 +4046,6 @@ html::-webkit-scrollbar-track {
     background:rgba(var(--brand),.03);
 }
 
-/* Included with every organization: present, not a decision. */
-.ma-item.is-core{ background:var(--surface-2); border-color:var(--line); }
-
 .ma-item.has-error{ border-color:rgba(220,53,69,.45); }
 
 .ma-row{
@@ -4102,19 +4098,6 @@ html::-webkit-scrollbar-track {
     font-size:12px;
     line-height:1.45;
     color:var(--muted);
-}
-
-.ma-locked{
-    display:inline-flex;
-    align-items:center;
-    gap:5px;
-    flex-shrink:0;
-    padding:4px 10px;
-    border-radius:30px;
-    background:rgba(var(--brand),.1);
-    font-size:11px;
-    font-weight:600;
-    color:rgb(var(--brand));
 }
 
 /* --- the switch ------------------------------------------ */
@@ -4302,9 +4285,35 @@ html::-webkit-scrollbar-track {
     color:var(--muted);
 }
 
-.ma-caps-title{
-    display:block;
-    margin-bottom:7px;
+/* The note sits in a row with two date pickers, so it takes their
+   measurements over the theme's taller input. */
+.app-content .ma-field .form-control{
+    height:38px;
+    min-height:38px;
+    padding:6px 12px;
+    border-radius:8px;
+    background:var(--surface);
+    font-size:14px;
+}
+
+/* The terms above and what the module grants below are two
+   separate questions, so a line keeps them apart. */
+.ma-terms{
+    margin-bottom:16px;
+    border-bottom:1px solid var(--line);
+}
+
+/* --- what the module grants ------------------------------ */
+
+.ma-perms-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:12px;
+}
+
+.ma-perms-head h6{
+    margin:0;
     font-size:11px;
     font-weight:700;
     letter-spacing:.04em;
@@ -4312,30 +4321,119 @@ html::-webkit-scrollbar-track {
     color:var(--ink-3);
 }
 
-.ma-caps{
+.ma-perms-head span{
+    padding:1px 8px;
+    border-radius:30px;
+    background:var(--surface-3);
+    font-size:11px;
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+    color:var(--ink-3);
+}
+
+.ma-perm-group + .ma-perm-group{ margin-top:14px; }
+
+.ma-perm-label{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin-bottom:7px;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-2);
+}
+
+.ma-perm-label i{ font-size:15px; color:var(--muted); }
+
+/* auto-fill, not auto-fit: a group of one keeps a tile's width
+   rather than stretching across the card. The default stretch
+   is what holds every tile in a row to one height. */
+.ma-perm-grid{
     display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-    gap:5px 16px;
+    grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+    gap:8px;
     margin:0;
     padding:0;
     list-style:none;
 }
 
-.ma-caps li{
+.ma-perm{
     display:flex;
-    align-items:center;
-    gap:7px;
-    font-size:12.5px;
-    color:var(--ink-2);
+    align-items:flex-start;
+    gap:9px;
+    min-width:0;
+    padding:10px 11px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
 }
 
-.ma-caps li i{ font-size:14px; color:#16a34a; }
+/* Centred by line box, for the reason given at .ma-icon. */
+.ma-perm-tick{
+    box-sizing:border-box;
+    display:block;
+    flex:0 0 20px;
+    width:20px;
+    height:20px;
+    border-radius:50%;
+    background:rgba(34,197,94,.14);
+    font-size:13px;
+    line-height:20px;
+    text-align:center;
+    color:#16a34a;
+}
+
+/* Not granted yet, so it does not get to look granted. */
+.ma-perms.is-preview .ma-perm-tick{
+    background:var(--surface-3);
+    color:var(--muted);
+}
+
+.ma-perm-text{ flex:1; min-width:0; }
+
+.ma-perm-text b{
+    display:block;
+    font-size:12.5px;
+    font-weight:600;
+    line-height:1.4;
+    color:var(--ink);
+}
+
+/* Under the name rather than beside it, so neither squeezes a
+   long name into a narrow column. */
+.ma-perm-meta{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:3px 7px;
+    margin-top:2px;
+}
 
 /* The key, because a role screen and a route will name it. */
-.ma-caps code{
-    margin-left:auto;
+.ma-perm-meta code{
+    padding:0;
+    background:none;
     font-size:11px;
+    line-height:1.4;
+    overflow-wrap:anywhere;
     color:var(--muted);
+}
+
+.ma-perm-scope{
+    flex-shrink:0;
+    padding:1px 7px;
+    border-radius:30px;
+    background:rgba(var(--brand),.08);
+    font-size:10.5px;
+    font-weight:600;
+    line-height:1.6;
+    color:rgb(var(--brand));
+}
+
+/* The brand is a dark indigo, which disappears on a dark card. */
+[data-theme='dark'] .ma-perm-scope{
+    background:var(--surface-3);
+    color:var(--ink-2);
 }
 
 /* ---------------------------------------------------------
@@ -5977,6 +6075,20 @@ html::-webkit-scrollbar-track {
 }
 
 .opd-tab.is-on em{ color:rgba(255,255,255,.8); }
+
+/* The tabs, with the doctor filter at the far end of the same row. */
+.opd-tabs-row{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:12px;
+}
+
+.opd-tabs-row .opd-tabs{ margin-bottom:0; }
+
+.opd-tabs-row .q-doctor-pick{ flex:0 0 auto; width:190px; max-width:100%; }
 
 /* --- the table --------------------------------------------- */
 
@@ -12858,9 +12970,10 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
  * again in words, so the colour is never carrying it alone.
  */
 .q-token{
-    display:grid;
+    display:inline-grid;
     place-items:center;
-    width:44px;
+    min-width:44px;
+    padding:0 8px;
     height:34px;
     border-radius:10px;
     background:var(--surface-2);
@@ -13987,6 +14100,16 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     background:var(--surface);
 }
 
+/* The same small capitals the role list beside it uses for its headings. */
+.rp-matrix-heading{
+    margin:12px 9px 3px;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--muted);
+}
+
 .rp-matrix-item{
     display:flex;
     align-items:center;
@@ -14673,6 +14796,19 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
    on the platform screen — the whole row is the label, so
    nesting one inside another would stop the click working. */
 .bm-item .ma-switch{ flex:0 0 auto; }
+
+/* Filed the way the sidebar is, with the headings the Roles screen uses. */
+.bm-section + .bm-section{ margin-top:16px; }
+.bm-section + .bm-note{ margin-top:16px; }
+
+.bm-heading{
+    margin:0 0 8px;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--muted);
+}
 
 .bm-note{
     display:flex;
@@ -15571,148 +15707,62 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 }
 
 /*
- * The current screen is a solid card, not a translucent wash.
+ * An open group is one tray: its parent on top, its screens underneath.
  *
- * White at 17% over a saturated blue is the muddiest thing this rail can
- * produce — light enough to notice, not light enough to read as chosen, and it
- * drags the icon and the label down with it. Solid white with the brand as ink
- * inverts the row instead: the highest contrast available here, and it reads
- * as lifted off the surface rather than smeared onto it.
- *
- * The left accent bar goes with it. That existed to mark a row whose
- * background was nearly invisible; against a solid card it is a second marker
- * for something already unmistakable.
+ * The tray does the bracketing a spine line used to, so nothing has to be
+ * drawn between the rows and the group reads as a single object.
  */
-:root[data-sidebar='brand'] .app-shell .app-nav-item.is-active,
-:root[data-sidebar='dark'] .app-shell .app-nav-item.is-active{
-    background:#fff;
-    color:rgb(var(--brand));
-    font-weight:600;
-    box-shadow:0 4px 14px rgba(0,0,0,.16);
-}
-
-:root[data-sidebar='brand'] .app-shell .app-nav-item.is-active i,
-:root[data-sidebar='dark'] .app-shell .app-nav-item.is-active i{
-    color:rgb(var(--brand));
-}
-
-:root[data-sidebar='brand'] .app-shell .app-nav-item.is-active::before,
-:root[data-sidebar='dark'] .app-shell .app-nav-item.is-active::before{
-    display:none;
-}
-
-/*
- * Except when it is the parent of an open group.
- *
- * Then the solid card belongs to whichever child you are actually on, and the
- * parent only has to say which section is open — two filled rows stacked in a
- * column was the thing that looked wrong to begin with.
- */
-:root[data-sidebar='brand'] .app-shell .app-nav-item.is-active.is-open-parent,
-:root[data-sidebar='dark'] .app-shell .app-nav-item.is-active.is-open-parent{
-    background:var(--sb-hover-bg);
-    color:var(--sb-hover-fg);
-    box-shadow:none;
-}
-
-:root[data-sidebar='brand'] .app-shell .app-nav-item.is-active.is-open-parent i,
-:root[data-sidebar='dark'] .app-shell .app-nav-item.is-active.is-open-parent i{
-    color:inherit;
-}
-
-/* The chosen child takes the solid card the parent gave up. */
-:root[data-sidebar='brand'] .app-shell .app-nav-child.is-active,
-:root[data-sidebar='dark'] .app-shell .app-nav-child.is-active{
-    background:#fff;
-    color:rgb(var(--brand));
-    box-shadow:0 3px 10px rgba(0,0,0,.14);
-}
-
-:root[data-sidebar='brand'] .app-shell .app-nav-child.is-active::before,
-:root[data-sidebar='dark'] .app-shell .app-nav-child.is-active::before{
-    display:none;
+.app-nav-list > li.is-open-group{
+    border-radius:13px;
+    background:var(--sb-tray);
 }
 
 /*
  * The screens inside a section, shown once the group is opened.
  *
  * Set in plain text rather than repeating the parent's icon: a second column
- * of icons at this depth reads as a second menu, and the rail is already the
- * widest thing on a laptop screen.
+ * of icons at this depth reads as a second menu. Indented so each label starts
+ * under the parent's label.
  *
- * Every colour comes from the SIDEBAR VARIANT tokens — --sb-fg, --sb-hover-bg,
- * --sb-active-*, --sb-border — never from --sb-muted or --sb-line. Those two
- * are the light rail's own defaults and are never re-themed, so on the brand
- * and dark rails the child rows came out as grey text on blue with a spine
- * nobody could see.
+ * Every colour comes from the SIDEBAR VARIANT tokens, never from --sb-muted or
+ * --sb-line. Those two are the light rail's own defaults and are never
+ * re-themed, so on the brand and dark rails they come out as grey on blue.
  */
 .app-nav-sub{
-    position:relative;
     display:grid;
     gap:2px;
-    margin:4px 0 8px;
-    padding:0 0 0 30px;
+    margin:0;
+    padding:0 6px 6px 36px;
     list-style:none;
-}
-
-/*
- * One continuous spine down the group, drawn once.
- *
- * A segment per row left visible breaks between them, and the active row's
- * segment then had to be a thick bar to look deliberate — which is what made
- * the whole group heavy. Faint, because it is a bracket saying "these belong
- * to the row above", not a divider anybody has to read.
- */
-.app-nav-sub::before{
-    content:"";
-    position:absolute;
-    left:18px;
-    top:4px;
-    bottom:4px;
-    width:1.5px;
-    border-radius:2px;
-    background:var(--sb-border);
 }
 
 .app-nav-child{
     display:flex;
     align-items:center;
-    position:relative;
-    height:36px;
-    padding:0 12px;
+    height:34px;
+    padding:0 10px;
     border-radius:9px;
     font-size:13px;
     font-weight:500;
     color:var(--sb-fg);
-    opacity:.7;
     text-decoration:none;
     white-space:nowrap;
-    transition:opacity .14s ease, background .14s ease, color .14s ease;
+    transition:background .14s ease, color .14s ease;
 }
 
-.app-nav-child:hover{ opacity:1; background:var(--sb-hover-bg); color:var(--sb-hover-fg); }
+.app-nav-child:hover{ background:var(--sb-hover-bg); color:var(--sb-hover-fg); }
 
-/*
- * The current screen: brighter text and a small marker on the spine, not a
- * filled block. The parent above it is already showing which group you are
- * in, so this only has to say which row — and two filled rows in a column was
- * the thing that looked wrong.
- */
-.app-nav-child.is-active{
-    opacity:1;
+/* One filled row on the whole rail: the screen you are on. */
+.app-nav-child.is-active,
+.app-nav-child.is-active:hover{
+    background:var(--sb-active-bg);
+    color:var(--sb-active-fg);
     font-weight:600;
 }
 
-.app-nav-child.is-active::before{
-    content:"";
-    position:absolute;
-    left:-12.5px;
-    top:50%;
-    width:5px;
-    height:5px;
-    margin-top:-2.5px;
-    border-radius:50%;
-    background:var(--sb-accent);
+.app-nav-child:focus-visible{
+    outline:2px solid var(--sb-accent);
+    outline-offset:1px;
 }
 
 /*
@@ -15734,10 +15784,8 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     cursor:default;
 }
 
-.app-nav-item.is-soon i{ font-size:16px; opacity:.6; }
-.app-nav-item.is-soon:hover{ background:transparent; }
-
-.app-nav-item.is-soon:hover{ background:transparent; }
+.app-nav-item.is-soon > i{ font-size:16px; opacity:.6; }
+.app-nav-item.is-soon:hover{ background:transparent; color:var(--sb-fg); }
 
 .app-nav-soon{
     margin-left:auto;
@@ -15765,11 +15813,11 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 .app-sidebar-card{
     /* Held at its own size; the menu above is what shrinks. */
     flex-shrink:0;
-    margin:auto 12px 12px;
-    padding:12px;
-    border-radius:12px;
-    background:var(--sb-line);
-    color:var(--sb-ink);
+    margin:8px 10px 4px;
+    padding:9px 10px;
+    border-radius:13px;
+    background:var(--sb-hover-bg);
+    color:var(--sb-strong);
 }
 
 .app-org{
@@ -15781,14 +15829,14 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 
 .app-org-mark{
     flex:0 0 auto;
-    width:34px;
-    height:34px;
+    width:32px;
+    height:32px;
     display:grid;
     place-items:center;
     overflow:hidden;
-    border-radius:10px;
-    background:var(--sb-line);
-    color:var(--sb-ink);
+    border-radius:9px;
+    background:var(--sb-mark-bg);
+    color:var(--sb-mark-fg);
     font-size:17px;
 }
 
@@ -15804,7 +15852,7 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     display:block;
     font-size:13px;
     font-weight:600;
-    color:var(--sb-ink);
+    color:var(--sb-strong);
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
@@ -15813,25 +15861,28 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 .app-org-text small{
     display:block;
     font-size:11px;
-    color:var(--sb-muted);
+    color:var(--sb-label);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
 }
 
 /* --- the last rows of the sidebar ------------------------ */
 
 .app-sidebar-help{
     flex-shrink:0;
-    padding:0 12px 14px;
+    padding:0 10px 8px;
 }
 
 .app-help{
     display:flex;
     align-items:center;
-    gap:11px;
-    padding:9px 11px;
+    gap:10px;
+    padding:7px 10px;
     border-radius:10px;
     font-size:13px;
     text-decoration:none;
-    color:var(--sb-muted);
+    color:var(--sb-fg);
     transition:background .14s ease,color .14s ease;
 }
 
@@ -15878,7 +15929,7 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
    it never appears as a control that cannot do anything.
    --------------------------------------------------------- */
 
-.app-sidebar-extra{ flex-shrink:0; margin-top:auto; padding:0 12px 10px; }
+.app-sidebar-extra{ flex-shrink:0; padding:8px 10px 0; }
 
 .bs{ position:relative; }
 
@@ -15887,11 +15938,11 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     align-items:center;
     gap:10px;
     width:100%;
-    padding:10px 11px;
-    border:1px solid var(--sb-line);
-    border-radius:11px;
-    background:var(--sb-line);
-    color:var(--sb-ink);
+    padding:9px 10px;
+    border:0;
+    border-radius:13px;
+    background:var(--sb-hover-bg);
+    color:var(--sb-strong);
     text-align:left;
     cursor:pointer;
     transition:background .14s ease,color .14s ease;
@@ -15909,7 +15960,7 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
     font-size:10px;
     letter-spacing:.05em;
     text-transform:uppercase;
-    color:var(--sb-muted);
+    color:var(--sb-label);
 }
 
 .bs-current b{
@@ -27709,3 +27760,1211 @@ fieldset:disabled .bset-method:not(.is-on):hover {
 @media (max-width: 575.98px){
     .as-row{ flex-direction:column; align-items:flex-start; }
 }
+
+/* ==========================================================================
+   Live queue: the reception board and a doctor's own queue (.sq-)
+   ========================================================================== */
+
+.sq-stats{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
+
+.sq-board{ margin-top:16px; }
+
+.sq-board-tools{ display:flex; align-items:center; gap:12px; }
+.sq-board-tools .q-doctor-pick{ min-width:190px; }
+
+.sq-live{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+}
+
+.sq-live i{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:var(--ink-3);
+}
+
+.sq-live.is-live i{ background:#16a34a; box-shadow:0 0 0 3px rgba(22,163,74,.16); }
+
+.sq-table td{ vertical-align:middle; }
+
+.sq-row{ cursor:pointer; }
+.sq-row:hover td{ background:var(--surface-2); }
+
+.sq-row-skipped td{ opacity:.72; }
+
+.sq-doctor{ display:inline-flex; align-items:center; gap:10px; min-width:0; }
+.sq-doctor a{ display:block; font-weight:600; color:var(--ink); }
+.sq-doctor small{ display:block; font-size:11.5px; color:var(--ink-3); }
+
+.sq-token{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:50px;
+    padding:4px 9px;
+    border-radius:8px;
+    background:var(--surface-2);
+    font-size:13.5px;
+    font-weight:700;
+    letter-spacing:.01em;
+    font-variant-numeric:tabular-nums;
+    color:var(--ink);
+    white-space:nowrap;
+}
+
+.sq-token.is-called{ background:rgb(var(--brand)); color:#fff; }
+.sq-token.is-next{ box-shadow:inset 0 0 0 1px var(--line); background:transparent; }
+
+.sq-called{ display:block; margin-top:2px; font-size:11px; color:rgb(var(--brand)); }
+
+.sq-count{ font-size:15px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); }
+.sq-priority-count{ display:block; font-size:11px; color:#b45309; }
+
+.sq-state{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:3px 9px;
+    border-radius:999px;
+    background:var(--surface-2);
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-2);
+    white-space:nowrap;
+}
+
+.sq-dot{ width:7px; height:7px; border-radius:50%; background:var(--ink-3); }
+
+.sq-state.is-on .sq-dot{ background:#16a34a; }
+.sq-state.is-later .sq-dot{ background:#d97706; }
+.sq-state.is-paused{ background:rgba(217,119,6,.13); color:#b45309; }
+
+.sq-priority{
+    display:inline-flex;
+    align-self:flex-start;
+    align-items:center;
+    gap:5px;
+    padding:3px 8px;
+    border-radius:6px;
+    font-size:11.5px;
+    font-weight:700;
+    white-space:nowrap;
+}
+
+.sq-priority.is-urgent{ background:rgba(217,119,6,.13); color:#b45309; }
+.sq-priority.is-emergency{ background:rgba(220,38,38,.12); color:#b91c1c; }
+
+.sq-actions{ flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+
+.sq-event-detail{ display:block; font-size:12px; color:var(--ink-3); }
+
+.sq-gap{ margin-bottom:14px; }
+
+/* The three facts a doctor reads between patients, equal height, side by side. */
+.sq-now{
+    display:grid;
+    grid-template-columns:minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap:16px;
+    margin-top:16px;
+}
+
+.sq-now-card{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    padding:20px 22px;
+    border-radius:16px;
+    background:var(--surface);
+    box-shadow:0 8px 24px rgba(30, 64, 120, .08);
+}
+
+[data-theme='dark'] .sq-now-card{ box-shadow:none; border:1px solid var(--line); }
+
+.sq-now-card.is-current{ background:rgb(var(--brand)); color:#fff; }
+
+.sq-now-label{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+}
+
+.sq-now-card.is-current .sq-now-label{ color:rgba(255,255,255,.8); }
+
+.sq-now-token{
+    font-size:44px;
+    font-weight:800;
+    line-height:1.05;
+    letter-spacing:-.01em;
+    font-variant-numeric:tabular-nums;
+    color:var(--ink);
+}
+
+.sq-now-card.is-current .sq-now-token{ color:#fff; }
+
+.sq-now-who{ font-size:13px; color:var(--ink-2); }
+.sq-now-card.is-current .sq-now-who{ color:rgba(255,255,255,.92); }
+
+.sq-now-acts{ display:flex; flex-wrap:wrap; gap:8px; margin-top:auto; padding-top:10px; }
+.sq-now-card.is-current .btn-primary{ background:#fff; border-color:#fff; color:rgb(var(--brand)); }
+
+/* Short dialogs */
+.sq-choices{ display:grid; gap:8px; }
+
+.sq-choice{
+    display:grid;
+    gap:2px;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+    text-align:left;
+}
+
+.sq-choice b{ font-size:13.5px; color:var(--ink); }
+.sq-choice span{ font-size:12px; color:var(--ink-3); }
+.sq-choice.is-on{ border-color:rgb(var(--brand)); box-shadow:inset 0 0 0 1px rgb(var(--brand)); }
+
+.sq-note{ margin:12px 0 0; font-size:12.5px; color:var(--ink-3); }
+
+.sq-lengths{ display:flex; flex-wrap:wrap; gap:6px; }
+
+.sq-length{
+    padding:7px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--surface);
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-2);
+}
+
+.sq-length.is-on{ border-color:rgb(var(--brand)); background:rgb(var(--brand)); color:#fff; }
+
+.sq-link{
+    display:block;
+    padding:12px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface-2);
+    font-size:12.5px;
+    word-break:break-all;
+    color:var(--ink);
+    user-select:all;
+}
+
+.sq-switches{ display:grid; gap:12px; margin-top:16px; }
+.sq-switches .form-check-label{ display:grid; gap:1px; }
+.sq-switches .form-check-label b{ font-size:13.5px; font-weight:600; color:var(--ink); }
+.sq-switches .form-check-label small{ font-size:12px; color:var(--ink-3); }
+
+.sq-run-form{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.sq-run-form > :first-child{ flex:1 1 220px; min-width:0; }
+.sq-run-prefix{ flex:0 0 110px; width:110px; }
+
+/* The display form */
+.sq-form{ display:grid; gap:16px; margin-top:16px; max-width:900px; }
+
+.sq-types{ display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; }
+
+.sq-type{
+    display:grid;
+    align-content:start;
+    gap:4px;
+    padding:14px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface);
+    text-align:left;
+}
+
+.sq-type i{ font-size:20px; color:var(--ink-3); }
+.sq-type b{ font-size:13.5px; color:var(--ink); }
+.sq-type span{ font-size:12px; line-height:1.35; color:var(--ink-3); }
+.sq-type.is-on{ border-color:rgb(var(--brand)); box-shadow:inset 0 0 0 1px rgb(var(--brand)); }
+.sq-type.is-on i{ color:rgb(var(--brand)); }
+
+.sq-doctor-picks{ display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:8px; }
+
+.sq-pick{
+    display:flex;
+    align-items:flex-start;
+    gap:9px;
+    padding:9px 11px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    cursor:pointer;
+}
+
+.sq-pick b{ display:block; font-size:13px; font-weight:600; color:var(--ink); }
+.sq-pick small{ display:block; font-size:11.5px; color:var(--ink-3); }
+.sq-pick .form-check-input{ margin-top:2px; flex:none; }
+.sq-pick.is-inline{ padding:6px 11px; }
+
+.sq-languages{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:14px; }
+
+.sq-form-foot{ display:flex; justify-content:flex-end; gap:10px; }
+
+@media (max-width: 991.98px){
+    .sq-stats{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .sq-now{ grid-template-columns:minmax(0, 1fr); }
+    .sq-types{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+}
+
+/* ==========================================================================
+   The television (.tv-). Its own page, so its own colours: it has to read from
+   across a room in either theme, whatever the workspace's theme is.
+   ========================================================================== */
+
+.tv{
+    --tv-bg:linear-gradient(180deg, #0a1626 0%, #0d1d33 100%);
+    --tv-panel:#13243b;
+    --tv-panel-2:#1b3150;
+    --tv-row:#172b47;
+    --tv-row-on:#1f3d66;
+    --tv-room:#1b3150;
+    --tv-line:rgba(255,255,255,.1);
+    --tv-ink:#f4f8ff;
+    --tv-ink-2:#aebfd6;
+    --tv-accent:#4fa3ff;
+    --tv-call:#ffc53d;
+    --tv-call-ink:#1a1405;
+    --tv-chip-0:#1d4ed8; --tv-chip-0-ink:#dbeafe;
+    --tv-chip-1:#14532d; --tv-chip-1-ink:#bbf7d0;
+    --tv-chip-2:#4c1d95; --tv-chip-2-ink:#e9d5ff;
+    --tv-chip-3:#7c2d12; --tv-chip-3-ink:#fed7aa;
+    --tv-shadow:none;
+    --tv-u:1vmin;
+
+    position:fixed;
+    inset:0;
+    z-index:2000;
+    display:grid;
+    grid-template-rows:auto minmax(0, 1fr) auto;
+    overflow:hidden;
+    background:var(--tv-bg);
+    color:var(--tv-ink);
+    font-family:Inter, 'Segoe UI', system-ui, sans-serif;
+    font-variant-numeric:tabular-nums;
+}
+
+.tv-theme-light{
+    --tv-bg:linear-gradient(180deg, #e8f2fd 0%, #d7e8fb 100%);
+    --tv-panel:rgba(255,255,255,.82);
+    --tv-panel-2:#e7f0fb;
+    --tv-row:#ffffff;
+    --tv-row-on:#d6e9fc;
+    --tv-room:#f6f9fd;
+    --tv-line:rgba(15,40,80,.08);
+    --tv-ink:#0c2340;
+    --tv-ink-2:#51657f;
+    --tv-accent:#0b5fd1;
+    --tv-call:#0b5fd1;
+    --tv-call-ink:#ffffff;
+    --tv-chip-0:#dbeafe; --tv-chip-0-ink:#0b4fb3;
+    --tv-chip-1:#c9f0dd; --tv-chip-1-ink:#0f5c3c;
+    --tv-chip-2:#e6d9fb; --tv-chip-2-ink:#5b21b6;
+    --tv-chip-3:#fddcb8; --tv-chip-3-ink:#b4470c;
+    --tv-shadow:0 .4vh 1.6vh rgba(11,79,179,.08);
+}
+
+/* --- the header --------------------------------------------------------- */
+
+.tv-top{
+    display:flex;
+    align-items:center;
+    gap:1.6vw;
+    padding:1.4vh 2vw;
+    background:var(--tv-panel);
+    border-bottom:1px solid var(--tv-line);
+}
+
+.tv-brand{
+    display:flex;
+    align-items:center;
+    gap:1vw;
+    min-width:0;
+    padding-right:1.6vw;
+    border-right:.2vh solid var(--tv-ink);
+}
+
+.tv-logo{ --pav-size:6.6vh; --pav-font:2.4vh; flex:none; }
+
+/* Stands in for a logo the organisation has not uploaded: a plus, drawn as two
+   bars, so it needs no image and stays crisp at any size. */
+.tv-logo-mark{
+    flex:none;
+    display:block;
+    width:6.4vh;
+    height:6.4vh;
+    border-radius:1vh;
+    background:
+        linear-gradient(var(--tv-accent), var(--tv-accent)) center / 34% 100% no-repeat,
+        linear-gradient(var(--tv-accent), var(--tv-accent)) center / 100% 34% no-repeat;
+}
+
+.tv-brand-text{ min-width:0; }
+
+.tv-brand h1{
+    margin:0;
+    font-size:3.8vh;
+    font-weight:800;
+    line-height:1.2;
+    letter-spacing:-.01em;
+    color:var(--tv-ink);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.tv-brand p{
+    margin:.2vh 0 0;
+    font-size:2.1vh;
+    font-weight:500;
+    color:var(--tv-ink-2);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.tv-title{
+    flex:1 1 auto;
+    display:flex;
+    align-items:center;
+    gap:.7vw;
+    min-width:0;
+    font-size:2.9vh;
+    font-weight:700;
+    color:var(--tv-ink);
+    white-space:nowrap;
+}
+
+.tv-title i{ font-size:3.6vh; color:var(--tv-accent); }
+
+.tv-clock{ flex:none; display:flex; align-items:center; gap:.9vw; line-height:1.15; }
+.tv-clock > i{ font-size:5vh; color:var(--tv-accent); }
+.tv-clock span{ display:block; font-size:2vh; font-weight:500; color:var(--tv-ink-2); }
+.tv-clock b{ display:block; font-size:3.9vh; font-weight:800; letter-spacing:-.01em; color:var(--tv-ink); }
+
+.tv-conn{
+    flex:none;
+    display:inline-flex;
+    align-items:center;
+    gap:.5vw;
+    padding:.9vh 1.2vw;
+    border-radius:999px;
+    font-size:2.3vh;
+    font-weight:800;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    color:#fff;
+}
+
+.tv-conn i{ width:1.3vh; height:1.3vh; border-radius:50%; background:#fff; }
+.tv-conn.is-live{ background:#0f7a43; }
+.tv-conn.is-off{ background:#b45309; }
+.tv-conn.is-preview{ background:var(--tv-panel-2); color:var(--tv-ink-2); }
+.tv-conn.is-preview i{ width:auto; height:auto; background:none; }
+
+.tv-main{ min-height:0; padding:1.6vh 1.2vw; }
+
+/* --- the board ---------------------------------------------------------- */
+
+.tv-board{
+    display:grid;
+    grid-template-columns:minmax(0, 37fr) minmax(0, 63fr);
+    gap:1vw;
+    height:100%;
+    min-height:0;
+}
+
+.tv-feature, .tv-doctors{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    border-radius:2vh;
+    background:var(--tv-panel);
+    box-shadow:var(--tv-shadow);
+}
+
+.tv-feature{ gap:1.4vh; padding:1.2vh .8vw 1.6vh; }
+
+.tv-feature-who{
+    flex:none;
+    display:flex;
+    align-items:center;
+    gap:1.4vw;
+    padding:1.2vh 1.4vw;
+    border-radius:1.6vh;
+    background:var(--tv-panel-2);
+}
+
+.tv-face{ --pav-size:13vh; --pav-font:4.4vh; flex:none; }
+
+.tv-feature-text{ min-width:0; }
+
+.tv-feature-text h2{
+    margin:0;
+    font-size:3.7vh;
+    font-weight:800;
+    line-height:1.15;
+    color:var(--tv-ink);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.tv-feature-text p{
+    margin:.3vh 0 0;
+    font-size:2.3vh;
+    color:var(--tv-ink-2);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.tv-room-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:.4vw;
+    margin-top:.9vh;
+    padding:.5vh .9vw;
+    border-radius:1vh;
+    background:var(--tv-chip-0);
+    font-size:2.2vh;
+    font-weight:700;
+    color:var(--tv-chip-0-ink);
+}
+
+.tv-call{
+    flex:1 1 auto;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    min-height:0;
+    padding:1.6vh 1vw 1.4vh;
+    border-radius:1.8vh;
+    background:linear-gradient(135deg, #0a58c4 0%, #073f96 55%, #0a63d4 100%);
+    color:#fff;
+    text-align:center;
+}
+
+.tv-call.is-calling{ animation:tv-call-pulse 1.4s ease-in-out 4; }
+
+@keyframes tv-call-pulse{
+    0%, 100%{ box-shadow:0 0 0 0 rgba(10,99,212,.55); }
+    50%{ box-shadow:0 0 0 1.2vh rgba(10,99,212,.28); }
+}
+
+.tv-call-label{
+    display:inline-flex;
+    align-items:center;
+    gap:.7vw;
+    font-size:2.6vh;
+    font-weight:700;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+}
+
+.tv-call-label i{
+    display:block;
+    width:4.6vh;
+    height:4.6vh;
+    border-radius:50%;
+    background:rgba(255,255,255,.2);
+    font-size:2.9vh;
+    line-height:4.6vh;
+    text-align:center;
+}
+
+.tv-call-token{
+    flex:1 1 auto;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:0;
+    font-size:14.5vh;
+    font-weight:800;
+    line-height:1;
+    letter-spacing:-.01em;
+    white-space:nowrap;
+}
+
+.tv-call-token.is-empty{ font-size:8vh; opacity:.45; }
+
+.tv-call-strips{ flex:none; display:grid; gap:.9vh; width:100%; }
+
+/* Whoever is being called: their face and name, on the same strip as where to go. */
+.tv-call-patient{
+    display:flex;
+    align-items:center;
+    gap:.8vw;
+    min-width:0;
+    padding:.8vh 1vw;
+    border-radius:1.2vh;
+    background:#fff;
+    color:#0c2340;
+    text-align:left;
+}
+
+.tv-call-face{ --pav-size:5.8vh; --pav-font:2.1vh; flex:none; }
+
+.tv-call-patient b{
+    flex:1 1 auto;
+    min-width:0;
+    font-size:3vh;
+    font-weight:800;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.tv-call-patient span:last-child{
+    flex:none;
+    padding-left:.9vw;
+    border-left:1px solid rgba(15,40,80,.18);
+    font-size:2.2vh;
+    font-weight:500;
+    color:#51657f;
+    white-space:nowrap;
+}
+
+.tv-call-line{
+    flex:none;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:.6vw;
+    width:100%;
+    margin:0;
+    padding:1.3vh 1vw;
+    border-radius:1.2vh;
+    background:#e6f1fd;
+    font-size:2.5vh;
+    font-weight:500;
+    color:#0c2340;
+}
+
+.tv-call-line b{ font-size:2.9vh; font-weight:800; color:#0b4fb3; }
+.tv-call-line i{ font-size:3.1vh; color:#0b4fb3; }
+
+.tv-upnext{ flex:none; padding:0 .5vw; }
+
+.tv-upnext h3{
+    display:flex;
+    align-items:center;
+    gap:.6vw;
+    margin:0 0 1vh;
+    font-size:2.5vh;
+    font-weight:700;
+    color:var(--tv-ink);
+}
+
+.tv-upnext h3 i{ font-size:3vh; color:var(--tv-accent); }
+.tv-upnext h3 small{ margin-left:auto; font-size:2.1vh; font-weight:500; color:var(--tv-ink-2); }
+
+.tv-upnext-tokens{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.7vw; }
+
+.tv-upnext-tokens b{
+    padding:1.2vh .4vw;
+    border-radius:1.2vh;
+    background:var(--tv-panel-2);
+    font-size:3.9vh;
+    font-weight:800;
+    line-height:1.15;
+    text-align:center;
+    color:var(--tv-ink);
+    white-space:nowrap;
+}
+
+.tv-upnext p{
+    margin:0;
+    padding:1.6vh .4vw;
+    border-radius:1.2vh;
+    background:var(--tv-panel-2);
+    font-size:2.5vh;
+    text-align:center;
+    color:var(--tv-ink-2);
+}
+
+/* --- the doctors, on the right ------------------------------------------- */
+
+.tv-doctors{ padding:1.4vh 1vw 1.2vh; }
+
+.tv-doctors-head{
+    flex:none;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:1vw;
+    margin-bottom:1vh;
+}
+
+.tv-doctors-head h2{
+    flex:none;
+    display:flex;
+    align-items:center;
+    gap:.5vw;
+    margin:0;
+    font-size:2.7vh;
+    font-weight:700;
+    color:var(--tv-ink);
+    white-space:nowrap;
+}
+
+.tv-doctors-head h2 i{ font-size:3.5vh; color:var(--tv-accent); }
+
+.tv-pills{ flex:1 1 auto; display:flex; align-items:center; justify-content:flex-end; gap:.3vw; min-width:0; }
+
+/* A long department name shortens; the first and last pills always read whole. */
+.tv-pill{
+    flex:0 1 auto;
+    min-width:0;
+    padding:.6vh .5vw;
+    border:1px solid var(--tv-line);
+    border-radius:1vh;
+    background:var(--tv-row);
+    font:inherit;
+    font-size:1.62vh;
+    font-weight:600;
+    color:var(--tv-ink);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    cursor:pointer;
+}
+
+.tv-pill.is-fixed{ flex:none; }
+.tv-pill.is-on{ border-color:transparent; background:var(--tv-accent); color:#fff; }
+.tv-pill-more{ width:4.8vw; padding-right:.2vw; }
+.tv-pill-more option{ color:#0c2340; background:#fff; }
+
+.tv-pages{ font-size:1.8vh; font-weight:600; color:var(--tv-ink-2); white-space:nowrap; }
+.tv-rows-page{ margin-top:auto; text-align:right; }
+
+.tv-rows{ flex:1 1 auto; display:flex; flex-direction:column; gap:.8vh; min-height:0; overflow:hidden; }
+
+.tv-rows-head, .tv-row{
+    display:grid;
+    grid-template-columns:3vw minmax(0, 1fr) 6vw 8.2vw 6.4vw 5.6vw 1.6vw;
+    align-items:center;
+    column-gap:.8vw;
+    padding-inline:.6vw;
+}
+
+.tv-rows-head{
+    flex:none;
+    padding-block:.4vh;
+    font-size:1.95vh;
+    font-weight:600;
+    color:var(--tv-ink);
+}
+
+.tv-rows-head > span:nth-child(n+3){ text-align:center; }
+
+.tv-row{
+    flex:none;
+    width:100%;
+    height:9.1vh;
+    padding-block:0;
+    border:1px solid var(--tv-line);
+    border-radius:1.5vh;
+    background:var(--tv-row);
+    color:var(--tv-ink);
+    font:inherit;
+    text-align:left;
+    cursor:pointer;
+    transition:background .25s ease;
+}
+
+.tv-row.is-on{ border-color:transparent; background:var(--tv-row-on); }
+.tv-row.is-calling{ box-shadow:0 0 0 .3vh var(--tv-accent); }
+
+.tv-row-number{
+    display:block;
+    width:4.2vh;
+    height:4.2vh;
+    border-radius:50%;
+    background:var(--tv-panel-2);
+    font-size:2.2vh;
+    font-weight:700;
+    line-height:4.2vh;
+    text-align:center;
+    color:var(--tv-ink);
+}
+
+.tv-row-who{ display:flex; align-items:center; gap:.9vw; min-width:0; }
+
+.tv-row-face{ --pav-size:7vh; --pav-font:2.5vh; flex:none; }
+
+.tv-row-text{ display:block; min-width:0; }
+
+.tv-row-text b{
+    display:block;
+    font-size:2.5vh;
+    font-weight:700;
+    line-height:1.2;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.tv-row-text small{
+    display:block;
+    margin-top:.2vh;
+    font-size:1.95vh;
+    color:var(--tv-ink-2);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.tv-row-room{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:.3vw;
+    padding:.8vh .2vw;
+    border:1px solid var(--tv-line);
+    border-radius:1vh;
+    background:var(--tv-room);
+    font-size:2.2vh;
+    font-weight:600;
+    white-space:nowrap;
+}
+
+.tv-token{
+    display:block;
+    padding:1vh .2vw;
+    border-radius:1.2vh;
+    font-size:3.9vh;
+    font-weight:800;
+    line-height:1.15;
+    text-align:center;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.tv-token.is-tone-on{ background:linear-gradient(135deg, #0a58c4, #073f96); color:#fff; }
+.tv-token.is-tone-0{ background:var(--tv-chip-0); color:var(--tv-chip-0-ink); }
+.tv-token.is-tone-1{ background:var(--tv-chip-1); color:var(--tv-chip-1-ink); }
+.tv-token.is-tone-2{ background:var(--tv-chip-2); color:var(--tv-chip-2-ink); }
+.tv-token.is-tone-3{ background:var(--tv-chip-3); color:var(--tv-chip-3-ink); }
+
+/* Why nobody is being called: a sentence, in the space a token would have. */
+.tv-token.is-idle{
+    padding:1.2vh .2vw;
+    background:var(--tv-panel-2);
+    font-size:1.9vh;
+    font-weight:600;
+    line-height:1.2;
+    white-space:normal;
+    color:var(--tv-ink-2);
+}
+
+.tv-row-next{
+    display:block;
+    padding:.9vh .2vw;
+    border:1px solid var(--tv-line);
+    border-radius:1.1vh;
+    background:var(--tv-row);
+    font-size:2.9vh;
+    font-weight:700;
+    line-height:1.2;
+    text-align:center;
+    white-space:nowrap;
+}
+
+.tv-theme-light .tv-row.is-on .tv-row-next{ background:rgba(255,255,255,.55); }
+
+.tv-row-wait{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:.4vw;
+    font-size:2.9vh;
+    font-weight:700;
+    white-space:nowrap;
+}
+
+.tv-row-wait i{ font-size:3vh; color:var(--tv-accent); }
+.tv-row-go{ font-size:2.7vh; text-align:center; color:var(--tv-accent); }
+
+.tv-figures{
+    flex:none;
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
+    margin:1vh 0 0;
+    padding:1.5vh .4vw;
+    border-radius:1.5vh;
+    background:var(--tv-panel-2);
+}
+
+.tv-figure{ display:flex; align-items:center; gap:.8vw; min-width:0; padding:0 .9vw; }
+.tv-figure + .tv-figure{ border-left:1px solid var(--tv-line); }
+.tv-figure > i{ flex:none; font-size:4.6vh; color:var(--tv-tone); }
+.tv-figure > span{ display:block; min-width:0; }
+
+.tv-figure dt{ font-size:1.9vh; font-weight:500; color:var(--tv-ink); white-space:nowrap; }
+
+.tv-figure dd{
+    margin:.2vh 0 0;
+    font-size:3.5vh;
+    font-weight:800;
+    line-height:1.15;
+    color:var(--tv-tone);
+    white-space:nowrap;
+}
+
+.tv-figure.is-blue{ --tv-tone:#1d5fd1; }
+.tv-figure.is-violet{ --tv-tone:#5b21b6; }
+.tv-figure.is-green{ --tv-tone:#0f7a43; }
+.tv-theme-dark .tv-figure.is-blue{ --tv-tone:#7ab8ff; }
+.tv-theme-dark .tv-figure.is-violet{ --tv-tone:#c4b5fd; }
+.tv-theme-dark .tv-figure.is-green{ --tv-tone:#6ee7a8; }
+
+/* The longer sentence shrinks to sit level with the plain numbers beside it. */
+.tv-figure.is-violet dd{ font-size:2.8vh; }
+
+/* --- the screen outside one room ----------------------------------------- */
+
+.tv-feature.is-solo{ height:100%; padding:1.4vh 1vw 1.8vh; gap:1.6vh; }
+.tv-feature.is-solo .tv-face{ --pav-size:15vh; --pav-font:5vh; }
+.tv-feature.is-solo .tv-feature-text h2{ font-size:5vh; }
+.tv-feature.is-solo .tv-feature-text p{ font-size:3vh; }
+.tv-feature.is-solo .tv-room-chip{ font-size:2.8vh; }
+.tv-feature.is-solo .tv-call-label{ font-size:3.2vh; }
+.tv-feature.is-solo .tv-call-token{ font-size:23vh; }
+.tv-feature.is-solo .tv-call-token.is-empty{ font-size:11vh; }
+/* The room's own screen is wide enough to set the two strips side by side. */
+.tv-feature.is-solo .tv-call-strips{ grid-template-columns:repeat(auto-fit, minmax(0, 1fr)); gap:1vw; }
+.tv-feature.is-solo .tv-call-patient b{ font-size:3.6vh; }
+.tv-feature.is-solo .tv-call-face{ --pav-size:6.8vh; --pav-font:2.4vh; }
+.tv-feature.is-solo .tv-call-line{ padding:1.6vh 1.4vw; font-size:3vh; }
+.tv-feature.is-solo .tv-call-line b{ font-size:3.6vh; }
+.tv-feature.is-solo .tv-upnext-tokens b{ font-size:5vh; }
+
+/* --- one card per doctor ------------------------------------------------- */
+
+.tv-grid{
+    display:grid;
+    height:100%;
+    gap:1.4vh;
+    grid-template-columns:repeat(var(--tv-cols), minmax(0, 1fr));
+    grid-template-rows:repeat(var(--tv-rows), minmax(0, 1fr));
+}
+
+.tv-card{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    overflow:hidden;
+    padding:calc(var(--tv-u) * 5) calc(var(--tv-u) * 6);
+    border:1px solid var(--tv-line);
+    border-radius:calc(var(--tv-u) * 4);
+    background:var(--tv-panel);
+    transition:box-shadow .3s ease, border-color .3s ease;
+}
+
+.tv-card.is-calling{
+    border-color:var(--tv-call);
+    box-shadow:inset 0 0 0 calc(var(--tv-u) * 1.2) var(--tv-call);
+    animation:tv-pulse 1.4s ease-in-out 4;
+}
+
+@keyframes tv-pulse{
+    0%, 100%{ box-shadow:inset 0 0 0 calc(var(--tv-u) * 1.2) var(--tv-call); }
+    50%{ box-shadow:inset 0 0 0 calc(var(--tv-u) * 2.8) var(--tv-call); }
+}
+
+.tv-card-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:calc(var(--tv-u) * 4);
+}
+
+.tv-card-who{ min-width:0; }
+
+.tv-card-who h2{
+    margin:0;
+    font-size:calc(var(--tv-u) * 8);
+    font-weight:800;
+    line-height:1.12;
+    color:var(--tv-ink);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.tv-card-who p{
+    margin:0;
+    font-size:calc(var(--tv-u) * 4.6);
+    color:var(--tv-ink-2);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.tv-room{
+    flex:none;
+    display:grid;
+    justify-items:center;
+    min-width:calc(var(--tv-u) * 18);
+    padding:calc(var(--tv-u) * 1.4) calc(var(--tv-u) * 3);
+    border-radius:calc(var(--tv-u) * 2.4);
+    background:var(--tv-panel-2);
+    line-height:1.1;
+}
+
+.tv-room span{
+    font-size:calc(var(--tv-u) * 3);
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--tv-ink-2);
+}
+
+.tv-room b{ font-size:calc(var(--tv-u) * 7.5); font-weight:800; color:var(--tv-accent); }
+
+.tv-now{
+    flex:1 1 auto;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:0;
+    gap:calc(var(--tv-u) * .8);
+    text-align:center;
+}
+
+.tv-now span{
+    font-size:calc(var(--tv-u) * 4);
+    font-weight:700;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--tv-ink-2);
+}
+
+.tv-now b{
+    font-size:calc(var(--tv-u) * 27);
+    font-weight:800;
+    line-height:1;
+    letter-spacing:-.01em;
+    color:var(--tv-ink);
+    white-space:nowrap;
+}
+
+.tv-now b.is-empty{ font-size:calc(var(--tv-u) * 12); color:var(--tv-ink-2); opacity:.4; }
+
+.tv-card.is-calling .tv-now b{ color:var(--tv-call); }
+.tv-theme-light .tv-card.is-calling .tv-now b{ color:var(--tv-accent); }
+
+.tv-status{
+    margin-top:calc(var(--tv-u) * 1);
+    padding:calc(var(--tv-u) * .8) calc(var(--tv-u) * 3);
+    border-radius:999px;
+    background:var(--tv-panel-2);
+    font-size:calc(var(--tv-u) * 3.8);
+    font-style:normal;
+    font-weight:700;
+    color:var(--tv-ink-2);
+}
+
+.tv-card.is-paused .tv-status{ color:#f59e0b; }
+
+.tv-card-foot{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:calc(var(--tv-u) * 4);
+    padding-top:calc(var(--tv-u) * 3);
+    border-top:1px solid var(--tv-line);
+}
+
+.tv-next{ min-width:0; }
+
+.tv-next > span:first-child{
+    display:block;
+    font-size:calc(var(--tv-u) * 3.4);
+    font-weight:700;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--tv-ink-2);
+}
+
+.tv-next-tokens{ display:flex; flex-wrap:nowrap; gap:calc(var(--tv-u) * 1.6); margin-top:calc(var(--tv-u) * .8); }
+
+.tv-next-tokens b{
+    padding:calc(var(--tv-u) * .6) calc(var(--tv-u) * 2.2);
+    border-radius:calc(var(--tv-u) * 1.6);
+    background:var(--tv-panel-2);
+    font-size:calc(var(--tv-u) * 6);
+    font-weight:800;
+    color:var(--tv-ink);
+    white-space:nowrap;
+}
+
+.tv-next-empty{
+    display:block;
+    margin-top:calc(var(--tv-u) * .8);
+    font-size:calc(var(--tv-u) * 4.2);
+    color:var(--tv-ink-2);
+}
+
+.tv-wait{ flex:none; display:grid; justify-items:end; line-height:1.1; }
+
+.tv-wait span{
+    font-size:calc(var(--tv-u) * 3.4);
+    font-weight:700;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--tv-ink-2);
+}
+
+.tv-wait b{ font-size:calc(var(--tv-u) * 10); font-weight:800; color:var(--tv-accent); }
+.tv-wait small{ font-size:calc(var(--tv-u) * 3.2); color:var(--tv-ink-2); }
+
+/* --- the laboratory ------------------------------------------------------ */
+
+.tv-lab{ display:grid; height:100%; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1.4vh; }
+
+.tv-lab-col{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    overflow:hidden;
+    padding:2vh 1.6vw;
+    border:1px solid var(--tv-line);
+    border-radius:2vh;
+    background:var(--tv-panel);
+}
+
+.tv-lab-col h2{ margin:0 0 1.6vh; font-size:3.2vh; font-weight:800; color:var(--tv-ink); }
+.tv-lab-col.is-ready h2{ color:var(--tv-accent); }
+
+.tv-lab-tokens{ display:flex; flex-wrap:wrap; align-content:flex-start; gap:1vh; }
+
+.tv-lab-tokens b{
+    padding:.8vh 1.8vh;
+    border-radius:1.2vh;
+    background:var(--tv-panel-2);
+    font-size:5vh;
+    font-weight:800;
+    white-space:nowrap;
+}
+
+.tv-lab-tokens p{ margin:0; font-size:2.6vh; color:var(--tv-ink-2); }
+
+.tv-empty{ display:grid; place-content:center; justify-items:center; gap:1.5vh; height:100%; color:var(--tv-ink-2); }
+.tv-empty i{ font-size:9vh; opacity:.5; }
+.tv-empty p{ margin:0; font-size:3.2vh; }
+
+/* --- the band along the bottom ------------------------------------------- */
+
+.tv-bottom{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:2vw;
+    min-height:7.6vh;
+    padding:1.2vh 2vw;
+    overflow:hidden;
+    background:#0a3a8a;
+    color:#fff;
+}
+
+/* The wave at the right-hand end, drawn so no image has to load. */
+.tv-bottom::after{
+    content:"";
+    position:absolute;
+    top:0;
+    right:0;
+    bottom:0;
+    width:24%;
+    background:linear-gradient(90deg, #0a58c4, #0b8cf0);
+    clip-path:ellipse(92% 145% at 100% 110%);
+    pointer-events:none;
+}
+
+.tv-bottom-text{
+    position:relative;
+    z-index:1;
+    display:flex;
+    align-items:center;
+    min-width:0;
+    font-size:2.15vh;
+    font-weight:500;
+    white-space:nowrap;
+}
+
+.tv-bottom-text i{ margin-right:.9vw; font-size:3.4vh; }
+.tv-bottom-text > span{ padding-right:1vw; }
+.tv-bottom-text > span:last-child{ padding-right:0; }
+.tv-bottom-text > span + span{ padding-left:1vw; border-left:.2vh solid rgba(255,255,255,.65); }
+
+.tv-bottom-right{ position:relative; z-index:1; display:inline-flex; align-items:center; gap:1.2vw; flex:none; }
+.tv-bottom .tv-pages{ color:#fff; }
+
+.tv-sound{
+    display:inline-flex;
+    align-items:center;
+    gap:.5vw;
+    padding:.8vh 1.1vw;
+    border:0;
+    border-radius:999px;
+    background:#fff;
+    font-size:2vh;
+    font-weight:700;
+    color:#0a3a8a;
+    cursor:pointer;
+}
+
+.tv-back{
+    position:fixed;
+    right:2vw;
+    bottom:1.4vh;
+    z-index:2001;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:9px 14px;
+    border-radius:999px;
+    background:#fff;
+    box-shadow:0 8px 24px rgba(0,0,0,.25);
+    font-size:13px;
+    font-weight:600;
+    color:#0c2340;
+}
+
+.tv-refused{
+    display:grid;
+    place-content:center;
+    justify-items:center;
+    gap:1.5vh;
+    grid-template-rows:none;
+    padding:4vw;
+    text-align:center;
+}
+
+.tv-refused i{ font-size:9vh; color:var(--tv-ink-2); }
+.tv-refused h1{ margin:0; font-size:4vh; font-weight:800; color:var(--tv-ink); }
+.tv-refused p{ margin:0; font-size:2.4vh; color:var(--tv-ink-2); }
+
+@media (prefers-reduced-motion: reduce){
+    .tv-card.is-calling, .tv-call.is-calling{ animation:none; }
+}
+
+/* Why a module is being changed, on an organization whose plan it overrides. */
+.ma-reason{ display:grid; gap:6px; margin:0 0 14px; }
+.ma-reason span{ font-size:13px; font-weight:600; color:var(--ink); }

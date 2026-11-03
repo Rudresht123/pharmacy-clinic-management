@@ -118,6 +118,12 @@ Route::post('website/enquiries', [WebsiteEnquiryController::class, 'store'])
 Route::prefix('website')->name('website.')->group(__DIR__.'/v1/website.php');
 
 /*
+| Public — the televisions (routes/api/v1/display.php). Authenticated by the
+| secret in the URL, not by a session.
+*/
+Route::prefix('display')->name('display.')->group(__DIR__.'/v1/display.php');
+
+/*
 | Payment gateway callbacks — authenticated by signature, not by session.
 */
 Route::post('webhooks/razorpay', RazorpayWebhookController::class)
@@ -513,14 +519,15 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
 
         /*
         | Patient Records — one patient's history from every module, in one
-        | place. Behind `customers.view`, like the register it is opened from;
-        | every section inside is gated on its own module's capability and
-        | narrowed to the caller's branches (App\Services\Tenant\PatientRecord).
-        | Only what no module already lists per patient is served here; the
-        | screen reads prescriptions, lab orders, invoices, payments and
-        | documents from their own endpoints.
+        | place. Behind its own tick, `customers.records_view`: one tick per
+        | screen, so a role can have the register without this or this without
+        | the register. Every section inside is gated on its own module's
+        | capability and narrowed to the caller's branches
+        | (App\Services\Tenant\PatientRecord). Only what no module already lists
+        | per patient is served here; the screen reads prescriptions, lab
+        | orders, invoices, payments and documents from their own endpoints.
         */
-        Route::middleware('permission:customers.view')->group(function () {
+        Route::middleware('permission:customers.records_view')->group(function () {
             Route::get('patient-records', [PatientRecordController::class, 'index'])
                 ->name('patient-records.index');
             Route::get('patient-records/stats', [PatientRecordController::class, 'stats'])
@@ -1277,7 +1284,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | refused at the moment they picked one.
             */
             Route::get('opd/branches', [OpdController::class, 'branches'])
-                ->middleware('permission:appointments.view,appointments.queue_view,appointments.doctors_view,appointments.book')
+                ->middleware('permission:appointments.view,appointments.queue_view,appointments.doctors_view,appointments.book,queue.board,queue.my_console,queue.settings,queue.displays')
                 ->name('opd.branches');
 
             // Today's numbers: the OPD dashboard, the queue's counts, and the
@@ -1462,6 +1469,9 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     Route::post('{rescheduleRequest}/reject', [RescheduleRequestController::class, 'reject'])
                         ->whereNumber('rescheduleRequest')->name('reject');
                 });
+
+            // Every doctor's live queue, and the televisions (routes/api/v1/queue.php).
+            require __DIR__.'/v1/queue.php';
 
             /*
             | How appointments run here: who hears about reschedule requests,
@@ -1683,34 +1693,35 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         | Which roles somebody may write is decided per role in the controller,
         | because "the organization's" and "this branch's" are different
         | answers that no single middleware can give. Reading is open to
-        | anybody who administers staff: they have to pick a role from
-        | somewhere.
+        | anybody who administers staff, because the People form has to pick a
+        | role from somewhere, and to anybody ticked for the screen itself. The
+        | menu and the page follow `people.roles_view` alone.
         */
         // Before the apiResource, or {role} would swallow the literal.
         Route::get('roles/grantable', [RoleController::class, 'grantable'])
-            ->middleware('permission:people.view')
+            ->middleware('permission:people.view,people.roles_view')
             ->name('roles.grantable');
 
         // The same library the seeder uses, so the two cannot drift apart.
         Route::get('roles/templates', [RoleController::class, 'templates'])
-            ->middleware('permission:people.view')
+            ->middleware('permission:people.view,people.roles_view')
             ->name('roles.templates');
 
         Route::get('roles/{role}/members', [RoleController::class, 'members'])
-            ->middleware('permission:people.view')
+            ->middleware('permission:people.view,people.roles_view')
             ->name('roles.members');
 
         Route::apiResource('roles', RoleController::class)
             ->parameters(['roles' => 'role'])
             ->names('roles')
             ->only(['index', 'show'])
-            ->middleware('permission:people.view');
+            ->middleware('permission:people.view,people.roles_view');
 
         Route::apiResource('roles', RoleController::class)
             ->parameters(['roles' => 'role'])
             ->names('roles')
             ->only(['store', 'update', 'destroy'])
-            ->middleware('permission:people.view');
+            ->middleware('permission:people.view,people.roles_view');
 
         /*
         | How one branch customises one of the organization's roles.
@@ -1726,7 +1737,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         | written down.
         */
         Route::get('locations/{location}/roles/{role}/permissions', [BranchRolePermissionController::class, 'show'])
-            ->middleware('permission:people.view')
+            ->middleware('permission:people.view,people.roles_view')
             ->name('locations.roles.permissions.show');
 
         Route::put('locations/{location}/roles/{role}/permissions', [BranchRolePermissionController::class, 'update'])

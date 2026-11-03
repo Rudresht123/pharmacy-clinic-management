@@ -79,10 +79,10 @@ export function useOrganizationModules(uuid: string | undefined) {
 
 export function useSaveOrganizationModules(uuid: string | undefined) {
     return useMutation({
-        mutationFn: async (modules: ModuleBindingInput[]) => {
+        mutationFn: async ({ modules, reason }: { modules: ModuleBindingInput[]; reason?: string }) => {
             const { data } = await http.put<ApiResponse<OrganizationModulesPayload>>(
                 `/admin/organizations/${uuid}/modules`,
-                { modules },
+                { modules, reason: reason || null },
             );
 
             return data.data;

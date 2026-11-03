@@ -209,6 +209,7 @@ class OpdController extends BaseApiController
         $request->validate([
             'location_id' => ['required', 'integer'],
             'date' => ['nullable', 'date'],
+            'doctor_id' => ['nullable', 'integer'],
         ]);
 
         $locationId = (int) $request->input('location_id');
@@ -223,6 +224,7 @@ class OpdController extends BaseApiController
             $this->board->for(
                 $locationId,
                 $request->filled('date') ? Carbon::parse($request->input('date')) : now(),
+                $request->filled('doctor_id') ? (int) $request->input('doctor_id') : null,
             )
         );
     }

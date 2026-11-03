@@ -20,6 +20,7 @@ export type PharmacyState = 'pending' | 'in_progress' | 'completed' | 'none';
 export interface OpdPatient {
     appointment_id: number;
     token_no: number | null;
+    token_label?: string | null;
     patient: { id: number | null; name: string | null; code: string | null; phone: string | null };
     doctor: { id: number | null; name: string | null; specialisation: string | null };
     completed_at: string | null;

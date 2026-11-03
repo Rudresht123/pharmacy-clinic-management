@@ -39,6 +39,7 @@ class PatientAccountProvisioner
         'portal.messages',
         'portal.video_calls',
         'portal.family',
+        'portal.family.history',
     ];
 
     /**

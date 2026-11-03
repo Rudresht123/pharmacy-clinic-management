@@ -492,7 +492,7 @@ function PlanForm({ plan, accent }: { plan: Plan | null; accent: string }) {
                                     </dd>
                                 </div>
                                 <div><dt>Trial · Grace</dt><dd>{Number(d.trial_days) || 0} · {Number(d.grace_days) || 0} days</dd></div>
-                                <div><dt>Modules</dt><dd>{d.modules.length === 0 ? 'Core only' : `${d.modules.length} + core`}</dd></div>
+                                <div><dt>Modules</dt><dd>{d.modules.length === 0 ? 'None' : d.modules.length}</dd></div>
                                 <div><dt>On the website</dt><dd>{d.is_public ? 'Yes' : 'No'}</dd></div>
                             </dl>
                             <p className="sxa-pf-tax">Prices are before tax; tax is added as set in Billing Settings.</p>

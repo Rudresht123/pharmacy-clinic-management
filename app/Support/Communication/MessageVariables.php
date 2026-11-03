@@ -23,6 +23,7 @@ final class MessageVariables
         'appointment_date' => 'Appointment date',
         'appointment_time' => 'Appointment time',
         'token_no' => 'Token number',
+        'room' => 'Consulting room',
         'clinic_name' => 'Clinic name',
         'branch_name' => 'Branch',
         'amount' => 'Amount',

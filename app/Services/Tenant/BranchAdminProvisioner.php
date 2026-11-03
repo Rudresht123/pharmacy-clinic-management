@@ -34,8 +34,8 @@ class BranchAdminProvisioner
      */
     private const WANTED = [
         'dashboard.view',
-        'people.view', 'people.create', 'people.edit', 'people.delete', 'people.roles',
-        'customers.view', 'customers.record', 'customers.contact',
+        'people.view', 'people.create', 'people.edit', 'people.delete', 'people.roles', 'people.roles_view',
+        'customers.view', 'customers.record', 'customers.records_view', 'customers.contact',
         'customers.create', 'customers.edit', 'customers.delete',
         'appointments.view', 'appointments.queue_view', 'appointments.doctors_view',
         'appointments.book', 'appointments.queue',

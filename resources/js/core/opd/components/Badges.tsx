@@ -37,6 +37,7 @@ export const QUEUE: Record<QueueStatus, { label: string; tone: string; icon: str
     waiting: { label: 'Waiting', tone: 'sky', icon: 'ti ti-hourglass' },
     called: { label: 'Called', tone: 'indigo', icon: 'ti ti-bell-ringing' },
     with_doctor: { label: 'With doctor', tone: 'amber', icon: 'ti ti-stethoscope' },
+    skipped: { label: 'Skipped', tone: 'rose', icon: 'ti ti-player-skip-forward' },
 };
 
 /**

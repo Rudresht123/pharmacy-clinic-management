@@ -17,6 +17,7 @@ use App\Http\Middleware\EnsurePlatformRole;
 use App\Http\Middleware\EnsureSubscriptionAllowsAccess;
 use App\Http\Middleware\EnsureTenantHasModule;
 use App\Http\Middleware\ResolveActingBranch;
+use App\Http\Middleware\ResolveQueueDisplay;
 use App\Http\Middleware\EnsureTenantUserIsOwner;
 use App\Http\Middleware\ResolveTenantFromHeader;
 use App\Http\Middleware\ResolveTenantFromSession;
@@ -73,7 +74,7 @@ return Application::configure(basePath: dirname(__DIR__))
          * this, a website served from a stateful origin (localhost:3000) is
          * handed Sanctum's CSRF check and every submission answers 419.
          */
-        $middleware->validateCsrfTokens(except: ['api/v1/website/*']);
+        $middleware->validateCsrfTokens(except: ['api/v1/website/*', 'api/v1/display/*']);
 
         $middleware->alias([
             'resolve.tenant' => ResolveTenantFromSession::class,
@@ -125,6 +126,9 @@ return Application::configure(basePath: dirname(__DIR__))
              * doing is about the one patient record the login belongs to.
              */
             'portal.patient' => EnsurePortalPatient::class,
+
+            // A television's secret URL: which clinic, which screen, still allowed.
+            'queue.display' => ResolveQueueDisplay::class,
 
             /*
              * Only on the one-click test-push link — see the class docblock.

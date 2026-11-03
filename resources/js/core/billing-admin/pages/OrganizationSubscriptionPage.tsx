@@ -142,7 +142,7 @@ export default function OrganizationSubscriptionPage() {
             <div className="sx-grid mb-4">
                 <Card title="Modules" icon="ti ti-puzzle" className="sx-card">
                     <ul className="sx-list">
-                        {data.modules.filter((m) => !m.is_core).map((module) => (
+                        {data.modules.map((module) => (
                             <li key={module.key} className={module.is_live ? '' : 'is-off'}>
                                 <i className={module.is_live ? 'ti ti-circle-check' : 'ti ti-circle-dashed'} aria-hidden="true" />
                                 <span>{module.name}</span>

@@ -14,6 +14,7 @@ use App\Models\Platform\SubscriptionInvoice;
 use App\Models\Platform\SubscriptionItem;
 use App\Models\Platform\SubscriptionReminderDelivery;
 use App\Services\Modules\ModuleAccess;
+use App\Services\Modules\ModuleGrantSetup;
 use App\Services\Subscriptions\Actor;
 use App\Services\Subscriptions\EntitlementService;
 use App\Services\Subscriptions\SubscriptionLifecycle;
@@ -42,6 +43,8 @@ class OrganizationSubscriptionController extends BaseApiController
     public function __construct(
         private readonly SubscriptionLifecycle $lifecycle,
         private readonly EntitlementService $entitlements,
+        private readonly ModuleAccess $modules,
+        private readonly ModuleGrantSetup $grantSetup,
     ) {}
 
     public function show(Organization $organization, UsageBalances $balances, ModuleAccess $modules): JsonResponse
@@ -123,6 +126,8 @@ class OrganizationSubscriptionController extends BaseApiController
             ...$this->reasonRule(),
         ]);
 
+        $before = $this->modules->enabled($organization);
+
         $subscription = $this->lifecycle->assign(
             $organization,
             Plan::query()->findOrFail($data['plan_id']),
@@ -138,6 +143,8 @@ class OrganizationSubscriptionController extends BaseApiController
             ], fn ($v) => $v !== null),
         );
 
+        $this->grantSetup->afterChange($organization, $before);
+
         return $this->ok(SubscriptionResource::make($subscription->load('organization')), 'Plan assigned.');
     }
 
@@ -151,6 +158,8 @@ class OrganizationSubscriptionController extends BaseApiController
             ...$this->reasonRule(),
         ]);
 
+        $before = $this->modules->enabled($organization);
+
         $subscription = $this->lifecycle->changePlan(
             $this->current($organization),
             Plan::query()->findOrFail($data['plan_id']),
@@ -159,6 +168,8 @@ class OrganizationSubscriptionController extends BaseApiController
             $data['reason'],
             (bool) ($data['immediately'] ?? true),
         );
+
+        $this->grantSetup->afterChange($organization, $before);
 
         return $this->ok(SubscriptionResource::make($subscription->load('organization')), ($data['immediately'] ?? true)
             ? 'Plan changed.'
@@ -173,7 +184,11 @@ class OrganizationSubscriptionController extends BaseApiController
             ...$this->reasonRule(),
         ]);
 
+        $before = $this->modules->enabled($organization);
+
         $subscription = $this->lifecycle->startTrial($organization, Plan::query()->findOrFail($data['plan_id']), $this->actor($request), $data['reason']);
+
+        $this->grantSetup->afterChange($organization, $before);
 
         return $this->ok(SubscriptionResource::make($subscription->load('organization')), 'Trial started.');
     }

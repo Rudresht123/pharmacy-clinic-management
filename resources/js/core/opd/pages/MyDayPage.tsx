@@ -70,7 +70,7 @@ export default function MyDayPage() {
             (row) =>
                 row.customer_name?.toLowerCase().includes(needle) ||
                 row.customer_code?.toLowerCase().includes(needle) ||
-                String(row.token_no ?? '').includes(needle),
+                (row.token_label ?? String(row.token_no ?? '')).toLowerCase().includes(needle),
         );
     }, [data?.queue, filter, term]);
 
@@ -208,7 +208,7 @@ export default function MyDayPage() {
 
                                                 <td data-label="Token">
                                                     <span className="md-token">
-                                                        {row.token_no ?? row.slot_at ?? '—'}
+                                                        {row.token_label ?? row.token_no ?? row.slot_at ?? '—'}
                                                     </span>
                                                 </td>
 

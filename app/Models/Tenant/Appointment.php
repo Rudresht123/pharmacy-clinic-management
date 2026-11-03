@@ -187,7 +187,19 @@ class Appointment extends Model
 
     public const QUEUE_WITH_DOCTOR = 'with_doctor';
 
-    public const QUEUE_STATUSES = [self::QUEUE_WAITING, self::QUEUE_CALLED, self::QUEUE_WITH_DOCTOR];
+    /**
+     * Called and did not come, or stepped out: set aside, still in the building
+     * as far as anybody knows. Out of the line until somebody recalls them, so
+     * the doctor is not held up, and their token is still theirs.
+     */
+    public const QUEUE_SKIPPED = 'skipped';
+
+    public const QUEUE_STATUSES = [
+        self::QUEUE_WAITING,
+        self::QUEUE_CALLED,
+        self::QUEUE_WITH_DOCTOR,
+        self::QUEUE_SKIPPED,
+    ];
 
     /**
      * Receptionist: waiting → called. Doctor: called → with_doctor.
@@ -196,10 +208,23 @@ class Appointment extends Model
      * enforced by two different capabilities on two different routes.
      */
     public const QUEUE_TRANSITIONS = [
-        self::QUEUE_WAITING => [self::QUEUE_CALLED],
-        self::QUEUE_CALLED => [self::QUEUE_WITH_DOCTOR, self::QUEUE_WAITING],
+        self::QUEUE_WAITING => [self::QUEUE_CALLED, self::QUEUE_SKIPPED],
+        self::QUEUE_CALLED => [self::QUEUE_WITH_DOCTOR, self::QUEUE_WAITING, self::QUEUE_SKIPPED],
         self::QUEUE_WITH_DOCTOR => [],
+        self::QUEUE_SKIPPED => [self::QUEUE_CALLED, self::QUEUE_WAITING],
     ];
+
+    /*
+    | How soon somebody should be seen, inside one doctor's queue. Set with a
+    | reason, and read by QueueOrder; nothing else orders anybody by it.
+    */
+    public const PRIORITY_NORMAL = 'normal';
+
+    public const PRIORITY_URGENT = 'urgent';
+
+    public const PRIORITY_EMERGENCY = 'emergency';
+
+    public const PRIORITIES = [self::PRIORITY_NORMAL, self::PRIORITY_URGENT, self::PRIORITY_EMERGENCY];
 
     /*
     |--------------------------------------------------------------------------
@@ -286,6 +311,8 @@ class Appointment extends Model
             'token_no' => 'integer',
             'checked_in_at' => 'datetime',
             'called_at' => 'datetime',
+            'skipped_at' => 'datetime',
+            'recalled_at' => 'datetime',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'visit_completed_at' => 'datetime',
@@ -343,6 +370,26 @@ class Appointment extends Model
         return $this->queue_status === self::QUEUE_WITH_DOCTOR;
     }
 
+    public function isSkipped(): bool
+    {
+        return $this->queue_status === self::QUEUE_SKIPPED;
+    }
+
+    /**
+     * The token as it is said out loud and shown: "A012", or the bare number
+     * for one issued before prefixes existed. Null until they have checked in.
+     */
+    public function tokenLabel(): ?string
+    {
+        if ($this->token_no === null) {
+            return null;
+        }
+
+        return $this->token_prefix
+            ? $this->token_prefix.str_pad((string) $this->token_no, 3, '0', STR_PAD_LEFT)
+            : (string) $this->token_no;
+    }
+
     public function consultationStarted(): bool
     {
         return $this->consultation_status !== self::CONSULT_NOT_STARTED;
@@ -387,6 +434,16 @@ class Appointment extends Model
     public function scopeInQueue(Builder $query): Builder
     {
         return $query->whereNotNull('queue_status');
+    }
+
+    /**
+     * In the building, on a doctor's queue. A video visit has a token and moves
+     * through the same workflow, but nobody is sitting in the waiting room, so
+     * it has no place on a television or under "Call next".
+     */
+    public function scopeInTheBuilding(Builder $query): Builder
+    {
+        return $query->where('mode', self::MODE_IN_CLINIC);
     }
 
     /** Called and not yet seen — the doctor's list. */

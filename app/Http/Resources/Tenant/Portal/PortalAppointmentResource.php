@@ -29,6 +29,9 @@ class PortalAppointmentResource extends JsonResource
             // Issued on arrival, so null until they have checked in.
             'token_no' => $this->token_no,
 
+            // The token as the clinic says it: "A012".
+            'token_label' => $this->tokenLabel(),
+
             // `video`: the doctor rings at the slot instead of the patient coming in.
             'mode' => $this->mode,
 
@@ -80,6 +83,19 @@ class PortalAppointmentResource extends JsonResource
                     'relation' => $own ? null : $this->customer?->familyLink?->relation,
                 ];
             }),
+
+            /*
+             * What the doctor wrote up for the patient to read, once they have
+             * finished: nothing from a consultation still in progress, and
+             * never `notes`, which are the doctor's own.
+             */
+            'consultation' => $this->whenLoaded('consultation', fn () => $this->consultation && $this->consultationCompleted()
+                ? [
+                    'chief_complaint' => $this->consultation->chief_complaint,
+                    'diagnoses' => $this->consultation->diagnoses ?? [],
+                    'advice' => $this->consultation->advice,
+                ]
+                : null),
 
             'doctor' => $this->whenLoaded('doctor', fn () => [
                 'id' => $this->doctor?->id,

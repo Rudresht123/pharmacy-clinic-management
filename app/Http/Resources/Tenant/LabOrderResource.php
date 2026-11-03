@@ -30,6 +30,7 @@ class LabOrderResource extends JsonResource
 
             'appointment_id' => $this->appointment_id,
             'token_no' => $this->whenLoaded('appointment', fn () => $this->appointment?->token_no),
+            'token_label' => $this->whenLoaded('appointment', fn () => $this->appointment?->tokenLabel()),
 
             'order_date' => $this->order_date?->toDateString(),
             'status' => $this->status,

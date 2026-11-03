@@ -58,7 +58,7 @@ class PricingCatalog
     }
 
     /**
-     * Each bindable module with its current add-on price, if it has one.
+     * Each module with its current add-on price, if it has one.
      *
      * @return Collection<int, array{module: Module, price: ModulePrice|null}>
      */
@@ -66,7 +66,7 @@ class PricingCatalog
     {
         $prices = ModulePrice::query()->current()->get()->keyBy('module_id');
 
-        return Module::query()->available()->bindable()->orderBy('sort_order')->get()
+        return Module::query()->available()->orderBy('sort_order')->get()
             ->map(fn (Module $module) => ['module' => $module, 'price' => $prices->get($module->id)])
             ->filter(fn (array $row) => ! $publicOnly || ($row['price']?->is_public ?? false))
             ->values();
@@ -286,7 +286,7 @@ class PricingCatalog
                 continue;
             }
 
-            $module = Module::query()->available()->bindable()->where('key', $key)->first();
+            $module = Module::query()->available()->where('key', $key)->first();
             $price = $module ? $this->currentModulePrice($module) : null;
 
             if ($module === null || $price === null || ! $price->is_addon_eligible) {

@@ -92,7 +92,7 @@ export function AppointmentsTab({ patientId }: { patientId: number }) {
                                         {day(row.appointment_date)}
                                         {row.slot_at && <small>{clock(row.slot_at)}</small>}
                                     </td>
-                                    <td>{row.token_no ?? '—'}</td>
+                                    <td>{row.token_label ?? row.token_no ?? '—'}</td>
                                     <td>
                                         {row.doctor_name ?? '—'}
                                         {row.doctor_specialisation && <small>{row.doctor_specialisation}</small>}

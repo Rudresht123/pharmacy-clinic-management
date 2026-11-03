@@ -110,7 +110,9 @@ class RecipientResolver
             RuleRecipients::PATIENT => $patient === null ? [] : [[
                 'patient' => true,
                 'user' => null,
-                'email' => $patient->email,
+                // A family member added from the app has no address of their
+                // own: whoever books for them is who hears about their visits.
+                'email' => filled($patient->email) ? $patient->email : $patient->accountHolder()?->email,
                 'name' => (string) $patient->name,
             ]],
             RuleRecipients::DOCTOR => $this->doctor($subject),

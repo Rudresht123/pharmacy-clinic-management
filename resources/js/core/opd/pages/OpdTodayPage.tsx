@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from '@/shared/components/ui/Card';
+import { SearchableSelect } from '@/shared/components/form/SearchableSelect';
 import { DonutChart } from '@/shared/components/ui/DonutChart';
 import { ActivityFeed, feedItemFromLog } from '@/shared/components/ui/ActivityFeed';
 import { LoadingBlock, ErrorState, EmptyState, NoResultsState } from '@/shared/components/ui/Feedback';
@@ -266,8 +267,31 @@ export default function OpdTodayPage() {
     const actionsBox = useRef<HTMLDivElement>(null);
     const [search, setSearch] = useState('');
 
+    /** The doctor the queue card is narrowed to, or everybody. */
+    const [doctorId, setDoctorId] = useState<number | ''>('');
+
     const { branchId, date, branch, branchesLoading, hasNoBranch, isToday } = context;
-    const { data, isLoading, isFetching, isError, refetch } = useOpdToday(branchId, date);
+    const { data, isLoading, isPlaceholderData, isFetching, isError, refetch } = useOpdToday(
+        branchId,
+        date,
+        doctorId,
+    );
+
+    // A doctor picked for one day means nothing at another branch or on another
+    // day, where they may have nobody at all.
+    useEffect(() => setDoctorId(''), [branchId, date]);
+
+    // By name, so the list does not reorder itself as the waiting counts move.
+    const doctorOptions = useMemo(
+        () =>
+            (data?.doctors ?? [])
+                .map((doctor) => ({
+                    value: String(doctor.id),
+                    label: doctor.name ?? 'Unnamed',
+                }))
+                .sort((a, b) => a.label.localeCompare(b.label)),
+        [data?.doctors],
+    );
 
     const move = useMoveAppointment();
 
@@ -348,7 +372,7 @@ export default function OpdTodayPage() {
                     row.customer_name?.toLowerCase().includes(term) ||
                     row.customer_code?.toLowerCase().includes(term) ||
                     row.doctor_name?.toLowerCase().includes(term) ||
-                    String(row.token_no ?? '').includes(term),
+                    (row.token_label ?? String(row.token_no ?? '')).toLowerCase().includes(term),
             );
     }, [data, tab, search]);
 
@@ -363,7 +387,7 @@ export default function OpdTodayPage() {
      * empty.
      */
     const inTab = data?.tabs[tab] ?? 0;
-    const truncated = !search.trim() && inTab > rows.length;
+    const truncated = !isPlaceholderData && !search.trim() && inTab > rows.length;
 
     /**
      * Both moves left on this board go straight through.
@@ -713,23 +737,46 @@ export default function OpdTodayPage() {
                                     </div>
                                 }
                             >
-                                <div className="opd-tabs" role="tablist">
-                                    {TABS.map((entry) => (
-                                        <button
-                                            type="button"
-                                            key={entry.key}
-                                            role="tab"
-                                            aria-selected={tab === entry.key}
-                                            className={`opd-tab${tab === entry.key ? ' is-on' : ''}`}
-                                            onClick={() => setTab(entry.key)}
-                                        >
-                                            {entry.label}
-                                            <em>({data?.tabs[entry.key] ?? 0})</em>
-                                        </button>
-                                    ))}
+                                <div className="opd-tabs-row">
+                                    <div className="opd-tabs" role="tablist">
+                                        {TABS.map((entry) => (
+                                            <button
+                                                type="button"
+                                                key={entry.key}
+                                                role="tab"
+                                                aria-selected={tab === entry.key}
+                                                className={`opd-tab${tab === entry.key ? ' is-on' : ''}`}
+                                                onClick={() => setTab(entry.key)}
+                                            >
+                                                {entry.label}
+                                                <em>({data?.tabs[entry.key] ?? 0})</em>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/*
+                                        The day's own doctors, as on the full
+                                        queue: one with nobody booked is not a
+                                        filter anybody wants, and a single doctor
+                                        leaves nothing to choose between.
+                                    */}
+                                    {doctorOptions.length > 1 && (
+                                        <SearchableSelect
+                                            compact
+                                            className="q-doctor-pick"
+                                            value={String(doctorId)}
+                                            ariaLabel="Filter by doctor"
+                                            placeholder="All doctors"
+                                            clearable
+                                            onChange={(next) =>
+                                                setDoctorId(next === '' ? '' : Number(next))
+                                            }
+                                            options={doctorOptions}
+                                        />
+                                    )}
                                 </div>
 
-                                {isLoading ? (
+                                {isLoading || isPlaceholderData ? (
                                     <LoadingBlock label="Loading the queue…" />
                                 ) : rows.length === 0 ? (
                                     search.trim() ? (
@@ -782,7 +829,7 @@ export default function OpdTodayPage() {
 
                                                             <td data-label="Token">
                                                                 <span className="opd-tok">
-                                                                    {token(row.token_no)}
+                                                                    {row.token_label ?? token(row.token_no)}
                                                                 </span>
                                                             </td>
 

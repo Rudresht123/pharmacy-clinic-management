@@ -88,8 +88,14 @@ class AppointmentResource extends JsonResource
             'slot_at' => $this->slot_at ? substr((string) $this->slot_at, 0, 5) : null,
             'token_no' => $this->token_no,
 
+            // The token as it is said and shown: "A012".
+            'token_label' => $this->tokenLabel(),
+            'queue_priority' => $this->queue_priority ?: Appointment::PRIORITY_NORMAL,
+            'priority_reason' => $this->priority_reason,
+
             'checked_in_at' => $this->checked_in_at?->toIso8601String(),
             'called_at' => $this->called_at?->toIso8601String(),
+            'skipped_at' => $this->skipped_at?->toIso8601String(),
 
             // `started_at` and `completed_at` are the CONSULTATION's clocks
             // and always have been; the visit's own closing time is separate.

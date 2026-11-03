@@ -32,7 +32,6 @@ class SyncModulesCommand extends Command
                     'description' => $module['description'],
                     'group' => $module['group'],
                     'icon' => $module['icon'],
-                    'is_core' => $module['is_core'],
                     'sort_order' => $order,
                     'is_active' => true,
                 ]

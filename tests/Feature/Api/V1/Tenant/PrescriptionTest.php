@@ -232,6 +232,32 @@ class PrescriptionTest extends TenantTestCase
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * A clinic with no catalogue and no pharmacy: the doctor types the medicine
+     * and the patient buys it from a chemist outside.
+     */
+    public function test_a_clinic_with_no_catalogue_writes_medicines_by_hand(): void
+    {
+        $sold = \App\Models\Platform\Module::whereIn('key', ['medicines', 'pharmacy'])->pluck('id');
+
+        \App\Models\Platform\OrganizationModule::where('organization_id', $this->organization->id)
+            ->whereIn('module_id', $sold)
+            ->delete();
+
+        $this->signInAsDoctor();
+
+        $this->getJson('/api/v1/tenant/medicines?search=dolo')->assertForbidden();
+
+        $body = $this->draft([
+            ['medicine_name' => 'Crocin 500', 'instructions' => 'After food, twice a day'],
+        ])->assertCreated()->json('data');
+
+        $this->assertTrue($body['items'][0]['is_unlisted']);
+        $this->assertSame('Crocin 500', $body['items'][0]['medicine_name']);
+
+        $this->postJson("/api/v1/tenant/prescriptions/{$body['id']}/issue")->assertOk();
+    }
+
     public function test_a_doctor_drafts_a_prescription_for_their_own_visit(): void
     {
         $this->signInAsDoctor();

@@ -7,6 +7,8 @@ use App\Http\Requests\Api\V1\Platform\UpdateOrganizationModulesRequest;
 use App\Models\Platform\Module;
 use App\Models\Platform\Organization;
 use App\Services\Modules\ModuleAccess;
+use App\Services\Modules\ModuleGrantSetup;
+use App\Services\Subscriptions\SubscriptionFacts;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -24,6 +26,7 @@ class OrganizationModuleController extends BaseApiController
 {
     public function __construct(
         private readonly ModuleAccess $access,
+        private readonly ModuleGrantSetup $grantSetup,
     ) {}
 
     /**
@@ -42,6 +45,10 @@ class OrganizationModuleController extends BaseApiController
             // reads it yet; it is here so the shape is settled before the
             // role screen is written against it.
             'capabilities' => $this->access->capabilities($organization),
+
+            // On a real plan every row here overrides it, so the screen has to
+            // ask why before it can save (UpdateOrganizationModulesRequest).
+            'reason_required' => $this->onRealPlan($organization),
         ]);
     }
 
@@ -53,6 +60,7 @@ class OrganizationModuleController extends BaseApiController
         $reason = $request->validated('reason');
 
         $ids = Module::whereIn('key', $submitted->keys())->pluck('id', 'key');
+        $before = $this->access->enabled($organization);
 
         DB::transaction(function () use ($organization, $submitted, $ids, $reason) {
             foreach ($submitted as $key => $binding) {
@@ -79,9 +87,19 @@ class OrganizationModuleController extends BaseApiController
                 ->delete();
         });
 
+        $this->grantSetup->afterChange($organization, $before);
+
         return $this->ok([
             'modules' => $this->access->overview($organization->fresh()),
             'capabilities' => $this->access->capabilities($organization->fresh()),
+            'reason_required' => $this->onRealPlan($organization),
         ], 'Modules updated');
+    }
+
+    private function onRealPlan(Organization $organization): bool
+    {
+        $subscription = app(SubscriptionFacts::class)->subscription($organization);
+
+        return $subscription !== null && ! $subscription->isComplimentary();
     }
 }

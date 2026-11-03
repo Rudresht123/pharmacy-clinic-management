@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Providers } from './providers';
 import { AppRoutes } from './router';
@@ -29,7 +29,22 @@ function isTenantHost(hostname: string): boolean {
 
 const root = createRoot(container);
 
-if (isTenantHost(window.location.hostname)) {
+/*
+ * A television, on whichever host it was opened. It has no session and no user,
+ * so it goes straight to its own small app, ahead of every provider that would
+ * go looking for one.
+ */
+const TvDisplayApp = lazy(() => import('@/core/queue/display/TvDisplayApp'));
+
+if (window.location.pathname.startsWith('/display/')) {
+    root.render(
+        <StrictMode>
+            <Suspense fallback={null}>
+                <TvDisplayApp />
+            </Suspense>
+        </StrictMode>,
+    );
+} else if (isTenantHost(window.location.hostname)) {
     root.render(
         <StrictMode>
             <TenantProviders>

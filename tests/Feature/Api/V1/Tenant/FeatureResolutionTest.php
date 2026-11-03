@@ -123,10 +123,12 @@ class FeatureResolutionTest extends TenantTestCase
 
         $this->signInAsOwner($organization);
 
-        $this->putJson('/api/v1/tenant/module-settings', ['modules' => ['appointments' => false]])
+        $row = collect($this->putJson('/api/v1/tenant/module-settings', ['modules' => ['appointments' => false]])
             ->assertOk()
-            ->assertJsonPath('data.modules.0.key', 'appointments')
-            ->assertJsonPath('data.modules.0.is_enabled', false);
+            ->json('data.modules'))
+            ->firstWhere('key', 'appointments');
+
+        $this->assertFalse($row['is_enabled']);
 
         // The owner bypasses roles, never modules: the organisation itself
         // does not run this any more.
@@ -169,21 +171,21 @@ class FeatureResolutionTest extends TenantTestCase
         $this->assertSame(FeatureResolver::ORGANIZATION_OFF, $row['reason']);
     }
 
-    public function test_core_modules_cannot_be_switched_off_at_either_level(): void
+    public function test_organization_level_modules_cannot_be_switched_off_at_either_level(): void
     {
         [$organization, $a] = $this->network();
 
         $this->signInAsOwner($organization);
 
-        $this->putJson('/api/v1/tenant/module-settings', ['modules' => ['customers' => false]])
+        $this->putJson('/api/v1/tenant/module-settings', ['modules' => ['settings' => false]])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('modules.customers');
+            ->assertJsonValidationErrors('modules.settings');
 
-        $this->putJson("/api/v1/tenant/locations/{$a}/modules", ['overrides' => ['customers' => false]])
+        $this->putJson("/api/v1/tenant/locations/{$a}/modules", ['overrides' => ['settings' => false]])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('overrides.customers');
+            ->assertJsonValidationErrors('overrides.settings');
 
-        $this->assertTrue($this->features($organization, $a)['customers']);
+        $this->assertTrue($this->features($organization, $a)['settings']);
     }
 
     public function test_the_organization_cannot_switch_off_what_another_module_needs(): void
@@ -196,7 +198,7 @@ class FeatureResolutionTest extends TenantTestCase
 
         $this->putJson('/api/v1/tenant/module-settings', ['modules' => ['medicines' => false]])
             ->assertStatus(422)
-            ->assertJsonPath('errors.modules.0', 'Pharmacy needs Medicines. Enable it too.');
+            ->assertJsonPath('errors.modules.0', 'Pharmacy needs Medicines. Switch it on too, or switch Pharmacy off.');
 
         $this->assertSame(0, $this->onTenant($organization, fn () => OrganizationModuleSetting::count()));
 
@@ -249,11 +251,14 @@ class FeatureResolutionTest extends TenantTestCase
 
         $this->signInAsOwner($organization);
 
-        $this->putJson("/api/v1/tenant/locations/{$a}/modules", ['overrides' => ['appointments' => false]])
+        $row = collect($this->putJson("/api/v1/tenant/locations/{$a}/modules", ['overrides' => ['appointments' => false]])
             ->assertOk()
-            ->assertJsonPath('data.modules.0.override', false)
-            ->assertJsonPath('data.modules.0.is_enabled', false)
-            ->assertJsonPath('data.modules.0.reason', FeatureResolver::BRANCH_OFF);
+            ->json('data.modules'))
+            ->firstWhere('key', 'appointments');
+
+        $this->assertFalse($row['override']);
+        $this->assertFalse($row['is_enabled']);
+        $this->assertSame(FeatureResolver::BRANCH_OFF, $row['reason']);
 
         $this->assertFalse($this->features($organization, $a)['appointments']);
         $this->assertTrue($this->features($organization, $b)['appointments']);
@@ -270,11 +275,14 @@ class FeatureResolutionTest extends TenantTestCase
         $this->grantModule($organization, 'appointments');
         $this->signInAsOwner($organization);
 
-        $this->putJson("/api/v1/tenant/locations/{$a}/modules", ['overrides' => ['appointments' => true]])
+        $row = collect($this->putJson("/api/v1/tenant/locations/{$a}/modules", ['overrides' => ['appointments' => true]])
             ->assertOk()
-            ->assertJsonPath('data.modules.0.override', true)
-            ->assertJsonPath('data.modules.0.is_enabled', true)
-            ->assertJsonPath('data.modules.0.reason', FeatureResolver::BRANCH_ON);
+            ->json('data.modules'))
+            ->firstWhere('key', 'appointments');
+
+        $this->assertTrue($row['override']);
+        $this->assertTrue($row['is_enabled']);
+        $this->assertSame(FeatureResolver::BRANCH_ON, $row['reason']);
 
         $this->assertTrue($this->onTenant($organization, fn () => LocationModule::query()
             ->where('location_id', $a)
@@ -282,10 +290,13 @@ class FeatureResolutionTest extends TenantTestCase
             ->value('is_enabled')));
 
         // Null is "no opinion": the row goes and the branch inherits.
-        $this->putJson("/api/v1/tenant/locations/{$a}/modules", ['overrides' => ['appointments' => null]])
+        $row = collect($this->putJson("/api/v1/tenant/locations/{$a}/modules", ['overrides' => ['appointments' => null]])
             ->assertOk()
-            ->assertJsonPath('data.modules.0.override', null)
-            ->assertJsonPath('data.modules.0.reason', FeatureResolver::INHERITED);
+            ->json('data.modules'))
+            ->firstWhere('key', 'appointments');
+
+        $this->assertNull($row['override']);
+        $this->assertSame(FeatureResolver::INHERITED, $row['reason']);
 
         $this->assertSame(0, $this->onTenant($organization, fn () => LocationModule::count()));
     }

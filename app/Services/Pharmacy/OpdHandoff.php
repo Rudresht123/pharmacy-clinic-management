@@ -110,6 +110,7 @@ class OpdHandoff
         return [
             'appointment_id' => $visit->id,
             'token_no' => $visit->token_no,
+            'token_label' => $visit->tokenLabel(),
             // The code and the number are how a counter tells two Rohit
             // Sharmas apart when it calls one of them up.
             'patient' => [

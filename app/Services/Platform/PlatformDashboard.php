@@ -367,7 +367,6 @@ class PlatformDashboard
             ->map(fn ($bindings) => $bindings->pluck('organization_id')->unique()->count());
 
         $rows = Module::available()
-            ->bindable()
             ->orderBy('sort_order')
             ->get()
             ->map(fn (Module $module) => [

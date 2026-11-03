@@ -63,6 +63,15 @@ final class ClinicEvents
     public const CONSULTATION_COMPLETED = 'consultation_completed';
 
     /**
+     * A patient's token was called, or called again.
+     *
+     * Not a document, and not for the televisions, which hear it on the doctor's
+     * own channel (App\Services\Queue\QueueBroadcaster). This is the patient's
+     * phone: the clinic's "Tell the patient their token is called" rule.
+     */
+    public const TOKEN_CALLED = 'token_called';
+
+    /**
      * A named time was booked — at the desk or from the patient app.
      *
      * Not a walk-in: somebody standing at the counter does not need a
@@ -164,6 +173,12 @@ final class ClinicEvents
                 'at' => 'VisitWorkflow::completeConsultation()',
                 // Nothing to print — DocumentRuleController skips an event
                 // with no documents, so it is never offered as a rule.
+                'documents' => [],
+            ],
+            self::TOKEN_CALLED => [
+                'label' => 'Token called',
+                'module' => 'appointments',
+                'at' => 'VisitWorkflow::call() / recall()',
                 'documents' => [],
             ],
             self::APPOINTMENT_BOOKED => [

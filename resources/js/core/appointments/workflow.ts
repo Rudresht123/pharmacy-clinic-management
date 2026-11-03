@@ -40,6 +40,7 @@ export const QUEUE_LABEL: Record<QueueStatus, string> = {
     waiting: 'Waiting',
     called: 'Called',
     with_doctor: 'With doctor',
+    skipped: 'Skipped',
 };
 
 /** THE CONSULTATION — where the doctor has got to. */

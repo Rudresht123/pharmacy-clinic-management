@@ -77,6 +77,13 @@ function shortDate(value: string | null): string {
     });
 }
 
+/** Only worth saying where there is a catalogue for it not to be in. */
+function UnlistedChip() {
+    return useTenantAuth().can('medicines.view') ? (
+        <span className="rx-stock is-unlisted">Not in catalogue</span>
+    ) : null;
+}
+
 /** Stock at the visit's store, as a warning — never a refusal. */
 function StockChip({ stock }: { stock?: Availability }) {
     if (!stock) return null;
@@ -133,7 +140,13 @@ function MedicinePicker({
         return () => clearTimeout(timer);
     }, [term]);
 
-    const searching = open && term.trim().length >= 2;
+    /*
+     * Where the clinic has no medicine catalogue the doctor simply types the
+     * medicine, for the patient to buy wherever they like, so there is nothing
+     * to search and no list to open.
+     */
+    const hasCatalogue = useTenantAuth().can('medicines.view');
+    const searching = hasCatalogue && open && term.trim().length >= 2;
     const search = useMedicineSearch(needle, searching);
     const results = search.data ?? [];
     const stock = useStoreAvailability(
@@ -221,7 +234,11 @@ function MedicinePicker({
                 ref={input}
                 type="text"
                 className={`form-control${invalid ? ' is-invalid' : ''}`}
-                placeholder="Search the catalogue, or type a medicine that is not in it"
+                placeholder={
+                    hasCatalogue
+                        ? 'Search the catalogue, or type a medicine that is not in it'
+                        : 'Type the name of the medicine'
+                }
                 aria-label="Medicine"
                 value={term}
                 onFocus={() => setOpen(true)}
@@ -453,7 +470,7 @@ function LineEditor({
                     {line.medicine_id ? (
                         <StockChip stock={stock} />
                     ) : line.medicine_name.trim() ? (
-                        <span className="rx-stock is-unlisted">Not in catalogue</span>
+                        <UnlistedChip />
                     ) : null}
 
                     <button

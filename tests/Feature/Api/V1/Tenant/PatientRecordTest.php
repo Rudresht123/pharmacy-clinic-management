@@ -255,14 +255,14 @@ class PatientRecordTest extends TenantTestCase
     public function test_exporting_is_its_own_permission(): void
     {
         // Reading the register is not taking it away.
-        $this->staffAtGurgaon(['customers.view']);
+        $this->staffAtGurgaon(['customers.records_view']);
 
         $this->withHeader('X-Branch-Id', (string) $this->gurgaon)
             ->getJson('/api/v1/tenant/patient-records/export?format=csv')
             ->assertForbidden();
 
         // Given the Export Center's patient tab on their role, the same person may.
-        $this->setStaffCapabilities($this->organization, ['customers.view', 'exports.patients']);
+        $this->setStaffCapabilities($this->organization, ['customers.records_view', 'exports.patients']);
         $this->signInAsStaff($this->organization);
 
         $this->withHeader('X-Branch-Id', (string) $this->gurgaon)

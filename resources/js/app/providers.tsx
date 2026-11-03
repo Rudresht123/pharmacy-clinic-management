@@ -15,10 +15,15 @@ import { BootGate } from './BootGate';
  * Every cross-cutting provider, composed once.
  *
  * Router sits outermost so AuthProvider (and anything else) can navigate.
+ *
+ * useTransitions={false}: by default the router wraps every navigation in
+ * startTransition, which keeps the old page on screen until the new one is
+ * ready. No Suspense fallback shows and useLocation() does not change until
+ * then, so a click looks dead and the loader only rises once the wait is over.
  */
 export function Providers({ children }: { children: ReactNode }) {
     return (
-        <BrowserRouter>
+        <BrowserRouter useTransitions={false}>
             {/* Outermost so the accent colour is applied before anything
                 paints, including the auth screens. */}
             <SettingsProvider>

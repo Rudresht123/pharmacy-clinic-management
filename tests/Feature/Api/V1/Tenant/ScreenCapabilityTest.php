@@ -5,11 +5,14 @@ namespace Tests\Feature\Api\V1\Tenant;
 use App\Models\Platform\Module;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\BranchMembership;
+use App\Models\Tenant\BranchRoleCapability;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Role;
+use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DefaultRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TenantTestCase;
 
 /**
@@ -72,6 +75,96 @@ class ScreenCapabilityTest extends TenantTestCase
 
         $this->getJson("/api/v1/tenant/customers/{$customerId}")->assertOk();
         $this->getJson("/api/v1/tenant/patient-records/{$customerId}")->assertOk();
+    }
+
+    /** Two rows in the menu, so two ticks: either one without the other. */
+    public function test_patient_records_and_the_patient_list_are_separate_ticks(): void
+    {
+        $this->setStaffCapabilities($this->organization, ['customers.view']);
+        $this->signInAsStaff($this->organization);
+
+        $this->getJson('/api/v1/tenant/customers')->assertOk();
+        $this->getJson('/api/v1/tenant/patient-records')->assertForbidden();
+        $this->getJson('/api/v1/tenant/patient-records/stats')->assertForbidden();
+
+        $this->setStaffCapabilities($this->organization, ['customers.records_view']);
+        $this->signInAsStaff($this->organization);
+
+        $this->getJson('/api/v1/tenant/patient-records')->assertOk();
+        $this->getJson('/api/v1/tenant/patient-records/stats')->assertOk();
+        $this->getJson('/api/v1/tenant/customers')->assertForbidden();
+    }
+
+    /**
+     * The screen has its own tick, but the People form still has to list the
+     * roles it assigns, so `people.view` keeps reading them.
+     */
+    public function test_the_roles_screen_has_its_own_tick_and_the_people_form_keeps_reading_roles(): void
+    {
+        $this->setStaffCapabilities($this->organization, ['people.roles_view']);
+        $this->signInAsStaff($this->organization);
+
+        $this->getJson('/api/v1/tenant/roles')->assertOk();
+        $this->getJson('/api/v1/tenant/users')->assertForbidden();
+
+        $this->setStaffCapabilities($this->organization, ['people.view']);
+        $this->signInAsStaff($this->organization);
+
+        $this->getJson('/api/v1/tenant/roles')->assertOk();
+        $this->assertNotContains(
+            'people.roles_view',
+            $this->getJson('/api/v1/tenant/auth/me')->assertOk()->json('data.capabilities'),
+        );
+
+        $this->setStaffCapabilities($this->organization, ['dashboard.view']);
+        $this->signInAsStaff($this->organization);
+
+        $this->getJson('/api/v1/tenant/roles')->assertForbidden();
+    }
+
+    /** Nobody's menu changes on the day the tick arrives, and no removal is undone. */
+    public function test_the_new_tick_goes_to_whoever_held_the_old_one_and_removals_stay_removed(): void
+    {
+        $this->onTenant($this->organization, function () {
+            $connection = TenantConnectionService::CONNECTION;
+
+            $holds = Role::on($connection)->create(['name' => 'Holds it', 'slug' => 'holds-it', 'scope' => Role::SCOPE_BRANCH]);
+            $holds->syncCapabilities(['customers.view']);
+
+            $lacks = Role::on($connection)->create(['name' => 'Lacks it', 'slug' => 'lacks-it', 'scope' => Role::SCOPE_BRANCH]);
+            $lacks->syncCapabilities(['dashboard.view']);
+
+            $location = Location::on($connection)->create([
+                'name' => 'Split',
+                'code' => 'SPLIT',
+                'type' => Location::CLINIC,
+                'status' => 'active',
+            ]);
+
+            // This branch took the list off the role, so it must not gain the screen.
+            BranchRoleCapability::on($connection)->create([
+                'location_id' => $location->id,
+                'role_id' => $holds->id,
+                'capability' => 'customers.view',
+            ]);
+
+            $default = DB::getDefaultConnection();
+            DB::setDefaultConnection($connection);
+
+            try {
+                (require base_path('database/migrations/organization/2026_11_03_000100_give_two_screens_their_own_ticks.php'))->up();
+            } finally {
+                DB::setDefaultConnection($default);
+            }
+
+            $this->assertContains('customers.records_view', $holds->fresh()->load('capabilities')->capabilityKeys());
+            $this->assertNotContains('customers.records_view', $lacks->fresh()->load('capabilities')->capabilityKeys());
+
+            $this->assertContains(
+                'customers.records_view',
+                BranchRoleCapability::removedAt((int) $location->id, (int) $holds->id),
+            );
+        });
     }
 
     /** The session hands the apps exactly the ticks, so the menu shows exactly those. */

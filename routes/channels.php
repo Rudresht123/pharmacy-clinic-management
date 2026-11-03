@@ -1,6 +1,8 @@
 <?php
 
+use App\Broadcasting\BranchLabQueueChannel;
 use App\Broadcasting\BranchPharmacyChannel;
+use App\Broadcasting\DoctorQueueChannel;
 use App\Broadcasting\UserCallsChannel;
 use App\Broadcasting\UserMessagesChannel;
 use Illuminate\Support\Facades\Broadcast;
@@ -32,6 +34,18 @@ use Illuminate\Support\Facades\Broadcast;
 Broadcast::channel(
     'org.{organization}.branch.{branch}.pharmacy',
     BranchPharmacyChannel::class,
+    ['guards' => ['web']],
+);
+
+Broadcast::channel(
+    'org.{organization}.branch.{branch}.doctor.{doctor}.queue',
+    DoctorQueueChannel::class,
+    ['guards' => ['web']],
+);
+
+Broadcast::channel(
+    'org.{organization}.branch.{branch}.lab-queue',
+    BranchLabQueueChannel::class,
     ['guards' => ['web']],
 );
 

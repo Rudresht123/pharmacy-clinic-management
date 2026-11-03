@@ -69,6 +69,7 @@ export interface OpdTabs {
 export interface OpdQueueRow {
     id: number;
     token_no: number | null;
+    token_label?: string | null;
     customer_name: string | null;
     customer_code: string | null;
     /** Worked out per request — a cached age is wrong on a birthday. */
@@ -115,6 +116,7 @@ export interface OpdReady {
     next: {
         id: number;
         token_no: number | null;
+        token_label?: string | null;
         customer_name: string | null;
         queue_status: QueueStatus | null;
         waiting_minutes: number;
@@ -148,6 +150,7 @@ export interface OpdDepartment {
 export interface OpdWaiting {
     id: number;
     token_no: number | null;
+    token_label?: string | null;
     customer_name: string | null;
     doctor_name: string | null;
     waiting_minutes: number;
@@ -227,6 +230,7 @@ export interface OpdToday {
 export interface MyRow {
     id: number;
     token_no: number | null;
+    token_label?: string | null;
     /** The patient this visit is for — what documents hang off. */
     customer_id: number;
     customer_name: string | null;

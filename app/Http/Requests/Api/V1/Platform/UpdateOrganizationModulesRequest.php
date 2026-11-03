@@ -30,23 +30,15 @@ class UpdateOrganizationModulesRequest extends FormRequest
         return [
             'modules' => ['present', 'array'],
 
-            /*
-             * Only bindable modules may appear. Core ones are not a choice,
-             * and letting one through here would create a row that says an
-             * organization "has" something it can never not have — and could
-             * then be expired.
-             */
             'modules.*.key' => [
                 'required',
                 'string',
                 /*
-                 * A closure, not ->where('is_core', false): the rule's own
+                 * A closure, not ->where('is_active', true): the rule's own
                  * where() stringifies its value, and Postgres refuses '' as a
                  * boolean — the query blows up rather than failing validation.
                  */
-                Rule::exists(Module::class, 'key')->where(
-                    fn ($query) => $query->where('is_core', false)->where('is_active', true)
-                ),
+                Rule::exists(Module::class, 'key')->where(fn ($query) => $query->where('is_active', true)),
             ],
 
             'modules.*.is_enabled' => ['required', 'boolean'],

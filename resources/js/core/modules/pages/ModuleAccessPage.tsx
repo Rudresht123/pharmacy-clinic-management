@@ -14,9 +14,11 @@ import type { CatalogueModule } from '../types';
 
 const GROUP_LABELS: Record<string, string> = {
     foundation: 'Foundation',
-    pharmacy: 'Pharmacy',
-    commerce: 'Commerce',
+    billing: 'Billing',
     clinical: 'Clinical',
+    pharmacy: 'Pharmacy',
+    communication: 'Communication',
+    commerce: 'Commerce',
 };
 
 type View = 'assign' | 'catalogue';
@@ -37,7 +39,6 @@ export default function ModuleAccessPage() {
 
     const tiles = useMemo(() => {
         const all = catalogue?.modules ?? [];
-        const optional = all.filter((module) => !module.is_core);
 
         return [
             {
@@ -45,13 +46,14 @@ export default function ModuleAccessPage() {
                 value: all.length,
                 icon: 'ti ti-puzzle',
                 tone: 'indigo' as const,
-                hint: `${all.length - optional.length} included with every organization`,
+                hint: 'Each one is granted, none is included',
             },
             {
-                label: 'Sold separately',
-                value: optional.length,
-                icon: 'ti ti-shopping-cart',
+                label: 'In use',
+                value: all.filter((module) => module.organizations > 0).length,
+                icon: 'ti ti-building-store',
                 tone: 'sky' as const,
+                hint: 'Granted to at least one organization',
             },
             {
                 label: 'Permissions',
@@ -62,7 +64,7 @@ export default function ModuleAccessPage() {
             },
             {
                 label: 'Ending within 30 days',
-                value: optional.reduce((sum, module) => sum + (module.expiring_soon ?? 0), 0),
+                value: all.reduce((sum, module) => sum + module.expiring_soon, 0),
                 icon: 'ti ti-clock-exclamation',
                 tone: 'amber' as const,
                 hint: 'Subscriptions to chase',
@@ -196,7 +198,7 @@ function AssignView() {
 
                             <span className="ma-rail-sub">
                                 {organization.modules === 0
-                                    ? 'Core only'
+                                    ? 'No modules'
                                     : `${organization.modules} module${
                                           organization.modules === 1 ? '' : 's'
                                       }`}
@@ -262,19 +264,7 @@ function CatalogueView() {
 
     const rows = useMemo(() => {
         return (data?.modules ?? []).filter((module) => {
-            if (filters.group && module.group !== filters.group) {
-                return false;
-            }
-
-            if (filters.type === 'core' && !module.is_core) {
-                return false;
-            }
-
-            if (filters.type === 'optional' && module.is_core) {
-                return false;
-            }
-
-            return true;
+            return !filters.group || module.group === filters.group;
         });
     }, [data, filters]);
 
@@ -290,17 +280,6 @@ function CatalogueView() {
                     value: key,
                     label: GROUP_LABELS[key] ?? key,
                 })),
-            },
-            {
-                kind: 'select',
-                name: 'type',
-                label: 'Type',
-                anyLabel: 'Any type',
-                value: filters.type ?? '',
-                options: [
-                    { value: 'optional', label: 'Sold separately' },
-                    { value: 'core', label: 'Included with every organization' },
-                ],
             },
         ],
         [data, filters],
@@ -337,34 +316,10 @@ function CatalogueView() {
                 cell: (info) => GROUP_LABELS[info.getValue()] ?? info.getValue(),
             }),
 
-            column.accessor('is_core', {
-                header: 'Type',
-                meta: { label: 'Type' },
-                cell: (info) =>
-                    info.getValue() ? (
-                        <span className="cat-tag is-core">
-                            <i className="ti ti-lock" />
-                            Included
-                        </span>
-                    ) : (
-                        <span className="cat-tag">Sold separately</span>
-                    ),
-            }),
-
             column.accessor('organizations', {
                 header: 'Using it',
                 meta: { label: 'Using it' },
-                cell: (info) =>
-                    /*
-                     * Core modules have no rows to count — every organization
-                     * has them by virtue of being one — so a zero here would
-                     * read as "nobody", the opposite of the truth.
-                     */
-                    info.getValue() === null ? (
-                        <span className="text-muted">Everyone</span>
-                    ) : (
-                        <b className="cat-count">{info.getValue()}</b>
-                    ),
+                cell: (info) => <b className="cat-count">{info.getValue()}</b>,
             }),
 
             column.accessor('expiring_soon', {

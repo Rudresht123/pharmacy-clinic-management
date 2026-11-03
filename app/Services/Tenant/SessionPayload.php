@@ -11,6 +11,7 @@ use App\Models\Tenant\User;
 use App\Services\Modules\FeatureResolver;
 use App\Services\Opd\QueueSteps;
 use App\Services\Permissions\Permission;
+use App\Services\Realtime\RealtimeConfig;
 use App\Services\Subscriptions\EntitlementService;
 use App\Support\Subscriptions\Entitlements;
 
@@ -122,7 +123,7 @@ class SessionPayload
              * endpoint that loads it, from the server that will later
              * authorize the subscription — a client never builds one.
              */
-            'realtime' => $this->realtime(),
+            'realtime' => RealtimeConfig::forClient(),
 
             /*
              * This person's own capabilities, NOT the organization's pool.
@@ -201,35 +202,6 @@ class SessionPayload
 
         return $this->for($user, $organization) + [
             'token' => $user->createToken($device)->plainTextToken,
-        ];
-    }
-
-    /**
-     * Connection details for Reverb, or `enabled: false`.
-     *
-     * Disabled whenever broadcasting is not Reverb or has no key — a client
-     * told so falls back to re-fetching, rather than opening a socket to
-     * nowhere and showing a counter that never updates. The key is the public
-     * half; the secret never leaves the server.
-     *
-     * @return array<string, mixed>
-     */
-    private function realtime(): array
-    {
-        $connection = (array) config('broadcasting.connections.reverb', []);
-
-        if (config('broadcasting.default') !== 'reverb' || blank($connection['key'] ?? null)) {
-            return ['enabled' => false];
-        }
-
-        return [
-            'enabled' => true,
-            'driver' => 'reverb',
-            'key' => $connection['key'],
-            'host' => $connection['client']['host'] ?? null,
-            'port' => $connection['client']['port'] ?? null,
-            'scheme' => $connection['client']['scheme'] ?? 'https',
-            'auth_endpoint' => '/api/v1/broadcasting/auth',
         ];
     }
 

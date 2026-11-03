@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/shared/utils/cn';
 
@@ -39,13 +39,21 @@ function getSnapshot() {
     return requests;
 }
 
+/** How many callers are asking for the overlay right now. */
+export function useFullPageLoaderRequests() {
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
 /**
  * Asks for the loading overlay for as long as it is mounted.
  *
  * Renders nothing itself — see FullPageLoaderHost, which draws it.
  */
 export function FullPageLoader() {
-    useEffect(() => {
+    // A layout effect, so the overlay lands in the same paint as whatever
+    // raised it. A passive one lets the browser show the new page first and
+    // cover it a moment later, which is the wrong way round.
+    useLayoutEffect(() => {
         requests += 1;
         emit();
 
@@ -65,39 +73,38 @@ const FADE_MS = 350;
  * Draws the branded overlay. Mounted once, in Providers.
  */
 export function FullPageLoaderHost() {
-    const active = useSyncExternalStore(subscribe, getSnapshot, getSnapshot) > 0;
+    const active = useFullPageLoaderRequests() > 0;
 
     // Kept in the DOM through the fade-out, the same pattern as Modal.
-    const [mounted, setMounted] = useState(false);
-    const [visible, setVisible] = useState(false);
+    const [lingering, setLingering] = useState(false);
 
     useEffect(() => {
         if (active) {
-            setMounted(true);
+            setLingering(true);
 
-            const frame = requestAnimationFrame(() => setVisible(true));
-
-            return () => cancelAnimationFrame(frame);
+            return;
         }
 
-        setVisible(false);
-
-        const timer = window.setTimeout(() => setMounted(false), FADE_MS);
+        const timer = window.setTimeout(() => setLingering(false), FADE_MS);
 
         return () => window.clearTimeout(timer);
     }, [active]);
 
-    if (!mounted) {
+    if (!active && !lingering) {
         return null;
     }
 
     /*
-     * The theme's own .hide class drives the fade, so this needs no CSS of
-     * its own: the overlay mounts with .hide, loses it on the next frame to
-     * fade in, and gets it back to fade out before the node is unmounted.
+     * Comes up solid, like the boot loader on a refresh, and only fades on the
+     * way out. It used to fade in as well, which spent the first 350ms of a
+     * 400ms minimum see-through over the new page: on a quick navigation it
+     * never read as a loader at all.
+     *
+     * The theme's own .hide class drives the fade, so this needs no CSS of its
+     * own.
      */
     return createPortal(
-        <div className={cn('hospital-loader', !visible && 'hide')} role="status" aria-live="polite">
+        <div className={cn('hospital-loader', !active && 'hide')} role="status" aria-live="polite">
             <span className="visually-hidden">Loading…</span>
 
             <div className="loader-card">

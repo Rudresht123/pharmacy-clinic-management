@@ -49,8 +49,9 @@ function NotFound() {
 }
 
 export function AppRoutes() {
-    // Navigating to a page whose chunk is not downloaded yet suspends here,
-    // and the branded full-screen loader covers the transition — the same
+    // Pages outside the shell suspend here while their chunk downloads; pages
+    // inside it suspend at AppShell's own boundary, which keeps the menu up.
+    // Either way the branded full-screen loader covers the wait — the same
     // loader the initial page load shows.
     return (
         <>

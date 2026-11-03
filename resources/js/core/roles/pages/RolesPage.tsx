@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingBlock, ErrorState } from '@/shared/components/ui/Feedback';
@@ -9,6 +9,7 @@ import { useConfigurableEntities } from '@/core/field-settings/api';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { tenantNavigation } from '@/app/tenant-navigation';
 import { rolesHooks, useGrantable, useRoleMembers, useRoleTemplates } from '../api';
+import { toModuleSections } from '../moduleSections';
 import { ROLE_ICONS, type GrantableModule, type Role, type RoleScope } from '../types';
 
 /**
@@ -26,6 +27,15 @@ const MODULE_TONE: Record<string, string> = {
     appointments: 'emerald',
     prescriptions: 'amber',
 };
+
+/** What the sidebar files under "My work": a doctor's own screens. */
+const MY_WORK = [
+    'appointments.my_day',
+    'appointments.my_queue',
+    'appointments.my_schedule',
+    'appointments.my_patients',
+    'queue.my_console',
+];
 
 /** A role being written, before it is a role. */
 const BLANK = {
@@ -246,7 +256,9 @@ export default function RolesPage() {
      * an empty right-hand panel reads as broken, not as "nothing matched".
      */
     const activeModule =
-        visibleModules.find((module) => module.key === focusedModule) ?? visibleModules[0] ?? null;
+        visibleModules.find((module) => module.key === focusedModule) ??
+        toModuleSections(visibleModules)[0]?.modules[0] ??
+        null;
 
     function choose(role: Role) {
         setSelected(role.id);
@@ -1047,35 +1059,45 @@ function PermissionMatrix({
     return (
         <div className="rp-matrix">
             <aside className="rp-matrix-nav" role="tablist" aria-label="Modules">
-                {modules.map((module) => {
-                    const keys = module.capabilities.map((capability) => capability.key);
-                    const count = keys.filter((key) => held.includes(key)).length;
-                    const tone = MODULE_TONE[module.key] ?? 'slate';
+                {toModuleSections(modules).map((section) => (
+                    <Fragment key={section.title || 'top'}>
+                        {section.title && (
+                            <p className="rp-matrix-heading" role="presentation">
+                                {section.title}
+                            </p>
+                        )}
 
-                    return (
-                        <button
-                            type="button"
-                            role="tab"
-                            key={module.key}
-                            aria-selected={active.key === module.key}
-                            className={`rp-matrix-item${active.key === module.key ? ' is-active' : ''}${count > 0 ? ' is-on' : ''}`}
-                            onClick={() => onFocus(module.key)}
-                        >
-                            <span className={`rp-module-icon is-${tone}`}>
-                                <i className={module.icon ?? 'ti ti-puzzle'} />
-                            </span>
+                        {section.modules.map((module) => {
+                            const keys = module.capabilities.map((capability) => capability.key);
+                            const count = keys.filter((key) => held.includes(key)).length;
+                            const tone = MODULE_TONE[module.key] ?? 'slate';
 
-                            <span className="rp-matrix-item-text">
-                                <b>{module.name}</b>
-                                <small>
-                                    {count} / {keys.length}
-                                </small>
-                            </span>
+                            return (
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    key={module.key}
+                                    aria-selected={active.key === module.key}
+                                    className={`rp-matrix-item${active.key === module.key ? ' is-active' : ''}${count > 0 ? ' is-on' : ''}`}
+                                    onClick={() => onFocus(module.key)}
+                                >
+                                    <span className={`rp-module-icon is-${tone}`}>
+                                        <i className={module.icon ?? 'ti ti-puzzle'} />
+                                    </span>
 
-                            <i className="ti ti-chevron-right" aria-hidden="true" />
-                        </button>
-                    );
-                })}
+                                    <span className="rp-matrix-item-text">
+                                        <b>{module.name}</b>
+                                        <small>
+                                            {count} / {keys.length}
+                                        </small>
+                                    </span>
+
+                                    <i className="ti ti-chevron-right" aria-hidden="true" />
+                                </button>
+                            );
+                        })}
+                    </Fragment>
+                ))}
             </aside>
 
             <section className="rp-matrix-detail">
@@ -1124,11 +1146,21 @@ function PermissionMatrix({
                             {/*
                                 The screens it opens, then what it can do on
                                 them — the two questions somebody setting a
-                                role is actually asking.
+                                role is actually asking. A doctor's own screens
+                                come apart, as they do in the sidebar.
                             */}
                             {(
                                 [
-                                    ['Can open', active.capabilities.filter((capability) => capability.screen)],
+                                    [
+                                        'Can open',
+                                        active.capabilities.filter(
+                                            (capability) => capability.screen && !MY_WORK.includes(capability.key),
+                                        ),
+                                    ],
+                                    [
+                                        'My work (doctors)',
+                                        active.capabilities.filter((capability) => MY_WORK.includes(capability.key)),
+                                    ],
                                     ['Can do', active.capabilities.filter((capability) => !capability.screen)],
                                 ] as [string, typeof active.capabilities][]
                             )

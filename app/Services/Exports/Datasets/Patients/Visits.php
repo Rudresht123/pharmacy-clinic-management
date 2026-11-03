@@ -142,7 +142,7 @@ class Visits extends Dataset
         return [
             'date' => $this->date($record->appointment_date),
             'time' => $time,
-            'token' => $record->token_no,
+            'token' => $record->tokenLabel(),
             ...$this->patientCells($record->customer),
             'doctor' => $record->doctor?->name,
             'branch' => $record->location?->name,

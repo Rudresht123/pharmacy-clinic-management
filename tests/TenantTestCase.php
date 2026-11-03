@@ -20,6 +20,7 @@ use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DefaultRoleSeeder;
 use App\Services\Tenant\DoctorPostings;
 use App\Support\Platform\OrganizationCode;
+use Illuminate\Support\Facades\Artisan;
 
 /**
  * Base class for anything exercising a real tenant database.
@@ -80,6 +81,8 @@ abstract class TenantTestCase extends TestCase
 
         $organization = Organization::where('uuid', $created['uuid'])->firstOrFail();
         $this->createdDatabases[] = $organization->database_name;
+
+        $this->grantFoundationModules($organization);
 
         $this->onTenant($organization, function () use ($organization) {
             /*
@@ -379,6 +382,34 @@ abstract class TenantTestCase extends TestCase
         $this->onTenant($organization, fn () => BillingSetting::current()
             ->forceFill(['payment_behaviour' => BillingSetting::PAYMENT_PARTIAL])
             ->save());
+    }
+
+    /**
+     * What almost every test here is standing on.
+     *
+     * Nothing is included by default, so a new organization holds no modules at
+     * all. A test about booking or a role is not about that, and should not have
+     * to grant the customer register first. The tests that are about it make
+     * their own organization or take these back with revokeFoundationModules().
+     */
+    protected const FOUNDATION_MODULES = ['dashboard', 'branches', 'people', 'customers', 'exports', 'settings', 'billing'];
+
+    protected function grantFoundationModules(Organization $organization): void
+    {
+        Artisan::call('modules:sync');
+
+        OrganizationModule::withoutEvents(function () use ($organization) {
+            foreach (self::FOUNDATION_MODULES as $key) {
+                $this->grantModule($organization, $key);
+            }
+        });
+    }
+
+    protected function revokeFoundationModules(Organization $organization): void
+    {
+        OrganizationModule::where('organization_id', $organization->id)
+            ->whereIn('module_id', Module::whereIn('key', self::FOUNDATION_MODULES)->pluck('id'))
+            ->delete();
     }
 
     /** Sell a module to the organization — level one. */

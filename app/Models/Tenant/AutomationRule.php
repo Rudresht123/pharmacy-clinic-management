@@ -64,6 +64,9 @@ class AutomationRule extends Model
     /** The clinic said no; the visit stays where it was. */
     public const APPOINTMENT_RESCHEDULE_REJECTED = 'appointment.reschedule_rejected';
 
+    /** A doctor's queue called the patient's token. */
+    public const TOKEN_CALLED = 'queue.token_called';
+
     protected $connection = 'organization';
 
     protected $table = 'automation_rules';

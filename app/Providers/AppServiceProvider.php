@@ -20,9 +20,12 @@ use App\Services\Subscriptions\BillingSettings;
 use App\Services\Subscriptions\SubscriptionFacts;
 use App\Services\WhatsApp\WhatsAppManager;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Events\MigrationEnded;
 use Illuminate\Database\Events\MigrationStarted;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
@@ -121,6 +124,17 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Schema::defaultStringLength(191);
+
+        /*
+         * The public television endpoints. By screen, so one wall that reconnects
+         * and re-signs thirty doctors' channels has room to; and a wider limit
+         * by address, so a hospital with ten screens behind one router is fine
+         * while a script walking through guesses is not.
+         */
+        RateLimiter::for('queue-display', fn (Request $request) => [
+            Limit::perMinute(240)->by('display:'.hash('sha256', (string) $request->route('token'))),
+            Limit::perMinute(1200)->by('display-ip:'.$request->ip()),
+        ]);
 
         /*
          * Sanctum reads tokens from the tenant database, not the master one.

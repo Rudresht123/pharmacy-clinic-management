@@ -32,9 +32,9 @@ use LogicException;
  * switched it off, a branch switched it back on" impossible rather than merely
  * refused at the door.
  *
- * Core modules are always on. No row at either tenant level can take one away:
- * an organisation without its customer register is not a smaller organisation,
- * it is a broken one.
+ * Branches and Configuration still have to be sold, but once they are no row at
+ * either tenant level can take them away: they belong to the organisation rather
+ * than to a branch, and the switches themselves live behind them.
  *
  * Permission::modulesAt() is the cached front door to this and what the rest
  * of the application calls. This class holds no state, so asking it twice asks
@@ -63,7 +63,7 @@ class FeatureResolver
     ];
 
     /** Why a module is in the state it is — see explain(). */
-    public const CORE = 'core';
+    public const ORG_LEVEL = 'org_level';
 
     public const NOT_PURCHASED = 'not_purchased';
 
@@ -97,7 +97,7 @@ class FeatureResolver
             return $running;
         }
 
-        $off = $this->withoutCore(
+        $off = $this->withoutOrgLevel(
             LocationModule::query()
                 ->where('location_id', $locationId)
                 ->where('is_enabled', false)
@@ -156,7 +156,7 @@ class FeatureResolver
 
         return array_values(array_diff(
             $this->modules->enabled($organization),
-            $this->withoutCore(OrganizationModuleSetting::offKeys()),
+            $this->withoutOrgLevel(OrganizationModuleSetting::offKeys()),
         ));
     }
 
@@ -184,7 +184,7 @@ class FeatureResolver
      * enabled() on every row — the feature test walks both to prove it.
      *
      * @return list<array{
-     *     key: string, name: string, group: string, is_core: bool,
+     *     key: string, name: string, group: string, is_org_level: bool,
      *     purchased: bool, organization_enabled: bool,
      *     branch_override: bool|null, effective: bool, reason: string,
      * }>
@@ -194,19 +194,20 @@ class FeatureResolver
         $this->assertConnectedTo($organization);
 
         $purchased = $this->modules->enabled($organization);
-        $organizationOff = $this->withoutCore(OrganizationModuleSetting::offKeys());
+        $organizationOff = $this->withoutOrgLevel(OrganizationModuleSetting::offKeys());
         $overrides = $locationId === null ? [] : $this->overridesAt($locationId);
 
         $rows = [];
 
         foreach (ModuleRegistry::all() as $module) {
             $key = $module['key'];
+            $isOrgLevel = $module['is_org_level'] ?? false;
             $isPurchased = in_array($key, $purchased, true);
             $override = $locationId === null ? null : ($overrides[$key] ?? null);
 
             [$effective, $reason] = match (true) {
-                $module['is_core'] => [true, self::CORE],
                 ! $isPurchased => [false, self::NOT_PURCHASED],
+                $isOrgLevel => [true, self::ORG_LEVEL],
                 in_array($key, $organizationOff, true) => [false, self::ORGANIZATION_OFF],
                 $override === false => [false, self::BRANCH_OFF],
                 $override === true => [true, self::BRANCH_ON],
@@ -218,10 +219,10 @@ class FeatureResolver
                 'key' => $key,
                 'name' => $module['name'],
                 'group' => $module['group'],
-                'is_core' => $module['is_core'],
+                'is_org_level' => $isOrgLevel,
                 'purchased' => $isPurchased,
                 'organization_enabled' => $isPurchased && ! in_array($key, $organizationOff, true),
-                'branch_override' => $module['is_core'] ? null : $override,
+                'branch_override' => $isOrgLevel ? null : $override,
                 'effective' => $effective,
                 'reason' => $reason,
             ];
@@ -288,8 +289,8 @@ class FeatureResolver
      * @param  list<string>  $keys
      * @return list<string>
      */
-    private function withoutCore(array $keys): array
+    private function withoutOrgLevel(array $keys): array
     {
-        return array_values(array_diff($keys, ModuleRegistry::coreKeys()));
+        return array_values(array_diff($keys, ModuleRegistry::orgLevelKeys()));
     }
 }

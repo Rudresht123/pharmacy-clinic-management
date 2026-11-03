@@ -45,12 +45,12 @@ class ModuleLockController extends BaseApiController
 
         foreach (ModuleRegistry::all() as $module) {
             /*
-             * Core modules are not offered. They cannot be switched off at a
-             * branch in the first place, so locking one would be a control
+             * Branches and Configuration are not offered. They cannot be switched
+             * off at a branch in the first place, so locking one would be a control
              * that changes nothing — and a control that changes nothing reads
              * as one that is broken.
              */
-            if ($module['is_core'] || ! in_array($module['key'], $entitled, true)) {
+            if (($module['is_org_level'] ?? false) || ! in_array($module['key'], $entitled, true)) {
                 continue;
             }
 
@@ -76,7 +76,7 @@ class ModuleLockController extends BaseApiController
 
         $switchable = array_values(array_filter(
             $organization ? $this->permission->modulesAt($organization, null) : [],
-            fn (string $key) => ! in_array($key, ModuleRegistry::coreKeys(), true),
+            fn (string $key) => ! in_array($key, ModuleRegistry::orgLevelKeys(), true),
         ));
 
         $validated = $request->validate([

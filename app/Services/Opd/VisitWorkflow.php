@@ -5,14 +5,22 @@ namespace App\Services\Opd;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\BillingSetting;
 use App\Models\Tenant\Consultation;
+use App\Models\Tenant\DoctorQueueSetting;
 use App\Models\Tenant\Invoice;
 use App\Models\Tenant\LabOrder;
 use App\Models\Tenant\PharmacySale;
 use App\Models\Tenant\Prescription;
+use App\Models\Tenant\QueueEvent;
 use App\Models\Tenant\User;
 use App\Services\Billing\BillingTriggerResolver;
 use App\Services\Clinic\ClinicEvent;
 use App\Services\Clinic\ClinicEventDispatcher;
+use App\Services\Portal\PatientNotifications;
+use App\Services\Queue\EstimatedWaitingTimeService;
+use App\Services\Queue\QueueClock;
+use App\Services\Queue\QueueJournal;
+use App\Services\Queue\QueueManagementService;
+use App\Services\Queue\QueueModule;
 use App\Support\Clinic\ClinicEvents;
 use Illuminate\Support\Facades\Auth;
 
@@ -92,6 +100,15 @@ class VisitWorkflow
     }
 
     /**
+     * Writes down each move and tells the doctor's channel. Resolved at use for
+     * the reason above, and because it reads the queue this class moves.
+     */
+    private function journal(): QueueJournal
+    {
+        return app(QueueJournal::class);
+    }
+
+    /**
      * Where a patient goes next, in the order the department asks.
      *
      * Pharmacy before lab before billing. A visit can be waiting on more than
@@ -127,10 +144,14 @@ class VisitWorkflow
      * the patient already called. It gets a refusal naming who called them
      * and when, which is what somebody standing at the other counter needs
      * to hear — not a silent success that calls the same person twice.
+     *
+     * A paused queue calls nobody, whichever screen the click came from, unless
+     * `$override` says this is an emergency somebody has decided on. A video
+     * visit is not held by a pause: nobody is sitting outside that door.
      */
-    public function call(Appointment $appointment, ?User $actor = null): Appointment
+    public function call(Appointment $appointment, ?User $actor = null, bool $override = false): Appointment
     {
-        return $this->transaction(function () use ($appointment, $actor) {
+        return $this->transaction(function () use ($appointment, $actor, $override) {
             $locked = $this->lock($appointment);
 
             if ($locked->isCalled()) {
@@ -146,11 +167,147 @@ class VisitWorkflow
                 });
             }
 
+            if (! $override && ! $locked->isVideo() && $this->queuePaused($locked)) {
+                throw WorkflowConflict::because('This doctor\'s queue is paused. Resume it to call the next patient.');
+            }
+
+            $from = $locked->queue_status;
+
             $locked->forceFill([
                 'queue_status' => Appointment::QUEUE_CALLED,
                 'called_at' => now(),
                 'called_by' => $this->actorId($actor),
+                'skipped_at' => null,
             ])->save();
+
+            $this->tellTheyWereCalled($locked, $from, QueueEvent::CALLED, $actor, $override);
+
+            return $locked;
+        });
+    }
+
+    /**
+     * Set somebody aside: they were called and did not come, or stepped out.
+     *
+     * They keep their token and leave the line, so the doctor is not held up and
+     * the next person can be called. Recalling them is one click.
+     */
+    public function skip(Appointment $appointment, ?string $reason = null, ?User $actor = null): Appointment
+    {
+        return $this->transaction(function () use ($appointment, $reason, $actor) {
+            $locked = $this->lock($appointment);
+
+            if (! $locked->queueCanMoveTo(Appointment::QUEUE_SKIPPED)) {
+                throw WorkflowConflict::because(match (true) {
+                    $locked->isSkipped() => 'That patient has already been skipped.',
+                    $locked->isWithDoctor() => 'That patient is already with the doctor.',
+                    default => 'That patient is not in the queue.',
+                });
+            }
+
+            $from = $locked->queue_status;
+
+            $locked->forceFill([
+                'queue_status' => Appointment::QUEUE_SKIPPED,
+                'skipped_at' => now(),
+            ])->save();
+
+            $this->journal()->visit($locked, QueueEvent::SKIPPED, $from, Appointment::QUEUE_SKIPPED, ['reason' => $reason], $actor);
+
+            return $locked;
+        });
+    }
+
+    /**
+     * Ask for them again.
+     *
+     * Somebody already called is announced a second time. Somebody skipped comes
+     * back as called, which is the same thing a television should do either way.
+     */
+    public function recall(Appointment $appointment, ?User $actor = null): Appointment
+    {
+        return $this->transaction(function () use ($appointment, $actor) {
+            $locked = $this->lock($appointment);
+
+            if (! $locked->isCalled() && ! $locked->isSkipped()) {
+                throw WorkflowConflict::because('Only somebody already called or skipped can be recalled.');
+            }
+
+            if (! $locked->isVideo() && $this->queuePaused($locked)) {
+                throw WorkflowConflict::because('This doctor\'s queue is paused. Resume it to recall the patient.');
+            }
+
+            $from = $locked->queue_status;
+
+            $locked->forceFill([
+                'queue_status' => Appointment::QUEUE_CALLED,
+                'called_at' => $locked->isCalled() ? $locked->called_at : now(),
+                'called_by' => $this->actorId($actor),
+                'skipped_at' => null,
+                'recalled_at' => now(),
+            ])->save();
+
+            $this->tellTheyWereCalled($locked, $from, QueueEvent::RECALLED, $actor);
+
+            return $locked;
+        });
+    }
+
+    /**
+     * Back in the line, from being called or skipped.
+     *
+     * They keep their arrival time, so they rejoin where that puts them. Nobody
+     * who stepped out for a phone call should lose an hour's wait for it.
+     */
+    public function requeue(Appointment $appointment, ?User $actor = null): Appointment
+    {
+        return $this->transaction(function () use ($appointment, $actor) {
+            $locked = $this->lock($appointment);
+
+            if (! $locked->isCalled() && ! $locked->isSkipped()) {
+                throw WorkflowConflict::because('Only somebody called or skipped can go back in the queue.');
+            }
+
+            $from = $locked->queue_status;
+
+            $locked->forceFill([
+                'queue_status' => Appointment::QUEUE_WAITING,
+                'called_at' => null,
+                'called_by' => null,
+                'skipped_at' => null,
+            ])->save();
+
+            $this->journal()->visit($locked, QueueEvent::REQUEUED, $from, Appointment::QUEUE_WAITING, [], $actor);
+
+            return $locked;
+        });
+    }
+
+    /**
+     * They were here and they have gone: called or skipped, and never came in.
+     *
+     * Separate from BookingService::markNoShow, which means never arrived at all.
+     * This is the only way a checked-in visit becomes a no-show, and only from
+     * those two states: somebody still waiting has simply not been called yet.
+     */
+    public function markAbsent(Appointment $appointment, ?User $actor = null): Appointment
+    {
+        return $this->transaction(function () use ($appointment, $actor) {
+            $locked = $this->lock($appointment);
+
+            if (! $locked->isCalled() && ! $locked->isSkipped()) {
+                throw WorkflowConflict::because('Only somebody called or skipped can be marked as gone.');
+            }
+
+            $from = $locked->queue_status;
+
+            $locked->forceFill([
+                'status' => Appointment::STATUS_NO_SHOW,
+                'queue_status' => null,
+                'next_action' => null,
+            ])->save();
+
+            $this->journal()->visit($locked, QueueEvent::NO_SHOW, $from, null, [], $actor);
 
             return $locked;
         });
@@ -205,6 +362,7 @@ class VisitWorkflow
                 throw WorkflowConflict::because(match ($locked->queue_status) {
                     Appointment::QUEUE_WAITING => 'This patient has not been called yet. Reception calls them through first.',
                     Appointment::QUEUE_WITH_DOCTOR => 'This patient is already in a consultation.',
+                    Appointment::QUEUE_SKIPPED => 'This patient was skipped. Recall them first.',
                     default => 'This patient has not checked in yet.',
                 });
             }
@@ -223,6 +381,8 @@ class VisitWorkflow
                 'started_at' => now(),
                 'consultation_started_by' => $this->actorId($actor),
             ])->save();
+
+            $this->journal()->visit($locked, QueueEvent::SERVING, Appointment::QUEUE_CALLED, Appointment::QUEUE_WITH_DOCTOR, [], $actor);
 
             return $locked;
         });
@@ -293,6 +453,18 @@ class VisitWorkflow
              */
             $this->events()->dispatch(ClinicEvent::for(ClinicEvents::CONSULTATION_COMPLETED, $locked));
 
+            // A finished consultation is new evidence for their average.
+            app(EstimatedWaitingTimeService::class)->forget((int) $locked->doctor_id, (int) $locked->location_id);
+
+            $this->journal()->visit($locked, QueueEvent::COMPLETED, Appointment::QUEUE_WITH_DOCTOR, null, [], $actor);
+
+            /*
+             * The next patient, where this doctor's queue calls by itself. After
+             * COMMIT, so nothing about finding somebody to call can undo a
+             * finished write-up.
+             */
+            $locked->getConnection()->afterCommit(fn () => app(QueueManagementService::class)->autoCallAfter($locked));
+
             return $locked;
         });
     }
@@ -342,6 +514,8 @@ class VisitWorkflow
                 'visit_completed_at' => null,
                 'next_action' => null,
             ])->save();
+
+            $this->journal()->visit($locked, QueueEvent::REOPENED, null, Appointment::QUEUE_WITH_DOCTOR, [], $actor);
 
             return $locked;
         });
@@ -581,7 +755,7 @@ class VisitWorkflow
         }
     }
 
-    /** "Token 12 was called at 10:32 by Priya." */
+    /** "Token A012 was called at 10:32 by Priya." */
     private function alreadyCalled(Appointment $locked): string
     {
         $who = $locked->caller?->name;
@@ -589,10 +763,49 @@ class VisitWorkflow
 
         return trim(sprintf(
             '%s has already been called%s%s.',
-            $locked->token_no ? "Token {$locked->token_no}" : 'That patient',
+            $locked->token_no ? "Token {$locked->tokenLabel()}" : 'That patient',
             $when ? " at {$when}" : '',
             $who ? " by {$who}" : '',
         ));
+    }
+
+    /** Read fresh: a pause set a moment ago at another screen has to count. */
+    private function queuePaused(Appointment $locked): bool
+    {
+        // A clinic that stopped having the Smart Queue has no way left to resume.
+        return app(QueueModule::class)->runsAt((int) $locked->location_id)
+            && (bool) DoctorQueueSetting::query()
+                ->where('doctor_id', $locked->doctor_id)
+                ->where('location_id', $locked->location_id)
+                ->first()
+                ?->isPaused(QueueClock::now());
+    }
+
+    /**
+     * Everything a call sets off: the journal and the televisions, the bell in
+     * the patient's app, and the clinic's own rule for waking their phone.
+     *
+     * A video visit gets neither of the last two: its patient hears from the
+     * ringing call itself, and has no waiting room to walk out of.
+     */
+    private function tellTheyWereCalled(Appointment $locked, ?string $from, string $event, ?User $actor, bool $override = false): void
+    {
+        $this->journal()->visit(
+            $locked,
+            $event,
+            $from,
+            Appointment::QUEUE_CALLED,
+            $override ? ['override' => 'emergency'] : [],
+            $actor,
+        );
+
+        if ($locked->isVideo() || ! app(QueueModule::class)->runsAt((int) $locked->location_id)) {
+            return;
+        }
+
+        app(PatientNotifications::class)->tokenCalled($locked);
+
+        $this->events()->dispatch(ClinicEvent::for(ClinicEvents::TOKEN_CALLED, $locked));
     }
 
     private function actorId(?User $actor): ?int

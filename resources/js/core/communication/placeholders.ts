@@ -27,7 +27,8 @@ export const PLACEHOLDERS: Placeholder[] = [
     { token: '{{service}}', label: 'Service', sample: 'Consultation' },
     { token: '{{phone}}', label: 'Phone', sample: '+91 98765 43210' },
     { token: '{{branch_name}}', label: 'Branch', sample: 'Gurgaon' },
-    { token: '{{token_no}}', label: 'Token', sample: '12' },
+    { token: '{{token_no}}', label: 'Token', sample: 'A012' },
+    { token: '{{room}}', label: 'Room', sample: 'Room 01' },
 
     // Filled on a reschedule only: where the visit was, why, what the clinic said.
     { token: '{{old_date}}', label: 'Previous date', sample: '22 Sep 2026' },

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Tenant\Portal\FamilyController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\HomeController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\LabReportController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\PrescriptionController;
+use App\Http\Controllers\Api\V1\Tenant\Portal\QueueController;
 use App\Http\Controllers\Api\V1\Tenant\Portal\SignInController;
 use App\Http\Controllers\Api\V1\Tenant\VideoCallController;
 use Illuminate\Support\Facades\Route;
@@ -95,6 +96,14 @@ Route::middleware([
             ->middleware('permission:portal.appointments.view')
             ->name('appointments.index');
 
+        // Where the patient stands in their doctor's queue today.
+        Route::middleware(['module:queue', 'permission:portal.appointments.view'])->group(function () {
+            Route::get('queue', [QueueController::class, 'index'])->name('queue.index');
+            Route::get('queue/{appointment}', [QueueController::class, 'show'])
+                ->whereNumber('appointment')
+                ->name('queue.show');
+        });
+
         /*
         | The people a patient books for — each one a patient record of the
         | clinic's own. Booking for them is `member_id` on appointments above,
@@ -108,6 +117,13 @@ Route::middleware([
                 Route::post('/', [FamilyController::class, 'store'])->middleware('throttle:20,1')->name('store');
                 Route::put('{member}', [FamilyController::class, 'update'])->whereNumber('member')->name('update');
                 Route::delete('{member}', [FamilyController::class, 'destroy'])->whereNumber('member')->name('destroy');
+
+                // Booking for somebody and reading their medical history are
+                // two different things to allow.
+                Route::get('{member}/history', [FamilyController::class, 'history'])
+                    ->whereNumber('member')
+                    ->middleware('permission:portal.family.history')
+                    ->name('history');
             });
 
         /*

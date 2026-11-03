@@ -112,8 +112,7 @@ function OrganizationVitals({ organization }: { organization: Organization }) {
     const { data: modules, isLoading } = useOrganizationModules(organization.uuid);
 
     const database = organization.tenant_database;
-    const optional = (modules?.modules ?? []).filter((module) => !module.is_core);
-    const live = optional.filter((module) => module.is_live).length;
+    const live = (modules?.modules ?? []).filter((module) => module.is_live).length;
 
     return (
         <StatTiles

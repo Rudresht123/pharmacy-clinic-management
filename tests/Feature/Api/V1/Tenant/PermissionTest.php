@@ -157,7 +157,8 @@ class PermissionTest extends TenantTestCase
          * Since then: each screen is its own tick (the split into
          * queue_view, doctors_view, record, contact and dashboard.view), and
          * the Branches screen is the organization's, so this branch role no
-         * longer holds `branches.view`.
+         * longer holds `branches.view`. The Smart Queue's ticks are seeded whether
+         * or not the clinic has bought it: they do nothing until it does.
          */
         $this->assertSame([
             'appointments.book',
@@ -170,8 +171,13 @@ class PermissionTest extends TenantTestCase
             'customers.create',
             'customers.edit',
             'customers.record',
+            'customers.records_view',
             'customers.view',
             'dashboard.view',
+            'queue.board',
+            'queue.control',
+            'queue.priority',
+            'queue.reassign',
         ], $held);
 
         // The keys the split replaced are gone, not lying around unmatched.
@@ -530,20 +536,26 @@ class PermissionTest extends TenantTestCase
         $this->grantModule($organization, 'appointments');
         $this->signInAsOwner($organization);
 
-        $this->putJson("/api/v1/tenant/locations/{$here}/modules", ['modules' => []])
-            ->assertOk()
-            ->assertJsonPath('data.modules.0.is_enabled', false);
+        // The body names everything that stays on, so these stay out of the way.
+        $others = ['dashboard', 'people', 'customers', 'exports', 'billing'];
+
+        $appointments = fn ($response) => collect($response->assertOk()->json('data.modules'))
+            ->firstWhere('key', 'appointments')['is_enabled'];
+
+        $this->assertFalse($appointments(
+            $this->putJson("/api/v1/tenant/locations/{$here}/modules", ['modules' => $others]),
+        ));
 
         $this->assertSame(
             1,
             $this->onTenant($organization, fn () => LocationModule::on('organization')->count()),
         );
 
-        $this->putJson("/api/v1/tenant/locations/{$here}/modules", [
-            'modules' => ['appointments'],
-        ])
-            ->assertOk()
-            ->assertJsonPath('data.modules.0.is_enabled', true);
+        $this->assertTrue($appointments(
+            $this->putJson("/api/v1/tenant/locations/{$here}/modules", [
+                'modules' => [...$others, 'appointments'],
+            ]),
+        ));
 
         /*
          * Back to no row at all, not a row saying true. A stored true would
@@ -569,7 +581,7 @@ class PermissionTest extends TenantTestCase
 
     /**
      * A branch cannot run a module without the one it depends on: switching
-     * medicines off while prescriptions stays on is refused, and nothing is
+     * medicines off while the pharmacy stays on is refused, and nothing is
      * written.
      */
     public function test_a_branch_cannot_switch_off_what_another_module_needs(): void
@@ -581,15 +593,15 @@ class PermissionTest extends TenantTestCase
         [$organization, $here] = $this->network();
 
         $this->grantModule($organization, 'medicines');
-        $this->grantModule($organization, 'prescriptions');
+        $this->grantModule($organization, 'pharmacy');
         $this->signInAsOwner($organization);
 
         $this->putJson("/api/v1/tenant/locations/{$here}/modules", [
-            'modules' => ['prescriptions'],
+            'modules' => ['pharmacy'],
         ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('modules')
-            ->assertJsonPath('errors.modules.0', 'Prescriptions needs Medicines. Enable it too.');
+            ->assertJsonPath('errors.modules.0', 'Pharmacy needs Medicines. Switch it on too, or switch Pharmacy off.');
 
         $this->assertSame(
             0,
@@ -599,7 +611,7 @@ class PermissionTest extends TenantTestCase
         // Both off, or both on, are consistent.
         $this->putJson("/api/v1/tenant/locations/{$here}/modules", ['modules' => []])->assertOk();
         $this->putJson("/api/v1/tenant/locations/{$here}/modules", [
-            'modules' => ['medicines', 'prescriptions'],
+            'modules' => ['medicines', 'pharmacy'],
         ])->assertOk();
     }
 

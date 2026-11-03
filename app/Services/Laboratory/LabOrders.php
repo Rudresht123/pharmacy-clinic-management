@@ -12,6 +12,7 @@ use App\Services\Billing\BillingTriggerResolver;
 use App\Services\Clinic\ClinicEvent;
 use App\Services\Clinic\ClinicEventDispatcher;
 use App\Services\Opd\VisitWorkflow;
+use App\Services\Queue\QueueBroadcaster;
 use App\Support\Clinic\ClinicEvents;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -107,6 +108,8 @@ class LabOrders
              */
             $this->visits->refresh($appointment);
 
+            app(QueueBroadcaster::class)->labChanged((int) $order->location_id);
+
             return $order->load('items');
         });
     }
@@ -173,6 +176,8 @@ class LabOrders
                 'started_at' => now(),
                 'started_by' => $this->actorId($actor),
             ])->save();
+
+            app(QueueBroadcaster::class)->labChanged((int) $locked->location_id);
 
             return $locked->load('items');
         });
@@ -253,6 +258,8 @@ class LabOrders
                 'completed_by' => $this->actorId($actor),
             ])->save();
 
+            app(QueueBroadcaster::class)->labChanged((int) $locked->location_id);
+
             /*
              * The bill FIRST, for a lab that bills on sign-off — so that when
              * the workflow then asks "is this visit finished", the bill it
@@ -314,6 +321,8 @@ class LabOrders
                 'cancelled_by' => $this->actorId($actor),
                 'cancellation_reason' => $reason,
             ])->save();
+
+            app(QueueBroadcaster::class)->labChanged((int) $locked->location_id);
 
             foreach ($locked->items()->where('status', LabOrderItem::PENDING)->get() as $item) {
                 $item->forceFill(['status' => LabOrderItem::CANCELLED])->save();

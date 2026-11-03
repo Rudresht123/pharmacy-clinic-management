@@ -1,10 +1,15 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Header, type HeaderUser } from './Header';
 import { Sidebar } from './Sidebar';
 import { SettingsPanel } from './SettingsPanel';
+import { TopNav, TopNavBrand } from './TopNav';
 import type { NavSection } from '@/app/navigation';
 import { useAppSettings } from '@/shared/hooks/useAppSettings';
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
+import { FullPageLoader } from '@/shared/components/ui/Loader';
+
+const DESKTOP = '(min-width: 992px)';
 
 interface AppShellProps {
     navigation: NavSection[];
@@ -25,6 +30,8 @@ interface AppShellProps {
     sidebarHelp?: React.ReactNode;
     /** Between the menu and the workspace card — the branch switcher. */
     sidebarExtra?: React.ReactNode;
+    /** Where this person is working, for the menu styles that have no card on show. */
+    workspaceName?: string;
     /**
      * Sits in the header, before everything else.
      *
@@ -61,11 +68,17 @@ export function AppShell({
     sidebarFooter,
     sidebarHelp,
     sidebarExtra,
+    workspaceName,
     headerSearch,
     headerExtra,
     contentBanner,
 }: AppShellProps) {
     const { settings, update } = useAppSettings();
+
+    // Below this the menu is the slide-out drawer, whatever style was chosen.
+    const isDesktop = useMediaQuery(DESKTOP);
+    const layout = settings.menuLayout;
+    const showTopNav = isDesktop && layout === 'top';
 
     /**
      * Collapse lives in the settings, not in a second localStorage key.
@@ -73,8 +86,11 @@ export function AppShell({
      * With two stores the drawer's own toggle and the "Start collapsed"
      * switch each owned half the truth, so flipping the switch did nothing
      * until a reload. One value keeps them in sync, both ways.
+     *
+     * Never on the drawer, which would otherwise lose its labels and sub-menus.
      */
-    const collapsed = settings.compactSidebar;
+    const collapsed =
+        isDesktop && (layout === 'icons' || (layout === 'sidebar' && settings.compactSidebar));
 
     const [mobileOpen, setMobileOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -84,6 +100,14 @@ export function AppShell({
     useEffect(() => {
         setMobileOpen(false);
     }, [pathname]);
+
+    // Growing the window past the drawer's size must not leave it marked open,
+    // or the page stays locked with nothing on screen to close it.
+    useEffect(() => {
+        if (isDesktop) {
+            setMobileOpen(false);
+        }
+    }, [isDesktop]);
 
     // Stop the page scrolling behind the open drawer.
     useEffect(() => {
@@ -100,16 +124,24 @@ export function AppShell({
     }, [mobileOpen]);
 
     return (
-        <div className="app-shell" data-collapsed={collapsed} data-mobile-open={mobileOpen}>
-            <Sidebar
-                navigation={navigation}
-                collapsed={collapsed}
-                onToggleCollapse={() => update('compactSidebar', !collapsed)}
-                onNavigate={() => setMobileOpen(false)}
-                footer={sidebarFooter}
-                help={sidebarHelp}
-                extra={sidebarExtra}
-            />
+        <div
+            className="app-shell"
+            data-menu={layout}
+            data-collapsed={collapsed}
+            data-mobile-open={mobileOpen}
+        >
+            {!showTopNav && (
+                <Sidebar
+                    navigation={navigation}
+                    collapsed={collapsed}
+                    canCollapse={layout === 'sidebar'}
+                    onToggleCollapse={() => update('compactSidebar', !collapsed)}
+                    onNavigate={() => setMobileOpen(false)}
+                    footer={sidebarFooter}
+                    help={sidebarHelp}
+                    extra={sidebarExtra}
+                />
+            )}
 
             {mobileOpen && (
                 <div
@@ -120,6 +152,7 @@ export function AppShell({
             )}
 
             <Header
+                brand={showTopNav ? <TopNavBrand /> : undefined}
                 search={headerSearch}
                 extra={headerExtra}
                 onOpenSidebar={() => setMobileOpen(true)}
@@ -130,9 +163,23 @@ export function AppShell({
                 profileTo={profileTo}
             />
 
+            {showTopNav && (
+                <TopNav
+                    navigation={navigation}
+                    footer={sidebarFooter}
+                    help={sidebarHelp}
+                    extra={sidebarExtra}
+                    workspaceName={workspaceName}
+                />
+            )}
+
             <main className="app-content">
                 {contentBanner}
-                <Outlet />
+                {/* Its own boundary, so a page still downloading its chunk
+                    suspends here and the menu and header stay on screen. */}
+                <Suspense fallback={<FullPageLoader />}>
+                    <Outlet />
+                </Suspense>
             </main>
 
             <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />

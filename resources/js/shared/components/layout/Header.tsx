@@ -25,6 +25,8 @@ interface HeaderProps {
     onLock?: () => void;
     /** Omitted where there is no profile screen yet. */
     profileTo?: string;
+    /** The logo, when there is no sidebar on screen to hold it. */
+    brand?: ReactNode;
     /**
      * Rendered on the left of the header, before everything else.
      *
@@ -44,6 +46,7 @@ export function Header({
     onLogout,
     onLock,
     profileTo,
+    brand,
     search,
     extra,
 }: HeaderProps) {
@@ -112,6 +115,8 @@ export function Header({
             >
                 <i className="ti ti-menu-2 fs-20" />
             </button>
+
+            {brand}
 
             {search}
 

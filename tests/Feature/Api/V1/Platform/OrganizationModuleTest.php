@@ -16,10 +16,9 @@ use Tests\TestCase;
  * Module entitlements — the outer half of the permission model.
  *
  * What is asserted here is not "the endpoint returns 200" but the three
- * things the rest of the system will trust: core modules cannot be taken
- * away, a binding is only live when it is enabled AND started AND unexpired,
- * and the capability pool follows the entitlements rather than the
- * catalogue.
+ * things the rest of the system will trust: nothing is included by default,
+ * a binding is only live when it is enabled AND started AND unexpired, and the
+ * capability pool follows the entitlements rather than the catalogue.
  */
 class OrganizationModuleTest extends TestCase
 {
@@ -60,11 +59,19 @@ class OrganizationModuleTest extends TestCase
         return Organization::factory()->create(['organization_type_id' => $type->id]);
     }
 
+    /**
+     * A full replacement, with what Appointments runs on added underneath it,
+     * since most of these tests are about Appointments and not about that.
+     */
     private function bind(Organization $organization, array $modules): void
     {
         $this->actingAsAdmin()
             ->putJson("/api/v1/admin/organizations/{$organization->uuid}/modules", [
-                'modules' => $modules,
+                'modules' => [
+                    ['key' => 'customers', 'is_enabled' => true],
+                    ['key' => 'settings', 'is_enabled' => true],
+                    ...$modules,
+                ],
             ])
             ->assertOk();
     }
@@ -86,9 +93,9 @@ class OrganizationModuleTest extends TestCase
 
         $states = collect($body['modules'])->pluck('state', 'key');
 
-        // Nothing has been sold yet, and the core four are simply there.
-        $this->assertSame('core', $states['branches']);
-        $this->assertSame('unbound', $states['appointments']);
+        // Nothing has been granted yet, and that goes for every module.
+        $this->assertSame(['unbound'], $states->unique()->values()->all());
+        $this->assertFalse(collect($body['modules'])->contains('is_live', true));
     }
 
     public function test_an_admin_can_bind_a_module_to_an_organization(): void
@@ -119,7 +126,7 @@ class OrganizationModuleTest extends TestCase
     {
         $organization = $this->organization();
 
-        // Prescriptions needs medicines, so both go in and both come out.
+        // A full replacement: what is left out goes.
         $this->bind($organization, [
             ['key' => 'appointments', 'is_enabled' => true],
             ['key' => 'medicines', 'is_enabled' => true],
@@ -135,35 +142,67 @@ class OrganizationModuleTest extends TestCase
             'module_id' => Module::where('key', 'prescriptions')->value('id'),
         ]);
 
-        // Billing is core — every clinic charges for something — so it stays, as does the Export Center.
         $this->assertSame(
-            ['dashboard', 'branches', 'people', 'customers', 'exports', 'settings', 'billing', 'appointments'],
+            ['customers', 'settings', 'appointments'],
             app(ModuleAccess::class)->enabled($organization),
         );
     }
 
-    /** Core modules are not a commercial choice and cannot be assigned. */
-    public function test_a_core_module_cannot_be_bound(): void
+    /** Every module is granted, the foundation ones too. */
+    public function test_a_foundation_module_can_be_granted_and_taken_back(): void
     {
         $organization = $this->organization();
+        $access = app(ModuleAccess::class);
 
         $this->actingAsAdmin()
             ->putJson("/api/v1/admin/organizations/{$organization->uuid}/modules", [
                 'modules' => [['key' => 'branches', 'is_enabled' => true]],
             ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('modules.0.key');
+            ->assertOk();
+
+        $this->assertTrue($access->has($organization, 'branches'));
+
+        $this->actingAsAdmin()
+            ->putJson("/api/v1/admin/organizations/{$organization->uuid}/modules", ['modules' => []])
+            ->assertOk();
+
+        $this->assertFalse($access->has($organization, 'branches'));
     }
 
-    /** And they are available whether or not anything has been sold. */
-    public function test_core_modules_are_available_with_no_bindings_at_all(): void
+    /** The whole point: an organization that was given nothing has nothing. */
+    public function test_nothing_is_available_until_it_is_granted(): void
+    {
+        $organization = $this->organization();
+        $access = app(ModuleAccess::class);
+
+        $this->assertSame([], $access->enabled($organization));
+        $this->assertSame([], $access->capabilities($organization));
+
+        foreach (ModuleRegistry::keys() as $key) {
+            $this->assertFalse($access->has($organization, $key), $key);
+        }
+    }
+
+    /** A module that leans on a foundation one now needs it actually granted. */
+    public function test_a_module_cannot_be_granted_without_the_foundation_it_runs_on(): void
     {
         $organization = $this->organization();
 
-        $this->assertSame(
-            ModuleRegistry::coreKeys(),
-            app(ModuleAccess::class)->enabled($organization),
-        );
+        $this->actingAsAdmin()
+            ->putJson("/api/v1/admin/organizations/{$organization->uuid}/modules", [
+                'modules' => [['key' => 'documents', 'is_enabled' => true]],
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.modules.0', 'Patient documents needs Customers & Patients. Switch it on too, or switch Patient documents off.');
+
+        $this->actingAsAdmin()
+            ->putJson("/api/v1/admin/organizations/{$organization->uuid}/modules", [
+                'modules' => [['key' => 'appointments', 'is_enabled' => true]],
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.modules.0', 'Appointments needs Customers & Patients and Configuration. Switch them on too, or switch Appointments off.');
+
+        $this->assertDatabaseMissing('organization_modules', ['organization_id' => $organization->id]);
     }
 
     /**
@@ -235,8 +274,7 @@ class OrganizationModuleTest extends TestCase
         $organization = $this->organization();
         $access = app(ModuleAccess::class);
 
-        $this->assertNotContains('appointments.doctors', $access->capabilities($organization));
-        $this->assertContains('branches.edit', $access->capabilities($organization));
+        $this->assertSame([], $access->capabilities($organization));
 
         $this->bind($organization, [['key' => 'appointments', 'is_enabled' => true]]);
 
@@ -280,19 +318,35 @@ class OrganizationModuleTest extends TestCase
     {
         $organization = $this->organization();
 
-        foreach (['prescriptions' => 'Prescriptions', 'pharmacy' => 'Pharmacy'] as $key => $name) {
+        foreach (['pharmacy' => 'Pharmacy'] as $key => $name) {
             $this->actingAsAdmin()
                 ->putJson("/api/v1/admin/organizations/{$organization->uuid}/modules", [
                     'modules' => [
+                        ['key' => 'customers', 'is_enabled' => true],
+                        ['key' => 'settings', 'is_enabled' => true],
                         ['key' => 'appointments', 'is_enabled' => true],
                         ['key' => $key, 'is_enabled' => true],
                     ],
                 ])
                 ->assertStatus(422)
-                ->assertJsonPath('errors.modules.0', "{$name} needs Medicines. Enable it too.");
+                ->assertJsonPath('errors.modules.0', "{$name} needs Medicines. Switch it on too, or switch {$name} off.");
         }
 
         $this->assertDatabaseMissing('organization_modules', ['organization_id' => $organization->id]);
+    }
+
+    /** A clinic with no catalogue types its medicines, so Prescriptions stands alone. */
+    public function test_prescriptions_can_be_granted_without_medicines_or_a_pharmacy(): void
+    {
+        $organization = $this->organization();
+
+        $this->actingAsAdmin()
+            ->putJson("/api/v1/admin/organizations/{$organization->uuid}/modules", [
+                'modules' => [['key' => 'prescriptions', 'is_enabled' => true]],
+            ])
+            ->assertOk();
+
+        $this->assertTrue(app(ModuleAccess::class)->has($organization, 'prescriptions'));
     }
 
     public function test_a_module_binds_once_what_it_requires_is_bound_with_it(): void
@@ -366,8 +420,8 @@ class OrganizationModuleTest extends TestCase
         // Both are still assigned — one of them just is not usable.
         $this->assertSame(2, $modules['appointments']['assigned']);
 
-        // Core modules have no rows at all, so a count would read as nobody.
-        $this->assertNull($modules['branches']['organizations']);
+        // Counted the same way as everything else: nobody here was given it.
+        $this->assertSame(0, $modules['branches']['organizations']);
     }
 
     /** A subscription ending inside the month is worth chasing. */
@@ -402,14 +456,8 @@ class OrganizationModuleTest extends TestCase
         $this->assertSame(1, $modules['prescriptions']['expiring_soon']);
     }
 
-    /**
-     * The assign list counts what an organization can actually use.
-     *
-     * Core modules are excluded on purpose — every organization has them, so
-     * including them would make every row read the same and the column would
-     * stop distinguishing anything.
-     */
-    public function test_the_assign_list_counts_optional_modules_only(): void
+    /** The assign list counts what an organization can actually use. */
+    public function test_the_assign_list_counts_live_modules(): void
     {
         $organization = $this->organization();
 
@@ -425,17 +473,16 @@ class OrganizationModuleTest extends TestCase
                 ->json('data')
         )->firstWhere('uuid', $organization->uuid);
 
-        // One live optional module, not two bound ones and not six with core.
-        $this->assertSame(1, $row['modules']);
+        // Customers, Configuration and Appointments are live; Prescriptions is off.
+        $this->assertSame(3, $row['modules']);
 
-        // Core capabilities plus the appointments module's three.
         $this->assertSame(
             count(app(ModuleAccess::class)->capabilities($organization->fresh())),
             $row['capabilities'],
         );
     }
 
-    /** An organization with nothing sold still lists, reading as core only. */
+    /** An organization with nothing granted still lists, reading as none. */
     public function test_an_organization_with_no_modules_still_appears(): void
     {
         $organization = $this->organization();
@@ -464,9 +511,6 @@ class OrganizationModuleTest extends TestCase
 
         $this->assertSame(count(ModuleRegistry::all()), Module::count());
 
-        $this->assertDatabaseHas('modules', [
-            'key' => 'branches',
-            'is_core' => true,
-        ]);
+        $this->assertDatabaseHas('modules', ['key' => 'branches', 'is_active' => true]);
     }
 }

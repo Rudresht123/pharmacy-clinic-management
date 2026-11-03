@@ -54,10 +54,12 @@ function TenantBootGate({ children }: { children: ReactNode }) {
  * generic, and the shared AppShell needs them — appearance settings and the
  * log-out confirmation respectively. ImagePreviewProvider is the full-screen
  * viewer every Avatar opens a photograph in.
+ *
+ * useTransitions={false} for the reason given in app/providers.tsx.
  */
 export function TenantProviders({ children }: { children: ReactNode }) {
     return (
-        <BrowserRouter>
+        <BrowserRouter useTransitions={false}>
             <SettingsProvider>
                 <QueryClientProvider client={queryClient}>
                     <TenantAuthProvider>

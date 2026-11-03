@@ -5,12 +5,14 @@ namespace App\Services\Opd;
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\AutomationDelivery;
 use App\Models\Tenant\Doctor;
-use App\Models\Tenant\Location;
+use App\Models\Tenant\QueueEvent;
 use App\Models\Tenant\User;
 use App\Services\Billing\BillingTriggerResolver;
 use App\Services\Clinic\ClinicEvent;
 use App\Services\Clinic\ClinicEventDispatcher;
 use App\Services\Communication\AppointmentReminders;
+use App\Services\Queue\QueueJournal;
+use App\Services\Queue\QueueTokenService;
 use App\Support\Clinic\ClinicEvents;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
@@ -215,72 +217,65 @@ class BookingService
      * The token is issued here rather than at booking, so a patient who
      * never turns up leaves no gap in the day's numbering.
      *
-     * One run of numbers per branch per day, whichever doctor the patient is
-     * seeing: the desk hands out 1, 2, 3 in arrival order, so no two people
-     * in the waiting room hold the same number.
+     * One run of numbers per DOCTOR per day: Dr. Sharma's patients hold A001,
+     * A002 and Dr. Verma's B001, B002, so each doctor's queue reads as its own
+     * line on a television. QueueTokenService issues them under a lock on that
+     * doctor's counter alone, so simultaneous check-ins for different doctors do
+     * not wait on each other. The unique index stays as the backstop.
      *
-     * Allocation is `max + 1` inside a transaction. The branch's row is
-     * locked first, so two receptionists checking somebody in at the same
-     * moment take their numbers one after the other instead of both reading
-     * the same maximum. The unique index on (doctor, location, date, token)
-     * stays as the backstop, and this still retries around a collision
-     * rather than handing anyone an error they cannot act on.
+     * The visit itself is locked and read again first: two receptionists
+     * checking the same patient in at once must not give them two tokens.
      */
     public function checkIn(Appointment $appointment): Appointment
     {
         $this->assertCanMoveTo($appointment, Appointment::STATUS_CHECKED_IN);
 
-        for ($attempt = 0; $attempt < 5; $attempt++) {
-            try {
-                return DB::connection('organization')->transaction(function () use ($appointment) {
-                    Location::on('organization')->whereKey($appointment->location_id)->lockForUpdate()->first();
+        return DB::connection('organization')->transaction(function () use ($appointment) {
+            $this->assertCanMoveTo(
+                Appointment::on('organization')->whereKey($appointment->id)->lockForUpdate()->firstOrFail(),
+                Appointment::STATUS_CHECKED_IN,
+            );
 
-                    $next = Appointment::on('organization')
-                        ->where('location_id', $appointment->location_id)
-                        ->whereDate('appointment_date', $appointment->appointment_date)
-                        ->max('token_no');
+            $token = app(QueueTokenService::class)->next(
+                (int) $appointment->doctor_id,
+                (int) $appointment->location_id,
+                $appointment->appointment_date->toDateString(),
+            );
 
-                    $actor = Auth::guard('web')->user();
+            $actor = Auth::guard('web')->user();
 
-                    $appointment->forceFill([
-                        'status' => Appointment::STATUS_CHECKED_IN,
+            $appointment->forceFill([
+                'status' => Appointment::STATUS_CHECKED_IN,
 
-                        /*
-                         * Arriving IS joining the queue — the desk has them,
-                         * nobody has called them. The one place outside
-                         * VisitWorkflow that writes `queue_status`, because
-                         * this is where somebody enters the queue at all.
-                         */
-                        'queue_status' => Appointment::QUEUE_WAITING,
+                /*
+                 * Arriving IS joining the queue — the desk has them,
+                 * nobody has called them. The one place outside
+                 * VisitWorkflow that writes `queue_status`, because
+                 * this is where somebody enters the queue at all.
+                 */
+                'queue_status' => Appointment::QUEUE_WAITING,
 
-                        'token_no' => ((int) $next) + 1,
-                        'checked_in_at' => now(),
-                        'checked_in_by' => $actor instanceof User ? $actor->id : null,
-                    ])->save();
+                'token_no' => $token['number'],
+                'token_prefix' => $token['prefix'],
+                'checked_in_at' => now(),
+                'checked_in_by' => $actor instanceof User ? $actor->id : null,
+            ])->save();
 
-                    /*
-                     * An advance-payment clinic bills here.
-                     *
-                     * Only where the organisation's OPD timing is `checkin` —
-                     * the resolver checks that itself and does nothing
-                     * otherwise, so every other clinic's check-in is
-                     * unchanged. Resolved at use, like events(): left to the
-                     * constructor it was null in every real request.
-                     */
-                    ($this->billingTrigger ?? app(BillingTriggerResolver::class))->onCheckedIn($appointment);
+            /*
+             * An advance-payment clinic bills here.
+             *
+             * Only where the organisation's OPD timing is `checkin` —
+             * the resolver checks that itself and does nothing
+             * otherwise, so every other clinic's check-in is
+             * unchanged. Resolved at use, like events(): left to the
+             * constructor it was null in every real request.
+             */
+            ($this->billingTrigger ?? app(BillingTriggerResolver::class))->onCheckedIn($appointment);
 
-                    return $appointment;
-                });
-            } catch (QueryException $exception) {
-                // Somebody else took that number between the read and the
-                // write. Read again and take the next one.
-                if (! str_contains($exception->getMessage(), 'appointments_token_unique')) {
-                    throw $exception;
-                }
-            }
-        }
+            app(QueueJournal::class)->visit($appointment, QueueEvent::CHECKED_IN, null, Appointment::QUEUE_WAITING);
 
-        throw new RuntimeException('Could not issue a token. Please try again.');
+            return $appointment;
+        });
     }
 
     /**
@@ -297,12 +292,19 @@ class BookingService
     {
         $this->assertCanMoveTo($appointment, Appointment::STATUS_CANCELLED);
 
+        $from = $appointment->queue_status;
+
         $appointment->forceFill([
             'status' => Appointment::STATUS_CANCELLED,
             'queue_status' => null,
             'next_action' => null,
             'cancellation_reason' => $reason,
         ])->save();
+
+        // Only somebody who was in a queue changes anybody's card.
+        if ($from !== null) {
+            app(QueueJournal::class)->visit($appointment, QueueEvent::CANCELLED, $from, null, ['reason' => $reason]);
+        }
 
         $this->events()->dispatch(ClinicEvent::for(ClinicEvents::APPOINTMENT_CANCELLED, $appointment));
 

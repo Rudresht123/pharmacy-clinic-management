@@ -59,6 +59,10 @@ use App\Support\Modules\ModuleRegistry;
  * something a role or a branch decides, because it is a statement about the
  * account holder, not about a branch's module list.
  *
+ * And one exception to level one: `ACCOUNT_CAPABILITIES`. Nothing is included by
+ * default any more, so an organization may hold no modules at all — but it still
+ * has an account with the platform, and a locked one has to be able to renew.
+ *
  * Branch-level DATA scope is a different question and stays with
  * App\Services\Tenancy\TenantBranchAccess. This says what may be done; that
  * says where. Both are needed on a write and neither substitutes for the other.
@@ -79,10 +83,25 @@ class Permission
      */
     private const DESK_CAPABILITIES = [
         'appointments.queue',
+        'queue.control',
+        'queue.priority',
+        'queue.reassign',
 
         // Writing to a patient as the desk is working it, the same as calling them in.
         'appointments.messages_desk',
     ];
+
+    /**
+     * Capabilities no module has to be sold for.
+     *
+     * The organization's own subscription. It would otherwise depend on the
+     * Configuration module, and an organization without that module could then
+     * never see its plan or renew — a lock with no way back in. Level three
+     * still applies: the owner has it, and anybody else only by holding it.
+     *
+     * @var list<string>
+     */
+    private const ACCOUNT_CAPABILITIES = ['settings.subscription'];
 
     /**
      * What a restricted owner may still do — see `organization.owner_restricted`
@@ -132,6 +151,9 @@ class Permission
 
         'people.view', 'people.create', 'people.edit', 'people.delete',
         'people.across_branches', 'people.assign_branch',
+
+        // Reading the roles they are assigning. Writing one stays `people.roles`.
+        'people.roles_view',
 
         'appointments.view', 'appointments.doctors_view', 'appointments.doctors', 'appointments.schedule',
 
@@ -268,7 +290,8 @@ class Permission
 
         $branch = $this->branchFor($user, $locationId);
 
-        if (! $this->hasModule($organization, $module, $branch)) {
+        if (! in_array($capability, self::ACCOUNT_CAPABILITIES, true)
+            && ! $this->hasModule($organization, $module, $branch)) {
             return false;
         }
 
@@ -440,7 +463,10 @@ class Permission
     ): array {
         $branch = $this->branchFor($user, $locationId);
 
-        $pool = ModuleRegistry::capabilitiesFor($this->modulesAt($organization, $branch));
+        $pool = array_values(array_unique([
+            ...ModuleRegistry::capabilitiesFor($this->modulesAt($organization, $branch)),
+            ...self::ACCOUNT_CAPABILITIES,
+        ]));
 
         if ($user->isOwner()) {
             if ($organization->owner_restricted) {

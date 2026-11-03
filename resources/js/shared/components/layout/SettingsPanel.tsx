@@ -5,6 +5,7 @@ import {
     CONTENT_BACKGROUND_IMAGES,
     useAppSettings,
     type Density,
+    type MenuLayout,
     type PageHead,
     type Surface,
     type Theme,
@@ -34,6 +35,12 @@ const PAGE_HEADS: { value: PageHead; label: string }[] = [
     { value: 'plain', label: 'Plain' },
 ];
 
+const MENU_LAYOUTS: { value: MenuLayout; label: string }[] = [
+    { value: 'sidebar', label: 'Sidebar' },
+    { value: 'icons', label: 'Icons' },
+    { value: 'top', label: 'Top menu' },
+];
+
 /** Small colour preview shown inside a surface choice. */
 function SurfaceChip({ value }: { value: Surface | PageHead }) {
     const background =
@@ -57,13 +64,18 @@ function SurfaceChip({ value }: { value: Surface | PageHead }) {
     );
 }
 
+/** A tiny picture of where the menu sits on the page. */
+function MenuLayoutChip({ value }: { value: MenuLayout }) {
+    return <span className={`settings-menu-chip is-${value}`} aria-hidden="true" />;
+}
+
 interface SettingsPanelProps {
     open: boolean;
     onClose: () => void;
 }
 
 /**
- * Appearance drawer: accent colour, table density and sidebar default.
+ * Appearance drawer: accent colour, menu style, table density and so on.
  *
  * Everything here writes to CSS custom properties on <html>, so a change
  * repaints the whole app instantly without re-rendering feature pages.
@@ -189,7 +201,32 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                     </section>
 
                     <section className="settings-group">
-                        <h6>Sidebar background</h6>
+                        <h6>Menu style</h6>
+                        <p className="settings-hint">
+                            Phones and tablets always use the slide-out menu.
+                        </p>
+
+                        <div className="settings-choices settings-choices--3">
+                            {MENU_LAYOUTS.map((option) => (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    className={cn(
+                                        'settings-choice settings-choice--tight',
+                                        settings.menuLayout === option.value && 'is-active',
+                                    )}
+                                    onClick={() => update('menuLayout', option.value)}
+                                    aria-pressed={settings.menuLayout === option.value}
+                                >
+                                    <MenuLayoutChip value={option.value} />
+                                    <b>{option.label}</b>
+                                </button>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className="settings-group">
+                        <h6>Menu background</h6>
 
                         <div className="settings-choices settings-choices--3">
                             {SURFACES.map((option) => (
@@ -321,24 +358,28 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                         </div>
                     </section>
 
-                    <section className="settings-group">
-                        <h6>Sidebar</h6>
+                    {settings.menuLayout === 'sidebar' && (
+                        <section className="settings-group">
+                            <h6>Sidebar</h6>
 
-                        <label className="settings-toggle">
-                            <span>
-                                <b>Collapsed</b>
-                                <small>Show icons only, on desktop</small>
-                            </span>
+                            <label className="settings-toggle">
+                                <span>
+                                    <b>Collapsed</b>
+                                    <small>Show icons only, on desktop</small>
+                                </span>
 
-                            <input
-                                type="checkbox"
-                                className="form-check-input"
-                                role="switch"
-                                checked={settings.compactSidebar}
-                                onChange={(event) => update('compactSidebar', event.target.checked)}
-                            />
-                        </label>
-                    </section>
+                                <input
+                                    type="checkbox"
+                                    className="form-check-input"
+                                    role="switch"
+                                    checked={settings.compactSidebar}
+                                    onChange={(event) =>
+                                        update('compactSidebar', event.target.checked)
+                                    }
+                                />
+                            </label>
+                        </section>
+                    )}
                 </div>
 
                 <footer className="settings-foot">

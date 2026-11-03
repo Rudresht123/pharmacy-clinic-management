@@ -56,6 +56,7 @@ interface Row {
     on?: string | null;
     slot_at?: string | null;
     token_no?: number | null;
+    token_label?: string | null;
     status?: string;
     type?: string;
     location_name?: string | null;
@@ -595,7 +596,7 @@ function cellsFor(view: RecordView, row: Row, wroteUp: WriteUp | null) {
                 </td>
 
                 <td className="md-dim" data-label="Time">
-                    {row.slot_at ?? (row.token_no !== null ? `Token ${row.token_no}` : '—')}
+                    {row.slot_at ?? (row.token_no !== null ? `Token ${row.token_label ?? row.token_no}` : '—')}
                 </td>
 
                 <Patient row={row} />

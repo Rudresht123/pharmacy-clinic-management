@@ -57,11 +57,7 @@ class ModuleController extends BaseApiController
             defaultDirection: 'asc',
         );
 
-        $coreCount = count(ModuleRegistry::coreKeys());
-
-        $page->getCollection()->transform(function (Organization $organization) use ($coreCount) {
-            $enabled = $this->access->enabled($organization);
-
+        $page->getCollection()->transform(function (Organization $organization) {
             $expiringSoon = $organization->moduleEntitlements()
                 ->get()
                 ->filter(fn (OrganizationModule $row) => $row->isLive()
@@ -77,9 +73,7 @@ class ModuleController extends BaseApiController
                 'status' => $organization->status,
                 'type' => $organization->organizationType?->name,
 
-                // Core modules are excluded: every organization has them, so
-                // including them would make every row read the same.
-                'modules' => count($enabled) - $coreCount,
+                'modules' => count($this->access->enabled($organization)),
                 'expiring_soon' => $expiringSoon,
                 'capabilities' => count($this->access->capabilities($organization)),
             ];
@@ -122,18 +116,10 @@ class ModuleController extends BaseApiController
                     'description' => $module->description,
                     'group' => $module->group,
                     'icon' => $module->icon,
-                    'is_core' => $module->is_core,
+                    'organizations' => $live->count(),
+                    'assigned' => $mine->count(),
 
-                    /*
-                     * Core modules are held by every organization by virtue
-                     * of being one, so counting rows would report zero. Null
-                     * says "not a number that means anything here" rather
-                     * than a wrong one.
-                     */
-                    'organizations' => $module->is_core ? null : $live->count(),
-                    'assigned' => $module->is_core ? null : $mine->count(),
-
-                    'expiring_soon' => $module->is_core ? null : $live->filter(
+                    'expiring_soon' => $live->filter(
                         fn (OrganizationModule $row) => $row->expires_at !== null
                             && $row->expires_at->isBefore(now()->addDays(self::EXPIRING_SOON_DAYS))
                     )->count(),

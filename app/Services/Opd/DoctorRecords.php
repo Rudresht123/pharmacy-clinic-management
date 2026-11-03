@@ -171,6 +171,7 @@ class DoctorRecords
                 'date' => $row->appointment_date?->toDateString(),
                 'slot_at' => $row->slot_at ? substr((string) $row->slot_at, 0, 5) : null,
                 'token_no' => $row->token_no,
+                'token_label' => $row->tokenLabel(),
                 'status' => $row->status,
                 'type' => $row->type,
 

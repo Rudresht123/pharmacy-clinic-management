@@ -622,7 +622,7 @@ class SubscriptionLifecycle
         ?string $reason = null,
     ): SubscriptionItem {
         if ($type === SubscriptionItem::MODULE) {
-            if (! Module::query()->available()->bindable()->where('key', $ref)->exists()) {
+            if (! Module::query()->available()->where('key', $ref)->exists()) {
                 throw ValidationException::withMessages(['ref' => 'Unknown module.']);
             }
 

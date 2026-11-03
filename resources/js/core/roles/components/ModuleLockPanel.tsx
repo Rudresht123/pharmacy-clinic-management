@@ -4,6 +4,7 @@ import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { useModuleLocks, useSaveModuleLocks } from '../api';
+import { toModuleSections } from '../moduleSections';
 
 /**
  * Which modules every branch must run, whatever a branch manager thinks.
@@ -59,9 +60,9 @@ export function ModuleLockPanel() {
                     <i className="ti ti-lock" />
                     <h6>Nothing to make compulsory</h6>
                     <p>
-                        Your organization has only the modules every organization gets, and those
-                        already run at every branch. Optional modules appear here once you have
-                        them.
+                        Your organization has no modules to require yet. Branches and Configuration
+                        already run at every branch. The rest appear here as soon as your ZEVRO
+                        administrator grants them.
                     </p>
                 </div>
             </div>
@@ -95,34 +96,40 @@ export function ModuleLockPanel() {
             </header>
 
             <div className="rp-body">
-                <div className="bm-list">
-                    {(modules ?? []).map((module) => {
-                        const on = locked.includes(module.key);
+                {toModuleSections(modules ?? []).map((section) => (
+                    <section className="bm-section" key={section.title || 'top'}>
+                        {section.title && <h6 className="bm-heading">{section.title}</h6>}
 
-                        return (
-                            <label className={`bm-item${on ? ' is-on' : ''}`} key={module.key}>
-                                <span className="rp-module-icon is-slate" aria-hidden="true">
-                                    <i className={module.icon ?? 'ti ti-puzzle'} />
-                                </span>
+                        <div className="bm-list">
+                            {section.modules.map((module) => {
+                                const on = locked.includes(module.key);
 
-                                <span className="bm-text">
-                                    <b>{module.name}</b>
-                                    <small>{module.description}</small>
-                                </span>
+                                return (
+                                    <label className={`bm-item${on ? ' is-on' : ''}`} key={module.key}>
+                                        <span className="rp-module-icon is-slate" aria-hidden="true">
+                                            <i className={module.icon ?? 'ti ti-puzzle'} />
+                                        </span>
 
-                                <span className="ma-switch">
-                                    <input
-                                        type="checkbox"
-                                        checked={on}
-                                        aria-label={`Require ${module.name} at every branch`}
-                                        onChange={() => toggle(module.key)}
-                                    />
-                                    <span className="ma-track" aria-hidden="true" />
-                                </span>
-                            </label>
-                        );
-                    })}
-                </div>
+                                        <span className="bm-text">
+                                            <b>{module.name}</b>
+                                            <small>{module.description}</small>
+                                        </span>
+
+                                        <span className="ma-switch">
+                                            <input
+                                                type="checkbox"
+                                                checked={on}
+                                                aria-label={`Require ${module.name} at every branch`}
+                                                onChange={() => toggle(module.key)}
+                                            />
+                                            <span className="ma-track" aria-hidden="true" />
+                                        </span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </section>
+                ))}
 
                 <p className="bm-note">
                     <i className="ti ti-info-circle" />

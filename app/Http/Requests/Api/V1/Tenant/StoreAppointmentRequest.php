@@ -76,6 +76,21 @@ class StoreAppointmentRequest extends FormRequest
             ],
 
             'notes' => ['nullable', 'string', 'max:1000'],
+
+            /*
+             * Somebody walking in already in trouble. Only a walk-in joins a
+             * queue the moment it is recorded, so only a walk-in can have a
+             * place in one to be moved up; the reason is not optional.
+             */
+            'queue_priority' => ['nullable', Rule::in(Appointment::PRIORITIES)],
+            'priority_reason' => [
+                Rule::requiredIf(fn () => in_array(
+                    $this->input('queue_priority'),
+                    [Appointment::PRIORITY_URGENT, Appointment::PRIORITY_EMERGENCY],
+                    true,
+                )),
+                'nullable', 'string', 'max:191',
+            ],
         ];
     }
 

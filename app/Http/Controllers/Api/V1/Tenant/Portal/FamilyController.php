@@ -3,8 +3,15 @@
 namespace App\Http\Controllers\Api\V1\Tenant\Portal;
 
 use App\Http\Requests\Api\V1\Tenant\Portal\SaveFamilyMemberRequest;
+use App\Http\Resources\Tenant\Portal\PortalAppointmentResource;
 use App\Http\Resources\Tenant\Portal\PortalFamilyMemberResource;
+use App\Http\Resources\Tenant\Portal\PortalLabReportResource;
+use App\Http\Resources\Tenant\Portal\PortalPrescriptionResource;
+use App\Services\Permissions\Permission;
+use App\Services\Portal\PatientAppointments;
 use App\Services\Portal\PatientFamily;
+use App\Services\Portal\PatientRecords;
+use App\Services\Portal\PatientVitals;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +31,45 @@ class FamilyController extends PortalController
     public function index(Request $request): JsonResponse
     {
         return $this->ok(PortalFamilyMemberResource::collection($this->family->members($this->patient($request))));
+    }
+
+    /**
+     * Everything the clinic holds about one of them that a patient may read,
+     * in one request — the same things their own screens show about themselves.
+     *
+     * A record the clinic does not run comes back null rather than empty, so
+     * the app can leave its tab out instead of saying there is nothing yet.
+     */
+    public function history(
+        Request $request,
+        int $member,
+        PatientAppointments $appointments,
+        PatientRecords $records,
+        PatientVitals $vitals,
+        Permission $permission,
+    ): JsonResponse {
+        try {
+            $link = $this->family->find($this->patient($request), $member);
+        } catch (ModelNotFoundException) {
+            return $this->fail('That family member was not found.', 404);
+        }
+
+        $person = $link->member;
+        $organization = $this->organization($request);
+
+        return $this->ok([
+            'member' => PortalFamilyMemberResource::make($link),
+            'summary' => $appointments->seen($person),
+            'upcoming' => PortalAppointmentResource::collection($appointments->upcomingOf($person)),
+            'past' => PortalAppointmentResource::collection($appointments->pastOf($person)),
+            'prescriptions' => $permission->hasModule($organization, 'prescriptions')
+                ? PortalPrescriptionResource::collection($records->prescriptionsOf($person))
+                : null,
+            'lab_reports' => $permission->hasModule($organization, 'laboratory')
+                ? PortalLabReportResource::collection($records->labReportsOf($person))
+                : null,
+            'vitals' => $vitals->readings($person),
+        ]);
     }
 
     public function store(SaveFamilyMemberRequest $request): JsonResponse

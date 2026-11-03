@@ -22,9 +22,9 @@ use Illuminate\Validation\ValidationException;
  * this decides where it is used, and only the owner can see the whole network
  * well enough to answer that.
  *
- * Core modules are not offered. A branch with no customers or no staff is not
- * a smaller branch, it is a broken one, which is the same reasoning that keeps
- * them off the platform's binding screen.
+ * Every module the organization holds is listed. Branches and Configuration come
+ * marked `is_org_level` with no way to change them, because they belong to the
+ * organization rather than to this branch.
  *
  * TWO WAYS TO WRITE, ONE ANSWER.
  *
@@ -65,7 +65,7 @@ class LocationModuleController extends BaseApiController
         $modules = [];
 
         foreach ($this->rows($organization, $location) as $row) {
-            if ($row['is_core'] || ! $row['purchased']) {
+            if (! $row['purchased']) {
                 continue;
             }
 
@@ -79,6 +79,7 @@ class LocationModuleController extends BaseApiController
                 'group' => $row['group'],
                 'is_enabled' => $row['effective'],
                 'is_locked' => in_array($row['key'], $locked, true),
+                'is_org_level' => $row['is_org_level'],
 
                 // What decided it: the organization's switch, this branch's
                 // own choice (true, false, or null for inherited) and why.
@@ -125,8 +126,8 @@ class LocationModuleController extends BaseApiController
 
         // What the organization itself runs: the only things a branch can
         // switch between on and off.
-        $switchable = $this->keysWhere($rows, fn (array $row) => ! $row['is_core'] && $row['organization_enabled']);
-        $offForOrganization = $this->keysWhere($rows, fn (array $row) => ! $row['is_core'] && $row['purchased'] && ! $row['organization_enabled']);
+        $switchable = $this->keysWhere($rows, fn (array $row) => ! $row['is_org_level'] && $row['organization_enabled']);
+        $offForOrganization = $this->keysWhere($rows, fn (array $row) => ! $row['is_org_level'] && $row['purchased'] && ! $row['organization_enabled']);
 
         $validated = $request->validate([
             'modules' => ['present', 'array'],
@@ -163,7 +164,7 @@ class LocationModuleController extends BaseApiController
          * The same rule the platform binding applies, one level down: a
          * branch cannot run prescriptions with medicines switched off there.
          */
-        $unmet = ModuleRegistry::unmetRequirements($on);
+        $unmet = ModuleRegistry::unmetRequirements($on, $this->noSwitchHere($rows));
 
         if ($unmet !== []) {
             throw ValidationException::withMessages([
@@ -247,7 +248,7 @@ class LocationModuleController extends BaseApiController
                 continue;
             }
 
-            if ($row['is_core']) {
+            if ($row['is_org_level']) {
                 $errors[$field] = $this->name($key).' runs at every branch and cannot be changed here.';
 
                 continue;
@@ -298,10 +299,10 @@ class LocationModuleController extends BaseApiController
 
         $on = $this->keysWhere(
             $rows->all(),
-            fn (array $row) => ! $row['is_core'] && $row['organization_enabled'] && ($after[$row['key']] ?? null) !== false,
+            fn (array $row) => ! $row['is_org_level'] && $row['organization_enabled'] && ($after[$row['key']] ?? null) !== false,
         );
 
-        $unmet = ModuleRegistry::unmetRequirements($on);
+        $unmet = ModuleRegistry::unmetRequirements($on, $this->noSwitchHere($rows->all()));
 
         if ($unmet !== []) {
             throw ValidationException::withMessages([
@@ -333,6 +334,18 @@ class LocationModuleController extends BaseApiController
         // Against the branch, for the reason replaceRunning() gives.
         $location->writeHistoryFor('modules_off', $wasOff, $this->offAt($location));
         $location->writeHistoryFor('modules_on', $wasOn, $this->onAt($location));
+    }
+
+    /**
+     * What this screen has no switch for, so it cannot be the owner's fault: the
+     * organization-level modules, and whatever the super admin never granted.
+     *
+     * @param  iterable<array<string, mixed>>  $rows
+     * @return list<string>
+     */
+    private function noSwitchHere(iterable $rows): array
+    {
+        return $this->keysWhere($rows, fn (array $row) => $row['is_org_level'] || ! $row['purchased']);
     }
 
     /** @return list<array<string, mixed>> */

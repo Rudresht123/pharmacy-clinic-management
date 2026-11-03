@@ -22,22 +22,29 @@ class PatientVitals
 
     public function latest(Customer $patient): ?array
     {
-        $visit = Appointment::query()
+        return $this->readings($patient)[0] ?? null;
+    }
+
+    /**
+     * Every reading in the visits looked back over, newest first.
+     *
+     * @return list<array{recorded_on: ?string, values: array<string, mixed>}>
+     */
+    public function readings(Customer $patient): array
+    {
+        return Appointment::query()
             ->where('customer_id', $patient->id)
             ->where('consultation_status', Appointment::CONSULT_COMPLETED)
             ->with('consultation')
             ->orderByDesc('appointment_date')
             ->limit(self::LOOKBACK)
             ->get()
-            ->first(fn (Appointment $visit) => ! empty($visit->consultation?->vitals));
-
-        if ($visit === null) {
-            return null;
-        }
-
-        return [
-            'recorded_on' => $visit->appointment_date?->toDateString(),
-            'values' => $visit->consultation->vitals,
-        ];
+            ->filter(fn (Appointment $visit) => ! empty($visit->consultation?->vitals))
+            ->map(fn (Appointment $visit) => [
+                'recorded_on' => $visit->appointment_date?->toDateString(),
+                'values' => $visit->consultation->vitals,
+            ])
+            ->values()
+            ->all();
     }
 }

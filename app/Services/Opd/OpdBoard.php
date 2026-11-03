@@ -72,11 +72,22 @@ class OpdBoard
     /**
      * Everything the OPD dashboard shows, for one branch on one day.
      *
+     * `$doctorId` narrows the queue card and nothing else: its rows, and the
+     * counts on its tabs, which have to agree with those rows. The tiles and
+     * panels around it describe the department, and a filter inside one card
+     * must not quietly rewrite them. It is applied here rather than in the
+     * browser because the rows are capped per status: a filter over that slice
+     * would lose whoever did not make the cut.
+     *
      * @return array<string, mixed>
      */
-    public function for(int $locationId, Carbon $date): array
+    public function for(int $locationId, Carbon $date, ?int $doctorId = null): array
     {
         $appointments = $this->dayAt($locationId, $date);
+
+        $inQueue = $doctorId === null
+            ? $appointments
+            : $appointments->where('doctor_id', $doctorId);
 
         // Yesterday, for the two tiles that compare. Counted rather than
         // loaded whole: nothing on the screen shows a row from it.
@@ -92,8 +103,8 @@ class OpdBoard
             'updated_at' => now()->toIso8601String(),
 
             'counts' => $this->counts($appointments, $before),
-            'tabs' => $this->tabs($appointments),
-            'queue' => $this->queue($appointments),
+            'tabs' => $this->tabs($inQueue),
+            'queue' => $this->queue($inQueue),
             'flow' => $this->flow($appointments, $date),
             'departments' => $this->departments($appointments),
             'waiting_longest' => $this->waitingLongest($appointments),
@@ -383,6 +394,7 @@ class OpdBoard
             ->map(fn (Appointment $row) => [
                 'id' => $row->id,
                 'token_no' => $row->token_no,
+                'token_label' => $row->tokenLabel(),
                 'customer_name' => $row->customer?->name,
                 'customer_code' => $row->customer?->code,
 
@@ -572,6 +584,7 @@ class OpdBoard
             ->map(fn (Appointment $row) => [
                 'id' => $row->id,
                 'token_no' => $row->token_no,
+                'token_label' => $row->tokenLabel(),
                 'customer_name' => $row->customer?->name,
                 'doctor_name' => $row->doctor?->name,
                 'waiting_minutes' => $this->waitedMinutes($row),
@@ -623,7 +636,7 @@ class OpdBoard
                  * an hour.
                  */
                 $next = $theirs
-                    ->filter(fn (Appointment $row) => $row->queue_status !== null)
+                    ->filter(fn (Appointment $row) => $row->queue_status !== null && ! $row->isSkipped())
                     ->sortBy([
                         fn (Appointment $a, Appointment $b) => ($a->isCalled() ? 0 : 1) <=> ($b->isCalled() ? 0 : 1),
                         fn (Appointment $a, Appointment $b) => $this->waitedMinutes($b) <=> $this->waitedMinutes($a),
@@ -647,6 +660,7 @@ class OpdBoard
                     'next' => [
                         'id' => $next->id,
                         'token_no' => $next->token_no,
+                        'token_label' => $next->tokenLabel(),
                         'customer_name' => $next->customer?->name,
                         'queue_status' => $next->queue_status,
                         'waiting_minutes' => $this->waitedMinutes($next),

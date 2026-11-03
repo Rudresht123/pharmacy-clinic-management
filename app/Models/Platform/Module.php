@@ -23,7 +23,6 @@ class Module extends Model
         'description',
         'group',
         'icon',
-        'is_core',
         'sort_order',
         'is_active',
     ];
@@ -31,15 +30,8 @@ class Module extends Model
     protected function casts(): array
     {
         return [
-            'is_core' => 'boolean',
             'is_active' => 'boolean',
         ];
-    }
-
-    /** Modules an organization must be sold; core ones are never bound. */
-    public function scopeBindable(Builder $query): Builder
-    {
-        return $query->where('is_core', false);
     }
 
     public function scopeAvailable(Builder $query): Builder

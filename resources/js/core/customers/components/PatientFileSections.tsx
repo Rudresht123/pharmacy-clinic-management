@@ -733,10 +733,9 @@ function DocumentsPreview({ customerId, go }: { customerId: number; go: Go }) {
 /**
  * The patient's own invoices, newest first.
  *
- * A section that used to be permanently "coming soon" — now that Billing is
- * a core module and every visit either draws an invoice or does not (the
- * organisation's setting decides), this is where the answer lives per
- * patient.
+ * A section that used to be permanently "coming soon" — now that every visit
+ * either draws an invoice or does not (the organisation's setting decides),
+ * this is where the answer lives per patient.
  *
  * The `preview` mode shows the first five as a tight strip on the Overview;
  * the full tab lists them all. Both share the same query — React Query

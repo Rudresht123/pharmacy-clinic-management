@@ -5,6 +5,7 @@ import { resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { useModuleSettings, useSaveModuleSettings } from '../api';
+import { toModuleSections } from '../moduleSections';
 
 /**
  * Which of the modules it was sold the organization actually uses.
@@ -94,8 +95,9 @@ export function OrganizationModulePanel() {
                     <i className="ti ti-puzzle" />
                     <h6>Nothing to switch</h6>
                     <p>
-                        Your organization has only the modules every organization gets, and those
-                        always run. Optional modules appear here once you have them.
+                        Your organization has no modules to switch yet. Branches and Configuration
+                        always run. The rest appear here as soon as your ZEVRO administrator grants
+                        them.
                     </p>
                 </div>
             </div>
@@ -129,65 +131,71 @@ export function OrganizationModulePanel() {
             </header>
 
             <div className="rp-body">
-                <div className="bm-list">
-                    {(modules ?? []).map((module) => {
-                        const enabled = on.includes(module.key);
+                {toModuleSections(modules ?? []).map((section) => (
+                    <section className="bm-section" key={section.title || 'top'}>
+                        {section.title && <h6 className="bm-heading">{section.title}</h6>}
 
-                        return (
-                            <label
-                                className={`bm-item${enabled ? ' is-on' : ''}${module.is_locked ? ' is-locked' : ''}`}
-                                key={module.key}
-                            >
-                                <span className="rp-module-icon is-slate" aria-hidden="true">
-                                    <i className={module.icon ?? 'ti ti-puzzle'} />
-                                </span>
+                        <div className="bm-list">
+                            {section.modules.map((module) => {
+                                const enabled = on.includes(module.key);
 
-                                <span className="bm-text">
-                                    <b>{module.name}</b>
-                                    <small>
-                                        {module.description}
-                                        {module.requires.some((needed) => needed in names) && (
-                                            <>
-                                                {' '}
-                                                Needs{' '}
-                                                {module.requires
-                                                    .filter((needed) => needed in names)
-                                                    .map((needed) => names[needed])
-                                                    .join(' and ')}
-                                                .
-                                            </>
-                                        )}
-                                    </small>
-                                </span>
-
-                                {/*
-                                    Compulsory at every branch, so it cannot be
-                                    switched off for the organization until the
-                                    lock goes — a padlock, not a switch that is
-                                    always refused on save.
-                                */}
-                                {module.is_locked && enabled ? (
-                                    <span
-                                        className="rp-lock is-on"
-                                        title="Required at every branch — unlock it below to switch it off"
+                                return (
+                                    <label
+                                        className={`bm-item${enabled ? ' is-on' : ''}${module.is_locked ? ' is-locked' : ''}`}
+                                        key={module.key}
                                     >
-                                        <i className="ti ti-lock" aria-hidden="true" />
-                                    </span>
-                                ) : (
-                                    <span className="ma-switch">
-                                        <input
-                                            type="checkbox"
-                                            checked={enabled}
-                                            aria-label={`Use ${module.name} in this organisation`}
-                                            onChange={() => toggle(module.key)}
-                                        />
-                                        <span className="ma-track" aria-hidden="true" />
-                                    </span>
-                                )}
-                            </label>
-                        );
-                    })}
-                </div>
+                                        <span className="rp-module-icon is-slate" aria-hidden="true">
+                                            <i className={module.icon ?? 'ti ti-puzzle'} />
+                                        </span>
+
+                                        <span className="bm-text">
+                                            <b>{module.name}</b>
+                                            <small>
+                                                {module.description}
+                                                {module.requires.some((needed) => needed in names) && (
+                                                    <>
+                                                        {' '}
+                                                        Needs{' '}
+                                                        {module.requires
+                                                            .filter((needed) => needed in names)
+                                                            .map((needed) => names[needed])
+                                                            .join(' and ')}
+                                                        .
+                                                    </>
+                                                )}
+                                            </small>
+                                        </span>
+
+                                        {/*
+                                            Compulsory at every branch, so it cannot be
+                                            switched off for the organization until the
+                                            lock goes — a padlock, not a switch that is
+                                            always refused on save.
+                                        */}
+                                        {module.is_locked && enabled ? (
+                                            <span
+                                                className="rp-lock is-on"
+                                                title="Required at every branch — unlock it below to switch it off"
+                                            >
+                                                <i className="ti ti-lock" aria-hidden="true" />
+                                            </span>
+                                        ) : (
+                                            <span className="ma-switch">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={enabled}
+                                                    aria-label={`Use ${module.name} in this organisation`}
+                                                    onChange={() => toggle(module.key)}
+                                                />
+                                                <span className="ma-track" aria-hidden="true" />
+                                            </span>
+                                        )}
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </section>
+                ))}
 
                 {unmet.length > 0 && (
                     <p className="su-error" role="alert">

@@ -6,6 +6,7 @@ use App\Models\Platform\Organization;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Role;
 use App\Services\Modules\FeatureResolver;
+use App\Services\Queue\QueueModule;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Support\Modules\ModuleRegistry;
 use App\Support\Roles\RoleTemplates;
@@ -100,6 +101,61 @@ class DefaultRoleSeeder
     }
 
     /**
+     * Give every branch's starting roles their share of modules just granted.
+     *
+     * Nothing is included by default, so a branch can easily exist before most
+     * of an organization's modules do, and a role written then holds only what
+     * was on at the time.
+     *
+     * Only ever adds, and only what the grant made possible:
+     *
+     *   - a starting role that exists gains the template's capabilities FROM
+     *     THE GRANTED MODULES. Anything a branch took off a role in a module it
+     *     already had stays off.
+     *   - a starting role that is missing is written only if it could not have
+     *     existed before this grant. If it could have, the branch deleted it,
+     *     and it must not come back.
+     *
+     * @param  list<string>  $granted
+     */
+    public function grow(Organization $organization, array $granted): void
+    {
+        app(PatientAccountProvisioner::class)->role($this->features->enabled($organization, null));
+
+        $branches = Location::on(TenantConnectionService::CONNECTION)->orderBy('id')->get();
+
+        foreach ($branches as $branch) {
+            $modules = $this->features->enabled($organization, $branch->id);
+            $before = array_values(array_diff($modules, $granted));
+
+            foreach (RoleTemplates::all() as $template) {
+                if (in_array($template['key'], self::ACROSS_BRANCHES_ONLY, true)
+                    || ! RoleTemplates::appliesTo($template, $modules)) {
+                    continue;
+                }
+
+                $role = Role::on(TenantConnectionService::CONNECTION)
+                    ->where('location_id', $branch->id)
+                    ->where('slug', Role::slugAt($template['slug'], $branch->id))
+                    ->first();
+
+                if ($role === null) {
+                    if (! $this->wouldSeed($template, $before)) {
+                        $this->seedOne($template, $branch, $modules);
+                    }
+
+                    continue;
+                }
+
+                $role->syncCapabilities([
+                    ...$role->capabilityKeys(),
+                    ...$this->branchCapabilities($template, $granted),
+                ]);
+            }
+        }
+    }
+
+    /**
      * The branch's own copy of one starting role — found, or written now.
      *
      * How a doctor posted to a branch gets that branch's Doctor role without
@@ -138,11 +194,13 @@ class DefaultRoleSeeder
             return null;
         }
 
-        // A branch role holds branch-level permissions only.
-        $capabilities = array_values(array_filter(
-            RoleTemplates::capabilitiesFor($template, $modules),
-            fn (string $capability) => ModuleRegistry::capabilityScope($capability) !== ModuleRegistry::SCOPE_ORGANIZATION,
-        ));
+        /*
+         * The Smart Queue's ticks go on whether or not the clinic has bought it
+         * yet. They do nothing until it does, because Permission asks about the
+         * module first; and they save every branch re-ticking its roles the day
+         * somebody turns it on.
+         */
+        $capabilities = $this->branchCapabilities($template, [...$modules, QueueModule::KEY]);
 
         if ($capabilities === []) {
             return null;
@@ -167,5 +225,33 @@ class DefaultRoleSeeder
 
             return $role;
         });
+    }
+
+    /**
+     * Whether seeding these modules would have written this role.
+     *
+     * @param  array<string, mixed>  $template
+     * @param  list<string>  $modules
+     */
+    private function wouldSeed(array $template, array $modules): bool
+    {
+        return RoleTemplates::appliesTo($template, $modules)
+            && $this->branchCapabilities($template, [...$modules, QueueModule::KEY]) !== [];
+    }
+
+    /**
+     * What a template holds from these modules. A branch role holds branch-level
+     * permissions only.
+     *
+     * @param  array<string, mixed>  $template
+     * @param  list<string>  $modules
+     * @return list<string>
+     */
+    private function branchCapabilities(array $template, array $modules): array
+    {
+        return array_values(array_filter(
+            RoleTemplates::capabilitiesFor($template, $modules),
+            fn (string $capability) => ModuleRegistry::capabilityScope($capability) !== ModuleRegistry::SCOPE_ORGANIZATION,
+        ));
     }
 }

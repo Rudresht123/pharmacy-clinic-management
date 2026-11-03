@@ -257,18 +257,19 @@ class BranchRolePermissionApiTest extends TenantTestCase
 
         $this->signInAsOwner($this->organization);
 
-        $this->getJson("/api/v1/tenant/locations/{$this->delhi}/modules")
-            ->assertOk()
-            ->assertJsonPath('data.modules.0.is_enabled', false);
+        $appointments = fn ($response) => collect($response->assertOk()->json('data.modules'))
+            ->firstWhere('key', 'appointments');
 
-        $this->putJson('/api/v1/tenant/module-locks', ['modules' => ['appointments']])
-            ->assertOk()
-            ->assertJsonPath('data.modules.0.is_locked', true);
+        $this->assertFalse($appointments($this->getJson("/api/v1/tenant/locations/{$this->delhi}/modules"))['is_enabled']);
 
-        $this->getJson("/api/v1/tenant/locations/{$this->delhi}/modules")
-            ->assertOk()
-            ->assertJsonPath('data.modules.0.is_enabled', true)
-            ->assertJsonPath('data.modules.0.is_locked', true);
+        $this->assertTrue($appointments(
+            $this->putJson('/api/v1/tenant/module-locks', ['modules' => ['appointments']]),
+        )['is_locked']);
+
+        $row = $appointments($this->getJson("/api/v1/tenant/locations/{$this->delhi}/modules"));
+
+        $this->assertTrue($row['is_enabled']);
+        $this->assertTrue($row['is_locked']);
     }
 
     /**
@@ -341,10 +342,9 @@ class BranchRolePermissionApiTest extends TenantTestCase
     {
         $this->signInAsOwner($this->organization);
 
-        $this->getJson('/api/v1/tenant/module-locks')
-            ->assertOk()
-            ->assertJsonPath('data.modules.0.key', 'appointments')
-            ->assertJsonPath('data.modules.0.is_locked', false);
+        $rows = collect($this->getJson('/api/v1/tenant/module-locks')->assertOk()->json('data.modules'))->keyBy('key');
+
+        $this->assertFalse($rows['appointments']['is_locked']);
 
         $this->onTenant($this->organization, function () {
             $this->assertSame(0, ModuleLock::on('organization')->count());

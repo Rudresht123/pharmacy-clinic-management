@@ -64,7 +64,6 @@ class SubscriptionController extends BaseApiController
             'resources' => $this->entitlements->resources($organization),
             'usage' => $balances->summary($organization),
             'modules' => collect(ModuleRegistry::all())
-                ->reject(fn (array $module) => $module['is_core'])
                 ->map(fn (array $module) => [
                     'key' => $module['key'],
                     'name' => $module['name'],

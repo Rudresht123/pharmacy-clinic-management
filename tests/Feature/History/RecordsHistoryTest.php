@@ -231,7 +231,11 @@ class RecordsHistoryTest extends TenantTestCase
         $organization->update(['organization_name' => 'Renamed']);
 
         $this->putJson("/api/v1/admin/organizations/{$organization->uuid}/modules", [
-            'modules' => [['key' => 'appointments', 'is_enabled' => true]],
+            'modules' => [
+                ['key' => 'customers', 'is_enabled' => true],
+                ['key' => 'settings', 'is_enabled' => true],
+                ['key' => 'appointments', 'is_enabled' => true],
+            ],
         ])->assertOk();
 
         $rows = $this->getJson("/api/v1/admin/organizations/{$organization->uuid}/history")

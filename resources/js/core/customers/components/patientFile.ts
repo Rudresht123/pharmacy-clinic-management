@@ -34,6 +34,7 @@ export interface Visit {
     type: string;
     slot_at: string | null;
     token_no: number | null;
+    token_label?: string | null;
     doctor_name: string | null;
     doctor_specialisation: string | null;
     location_name: string | null;

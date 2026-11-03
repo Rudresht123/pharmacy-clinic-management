@@ -46,9 +46,9 @@ class OrganizationModuleSettingController extends BaseApiController
         $modules = [];
 
         foreach ($organization ? $this->features->explain($organization) : [] as $row) {
-            // Core modules are every organisation's, and unsold ones are not
-            // this organisation's to decide about.
-            if ($row['is_core'] || ! $row['purchased']) {
+            // Branches and Configuration cannot be switched off once sold, and
+            // unsold ones are not this organisation's to decide about.
+            if ($row['is_org_level'] || ! $row['purchased']) {
                 continue;
             }
 
@@ -103,8 +103,8 @@ class OrganizationModuleSettingController extends BaseApiController
                 continue;
             }
 
-            if ($row['is_core']) {
-                $errors[$field] = $this->name($key).' is part of every organisation and cannot be switched off.';
+            if ($row['is_org_level']) {
+                $errors[$field] = $this->name($key).' cannot be switched off once your organisation has it.';
 
                 continue;
             }
@@ -136,12 +136,15 @@ class OrganizationModuleSettingController extends BaseApiController
         $after = [];
 
         foreach ($rows as $key => $row) {
-            if (! $row['is_core'] && $row['purchased'] && ($changes[$key] ?? $row['organization_enabled'])) {
+            if (! $row['is_org_level'] && $row['purchased'] && ($changes[$key] ?? $row['organization_enabled'])) {
                 $after[] = $key;
             }
         }
 
-        $unmet = ModuleRegistry::unmetRequirements($after);
+        // What nobody here has a switch for must not refuse the owner.
+        $noSwitch = $rows->filter(fn (array $row) => $row['is_org_level'] || ! $row['purchased'])->keys()->all();
+
+        $unmet = ModuleRegistry::unmetRequirements($after, $noSwitch);
 
         if ($unmet !== []) {
             throw ValidationException::withMessages([

@@ -184,7 +184,7 @@ class SubscriptionLifecycleTest extends TestCase
         $this->assertSame('manual_revoke', $sources['prescriptions']);
         $this->assertSame('manual_grant', $sources['pharmacy']);
         $this->assertSame('plan', $sources['appointments']);
-        $this->assertSame('core', $sources['billing']);
+        $this->assertSame('off', $sources['billing']);
     }
 
     public function test_a_lapsed_manual_grant_falls_back_to_the_plan_not_to_off(): void

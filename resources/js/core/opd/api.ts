@@ -31,19 +31,26 @@ export function useOpdBranches() {
  *
  * Polled on the same interval as the queue, because both are shared screens
  * that somebody else is changing while you look at them.
+ *
+ * `doctorId` narrows the queue card only. Everything else in the response is
+ * the same whichever doctor is picked, so while a new doctor's rows load the
+ * previous answer stands in, and the screen does not blank to change one card.
+ * Never across a branch or a date, where it would be the wrong department's day.
  */
-export function useOpdToday(locationId: number | '', date: string) {
+export function useOpdToday(locationId: number | '', date: string, doctorId: number | '' = '') {
     return useQuery({
-        queryKey: resourceKey(ENDPOINT, 'today', locationId, date),
+        queryKey: resourceKey(ENDPOINT, 'today', locationId, date, doctorId),
         queryFn: async (): Promise<OpdToday> => {
             const { data } = await http.get<ApiResponse<OpdToday>>('/tenant/opd/today', {
-                params: { location_id: locationId, date },
+                params: { location_id: locationId, date, doctor_id: doctorId || undefined },
             });
 
             return data.data;
         },
         enabled: Boolean(locationId && date),
         refetchInterval: 30_000,
+        placeholderData: (previous) =>
+            previous?.location_id === locationId && previous.date === date ? previous : undefined,
     });
 }
 

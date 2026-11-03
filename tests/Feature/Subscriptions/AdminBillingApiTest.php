@@ -152,7 +152,11 @@ class AdminBillingApiTest extends TestCase
         $admin = $this->admin(PlatformRole::SUPER_ADMIN);
         $organization = Organization::factory()->active()->create();
         $url = "/api/v1/admin/organizations/{$organization->uuid}/modules";
-        $body = ['modules' => [['key' => 'appointments', 'is_enabled' => true]]];
+        $body = ['modules' => [
+            ['key' => 'customers', 'is_enabled' => true],
+            ['key' => 'settings', 'is_enabled' => true],
+            ['key' => 'appointments', 'is_enabled' => true],
+        ]];
 
         // Complimentary: modules are still sold this way, reason optional.
         app(SubscriptionLifecycle::class)->assign($organization, Plan::query()->where('slug', 'complimentary')->sole(), Subscription::COMPLIMENTARY, Actor::system());

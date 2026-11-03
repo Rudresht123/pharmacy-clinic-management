@@ -6,14 +6,23 @@ use App\Jobs\SendPushMessage;
 use App\Models\Platform\Module;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\Appointment;
+use App\Models\Tenant\AutomationRule;
+use App\Models\Tenant\CommunicationChannel;
+use App\Models\Tenant\Consultation;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\DoctorSchedule;
 use App\Models\Tenant\FamilyMember;
+use App\Models\Tenant\LabOrder;
+use App\Models\Tenant\LabOrderItem;
 use App\Models\Tenant\Location;
+use App\Models\Tenant\MessageTemplate;
 use App\Models\Tenant\PatientNotification;
+use App\Models\Tenant\Prescription;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User as TenantUser;
+use App\Services\Communication\ChannelSender;
+use App\Services\Communication\RecipientResolver;
 use App\Services\Portal\Otp\OtpSender;
 use App\Services\Portal\PatientFamily;
 use App\Services\Push\PushManager;
@@ -565,6 +574,282 @@ class PatientFamilyTest extends TenantTestCase
         });
 
         $this->assertNotNull($token);
+    }
+
+    public function test_email_and_whatsapp_about_a_family_member_go_to_the_patient(): void
+    {
+        [$organization] = $this->clinic();
+        $this->grantModule($organization, 'communication');
+        $token = $this->signInPatient($organization);
+        $memberId = $this->addMember($organization, $token);
+
+        $this->onTenant($organization, function () use ($organization, $memberId) {
+            $member = Customer::query()->findOrFail($memberId);
+            $member->accountHolder()->update(['email' => 'rahul@example.com']);
+
+            $rule = (new AutomationRule)->forceFill(['channel' => CommunicationChannel::EMAIL, 'audience' => AutomationRule::PATIENT]);
+
+            $this->assertSame(
+                ['rahul@example.com'],
+                array_keys(app(RecipientResolver::class)->resolve($organization, $rule, null, $member, null)->to),
+            );
+
+            $template = MessageTemplate::query()->create([
+                'channel' => CommunicationChannel::WHATSAPP,
+                'name' => 'Approved by Meta',
+                'category' => 'Utility',
+                'content' => 'Hi {{patient_name}}',
+                'status' => MessageTemplate::APPROVED,
+                'is_active' => true,
+            ]);
+
+            Queue::fake();
+
+            $log = app(ChannelSender::class)->queue($organization, CommunicationChannel::WHATSAPP, $member, $template, []);
+
+            // To the patient's number, and logged against the family member.
+            $this->assertStringEndsWith(self::PHONE, (string) $log?->recipient);
+            $this->assertSame($memberId, (int) $log?->customer_id);
+
+            // Somebody with an address of their own keeps it.
+            $member->forceFill(['email' => 'aarav@example.com', 'phone' => '9876500033'])->save();
+
+            $this->assertSame(
+                ['aarav@example.com'],
+                array_keys(app(RecipientResolver::class)->resolve($organization, $rule, null, $member, null)->to),
+            );
+        });
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Their history
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * A finished visit for this person with vitals, a write-up, an issued
+     * prescription and a lab order; and an older one with only a draft.
+     *
+     * @return array{prescription: int, draft: int, lab: int}
+     */
+    private function recordsFor(Organization $organization, int $customerId, int $doctorId, int $branchId, string $slot = '09:00'): array
+    {
+        return $this->onTenant($organization, function () use ($customerId, $doctorId, $branchId, $slot) {
+            $visit = Appointment::on('organization')->create([
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'location_id' => $branchId,
+                'appointment_date' => '2026-08-03',
+                'type' => Appointment::BOOKED,
+                'status' => Appointment::STATUS_BOOKED,
+                'slot_at' => $slot,
+            ]);
+            $visit->forceFill([
+                'status' => Appointment::STATUS_COMPLETED,
+                'consultation_status' => Appointment::CONSULT_COMPLETED,
+                'started_at' => now(),
+                'completed_at' => now(),
+            ])->save();
+
+            $consultation = Consultation::on('organization')->create([
+                'appointment_id' => $visit->id,
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'chief_complaint' => 'Fever for two days',
+                'diagnoses' => ['Viral fever'],
+                'vitals' => ['pulse' => 88, 'temperature' => 38.5],
+                'advice' => 'Plenty of fluids',
+                'notes' => 'Private note for the doctor only',
+            ]);
+
+            $prescription = Prescription::on('organization')->create([
+                'appointment_id' => $visit->id,
+                'location_id' => $branchId,
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'consultation_id' => $consultation->id,
+                'prescription_date' => '2026-08-03',
+            ]);
+            $prescription->forceFill(['status' => Prescription::ISSUED, 'issued_at' => now()])->save();
+
+            // An older visit, whose prescription the doctor never finished.
+            $older = Appointment::on('organization')->create([
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'location_id' => $branchId,
+                'appointment_date' => '2026-07-06',
+                'type' => Appointment::BOOKED,
+                'status' => Appointment::STATUS_BOOKED,
+                'slot_at' => $slot,
+            ]);
+
+            $draft = Prescription::on('organization')->create([
+                'appointment_id' => $older->id,
+                'location_id' => $branchId,
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'prescription_date' => '2026-07-06',
+            ]);
+
+            $lab = LabOrder::on('organization')->create([
+                'appointment_id' => $visit->id,
+                'location_id' => $branchId,
+                'customer_id' => $customerId,
+                'doctor_id' => $doctorId,
+                'order_date' => '2026-08-03',
+            ]);
+
+            LabOrderItem::on('organization')->create([
+                'lab_order_id' => $lab->id,
+                'test_name' => 'Hemoglobin',
+                'specimen' => 'blood',
+            ]);
+
+            return ['prescription' => $prescription->id, 'draft' => $draft->id, 'lab' => $lab->id];
+        });
+    }
+
+    /** The clinic runs these on top of appointments in these tests only. */
+    private function withRecordsModules(Organization $organization): void
+    {
+        $this->grantModule($organization, 'medicines');
+        $this->grantModule($organization, 'prescriptions');
+        $this->grantModule($organization, 'laboratory');
+    }
+
+    public function test_opening_a_family_member_shows_their_whole_history_and_nobody_elses(): void
+    {
+        [$organization, $doctorId, $gurgaon] = $this->clinic();
+        $this->withRecordsModules($organization);
+        $token = $this->signInPatient($organization);
+        $memberId = $this->addMember($organization, $token);
+        $otherId = $this->addMember($organization, $token, ['name' => 'Neha Tiwari', 'relation' => FamilyMember::SPOUSE, 'gender' => Customer::FEMALE]);
+
+        $records = $this->recordsFor($organization, $memberId, $doctorId, $gurgaon);
+
+        // Visits that must not turn up: the patient's own, and another member's.
+        $this->book($organization, $token, $doctorId, $gurgaon)->assertCreated();
+        $this->book($organization, $token, $doctorId, $gurgaon, ['slot_at' => '11:00', 'member_id' => $otherId])->assertCreated();
+        $ahead = $this->book($organization, $token, $doctorId, $gurgaon, ['slot_at' => '11:30', 'member_id' => $memberId])
+            ->assertCreated()
+            ->json('data.id');
+
+        $history = $this->asPatient($organization, $token)
+            ->getJson("/api/v1/tenant/portal/family/{$memberId}/history")
+            ->assertOk()
+            ->assertJsonPath('data.member.name', 'Aarav Tiwari')
+            ->assertJsonPath('data.summary.visits', 1)
+            ->assertJsonPath('data.summary.last_visit_on', '2026-08-03')
+            ->assertJsonCount(1, 'data.upcoming')
+            ->assertJsonPath('data.upcoming.0.id', $ahead)
+            ->assertJsonCount(2, 'data.past')
+            ->assertJsonPath('data.past.0.consultation.chief_complaint', 'Fever for two days')
+            ->assertJsonPath('data.past.0.consultation.diagnoses', ['Viral fever'])
+            ->assertJsonPath('data.past.0.consultation.advice', 'Plenty of fluids')
+            // The draft stays the doctor's.
+            ->assertJsonCount(1, 'data.prescriptions')
+            ->assertJsonPath('data.prescriptions.0.id', (string) $records['prescription'])
+            ->assertJsonCount(1, 'data.lab_reports')
+            ->assertJsonPath('data.lab_reports.0.id', (string) $records['lab'])
+            ->assertJsonPath('data.vitals.0.recorded_on', '2026-08-03')
+            ->assertJsonPath('data.vitals.0.values.pulse', 88);
+
+        // The doctor's own notes never reach a patient's phone.
+        $this->assertStringNotContainsString('Private note', $history->getContent());
+    }
+
+    public function test_a_write_up_still_in_progress_is_not_shown(): void
+    {
+        [$organization, $doctorId, $gurgaon] = $this->clinic();
+        $token = $this->signInPatient($organization);
+        $memberId = $this->addMember($organization, $token);
+
+        $this->recordsFor($organization, $memberId, $doctorId, $gurgaon);
+
+        $this->onTenant($organization, fn () => Appointment::query()
+            ->where('customer_id', $memberId)
+            ->where('consultation_status', Appointment::CONSULT_COMPLETED)
+            ->update([
+                'status' => Appointment::STATUS_IN_CONSULTATION,
+                'consultation_status' => Appointment::CONSULT_IN_PROGRESS,
+                'queue_status' => 'with_doctor',
+                'completed_at' => null,
+            ]));
+
+        $this->asPatient($organization, $token)
+            ->getJson("/api/v1/tenant/portal/family/{$memberId}/history")
+            ->assertOk()
+            ->assertJsonPath('data.past.0.consultation', null)
+            ->assertJsonPath('data.summary.visits', 0)
+            ->assertJsonCount(0, 'data.vitals');
+    }
+
+    public function test_a_record_the_clinic_does_not_run_comes_back_null_not_empty(): void
+    {
+        [$organization] = $this->clinic();
+        $token = $this->signInPatient($organization);
+        $memberId = $this->addMember($organization, $token);
+
+        $this->asPatient($organization, $token)
+            ->getJson("/api/v1/tenant/portal/family/{$memberId}/history")
+            ->assertOk()
+            ->assertJsonPath('data.prescriptions', null)
+            ->assertJsonPath('data.lab_reports', null);
+    }
+
+    public function test_a_stranger_cannot_read_a_family_members_history_or_records(): void
+    {
+        [$organization, $doctorId, $gurgaon] = $this->clinic();
+        $this->withRecordsModules($organization);
+        $token = $this->signInPatient($organization);
+        $memberId = $this->addMember($organization, $token);
+        $records = $this->recordsFor($organization, $memberId, $doctorId, $gurgaon);
+
+        $stranger = $this->signInPatient($organization, self::OTHER_PHONE, 'Meera Singh');
+
+        $this->asPatient($organization, $stranger)->getJson("/api/v1/tenant/portal/family/{$memberId}/history")->assertNotFound();
+        $this->asPatient($organization, $stranger)->getJson("/api/v1/tenant/portal/prescriptions/{$records['prescription']}")->assertNotFound();
+        $this->asPatient($organization, $stranger)->getJson("/api/v1/tenant/portal/lab-reports/{$records['lab']}")->assertNotFound();
+    }
+
+    public function test_a_family_members_records_open_from_their_history_but_stay_out_of_the_patients_own_lists(): void
+    {
+        [$organization, $doctorId, $gurgaon] = $this->clinic();
+        $this->withRecordsModules($organization);
+        $token = $this->signInPatient($organization);
+        $memberId = $this->addMember($organization, $token);
+        $records = $this->recordsFor($organization, $memberId, $doctorId, $gurgaon);
+
+        $this->asPatient($organization, $token)->getJson("/api/v1/tenant/portal/prescriptions/{$records['prescription']}")->assertOk();
+        $this->asPatient($organization, $token)->getJson("/api/v1/tenant/portal/lab-reports/{$records['lab']}")->assertOk();
+        $this->asPatient($organization, $token)->getJson("/api/v1/tenant/portal/prescriptions/{$records['draft']}")->assertNotFound();
+
+        $this->asPatient($organization, $token)->getJson('/api/v1/tenant/portal/prescriptions')->assertOk()->assertJsonCount(0, 'data');
+        $this->asPatient($organization, $token)->getJson('/api/v1/tenant/portal/lab-reports')->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_reading_their_history_is_a_tick_of_its_own(): void
+    {
+        [$organization, $doctorId, $gurgaon] = $this->clinic();
+        $this->withRecordsModules($organization);
+        $token = $this->signInPatient($organization);
+        $memberId = $this->addMember($organization, $token);
+        $records = $this->recordsFor($organization, $memberId, $doctorId, $gurgaon);
+
+        $this->onTenant($organization, fn () => Role::query()
+            ->where('slug', PatientAccountProvisioner::ROLE)
+            ->firstOrFail()
+            ->syncCapabilities(['portal.appointments.view', 'portal.appointments.book', 'portal.family']));
+
+        // Still looks after them and books for them...
+        $this->asPatient($organization, $token)->getJson('/api/v1/tenant/portal/family')->assertOk();
+        $this->book($organization, $token, $doctorId, $gurgaon, ['member_id' => $memberId])->assertCreated();
+
+        // ...but their medical records are closed, by any door.
+        $this->asPatient($organization, $token)->getJson("/api/v1/tenant/portal/family/{$memberId}/history")->assertForbidden();
+        $this->asPatient($organization, $token)->getJson("/api/v1/tenant/portal/prescriptions/{$records['prescription']}")->assertNotFound();
+        $this->asPatient($organization, $token)->getJson("/api/v1/tenant/portal/lab-reports/{$records['lab']}")->assertNotFound();
     }
 
     /*

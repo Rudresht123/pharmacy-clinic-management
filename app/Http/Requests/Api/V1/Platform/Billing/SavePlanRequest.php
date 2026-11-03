@@ -55,7 +55,7 @@ class SavePlanRequest extends FormRequest
             'modules' => ['array'],
             'modules.*' => [
                 'string',
-                Rule::exists(Module::class, 'key')->where(fn ($q) => $q->where('is_core', false)->where('is_active', true)),
+                Rule::exists(Module::class, 'key')->where(fn ($q) => $q->where('is_active', true)),
             ],
         ];
     }

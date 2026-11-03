@@ -22,7 +22,7 @@ export type AppointmentStatus =
  * THE RECEPTION DESK. Null before they arrive and again once the doctor is
  * done — somebody who has left the department is not in a queue.
  */
-export type QueueStatus = 'waiting' | 'called' | 'with_doctor';
+export type QueueStatus = 'waiting' | 'called' | 'with_doctor' | 'skipped';
 
 /** THE DOCTOR. Never null: every visit has a write-up, started or not. */
 export type ConsultationStatus = 'not_started' | 'in_progress' | 'completed';
@@ -88,6 +88,9 @@ export interface Appointment {
     slot_at: string | null;
     /** Issued at check-in, never at booking. */
     token_no: number | null;
+
+    /** The token as it is said and shown: "A012". */
+    token_label: string | null;
 
     checked_in_at: string | null;
     called_at: string | null;

@@ -138,11 +138,20 @@ export interface OrganizationFormValues {
  * been sold. The other three are all "has a binding, but" — kept apart
  * because they are different conversations with the customer.
  */
-export type ModuleState = 'core' | 'unbound' | 'active' | 'scheduled' | 'expired' | 'revoked';
+export type ModuleState = 'unbound' | 'active' | 'scheduled' | 'expired' | 'revoked';
+
+/** Where a module's standing comes from, after the plan and any override. */
+export type ModuleSource = 'manual_grant' | 'manual_revoke' | 'plan' | 'addon' | 'off';
 
 export interface ModuleCapability {
     key: string;
     name: string;
+    /** Opens a screen, rather than being an action on one. */
+    screen?: boolean;
+    /** `organization` cannot be held on a branch role. */
+    scope: 'organization' | 'branch';
+    /** Set only for the patient app's own; anything else is staff's. */
+    audience?: 'patient';
 }
 
 /** A catalogue row, joined with where this organization stands on it. */
@@ -152,11 +161,11 @@ export interface OrganizationModule {
     description: string | null;
     group: string;
     icon: string | null;
-    is_core: boolean;
 
     state: ModuleState;
-    /** Usable right now — enabled, started and unexpired. */
+    /** Usable right now, whichever grant it comes from. */
     is_live: boolean;
+    source: ModuleSource;
 
     starts_at: string | null;
     expires_at: string | null;
@@ -170,6 +179,8 @@ export interface OrganizationModulesPayload {
     modules: OrganizationModule[];
     /** Everything the organization is in a position to grant its own roles. */
     capabilities: string[];
+    /** On a real plan every row overrides it, so saving has to say why. */
+    reason_required: boolean;
 }
 
 /** One step of setting an organization up, as its latest attempt left it. */

@@ -438,7 +438,7 @@ export default function QueuePage() {
                   row.customer_phone?.includes(term) ||
                   row.doctor_name?.toLowerCase().includes(term) ||
                   row.doctor_specialisation?.toLowerCase().includes(term) ||
-                  String(row.token_no ?? '').includes(term),
+                  (row.token_label ?? String(row.token_no ?? '')).toLowerCase().includes(term),
           )
         : shown;
 
@@ -859,7 +859,7 @@ export default function QueuePage() {
                                                               }
                                                     }
                                                 >
-                                                    {row.token_no ?? '—'}
+                                                    {row.token_label ?? row.token_no ?? '—'}
                                                 </span>
                                             </td>
 
@@ -1025,10 +1025,10 @@ export default function QueuePage() {
                                         title={
                                             row.token_no === null
                                                 ? 'No token yet — not checked in'
-                                                : `Token ${row.token_no} for ${row.doctor_name}`
+                                                : `Token ${row.token_label ?? row.token_no} for ${row.doctor_name}`
                                         }
                                     >
-                                        {row.token_no ?? '—'}
+                                        {row.token_label ?? row.token_no ?? '—'}
                                     </span>
 
                                     <div className="q-who">

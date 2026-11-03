@@ -7,6 +7,7 @@ use App\Models\Tenant\Appointment;
 use App\Models\Tenant\AppointmentRescheduleRequest;
 use App\Models\Tenant\AutomationRule;
 use App\Models\Tenant\Customer;
+use App\Models\Tenant\DoctorQueueSetting;
 use App\Models\Tenant\Invoice;
 use App\Models\Tenant\InvoicePayment;
 use App\Models\Tenant\LabOrder;
@@ -66,6 +67,7 @@ class AutomationSender
     public const RULES = [
         ClinicEvents::APPOINTMENT_BOOKED => AutomationRule::APPOINTMENT_CONFIRMED,
         ClinicEvents::APPOINTMENT_CANCELLED => AutomationRule::APPOINTMENT_CANCELLED,
+        ClinicEvents::TOKEN_CALLED => AutomationRule::TOKEN_CALLED,
         ClinicEvents::RESCHEDULE_REQUESTED => AutomationRule::APPOINTMENT_RESCHEDULE_REQUESTED,
         ClinicEvents::APPOINTMENT_RESCHEDULED => AutomationRule::APPOINTMENT_RESCHEDULED,
         ClinicEvents::RESCHEDULE_REJECTED => AutomationRule::APPOINTMENT_RESCHEDULE_REJECTED,
@@ -101,6 +103,7 @@ class AutomationSender
         $context = match ($event->key) {
             ClinicEvents::APPOINTMENT_BOOKED,
             ClinicEvents::APPOINTMENT_CANCELLED => $this->appointment($event, $organization),
+            ClinicEvents::TOKEN_CALLED => $this->tokenCalled($event, $organization),
             ClinicEvents::RESCHEDULE_REQUESTED,
             ClinicEvents::APPOINTMENT_RESCHEDULED,
             ClinicEvents::RESCHEDULE_REJECTED => $this->reschedule($event, $organization),
@@ -253,6 +256,31 @@ class AutomationSender
     }
 
     /**
+     * A token called: the appointment's variables, and which room to walk to.
+     *
+     * Worded so the sentence still reads when no room has been set.
+     *
+     * @return array{customer: Customer, subject: Model, variables: array<string, string|int|float|null>}|null
+     */
+    private function tokenCalled(ClinicEvent $event, Organization $organization): ?array
+    {
+        $context = $this->appointment($event, $organization);
+
+        if ($context === null) {
+            return null;
+        }
+
+        $room = DoctorQueueSetting::query()
+            ->where('doctor_id', $context['subject']->doctor_id)
+            ->where('location_id', $context['subject']->location_id)
+            ->value('room_no');
+
+        $context['variables']['room'] = $room ? "Room {$room}" : 'the consulting room';
+
+        return $context;
+    }
+
+    /**
      * A reschedule request asked, agreed or refused.
      *
      * `{{date}}`/`{{time}}` are where the visit is going — the time asked for
@@ -316,7 +344,7 @@ class AutomationSender
             'time' => $time,
             'appointment_date' => $date,
             'appointment_time' => $time,
-            'token_no' => $visit->token_no,
+            'token_no' => $visit->tokenLabel(),
             'clinic_name' => $organization->organization_name,
             'branch_name' => $visit->location?->name,
         ];

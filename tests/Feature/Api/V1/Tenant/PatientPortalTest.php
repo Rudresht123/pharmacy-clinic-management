@@ -165,7 +165,7 @@ class PatientPortalTest extends TenantTestCase
         // What they may do comes from the Patient role, through the same
         // capability list staff sessions carry.
         $this->assertEqualsCanonicalizing(
-            ['portal.appointments.view', 'portal.appointments.book', 'portal.messages', 'portal.video_calls'],
+            ['portal.appointments.view', 'portal.appointments.book', 'portal.messages', 'portal.video_calls', 'portal.family', 'portal.family.history'],
             $session->json('data.capabilities'),
         );
 

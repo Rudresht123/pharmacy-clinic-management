@@ -139,8 +139,11 @@ class PermissionChangesAreLoggedTest extends TenantTestCase
                 'is_active' => true,
             ])->id);
 
+        // The body names everything that stays on, so only Appointments goes off.
+        $others = ['dashboard', 'people', 'customers', 'exports', 'billing', 'medicines'];
+
         $this->putJson("/api/v1/tenant/locations/{$branch}/modules", [
-            'modules' => ['medicines'],
+            'modules' => $others,
         ])->assertOk();
 
         $entries = $this->onTenant($this->organization, fn () => ActivityLog::on('organization')
@@ -158,7 +161,7 @@ class PermissionChangesAreLoggedTest extends TenantTestCase
 
         // And back on: the row disappears, the history does not.
         $this->putJson("/api/v1/tenant/locations/{$branch}/modules", [
-            'modules' => ['medicines', 'appointments'],
+            'modules' => [...$others, 'appointments'],
         ])->assertOk();
 
         $entries = $this->onTenant($this->organization, fn () => ActivityLog::on('organization')

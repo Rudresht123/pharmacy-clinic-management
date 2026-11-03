@@ -52,26 +52,42 @@ class PatientAppointments
     /** Today onwards, soonest first. */
     public function upcoming(Customer $patient, ?int $limit = null): Collection
     {
-        return $this->of($patient)
-            ->whereIn('status', self::LIVE)
-            ->whereDate('appointment_date', '>=', today())
-            ->orderBy('appointment_date')
-            ->orderByRaw('slot_at NULLS LAST')
-            ->when($limit, fn (Builder $query) => $query->limit($limit))
-            ->get();
+        return $this->ahead($this->of($patient), $limit);
     }
 
     /** Everything else — finished, cancelled, missed, or in the past — newest first. */
     public function past(Customer $patient, int $limit = 50): Collection
     {
-        return $this->of($patient)
-            ->where(fn (Builder $query) => $query
-                ->whereNotIn('status', self::LIVE)
-                ->orWhereDate('appointment_date', '<', today()))
-            ->orderByDesc('appointment_date')
-            ->orderByDesc('slot_at')
-            ->limit($limit)
-            ->get();
+        return $this->behind($this->of($patient), $limit);
+    }
+
+    /** One person's own visits still ahead, for a family member's history. */
+    public function upcomingOf(Customer $person): Collection
+    {
+        return $this->ahead($this->ofOnly($person));
+    }
+
+    /** One person's own visits behind them, with what the doctor wrote up. */
+    public function pastOf(Customer $person, int $limit = 50): Collection
+    {
+        return $this->behind($this->ofOnly($person)->with('consultation'), $limit);
+    }
+
+    /**
+     * How often one person has actually been seen, and when last.
+     *
+     * @return array{visits: int, last_visit_on: ?string}
+     */
+    public function seen(Customer $person): array
+    {
+        $seen = Appointment::query()
+            ->where('customer_id', $person->id)
+            ->where('consultation_status', Appointment::CONSULT_COMPLETED);
+
+        return [
+            'visits' => (clone $seen)->count(),
+            'last_visit_on' => (clone $seen)->latest('appointment_date')->first()?->appointment_date?->toDateString(),
+        ];
     }
 
     public function upcomingCount(Customer $patient): int
@@ -198,10 +214,41 @@ class PatientAppointments
         return $this->booking->cancel($appointment, 'Cancelled by the patient in the app');
     }
 
+    private function ahead(Builder $visits, ?int $limit = null): Collection
+    {
+        return $visits
+            ->whereIn('status', self::LIVE)
+            ->whereDate('appointment_date', '>=', today())
+            ->orderBy('appointment_date')
+            ->orderByRaw('slot_at NULLS LAST')
+            ->when($limit, fn (Builder $query) => $query->limit($limit))
+            ->get();
+    }
+
+    private function behind(Builder $visits, int $limit): Collection
+    {
+        return $visits
+            ->where(fn (Builder $query) => $query
+                ->whereNotIn('status', self::LIVE)
+                ->orWhereDate('appointment_date', '<', today()))
+            ->orderByDesc('appointment_date')
+            ->orderByDesc('slot_at')
+            ->limit($limit)
+            ->get();
+    }
+
     private function of(Customer $patient): Builder
     {
         return Appointment::query()
             ->with(self::RELATIONS)
             ->whereIn('customer_id', $patient->familyIds());
+    }
+
+    /** Nobody but this person: a member's own family is not the viewer's to read. */
+    private function ofOnly(Customer $person): Builder
+    {
+        return Appointment::query()
+            ->with(self::RELATIONS)
+            ->where('customer_id', $person->id);
     }
 }

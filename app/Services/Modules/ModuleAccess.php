@@ -28,29 +28,31 @@ class ModuleAccess
      *
      * THE PRECEDENCE, first match wins — the one place it is decided:
      *
-     *   1. Core modules: always on. They never have a row.
-     *   2. (The subscription LOCK is not decided here. A locked organization
+     *   1. (The subscription LOCK is not decided here. A locked organization
      *      is stopped by the `subscription` middleware before any module is
      *      asked about, whatever this list says.)
-     *   3. A Super Admin's manual binding in `organization_modules`, while it
+     *   2. A Super Admin's manual binding in `organization_modules`, while it
      *      is in force by its own dates — switched on is ON even when the plan
      *      does not include it (a complimentary grant); switched off is OFF
      *      even when the plan includes it (an explicit revoke).
-     *   4. The subscription: its plan snapshot's modules plus bought module
+     *   3. The subscription: its plan snapshot's modules plus bought module
      *      add-ons.
-     *   5. Otherwise off.
+     *   4. Otherwise off.
+     *
+     * NOTHING IS ON BY DEFAULT. An organization that nothing has been granted
+     * to has an empty list here, foundation modules included.
      *
      * A module retired from the catalogue (`modules.is_active` false) is off
      * whatever grants it.
      *
      * An organization on Complimentary has no plan modules, so for it this is
-     * exactly what it always was: core plus its live bindings.
+     * exactly its live bindings.
      *
      * @return list<string>
      */
     public function enabled(Organization $organization): array
     {
-        $keys = ModuleRegistry::coreKeys();
+        $keys = [];
         $planned = $this->facts()->modules($organization);
 
         $bindings = $organization->moduleEntitlements()->with('module')->get()
@@ -60,7 +62,7 @@ class ModuleAccess
         $retired = Module::query()->where('is_active', false)->pluck('key')->all();
 
         foreach (ModuleRegistry::keys() as $key) {
-            if (in_array($key, $keys, true) || in_array($key, $retired, true)) {
+            if (in_array($key, $retired, true)) {
                 continue;
             }
 
@@ -83,7 +85,7 @@ class ModuleAccess
 
     /**
      * Where each module's standing comes from, for the screens that explain
-     * it: core, manual_grant, manual_revoke, plan, addon, or off.
+     * it: manual_grant, manual_revoke, plan, addon, or off.
      *
      * @return array<string, string>
      */
@@ -104,7 +106,6 @@ class ModuleAccess
             $binding = $bindings->get($key);
 
             $sources[$key] = match (true) {
-                $module['is_core'] => 'core',
                 $binding !== null && $binding->inForce() => $binding->is_enabled ? 'manual_grant' : 'manual_revoke',
                 in_array($key, $snapshot, true) => 'plan',
                 in_array($key, $planned, true) => 'addon',
@@ -178,11 +179,7 @@ class ModuleAccess
                     'description' => $module->description,
                     'group' => $module->group,
                     'icon' => $module->icon,
-                    'is_core' => $module->is_core,
-
-                    // Core modules read as active with no binding behind them,
-                    // which is exactly what they are.
-                    'state' => $module->is_core ? 'core' : ($binding?->state() ?? 'unbound'),
+                    'state' => $binding?->state() ?? 'unbound',
 
                     // What the organization actually gets, after the plan and
                     // any override — and where that answer came from.

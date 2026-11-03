@@ -4,6 +4,7 @@ namespace App\Services\Portal;
 
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Customer;
+use App\Models\Tenant\DoctorQueueSetting;
 use App\Models\Tenant\PatientNotification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -94,6 +95,27 @@ class PatientNotifications
                 $appointment->slot_at ? ' at '.date('g:i A', strtotime((string) $appointment->slot_at)) : '',
                 $note ? 'The clinic says: '.$note : '',
             )),
+        );
+    }
+
+    /** It is their turn. Rings for every call, including a second one. */
+    public function tokenCalled(Appointment $appointment): void
+    {
+        $room = DoctorQueueSetting::query()
+            ->where('doctor_id', $appointment->doctor_id)
+            ->where('location_id', $appointment->location_id)
+            ->value('room_no');
+
+        $this->write(
+            $appointment,
+            'token_called',
+            'Your token is called',
+            sprintf(
+                'Token %s has been called. Please go to %s%s.',
+                $appointment->tokenLabel() ?? '',
+                $appointment->doctor?->name ?? 'your doctor',
+                $room ? " in Room {$room}" : '',
+            ),
         );
     }
 

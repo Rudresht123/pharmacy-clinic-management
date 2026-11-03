@@ -6,23 +6,56 @@ import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { formatDate } from '@/shared/utils/format';
 import { notify } from '@/shared/utils/notify';
 import { useOrganizationModules, useSaveOrganizationModules } from '../api';
-import type { ModuleState, OrganizationModule } from '../types';
+import type { ModuleCapability, ModuleState, OrganizationModule } from '../types';
 
 const GROUP_LABELS: Record<string, string> = {
-    foundation: 'Included with every organization',
-    pharmacy: 'Pharmacy',
-    commerce: 'Commerce',
+    foundation: 'Foundation',
+    billing: 'Billing',
     clinical: 'Clinical',
+    pharmacy: 'Pharmacy',
+    communication: 'Communication',
+    commerce: 'Commerce',
 };
 
 const STATE_LABEL: Record<ModuleState, string> = {
-    core: 'Included',
-    unbound: 'Not assigned',
+    // Only ever shown on a switch just turned on, before it is saved.
+    unbound: 'Not saved yet',
     active: 'Active',
     scheduled: 'Starts later',
     expired: 'Expired',
     revoked: 'Switched off',
 };
+
+/**
+ * The words the Roles screen reads a role in, so a capability is described the
+ * same way from both sides. The patient app's come apart from staff's because
+ * no staff role can hold them.
+ */
+const PERMISSION_GROUPS: Array<{
+    key: string;
+    label: string;
+    icon: string;
+    has: (capability: ModuleCapability) => boolean;
+}> = [
+    {
+        key: 'open',
+        label: 'Can open',
+        icon: 'ti ti-layout-sidebar',
+        has: (capability) => capability.audience !== 'patient' && Boolean(capability.screen),
+    },
+    {
+        key: 'do',
+        label: 'Can do',
+        icon: 'ti ti-hand-finger',
+        has: (capability) => capability.audience !== 'patient' && !capability.screen,
+    },
+    {
+        key: 'patient',
+        label: 'In the patient app',
+        icon: 'ti ti-device-mobile',
+        has: (capability) => capability.audience === 'patient',
+    },
+];
 
 /** One row's editable state; mirrors what the API accepts. */
 interface Draft {
@@ -35,7 +68,7 @@ interface Draft {
 
 function toDraft(module: OrganizationModule): Draft {
     return {
-        assigned: module.state !== 'unbound' && module.state !== 'core',
+        assigned: module.state !== 'unbound',
         // A module that has never been bound starts as "on" the moment it is
         // switched on, which is what assigning one almost always means.
         is_enabled: module.state === 'unbound' ? true : module.state !== 'revoked',
@@ -57,12 +90,87 @@ function describeTerm(draft: Draft): string {
     return `${from} → ${to}`;
 }
 
+/** The organization has this from its subscription, with no row of its own here. */
+function fromSubscription(module: OrganizationModule): boolean {
+    return module.source === 'plan' || module.source === 'addon';
+}
+
+/**
+ * What a module lets somebody do, read the way the Roles screen reads a role.
+ *
+ * Tiles in a grid rather than a list: names run from two words to a sentence,
+ * and the grid keeps each row one height whatever a neighbour says. The key goes
+ * under the name instead of beside it, so a long name is not squeezed by it.
+ */
+function ModulePermissions({
+    capabilities,
+    granted,
+}: {
+    capabilities: ModuleCapability[];
+    granted: boolean;
+}) {
+    return (
+        <section className={`ma-perms${granted ? '' : ' is-preview'}`}>
+            <header className="ma-perms-head">
+                <h6>{granted ? 'Grants the right to' : 'Would grant the right to'}</h6>
+                <span>{capabilities.length}</span>
+            </header>
+
+            {PERMISSION_GROUPS.map((group) => {
+                const members = capabilities.filter(group.has);
+
+                if (members.length === 0) {
+                    return null;
+                }
+
+                return (
+                    <div className="ma-perm-group" key={group.key}>
+                        <span className="ma-perm-label">
+                            <i className={group.icon} aria-hidden="true" />
+                            {group.label}
+                        </span>
+
+                        <ul className="ma-perm-grid">
+                            {members.map((capability) => (
+                                <li className="ma-perm" key={capability.key}>
+                                    <i className="ti ti-check ma-perm-tick" aria-hidden="true" />
+
+                                    <div className="ma-perm-text">
+                                        <b>{capability.name}</b>
+
+                                        <div className="ma-perm-meta">
+                                            <code>{capability.key}</code>
+
+                                            {capability.scope === 'organization' &&
+                                                capability.audience !== 'patient' && (
+                                                    <span
+                                                        className="ma-perm-scope"
+                                                        title="Applies across every branch, so a branch role cannot hold it."
+                                                    >
+                                                        Org-wide
+                                                    </span>
+                                                )}
+                                        </div>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                );
+            })}
+        </section>
+    );
+}
+
 /**
  * Give one organization the modules it has paid for.
  *
  * Shared by the Modules screen, where it sits beside a list of
  * organizations, and by an organization's own Modules tab — one arrangement,
  * edited the same way from either direction.
+ *
+ * Nothing is included by default: every module here is a decision, and an
+ * organization that was given nothing has nothing.
  *
  * A switch per module rather than a table of ticks: this is a small, grouped
  * set of decisions about one customer, not a list to be sorted and scanned.
@@ -84,14 +192,19 @@ export function ModuleAssignPanel({
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [expanded, setExpanded] = useState<string | null>(null);
     const [dirty, setDirty] = useState(false);
+    const [reason, setReason] = useState('');
 
     useEffect(() => {
         if (data) {
             setDrafts(Object.fromEntries(data.modules.map((m) => [m.key, toDraft(m)])));
             setExpanded(null);
             setDirty(false);
+            setReason('');
         }
     }, [data]);
+
+    // The server refuses anything shorter, so the button says so first.
+    const needsReason = Boolean(data?.reason_required) && reason.trim().length < 5;
 
     const grouped = useMemo(() => {
         const buckets = new Map<string, OrganizationModule[]>();
@@ -112,7 +225,7 @@ export function ModuleAssignPanel({
         setErrors({});
 
         const payload = (data?.modules ?? [])
-            .filter((module) => !module.is_core && drafts[module.key]?.assigned)
+            .filter((module) => drafts[module.key]?.assigned)
             .map((module) => {
                 const draft = drafts[module.key];
 
@@ -126,7 +239,7 @@ export function ModuleAssignPanel({
             });
 
         try {
-            await save.mutateAsync(payload);
+            await save.mutateAsync({ modules: payload, reason: reason.trim() });
             setDirty(false);
         } catch (error) {
             const validation = getValidationErrors(error);
@@ -143,7 +256,7 @@ export function ModuleAssignPanel({
                 /*
                  * Errors that belong to no row.
                  *
-                 * "Prescriptions needs Medicines" is reported against
+                 * "Pharmacy needs Medicines" is reported against
                  * `modules`, with no index — there is no single row at fault.
                  * It used to be dropped on the floor here and announced as
                  * "Some dates need attention", which named the wrong problem
@@ -180,8 +293,10 @@ export function ModuleAssignPanel({
         return <LoadingBlock label="Loading modules…" />;
     }
 
-    const optional = (data?.modules ?? []).filter((module) => !module.is_core);
-    const assignedCount = optional.filter((module) => drafts[module.key]?.assigned).length;
+    const modules = data?.modules ?? [];
+    const onCount = modules.filter(
+        (module) => drafts[module.key]?.assigned || fromSubscription(module),
+    ).length;
 
     return (
         <div className="ma-panel">
@@ -190,8 +305,8 @@ export function ModuleAssignPanel({
                     {heading}
 
                     <p>
-                        <b>{assignedCount}</b> of {optional.length} optional module
-                        {optional.length === 1 ? '' : 's'} · <b>{data?.capabilities.length ?? 0}</b>{' '}
+                        <b>{onCount}</b> of {modules.length} module
+                        {modules.length === 1 ? '' : 's'} · <b>{data?.capabilities.length ?? 0}</b>{' '}
                         permissions this organization can grant
                     </p>
                 </div>
@@ -199,19 +314,36 @@ export function ModuleAssignPanel({
                 <Button
                     icon="ti ti-device-floppy"
                     loading={save.isPending}
-                    disabled={!dirty}
+                    disabled={!dirty || needsReason}
                     onClick={onSave}
                 >
                     {dirty ? 'Save changes' : 'Saved'}
                 </Button>
             </header>
 
-            {grouped.map(([group, modules]) => (
+            {/*
+                This organization's modules come from its plan, so a change here
+                overrides that plan, and somebody will later ask why.
+            */}
+            {data?.reason_required && dirty && (
+                <label className="ma-reason">
+                    <span>This organization is on a plan, so this overrides it. Say why.</span>
+                    <input
+                        className="form-control"
+                        maxLength={500}
+                        value={reason}
+                        placeholder="For example: sold Smart Queue as an add-on"
+                        onChange={(event) => setReason(event.target.value)}
+                    />
+                </label>
+            )}
+
+            {grouped.map(([group, members]) => (
                 <section className="ma-group" key={group}>
                     <h6>{GROUP_LABELS[group] ?? group}</h6>
 
                     <div className="ma-list">
-                        {modules.map((module) => {
+                        {members.map((module) => {
                             const draft = drafts[module.key];
                             const open = expanded === module.key;
                             const error = errors[module.key];
@@ -220,13 +352,14 @@ export function ModuleAssignPanel({
                                 return null;
                             }
 
-                            const on = module.is_core || draft.assigned;
+                            const planned = !draft.assigned && fromSubscription(module);
+                            const on = draft.assigned || planned;
 
                             return (
                                 <article
                                     className={`ma-item${on ? ' is-on' : ''}${
-                                        module.is_core ? ' is-core' : ''
-                                    }${error ? ' has-error' : ''}`}
+                                        error ? ' has-error' : ''
+                                    }`}
                                     key={module.key}
                                 >
                                     <div className="ma-row">
@@ -239,30 +372,23 @@ export function ModuleAssignPanel({
                                             <span>{module.description}</span>
                                         </div>
 
-                                        {module.is_core ? (
-                                            <span className="ma-locked">
-                                                <i className="ti ti-lock" />
-                                                Included
-                                            </span>
-                                        ) : (
-                                            <label className="ma-switch">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={draft.assigned}
-                                                    aria-label={`Give this organization ${module.name}`}
-                                                    onChange={(event) =>
-                                                        patch(module.key, {
-                                                            assigned: event.target.checked,
-                                                        })
-                                                    }
-                                                />
-                                                <span className="ma-track" aria-hidden="true" />
-                                            </label>
-                                        )}
+                                        <label className="ma-switch">
+                                            <input
+                                                type="checkbox"
+                                                checked={draft.assigned}
+                                                aria-label={`Give this organization ${module.name}`}
+                                                onChange={(event) =>
+                                                    patch(module.key, {
+                                                        assigned: event.target.checked,
+                                                    })
+                                                }
+                                            />
+                                            <span className="ma-track" aria-hidden="true" />
+                                        </label>
                                     </div>
 
                                     <div className="ma-meta">
-                                        {!module.is_core && draft.assigned && (
+                                        {draft.assigned && (
                                             <>
                                                 <span
                                                     className={`ma-state is-${
@@ -278,13 +404,24 @@ export function ModuleAssignPanel({
                                             </>
                                         )}
 
+                                        {/*
+                                            On without a row here: the switch only
+                                            ever says "granted by hand", so it stays
+                                            off and this says why the module runs.
+                                        */}
+                                        {planned && (
+                                            <span className="ma-state is-live">
+                                                {module.source === 'addon' ? 'Add-on' : 'From plan'}
+                                            </span>
+                                        )}
+
                                         <button
                                             type="button"
                                             className="ma-toggle"
                                             aria-expanded={open}
                                             onClick={() => setExpanded(open ? null : module.key)}
                                         >
-                                            {module.is_core || !draft.assigned
+                                            {!draft.assigned
                                                 ? `${module.capabilities.length} permissions`
                                                 : 'Terms & permissions'}
                                             <i
@@ -299,7 +436,7 @@ export function ModuleAssignPanel({
 
                                     {open && (
                                         <div className="ma-detail">
-                                            {!module.is_core && draft.assigned && (
+                                            {draft.assigned && (
                                                 <div className="ma-terms">
                                                     <label className="ma-check">
                                                         <input
@@ -372,21 +509,10 @@ export function ModuleAssignPanel({
                                                 </div>
                                             )}
 
-                                            <span className="ma-caps-title">
-                                                {draft.assigned || module.is_core
-                                                    ? 'Grants the right to'
-                                                    : 'Would grant the right to'}
-                                            </span>
-
-                                            <ul className="ma-caps">
-                                                {module.capabilities.map((capability) => (
-                                                    <li key={capability.key}>
-                                                        <i className="ti ti-check" />
-                                                        <span>{capability.name}</span>
-                                                        <code>{capability.key}</code>
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                            <ModulePermissions
+                                                capabilities={module.capabilities}
+                                                granted={on}
+                                            />
                                         </div>
                                     )}
                                 </article>

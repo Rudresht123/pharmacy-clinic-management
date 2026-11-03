@@ -11,6 +11,8 @@ use App\Services\Opd\BookingService;
 use App\Services\Opd\OpdBoard;
 use App\Services\Opd\QueueSteps;
 use App\Services\Opd\VisitWorkflow;
+use App\Services\Permissions\Permission;
+use App\Services\Queue\QueueManagementService;
 use App\Services\Tenancy\TenantBranchAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,6 +40,8 @@ class AppointmentController extends BaseApiController
         private readonly VisitWorkflow $workflow,
         private readonly TenantBranchAccess $branches,
         private readonly QueueSteps $steps,
+        private readonly Permission $permission,
+        private readonly QueueManagementService $queue,
     ) {}
 
     /**
@@ -153,7 +157,7 @@ class AppointmentController extends BaseApiController
 
         try {
             $appointment = $data['type'] === Appointment::WALK_IN
-                ? $this->booking->walkIn($data)
+                ? $this->walkIn($request, $data)
                 : $this->booking->book($data);
         } catch (RuntimeException $exception) {
             // A refusal the person at the desk can act on — the slot went, or
@@ -164,9 +168,39 @@ class AppointmentController extends BaseApiController
         return $this->created(
             AppointmentResource::make($appointment->load(['customer', 'doctor', 'location'])),
             $data['type'] === Appointment::WALK_IN
-                ? "Token {$appointment->token_no} issued"
+                ? "Token {$appointment->tokenLabel()} issued"
                 : 'Appointment booked',
         );
+    }
+
+    /**
+     * Take a walk-in, at the priority the desk says they came in with.
+     *
+     * The priority is its own tick, so somebody who may book but may not move
+     * a patient up the line is refused here rather than quietly ignored. In one
+     * transaction, so a refused priority does not leave a patient behind.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function walkIn(StoreAppointmentRequest $request, array $data): Appointment
+    {
+        $priority = $data['queue_priority'] ?? Appointment::PRIORITY_NORMAL;
+
+        if ($priority !== Appointment::PRIORITY_NORMAL) {
+            $organization = $request->attributes->get('tenant.organization');
+
+            if (! $organization || ! $this->permission->allows($organization, $request->user(), 'queue.priority', (int) $data['location_id'])) {
+                abort(403, 'Changing a patient\'s priority is not available to you.');
+            }
+        }
+
+        return (new Appointment)->getConnection()->transaction(function () use ($data, $priority, $request) {
+            $visit = $this->booking->walkIn($data);
+
+            return $priority === Appointment::PRIORITY_NORMAL
+                ? $visit
+                : $this->queue->setPriority($visit, $priority, (string) $data['priority_reason'], $request->user());
+        });
     }
 
     /** Arrived. This is where the token is issued, and the queue joined. */
@@ -178,7 +212,7 @@ class AppointmentController extends BaseApiController
         return $this->move(
             $appointment,
             fn () => $this->booking->checkIn($appointment),
-            fn () => "Token {$appointment->token_no} issued",
+            fn () => "Token {$appointment->tokenLabel()} issued",
         );
     }
 
@@ -198,7 +232,7 @@ class AppointmentController extends BaseApiController
             $appointment,
             fn () => $this->workflow->call($appointment, $request->user()),
             fn () => $appointment->token_no
-                ? "Token {$appointment->token_no} called"
+                ? "Token {$appointment->tokenLabel()} called"
                 : 'Patient called',
         );
     }

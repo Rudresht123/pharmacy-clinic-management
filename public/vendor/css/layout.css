@@ -92,10 +92,15 @@ body {
    ========================================================= */
 
 .app-shell {
-    --sb-width: 264px;
-    --sb-collapsed: 78px;
-    --sb-current: var(--sb-width);
+    --sb-width: 248px;
+    --sb-collapsed: 72px;
+    --sb-rail: var(--sb-width);
+
+    /* What the page has to clear. A phone's drawer sits over it: 0 there. */
+    --sb-current: var(--sb-rail);
     --tb-height: 62px;
+    /* The top menu's strip, under the header. */
+    --tn-height: 50px;
 
     --sb-ink: var(--ink-2);
     --sb-muted: var(--muted);
@@ -104,7 +109,12 @@ body {
 }
 
 .app-shell[data-collapsed='true'] {
-    --sb-current: var(--sb-collapsed);
+    --sb-rail: var(--sb-collapsed);
+}
+
+/* The top menu leaves the whole width to the page. */
+.app-shell[data-menu='top'] {
+    --sb-current: 0px;
 }
 
 /* ---------------------------------------------------------
@@ -118,7 +128,7 @@ body {
     bottom: 0;
     z-index: 1040;
 
-    width: var(--sb-current);
+    width: var(--sb-rail);
     display: flex;
     flex-direction: column;
 
@@ -136,7 +146,7 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 0 16px;
+    padding: 0 12px 0 16px;
     border-bottom: 1px solid var(--sb-line);
 }
 
@@ -166,9 +176,8 @@ body {
     display: block;
 }
 
-/* The 78px rail leaves the mark and the 30px expand button 62px to share */
 .app-shell[data-collapsed='true'] .app-brand img.app-brand-mark {
-    height: 20px;
+    height: 26px;
 }
 
 .app-collapse-btn {
@@ -190,8 +199,9 @@ body {
     color: var(--sb-primary);
 }
 
+/* The foot of the collapsed rail has the expand button; !important beats d-lg-grid. */
 .app-shell[data-collapsed='true'] .app-collapse-btn {
-    display: none;
+    display: none !important;
 }
 
 /* Menu */
@@ -212,7 +222,11 @@ body {
 
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 14px 12px 20px;
+    padding: 12px 10px 18px;
+
+    /* A menu that runs on fades out, rather than slicing a row in half. */
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
 }
 
 /* Thin scrollbar, only visible on hover */
@@ -230,12 +244,12 @@ body {
 }
 
 .app-nav-section + .app-nav-section {
-    margin-top: 18px;
+    margin-top: 16px;
 }
 
 .app-nav-label {
     padding: 0 12px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     font-size: 10.5px;
     font-weight: 700;
     letter-spacing: 0.09em;
@@ -266,11 +280,11 @@ body {
 .app-nav-item {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 
-    height: 42px;
-    padding: 0 12px;
-    border-radius: 10px;
+    height: 40px;
+    padding: 0 8px;
+    border-radius: 11px;
 
     color: var(--sb-ink);
     font-size: 14px;
@@ -282,10 +296,17 @@ body {
     transition: background 0.16s ease, color 0.16s ease;
 }
 
-.app-nav-item i {
-    font-size: 19px;
+/* Every icon holds the same box, so the chosen row's tile moves nothing. */
+.app-nav-item > i {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
     flex-shrink: 0;
+    border-radius: 8px;
+    font-size: 18px;
     line-height: 1;
+    transition: background 0.16s ease, color 0.16s ease;
 }
 
 .app-nav-item:hover {
@@ -299,16 +320,28 @@ body {
     font-weight: 600;
 }
 
-/* Left accent on the active item */
-.app-nav-item.is-active::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 9px;
-    bottom: 9px;
-    width: 3px;
-    border-radius: 0 3px 3px 0;
-    background: var(--sb-primary);
+.app-nav-item.is-active > i {
+    background: rgb(var(--brand));
+    color: rgb(var(--brand-fg));
+}
+
+/*
+ * The parent of an open group gives the solid row up to the child you are on,
+ * and keeps a quieter tile to say which group that is.
+ */
+.app-shell .app-nav-item.is-active.is-open-parent {
+    background: transparent;
+    color: var(--sb-strong);
+}
+
+.app-shell .app-nav-item.is-active.is-open-parent > i {
+    background: var(--sb-tile-bg);
+    color: var(--sb-tile-fg);
+}
+
+.app-nav-item:focus-visible {
+    outline: 2px solid var(--sb-accent);
+    outline-offset: 1px;
 }
 
 .app-shell[data-collapsed='true'] .app-nav-item {
@@ -317,10 +350,6 @@ body {
 }
 
 .app-shell[data-collapsed='true'] .app-nav-item span {
-    display: none;
-}
-
-.app-shell[data-collapsed='true'] .app-nav-item.is-active::before {
     display: none;
 }
 
@@ -706,21 +735,6 @@ body {
 
     .app-shell[data-mobile-open='true'] .app-sidebar {
         transform: translateX(0);
-    }
-
-    /* The desktop collapse never applies on mobile */
-    .app-shell[data-collapsed='true'] .app-nav-item {
-        justify-content: flex-start;
-        padding: 0 12px;
-    }
-
-    .app-shell[data-collapsed='true'] .app-nav-item span,
-    .app-shell[data-collapsed='true'] .app-brand img.app-brand-full {
-        display: inline;
-    }
-
-    .app-shell[data-collapsed='true'] .app-brand-mark {
-        display: none;
     }
 
     .app-menu-btn {
@@ -2324,6 +2338,16 @@ body {
     --sb-accent: rgb(var(--brand));
     --sb-border: var(--line);
 
+    /* The strongest ink on the rail: names, and the parent of an open group. */
+    --sb-strong: var(--ink);
+    /* The tray an open group sits in, and the quieter icon tile inside it. */
+    --sb-tray: rgba(var(--brand), 0.05);
+    --sb-tile-bg: rgba(var(--brand), 0.12);
+    --sb-tile-fg: rgb(var(--brand));
+    /* The tile that names whose workspace this is. */
+    --sb-mark-bg: rgba(var(--brand), 0.12);
+    --sb-mark-fg: rgb(var(--brand));
+
     /* Topbar */
     --tb-bg: var(--surface);
     --tb-fg: var(--ink);
@@ -2374,10 +2398,6 @@ body {
     color: var(--sb-active-fg);
 }
 
-.app-nav-item.is-active::before {
-    background: var(--sb-accent);
-}
-
 .app-nav:hover::-webkit-scrollbar-thumb {
     background: var(--sb-border);
 }
@@ -2401,14 +2421,20 @@ body {
 
 :root[data-sidebar='dark'] .app-shell {
     --sb-bg: #171b34;
-    --sb-fg: rgba(255, 255, 255, 0.74);
-    --sb-label: rgba(255, 255, 255, 0.38);
+    --sb-fg: rgba(255, 255, 255, 0.78);
+    --sb-label: rgba(255, 255, 255, 0.5);
     --sb-hover-bg: rgba(255, 255, 255, 0.07);
     --sb-hover-fg: #ffffff;
-    --sb-active-bg: rgba(255, 255, 255, 0.11);
-    --sb-active-fg: #ffffff;
+    --sb-active-bg: #ffffff;
+    --sb-active-fg: rgb(var(--brand));
     --sb-accent: #ffffff;
     --sb-border: rgba(255, 255, 255, 0.09);
+    --sb-strong: #ffffff;
+    --sb-tray: rgba(255, 255, 255, 0.05);
+    --sb-tile-bg: rgba(255, 255, 255, 0.12);
+    --sb-tile-fg: #ffffff;
+    --sb-mark-bg: #ffffff;
+    --sb-mark-fg: rgb(var(--brand));
 }
 
 :root[data-sidebar='brand'] .app-shell {
@@ -2516,6 +2542,39 @@ body {
     font-size: 12px;
 }
 
+/* Where the menu sits on the page, drawn small. */
+.settings-menu-chip {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 40px;
+    margin-bottom: 7px;
+    overflow: hidden;
+    border: 1px solid var(--line-2);
+    border-radius: 7px;
+    background: var(--surface-3);
+}
+
+.settings-menu-chip::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 36%;
+    background: rgb(var(--brand));
+}
+
+.settings-menu-chip.is-icons::before {
+    width: 14%;
+}
+
+.settings-menu-chip.is-top::before {
+    bottom: auto;
+    width: 100%;
+    height: 28%;
+}
+
 /* =========================================================
    Readable text on the accent
    ---------------------------------------------------------
@@ -2545,14 +2604,47 @@ body {
 /* Brand-coloured sidebar / topbar */
 
 :root[data-sidebar='brand'] .app-shell {
-    --sb-fg: rgba(var(--brand-fg), 0.78);
-    --sb-label: rgba(var(--brand-fg), 0.45);
+    --sb-fg: rgba(var(--brand-fg), 0.84);
+    --sb-label: rgba(var(--brand-fg), 0.58);
     --sb-hover-bg: rgba(var(--brand-fg), 0.1);
     --sb-hover-fg: rgb(var(--brand-fg));
-    --sb-active-bg: rgba(var(--brand-fg), 0.17);
-    --sb-active-fg: rgb(var(--brand-fg));
+    --sb-active-bg: rgb(var(--brand-fg));
+    --sb-active-fg: rgb(var(--brand));
     --sb-accent: rgb(var(--brand-fg));
     --sb-border: rgba(var(--brand-fg), 0.13);
+    --sb-strong: rgb(var(--brand-fg));
+    --sb-tray: rgba(0, 0, 0, 0.14);
+    --sb-tile-bg: rgba(var(--brand-fg), 0.16);
+    --sb-tile-fg: rgb(var(--brand-fg));
+    --sb-mark-bg: rgb(var(--brand-fg));
+    --sb-mark-fg: rgb(var(--brand));
+}
+
+/*
+ * The logo gets a white cap on the brand rail.
+ *
+ * Its blue Z sits on the accent otherwise, where half the mark disappears. In
+ * the dark theme the rail is a dark surface, and the logo's own white-text
+ * version reads there without any help.
+ */
+:root[data-sidebar='brand']:not([data-theme='dark']) .app-brand {
+    background: #ffffff;
+    border-bottom-color: transparent;
+}
+
+/* The rail's colour would show through its own border, as a line beside the cap. */
+:root[data-sidebar='brand']:not([data-theme='dark']) .app-sidebar {
+    border-right-width: 0;
+}
+
+/* Neutral at rest: the accent can be any colour, and a pale one vanishes on white. */
+:root[data-sidebar='brand']:not([data-theme='dark']) .app-collapse-btn {
+    color: var(--muted);
+}
+
+:root[data-sidebar='brand']:not([data-theme='dark']) .app-collapse-btn:hover {
+    background: var(--surface-3);
+    color: var(--ink);
 }
 
 :root[data-topbar='brand'] .app-shell {
@@ -2569,6 +2661,366 @@ body {
 
 :root[data-topbar='brand'] .app-header .ti-chevron-down {
     color: rgba(var(--brand-fg), 0.7) !important;
+}
+
+/* =========================================================
+   Menu styles: the icon rail's card and the top menu
+   ---------------------------------------------------------
+   AppShell picks one from the Appearance settings, on a window
+   of 992px and up. Below that everybody gets the drawer.
+   ========================================================= */
+
+/*
+ * A white card, whatever colour the menu it hangs off is.
+ *
+ * What it holds (the sub-menu rows, the workspace card, the branch switcher)
+ * reads its colours from the --sb-* tokens, which on a brand or dark menu are
+ * white on colour. Set here, they apply to everything inside the card.
+ */
+.app-flyout,
+.app-tn-pop {
+    --sb-fg: var(--ink-2);
+    --sb-strong: var(--ink);
+    --sb-label: var(--muted);
+    --sb-hover-bg: var(--surface-3);
+    --sb-hover-fg: rgb(var(--brand));
+    --sb-active-bg: rgb(var(--brand));
+    --sb-active-fg: rgb(var(--brand-fg));
+    --sb-accent: rgb(var(--brand));
+    --sb-border: var(--line);
+    --sb-mark-bg: rgba(var(--brand), 0.12);
+    --sb-mark-fg: rgb(var(--brand));
+
+    display: grid;
+    gap: 2px;
+    width: 240px;
+    padding: 8px;
+    overflow-y: auto;
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgba(var(--brand), 0.1), 0 14px 36px rgba(var(--brand), 0.22);
+    color: var(--ink-2);
+    font-weight: 500;
+}
+
+[data-theme='dark'] .app-flyout,
+[data-theme='dark'] .app-tn-pop {
+    border: 1px solid var(--line);
+    box-shadow: none;
+}
+
+/* Inside a card the sidebar's own margins have nothing to line up with. */
+.app-flyout .app-sidebar-extra,
+.app-tn-pop .app-sidebar-extra {
+    padding: 0 0 6px;
+}
+
+.app-flyout .app-sidebar-card,
+.app-tn-pop .app-sidebar-card {
+    margin: 0 0 4px;
+}
+
+.app-flyout .app-sidebar-help,
+.app-tn-pop .app-sidebar-help {
+    padding: 0;
+}
+
+/* The branch list opens in place: a card that scrolls would clip it. */
+.app-flyout .bs-menu,
+.app-tn-pop .bs-menu {
+    position: static;
+    margin-top: 6px;
+    box-shadow: none;
+}
+
+/* --- Icon rail ------------------------------------------------- */
+
+/* Fixed, so the scrolling menu it comes out of cannot clip it. */
+.app-flyout {
+    position: fixed;
+    top: 8px;
+    left: calc(var(--sb-rail) + 8px);
+    max-height: calc(100vh - 16px);
+}
+
+/* Over a row with nothing under it, the card is only its name. */
+.app-flyout--label {
+    width: auto;
+    padding: 4px;
+}
+
+.app-flyout--workspace {
+    width: 272px;
+}
+
+.app-flyout-title {
+    display: block;
+    padding: 6px 10px;
+    border-radius: 8px;
+    color: var(--ink);
+    font-size: 13.5px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.app-flyout-title:hover {
+    background: var(--surface-3);
+    color: rgb(var(--brand));
+}
+
+.app-nav-item.is-flyout:not(.is-active) {
+    background: var(--sb-hover-bg);
+    color: var(--sb-hover-fg);
+}
+
+.app-rail-btn {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.app-rail-btn + .app-expand-btn {
+    margin-top: 6px;
+}
+
+/* --- Top menu -------------------------------------------------- */
+
+.app-header-brand {
+    flex-shrink: 0;
+    display: block;
+    margin-right: 6px;
+}
+
+.app-header-brand img {
+    display: block;
+    height: 30px;
+    width: auto;
+}
+
+/* The same white cap the sidebar gives the logo: its blue Z sinks into the accent. */
+:root[data-topbar='brand']:not([data-theme='dark']) .app-header-brand {
+    padding: 5px 10px;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.app-tn {
+    position: sticky;
+    top: var(--tb-height);
+    z-index: 1029;
+
+    height: var(--tn-height);
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    background: var(--sb-bg);
+    border-bottom: 1px solid var(--sb-border);
+}
+
+/* What sticks inside a page has to stop below the strip as well as the header. */
+@media (min-width: 992px) {
+    .app-shell[data-menu='top'] .app-content {
+        --tb-height: calc(62px + var(--tn-height));
+    }
+}
+
+.app-tn-list {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.app-tn-ghost {
+    position: absolute;
+    width: 0;
+    height: 0;
+    display: flex;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.app-tn-entry {
+    position: relative;
+    flex: none;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    border-radius: 10px;
+    color: var(--sb-fg);
+    font-weight: 500;
+    transition: background 0.14s ease, color 0.14s ease;
+}
+
+.app-tn-entry:hover,
+.app-tn-entry.is-open {
+    background: var(--sb-hover-bg);
+    color: var(--sb-hover-fg);
+}
+
+/* Measured at the active weight, so the current entry can never overflow. */
+.app-tn-ghost .app-tn-entry,
+.app-tn-entry.is-active,
+.app-tn-entry.is-active:hover {
+    font-weight: 600;
+}
+
+.app-tn-entry.is-active,
+.app-tn-entry.is-active:hover {
+    background: var(--sb-active-bg);
+    color: var(--sb-active-fg);
+}
+
+.app-tn-item {
+    height: 100%;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 13.5px;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.app-tn-item:hover {
+    color: inherit;
+}
+
+.app-tn-item.has-caret {
+    padding-right: 2px;
+}
+
+.app-tn-item > i:first-child {
+    font-size: 17px;
+}
+
+.app-tn-caret {
+    width: 26px;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    color: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.app-tn-more-caret {
+    margin: 0 8px 0 -3px;
+    font-size: 14px;
+}
+
+.app-tn-caret i,
+.app-tn-more-caret {
+    opacity: 0.75;
+    transition: transform 0.16s ease;
+}
+
+.app-tn-entry.is-open .app-tn-caret i,
+.app-tn-entry.is-open .app-tn-more-caret {
+    transform: rotate(180deg);
+}
+
+.app-tn-item:focus-visible,
+.app-tn-caret:focus-visible {
+    outline: 2px solid var(--sb-accent);
+    outline-offset: -2px;
+}
+
+.app-tn-name {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.app-tn-workspace {
+    flex-shrink: 0;
+}
+
+.app-tn-pop {
+    position: absolute;
+    top: calc(100% + 7px);
+    left: 0;
+    max-height: calc(100vh - 62px - var(--tn-height) - 16px);
+}
+
+.app-tn-pop.is-end {
+    left: auto;
+    right: 0;
+}
+
+.app-tn-pop--workspace {
+    width: 272px;
+}
+
+/* An entry in More: its own row, above the screens it holds. */
+.app-tn-more {
+    padding: 7px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 9px;
+    color: var(--ink);
+    font-size: 13.5px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.app-tn-more i {
+    font-size: 17px;
+}
+
+.app-tn-more:hover {
+    background: var(--surface-3);
+    color: rgb(var(--brand));
+}
+
+.app-tn-more.is-current {
+    color: rgb(var(--brand));
+}
+
+/* Each screen starts under its parent's label, so it reads as belonging to it. */
+.app-tn-pop--more .app-nav-child {
+    margin-left: 25px;
+}
+
+/* A narrower window: the words matter more, and the name is one click away. */
+@media (max-width: 1279.98px) {
+    .app-tn-list .app-tn-item > i:first-child {
+        display: none;
+    }
+
+    .app-tn-name {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-tn-caret i,
+    .app-tn-more-caret {
+        transition: none;
+    }
+}
+
+@media print {
+    .app-tn {
+        display: none;
+    }
 }
 
 /* Pagination and the settings swatch tick sit on the accent too */
@@ -3528,6 +3980,7 @@ body {
 
 [data-theme='dark'] .settings-panel,
 [data-theme='dark'] .app-sidebar,
+[data-theme='dark'] .app-tn,
 [data-theme='dark'] .app-header {
     background: var(--surface);
 }

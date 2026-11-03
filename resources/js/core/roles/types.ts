@@ -227,6 +227,12 @@ export interface BranchModule {
     is_locked?: boolean;
 
     /**
+     * Belongs to the organization rather than to a branch (Branches,
+     * Configuration), so it always runs here and has no switch.
+     */
+    is_org_level?: boolean;
+
+    /**
      * False when the organization has switched this module off everywhere.
      * Shown so the branch can see why it is off, rather than the module
      * vanishing — no branch can switch it back on.

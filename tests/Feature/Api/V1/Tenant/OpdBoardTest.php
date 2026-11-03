@@ -278,6 +278,47 @@ class OpdBoardTest extends TenantTestCase
     }
 
     /**
+     * Picking a doctor changes the queue card and nothing around it.
+     *
+     * The tabs narrow with the rows because they are the same list counted. The
+     * tiles and the doctors panel do not, or the dropdown that offers the other
+     * doctors would empty itself as soon as one of them was picked.
+     */
+    public function test_the_doctor_filter_narrows_the_queue_and_nothing_else(): void
+    {
+        [, $branchId, $doctors, $patients] = $this->clinic();
+
+        $this->walkIn($doctors[0], $branchId, $patients[0]);
+        $this->walkIn($doctors[1], $branchId, $patients[1]);
+
+        $board = $this->getJson(
+            "/api/v1/tenant/opd/today?location_id={$branchId}&date=".self::MONDAY."&doctor_id={$doctors[0]}"
+        )->assertOk()->json('data');
+
+        $this->assertSame(['Patient 1'], array_column($board['queue'], 'customer_name'));
+        $this->assertSame(1, $board['tabs']['all']);
+
+        $this->assertSame(2, $board['counts']['total']['value']);
+        $this->assertCount(2, $board['doctors']);
+
+        // No filter is still the whole branch.
+        $everyone = $this->getJson(
+            "/api/v1/tenant/opd/today?location_id={$branchId}&date=".self::MONDAY
+        )->assertOk()->json('data');
+
+        $this->assertCount(2, $everyone['queue']);
+        $this->assertSame(2, $everyone['tabs']['all']);
+
+        // A doctor with nobody here is an empty list, not an error.
+        $nobody = $this->getJson(
+            "/api/v1/tenant/opd/today?location_id={$branchId}&date=".self::MONDAY.'&doctor_id=999999'
+        )->assertOk()->json('data');
+
+        $this->assertSame([], $nobody['queue']);
+        $this->assertSame(0, $nobody['tabs']['all']);
+    }
+
+    /**
      * The dashboard reads off one request, and every panel is in it.
      *
      * One endpoint rather than eight on purpose: the screen is read at a

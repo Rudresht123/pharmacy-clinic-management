@@ -47,6 +47,15 @@ export type Surface = 'light' | 'dark' | 'brand';
 /** Background treatment for the page header / breadcrumb card. */
 export type PageHead = 'light' | 'brand' | 'plain';
 
+/**
+ * How the main menu is laid out on a desktop-sized window.
+ *
+ * sidebar — the full menu down the side. icons — a slim rail, with labels and
+ * sub-menus in a card beside each icon. top — one strip under the header.
+ * Smaller windows always get the slide-out menu, whichever this is.
+ */
+export type MenuLayout = 'sidebar' | 'icons' | 'top';
+
 /** Background treatment for the main content area, behind the cards. */
 export type ContentBackground = 'white' | 'image';
 
@@ -74,7 +83,8 @@ export interface AppSettings {
     sidebar: Surface;
     topbar: Surface;
     pageHead: PageHead;
-    /** Start the sidebar collapsed on desktop. */
+    menuLayout: MenuLayout;
+    /** Start the sidebar collapsed on desktop. Only for the 'sidebar' layout. */
     compactSidebar: boolean;
     /**
      * Plain white, or one of the CONTENT_BACKGROUND_IMAGES photos.
@@ -94,6 +104,7 @@ const DEFAULTS: AppSettings = {
     sidebar: 'brand',
     topbar: 'light',
     pageHead: 'light',
+    menuLayout: 'sidebar',
     compactSidebar: false,
     contentBackground: 'white',
     contentImage: CONTENT_BACKGROUND_IMAGES[0].file,
@@ -128,6 +139,7 @@ function normaliseAccent(value: unknown): string {
 
 const SURFACES: Surface[] = ['light', 'dark', 'brand'];
 const PAGE_HEADS: PageHead[] = ['light', 'brand', 'plain'];
+const MENU_LAYOUTS: MenuLayout[] = ['sidebar', 'icons', 'top'];
 const THEMES: Theme[] = ['light', 'dark', 'system'];
 const CONTENT_BACKGROUNDS: ContentBackground[] = ['white', 'image'];
 const CONTENT_IMAGE_FILES: string[] = CONTENT_BACKGROUND_IMAGES.map((image) => image.file);
@@ -185,6 +197,9 @@ function read(): AppSettings {
             pageHead: PAGE_HEADS.includes(parsed.pageHead as PageHead)
                 ? (parsed.pageHead as PageHead)
                 : DEFAULTS.pageHead,
+            menuLayout: MENU_LAYOUTS.includes(parsed.menuLayout as MenuLayout)
+                ? (parsed.menuLayout as MenuLayout)
+                : DEFAULTS.menuLayout,
             compactSidebar: parsed.compactSidebar === true,
             contentBackground: CONTENT_BACKGROUNDS.includes(
                 parsed.contentBackground as ContentBackground,

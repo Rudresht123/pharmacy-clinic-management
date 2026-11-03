@@ -92,7 +92,7 @@ class ModuleRegistry
      *     description: string,
      *     icon: string,
      *     group: string,
-     *     is_core: bool,
+     *     is_org_level?: bool,
      *     requires?: list<string>,
      *     capabilities: list<array{key: string, name: string, scope: string, audience?: string}>,
      * }>
@@ -102,19 +102,22 @@ class ModuleRegistry
         return [
             /*
             |------------------------------------------------------------
-            | Core — every organization has these, always.
+            | Foundation — what almost every organization starts from.
             |------------------------------------------------------------
             |
-            | Marked is_core so the binding screen cannot take them away.
-            | An organization with no branches and no people is not a
-            | cheaper organization, it is a broken one, and a super admin
-            | should not be able to produce that state by mistake.
+            | NOTHING IS INCLUDED BY DEFAULT. A super admin grants every module
+            | an organization has, these as well, so a new organization starts
+            | with none of them. The owner then chooses which branch runs what.
+            |
+            | is_org_level marks the two that cannot be switched off inside the
+            | organization: Branches and Configuration. Every permission they
+            | hold is organization-wide, so "off at this branch" means nothing,
+            | and the screen that switches modules back on lives behind them.
             */
             /*
              * Where somebody lands — its own tick, so a role made for one job
              * (only chat, only the lab bench) is not handed the manager's
-             * reading of the day on the way to it. Core: every organization
-             * has a dashboard, whatever else it bought.
+             * reading of the day on the way to it.
              */
             [
                 'key' => 'dashboard',
@@ -122,7 +125,6 @@ class ModuleRegistry
                 'description' => 'The home screen: today at a glance.',
                 'icon' => 'ti ti-layout-dashboard',
                 'group' => self::GROUP_FOUNDATION,
-                'is_core' => true,
                 'capabilities' => [
                     ['key' => 'dashboard.view', 'screen' => true, 'name' => 'See the home dashboard', 'scope' => self::SCOPE_BRANCH],
                 ],
@@ -133,7 +135,7 @@ class ModuleRegistry
                 'description' => 'The stores, warehouses and sites an organization operates.',
                 'icon' => 'ti ti-building-store',
                 'group' => self::GROUP_FOUNDATION,
-                'is_core' => true,
+                'is_org_level' => true,
                 /*
                  * Creating, editing and removing are three capabilities, not
                  * one. "Can add a branch but not delete one" is an ordinary
@@ -176,7 +178,6 @@ class ModuleRegistry
                 'description' => 'The staff who sign in, and the branch each one works at.',
                 'icon' => 'ti ti-users-group',
                 'group' => self::GROUP_FOUNDATION,
-                'is_core' => true,
                 'capabilities' => [
                     ['key' => 'people.view', 'screen' => true, 'name' => 'View staff', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'people.create', 'name' => 'Add staff', 'scope' => self::SCOPE_BRANCH],
@@ -213,6 +214,9 @@ class ModuleRegistry
                      * from is what the organization switched on there.
                      */
                     ['key' => 'people.roles', 'name' => 'Write roles for this branch', 'scope' => self::SCOPE_BRANCH],
+
+                    // Opening the screen, apart from writing on it and apart from the staff list.
+                    ['key' => 'people.roles_view', 'screen' => true, 'name' => 'See the Roles & Permissions screen', 'scope' => self::SCOPE_BRANCH],
                 ],
             ],
             [
@@ -221,9 +225,11 @@ class ModuleRegistry
                 'description' => 'One record per person served, shared by every branch.',
                 'icon' => 'ti ti-users',
                 'group' => self::GROUP_FOUNDATION,
-                'is_core' => true,
                 'capabilities' => [
                     ['key' => 'customers.view', 'screen' => true, 'name' => 'See the customer list and search it', 'scope' => self::SCOPE_BRANCH],
+
+                    // Its own row in the menu, so its own tick, apart from the list above.
+                    ['key' => 'customers.records_view', 'screen' => true, 'name' => 'See the Patient Records screen', 'scope' => self::SCOPE_BRANCH],
 
                     /*
                      * Finding somebody is not reading about them. A desk that
@@ -247,8 +253,8 @@ class ModuleRegistry
                 /*
                  * The Export Center — records taken away as files.
                  *
-                 * Core, so every organization has it; who may use it is the
-                 * roles' question alone. One capability per tab rather than
+                 * Once granted, who may use it is the roles' question alone.
+                 * One capability per tab rather than
                  * one per file: reading a patient on screen is the desk's
                  * daily work, walking out with ten thousand names and phone
                  * numbers is a decision about a person, and that decision is
@@ -266,7 +272,6 @@ class ModuleRegistry
                 'description' => 'Patient, pharmacy, billing and communication records as Excel, CSV or PDF.',
                 'icon' => 'ti ti-file-export',
                 'group' => self::GROUP_FOUNDATION,
-                'is_core' => true,
                 'capabilities' => [
                     ['key' => 'exports.patients', 'name' => 'Export patient records (register, visits, prescriptions, lab)', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'exports.pharmacy', 'name' => 'Export pharmacy records (bills, stock, purchases)', 'scope' => self::SCOPE_BRANCH],
@@ -293,7 +298,7 @@ class ModuleRegistry
                 'description' => 'Field settings and what the organization calls each record.',
                 'icon' => 'ti ti-adjustments',
                 'group' => self::GROUP_FOUNDATION,
-                'is_core' => true,
+                'is_org_level' => true,
                 'capabilities' => [
                     ['key' => 'settings.manage', 'screen' => true, 'name' => 'Change field settings and naming', 'scope' => self::SCOPE_ORGANIZATION],
                     ['key' => 'settings.audit', 'screen' => true, 'name' => 'Read the organization-wide activity log', 'scope' => self::SCOPE_ORGANIZATION],
@@ -313,11 +318,10 @@ class ModuleRegistry
                 ],
             ],
             /*
-             * Billing is core, and it is INDEPENDENT.
+             * Billing is foundation, and it is INDEPENDENT.
              *
              * Every clinic charges for something, whether it dispenses medicine
-             * or not — a bare consultation is enough — so this cannot sit as an
-             * optional add-on the way pharmacy or laboratory do. It requires
+             * or not — a bare consultation is enough. It requires
              * nothing: an invoice can carry a consultation fee, a lab charge, a
              * pharmacy line or a custom service, whichever modules are on. The
              * organisation's chosen trigger (in `billing_settings`) decides
@@ -335,7 +339,6 @@ class ModuleRegistry
                 'description' => 'Invoices for consultations and services, payments and receipts.',
                 'icon' => 'ti ti-receipt',
                 'group' => self::GROUP_BILLING,
-                'is_core' => true,
                 'capabilities' => [
                     ['key' => 'billing.view', 'screen' => true, 'name' => 'View invoices and payments', 'scope' => self::SCOPE_BRANCH],
 
@@ -385,7 +388,7 @@ class ModuleRegistry
 
             /*
             |------------------------------------------------------------
-            | Sold separately — bound per organization.
+            | Optional — an owner or a branch may switch these off.
             |------------------------------------------------------------
             |
             | A module belongs here once its screens exist, or once it is
@@ -401,7 +404,13 @@ class ModuleRegistry
                 'description' => 'Doctors, their sittings, and the OPD queue.',
                 'icon' => 'ti ti-calendar-event',
                 'group' => self::GROUP_CLINICAL,
-                'is_core' => false,
+                /*
+                 * A booking is for a patient on the register, and the doctor
+                 * form picks from the department list Configuration keeps. The
+                 * first run of the setup also stops on that list wherever OPD
+                 * runs, so without Configuration an owner could never finish.
+                 */
+                'requires' => ['customers', 'settings'],
                 /*
                  * Split along the lines a busy desk actually draws. Taking a
                  * booking and calling the next patient in are what everybody
@@ -559,6 +568,7 @@ class ModuleRegistry
                     ['key' => 'portal.messages', 'screen' => true, 'name' => 'Patients: message the doctors they have seen', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
                     ['key' => 'portal.video_calls', 'name' => 'Patients: book video visits and take the doctor\'s call', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
                     ['key' => 'portal.family', 'screen' => true, 'name' => 'Patients: add family members and book for them', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
+                    ['key' => 'portal.family.history', 'screen' => true, 'name' => 'Patients: read their family members\' full history (visits, prescriptions, reports, vitals)', 'scope' => self::SCOPE_ORGANIZATION, 'audience' => self::AUDIENCE_PATIENT],
                 ],
             ],
             [
@@ -567,12 +577,12 @@ class ModuleRegistry
                 'description' => 'Consultations, prescriptions and the patient timeline.',
                 'icon' => 'ti ti-stethoscope',
                 'group' => self::GROUP_CLINICAL,
-                'is_core' => false,
                 /*
-                 * A prescription line names a medicine from the master, so
-                 * there is nothing to prescribe from without it.
+                 * Requires nothing. A line names a medicine from the master
+                 * where the clinic has one, and is simply typed where it does
+                 * not: plenty of clinics write the medicine and send the patient
+                 * to a chemist outside. With no pharmacy, nothing is dispensed.
                  */
-                'requires' => ['medicines'],
                 'capabilities' => [
                     ['key' => 'prescriptions.view', 'screen' => true, 'name' => 'Read prescriptions', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'prescriptions.write', 'name' => 'Write prescriptions', 'scope' => self::SCOPE_BRANCH],
@@ -603,7 +613,6 @@ class ModuleRegistry
                 'description' => 'Lab orders raised at a visit, and the results that come back.',
                 'icon' => 'ti ti-flask',
                 'group' => self::GROUP_CLINICAL,
-                'is_core' => false,
                 'requires' => ['appointments'],
                 'capabilities' => [
                     ['key' => 'laboratory.view', 'screen' => true, 'name' => 'View lab orders and results', 'scope' => self::SCOPE_BRANCH],
@@ -612,13 +621,51 @@ class ModuleRegistry
                     ['key' => 'laboratory.complete', 'name' => 'Sign off and cancel lab orders', 'scope' => self::SCOPE_BRANCH],
                 ],
             ],
+            /*
+             * THE SMART QUEUE, sold on its own: every doctor's live queue, the
+             * televisions, priority and moving patients between doctors. A
+             * module rather than more appointment capabilities because it is
+             * something a clinic buys, which is the one question a capability
+             * cannot answer: `requires` keeps it behind the OPD, and a plan or
+             * an add-on says who has it.
+             *
+             * Without it nothing about the OPD changes. Check-in, the desk's
+             * queue and the consultation keep working on `appointments.*`, with
+             * one plain run of tokens across the branch.
+             */
+            [
+                'key' => 'queue',
+                'name' => 'Smart Queue & TV Displays',
+                'description' => 'A live queue for every doctor, TV displays for the waiting room and each room, and priority patients.',
+                'icon' => 'ti ti-device-tv',
+                'group' => self::GROUP_CLINICAL,
+                'requires' => ['appointments'],
+                /*
+                 * One tick per screen, and a tick each for the two acts that put
+                 * one patient ahead of or away from others: a clinic may want
+                 * those with somebody senior.
+                 *
+                 * `any_doctor` is for a doctor's own login. The desk already
+                 * drives every queue at its branch; a doctor drives only their
+                 * own unless somebody grants this.
+                 */
+                'capabilities' => [
+                    ['key' => 'queue.board', 'screen' => true, 'name' => 'See the live queue of every doctor', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'queue.my_console', 'screen' => true, 'name' => 'Doctors: see My live queue', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'queue.control', 'name' => 'Run a queue: call next, skip, recall and pause', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'queue.priority', 'name' => 'Change a patient\'s priority in the queue', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'queue.reassign', 'name' => 'Move a waiting patient to another doctor', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'queue.any_doctor', 'name' => 'Doctors: run another doctor\'s queue', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'queue.settings', 'screen' => true, 'name' => 'Set rooms, token prefixes and queue settings', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'queue.displays', 'screen' => true, 'name' => 'Set up and manage TV displays', 'scope' => self::SCOPE_BRANCH],
+                ],
+            ],
             [
                 'key' => 'documents',
                 'name' => 'Patient documents',
                 'description' => 'Scans, reports and letters kept against a patient or a visit.',
                 'icon' => 'ti ti-folder',
                 'group' => self::GROUP_CLINICAL,
-                'is_core' => false,
                 /*
                  * A document hangs off a patient, so there is nothing to
                  * attach one to without the register.
@@ -699,7 +746,6 @@ class ModuleRegistry
                 'description' => 'The medicine master every prescription and stock record points at.',
                 'icon' => 'ti ti-pill',
                 'group' => self::GROUP_PHARMACY,
-                'is_core' => false,
                 /*
                  * Reading the list is what a doctor or counter does at their
                  * branch. Changing it changes what every branch prescribes and
@@ -716,7 +762,6 @@ class ModuleRegistry
                 'description' => 'Stores, batches, stock movements and dispensing.',
                 'icon' => 'ti ti-building-hospital',
                 'group' => self::GROUP_PHARMACY,
-                'is_core' => false,
                 'requires' => ['medicines'],
                 /*
                  * Receiving, adjusting and moving stock are separate because
@@ -761,7 +806,6 @@ class ModuleRegistry
                 'description' => 'Sales, purchases, stock, expiry, profit and GST reports for the pharmacy.',
                 'icon' => 'ti ti-report-analytics',
                 'group' => self::GROUP_PHARMACY,
-                'is_core' => false,
                 'requires' => ['pharmacy'],
                 'capabilities' => [
                     ['key' => 'reports.sales', 'screen' => true, 'name' => 'View the sales report', 'scope' => self::SCOPE_BRANCH],
@@ -785,7 +829,6 @@ class ModuleRegistry
                 'description' => 'WhatsApp integration, Email and SMS notifications.',
                 'icon' => 'ti ti-messages',
                 'group' => self::GROUP_COMMUNICATION,
-                'is_core' => false,
                 'capabilities' => [
                     ['key' => 'communication.view', 'screen' => true, 'name' => 'View communication logs and dashboards', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'communication.manage', 'name' => 'Manage communication settings and integrations', 'scope' => self::SCOPE_ORGANIZATION],
@@ -822,23 +865,19 @@ class ModuleRegistry
      * (the platform binding and the branch screen) ask this, so neither can
      * produce a prescriptions module with no medicines behind it.
      *
-     * CORE MODULES ARE ALWAYS TREATED AS PRESENT, whether or not `$enabledKeys`
-     * names them. Both call sites build that list from a payload of the
-     * TOGGLEABLE modules alone — a core module has no toggle to appear in one,
-     * `ModuleAccess::enabled()` includes every core key for every organization
-     * unconditionally. Before this, a module that required a core one (as
-     * `documents` requires `customers`) could never be switched on: the
-     * requirement read as unmet however things stood, because the one module
-     * that would have satisfied it was structurally never in the list being
-     * checked.
+     * Only what is named counts, because every module is granted and any of
+     * them may genuinely be missing. `$alsoPresent` is for the tenant screens:
+     * it satisfies a requirement without being checked itself, for what the
+     * person asking has no switch for. Refusing an owner over something only
+     * the super admin can change would only leave them stuck.
      *
      * @param  list<string>  $enabledKeys
+     * @param  list<string>  $alsoPresent
      * @return array<string, list<string>>
      */
-    public static function unmetRequirements(array $enabledKeys): array
+    public static function unmetRequirements(array $enabledKeys, array $alsoPresent = []): array
     {
-        $satisfied = [...$enabledKeys, ...self::coreKeys()];
-
+        $satisfied = [...$enabledKeys, ...$alsoPresent];
         $unmet = [];
 
         foreach ($enabledKeys as $key) {
@@ -862,11 +901,17 @@ class ModuleRegistry
         $name = fn (string $key) => self::find($key)['name'] ?? $key;
 
         return implode(' ', array_map(
+            /*
+             * Both ways out, because this is met from both directions: switching
+             * Reports on with no Pharmacy, and switching Pharmacy off under
+             * Reports. "Enable it" only ever described the first.
+             */
             fn (string $key, array $missing) => sprintf(
-                '%s needs %s. Enable %s too.',
+                '%s needs %s. Switch %s on too, or switch %s off.',
                 $name($key),
                 implode(' and ', array_map($name, $missing)),
                 count($missing) === 1 ? 'it' : 'them',
+                $name($key),
             ),
             array_keys($unmet),
             $unmet,
@@ -913,14 +958,18 @@ class ModuleRegistry
     }
 
     /**
-     * The modules nobody can be without.
+     * The modules an organization cannot switch off once it has them, because
+     * they belong to the organization rather than to any branch.
+     *
+     * Never "the modules everybody has": those no longer exist. Each of these
+     * is granted by a super admin like any other.
      *
      * @return list<string>
      */
-    public static function coreKeys(): array
+    public static function orgLevelKeys(): array
     {
         return array_column(
-            array_filter(self::all(), fn (array $module) => $module['is_core']),
+            array_filter(self::all(), fn (array $module) => $module['is_org_level'] ?? false),
             'key'
         );
     }

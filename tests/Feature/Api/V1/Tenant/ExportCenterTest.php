@@ -195,7 +195,7 @@ class ExportCenterTest extends TenantTestCase
             ],
         ])->assertOk();
 
-        $this->staffAtGurgaon(['customers.view', 'exports.patients']);
+        $this->staffAtGurgaon(['customers.view', 'customers.records_view', 'exports.patients']);
 
         $datasets = collect($this->catalogue($this->gurgaon)['tabs'][0]['datasets'])->keyBy('key');
 

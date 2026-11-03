@@ -4,14 +4,15 @@ import { LoadingBlock } from '@/shared/components/ui/Feedback';
 import { resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { useBranchModules, useSaveBranchModules } from '../api';
+import { toModuleSections } from '../moduleSections';
 
 /**
  * Level two of the permission flow: which of the organization's modules this
  * branch actually runs.
  *
- * Only modules the organization holds appear, and core ones never do — a
- * branch with no customers or no staff is not a smaller branch, it is a
- * broken one.
+ * Every module the organization holds appears, filed the way the sidebar is.
+ * Branches and Configuration show with a padlock: they belong to the
+ * organization, so there is no such thing as switching them off at one branch.
  *
  * Everything starts switched on. The table behind this is a sparse override
  * storing only what was turned off, so a branch nobody has configured keeps
@@ -40,8 +41,11 @@ export function BranchModulePanel({ locationId }: { locationId: number }) {
     }
 
     async function onSave() {
+        // Only what has a switch here: the rest is not this branch's to say.
+        const fixed = (modules ?? []).filter((module) => module.is_org_level).map((module) => module.key);
+
         try {
-            await save.mutateAsync(on);
+            await save.mutateAsync(on.filter((key) => !fixed.includes(key)));
             setDirty(false);
         } catch (error) {
             notify.error(resolveErrorMessage(error));
@@ -59,8 +63,8 @@ export function BranchModulePanel({ locationId }: { locationId: number }) {
                     <i className="ti ti-puzzle" />
                     <h6>Nothing to choose from</h6>
                     <p>
-                        Your organization has only the modules every organization gets, and those
-                        run at every branch. Optional modules appear here once you have them.
+                        Your organization has no modules yet. They appear here as soon as your ZEVRO
+                        administrator grants them.
                     </p>
                 </div>
             </div>
@@ -94,65 +98,74 @@ export function BranchModulePanel({ locationId }: { locationId: number }) {
             </header>
 
             <div className="rp-body">
-                <div className="bm-list">
-                    {(modules ?? []).map((module) => {
-                        const enabled = on.includes(module.key);
-                        const offForOrganization = module.organization_enabled === false;
+                {toModuleSections(modules ?? []).map((section) => (
+                    <section className="bm-section" key={section.title || 'top'}>
+                        {section.title && <h6 className="bm-heading">{section.title}</h6>}
 
-                        return (
-                            <label
-                                className={`bm-item${enabled ? ' is-on' : ''}${module.is_locked || offForOrganization ? ' is-locked' : ''}`}
-                                key={module.key}
-                            >
-                                <span className="rp-module-icon is-slate" aria-hidden="true">
-                                    <i className={module.icon ?? 'ti ti-puzzle'} />
-                                </span>
+                        <div className="bm-list">
+                            {section.modules.map((module) => {
+                                const enabled = on.includes(module.key);
+                                const offForOrganization = module.organization_enabled === false;
 
-                                <span className="bm-text">
-                                    <b>{module.name}</b>
-                                    <small>{module.description}</small>
-                                </span>
-
-                                {/*
-                                    A padlock instead of a switch for a module
-                                    the organization has made compulsory: a
-                                    control that is always refused on save is
-                                    worse than no control.
-                                */}
-                                {/*
-                                    Switched off for the whole organisation: no
-                                    branch can switch it back on, so it gets a
-                                    padlock too, in the off position.
-                                */}
-                                {offForOrganization ? (
-                                    <span
-                                        className="rp-lock"
-                                        title="Switched off for your organisation"
+                                return (
+                                    <label
+                                        className={`bm-item${enabled ? ' is-on' : ''}${module.is_locked || module.is_org_level || offForOrganization ? ' is-locked' : ''}`}
+                                        key={module.key}
                                     >
-                                        <i className="ti ti-lock-off" aria-hidden="true" />
-                                    </span>
-                                ) : module.is_locked ? (
-                                    <span
-                                        className="rp-lock is-on"
-                                        title="Required by your organisation"
-                                    >
-                                        <i className="ti ti-lock" aria-hidden="true" />
-                                    </span>
-                                ) : (
-                                    <span className="ma-switch">
-                                        <input
-                                            type="checkbox"
-                                            checked={enabled}
-                                            aria-label={`Run ${module.name} at this branch`}
-                                            onChange={() => toggle(module.key)}
-                                        />
-                                        <span className="ma-track" aria-hidden="true" />
-                                    </span>
-                                )}
-                            </label>
-                        );
-                    })}
-                </div>
+                                        <span className="rp-module-icon is-slate" aria-hidden="true">
+                                            <i className={module.icon ?? 'ti ti-puzzle'} />
+                                        </span>
+
+                                        <span className="bm-text">
+                                            <b>{module.name}</b>
+                                            <small>{module.description}</small>
+                                        </span>
+
+                                        {/*
+                                            A padlock instead of a switch wherever
+                                            this branch has no say: a control that
+                                            is always refused on save is worse than
+                                            no control. In the off position when
+                                            the whole organisation switched it off.
+                                        */}
+                                        {offForOrganization ? (
+                                            <span
+                                                className="rp-lock"
+                                                title="Switched off for your organisation"
+                                            >
+                                                <i className="ti ti-lock-off" aria-hidden="true" />
+                                            </span>
+                                        ) : module.is_org_level ? (
+                                            <span
+                                                className="rp-lock is-on"
+                                                title="Belongs to the whole organisation, not to one branch"
+                                            >
+                                                <i className="ti ti-lock" aria-hidden="true" />
+                                            </span>
+                                        ) : module.is_locked ? (
+                                            <span
+                                                className="rp-lock is-on"
+                                                title="Required by your organisation"
+                                            >
+                                                <i className="ti ti-lock" aria-hidden="true" />
+                                            </span>
+                                        ) : (
+                                            <span className="ma-switch">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={enabled}
+                                                    aria-label={`Run ${module.name} at this branch`}
+                                                    onChange={() => toggle(module.key)}
+                                                />
+                                                <span className="ma-track" aria-hidden="true" />
+                                            </span>
+                                        )}
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </section>
+                ))}
 
                 <p className="bm-note">
                     <i className="ti ti-info-circle" />

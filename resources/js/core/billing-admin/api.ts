@@ -253,7 +253,7 @@ export interface OrganizationSubscription {
     }>;
     resources: Record<string, ResourceUsage> | null;
     usage: Record<string, QuotaUsage>;
-    modules: Array<{ key: string; name: string; source: string; is_live: boolean; is_core: boolean }>;
+    modules: Array<{ key: string; name: string; source: string; is_live: boolean }>;
     events: SubscriptionEvent[];
     history: AdminSubscription[];
     invoices: Array<Pick<SubscriptionInvoice, 'uuid' | 'number' | 'kind' | 'status' | 'total' | 'currency' | 'issued_at' | 'due_at' | 'paid_at'>>;

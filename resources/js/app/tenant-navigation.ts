@@ -145,12 +145,11 @@ export function tenantNavigation(
     }
 
     /*
-     * Anybody who administers staff has to be able to see the roles they are
-     * assigning. Writing them is a separate question, answered per role on the
-     * screen: the organization's are the owner's, a branch's are that
-     * branch's.
+     * Its own tick, apart from the staff list. Writing a role is a separate
+     * question again, answered per role on the screen: the organization's are
+     * the owner's, a branch's are that branch's.
      */
-    if (can('people.view')) {
+    if (can('people.roles_view')) {
         here.push({
             label: 'Roles & Permissions',
             to: '/roles',
@@ -317,6 +316,29 @@ export function tenantNavigation(
     }
 
     /*
+     * How the Smart Queue is set up: who sits in which room and what their tokens
+     * read, then the televisions. Set once and left alone, which is what makes
+     * them settings; running the queue itself lives under OPD.
+     */
+    if (hasModule('queue') && can('queue.settings')) {
+        settings.push({
+            label: 'Queue settings',
+            to: '/settings/queue',
+            icon: 'ti ti-adjustments',
+            match: '/settings/queue',
+        });
+    }
+
+    if (hasModule('queue') && can('queue.displays')) {
+        settings.push({
+            label: 'TV displays',
+            to: '/settings/tv-displays',
+            icon: 'ti ti-device-tv',
+            match: '/settings/tv-displays',
+        });
+    }
+
+    /*
      * How the shop prices, rounds and warns.
      *
      * The condition is spelled out rather than reusing the `pharmacy` const
@@ -389,6 +411,10 @@ export function tenantNavigation(
      */
     if (isDoctor && hasModule('appointments')) {
         const mine: NavItem[] = [];
+
+        if (hasModule('queue') && can('queue.my_console')) {
+            mine.push({ label: 'My live queue', to: '/my-live-queue', icon: 'ti ti-broadcast', match: '/my-live-queue' });
+        }
 
         if (can('appointments.my_queue')) {
             mine.push(
@@ -516,6 +542,16 @@ export function tenantNavigation(
             });
         }
 
+        // Every doctor's queue at once: sold as its own module, opened by its own tick.
+        if (hasModule('queue') && can('queue.board')) {
+            opd.push({
+                label: 'Live queue',
+                to: '/opd/live-queue',
+                icon: 'ti ti-broadcast',
+                match: '/opd/live-queue',
+            });
+        }
+
         // Patients asking, from the app, to move a booking.
         if (can('appointments.reschedule')) {
             opd.push({
@@ -566,13 +602,14 @@ export function tenantNavigation(
             icon: 'ti ti-users',
             match: '/customers',
         });
+    }
 
-        /*
-         * Directly under the register it reads from: one patient's
-         * appointments, visits, prescriptions, reports, pharmacy and bills in
-         * one place. Each tab inside is gated on its own module, so the row
-         * needs nothing beyond being able to see a patient.
-         */
+    /*
+     * Directly under the register: one patient's appointments, visits,
+     * prescriptions, reports, pharmacy and bills in one place. Its own tick;
+     * each tab inside is then gated on its own module.
+     */
+    if (can('customers.records_view') && !customersUnderPharmacy) {
         clinical.push({
             label: 'Patient Records',
             to: '/patient-records',
@@ -776,8 +813,8 @@ export function tenantNavigation(
     }
 
     /*
-     * Billing. Core module: always available, but the menu only shows when
-     * this person may look at an invoice. The screen inside decides what
+     * Billing. The menu only shows where the module runs and this person may
+     * look at an invoice. The screen inside decides what
      * they may then do — take payment, cancel, refund — from their own
      * capability list, same as the pharmacy.
      */

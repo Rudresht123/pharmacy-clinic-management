@@ -42,7 +42,7 @@ export function planPoints(plan: PlanFaceData): string[] {
         show('branches', 'branches'),
         show('doctors', 'doctors'),
         show('employees', 'staff'),
-        plan.modules.length > 0 ? `${plan.modules.length} module${plan.modules.length === 1 ? '' : 's'} included` : 'Core modules',
+        plan.modules.length > 0 ? `${plan.modules.length} module${plan.modules.length === 1 ? '' : 's'} included` : 'No modules',
         ...plan.features.map((feature) => LABELS[feature] ?? feature),
     ].slice(0, 5);
 }

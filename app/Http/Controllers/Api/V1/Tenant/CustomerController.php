@@ -223,6 +223,7 @@ class CustomerController extends BaseApiController
                 'type' => $visit->type,
                 'slot_at' => $visit->slot_at ? substr((string) $visit->slot_at, 0, 5) : null,
                 'token_no' => $visit->token_no,
+                'token_label' => $visit->tokenLabel(),
                 'doctor_name' => $visit->doctor?->name,
                 // Read as the department on the patient's record: what kind
                 // of doctor they saw matters more there than which one.
