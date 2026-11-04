@@ -281,53 +281,24 @@ class StaffScopeTest extends TenantTestCase
     {
         [$organization, $here] = $this->network();
 
-        $this->signInAsOwner($organization);
+        $powerful = $this->branchRole($organization, $here, 'Everything', ['people.view', 'people.edit', 'customers.view', 'customers.delete']);
+        $modest = $this->branchRole($organization, $here, 'Modest', ['people.view']);
+        $colleague = $this->colleagueAt($organization, $here);
 
-        /*
-         * Organization-scoped, because `users.role_id` is the head-office slot
-         * — a branch role goes on a membership and is refused here.
-         */
-        $powerful = $this->postJson('/api/v1/tenant/roles', [
-            'name' => 'Everything',
-            'scope' => 'organization',
-            'capabilities' => [
-                'people.view', 'people.create', 'people.edit', 'people.delete',
-                'customers.view', 'customers.delete', 'settings.manage',
-            ],
-        ])->assertCreated()->json('data');
-
-        $modest = $this->postJson('/api/v1/tenant/roles', [
-            'name' => 'Modest',
-            'scope' => 'organization',
-            'capabilities' => ['people.view', 'people.edit'],
-        ])->assertCreated()->json('data');
-
-        /*
-         * Organization HR (`people.across_branches`): only somebody working at
-         * that level hands out organization-wide roles at all — see
-         * RoleScopeTest. This test is about the other rule, what is IN the role.
-         */
-        $this->setStaffCapabilities($organization, ['people.view', 'people.edit', 'people.create', 'people.across_branches']);
+        $this->setStaffCapabilities($organization, ['people.view', 'people.edit']);
         $this->signInAsStaff($organization);
 
-        $payload = [
-            'name' => 'Priya Sharma',
-            'email' => 'priya-'.uniqid().'@example.com',
-            'password' => self::OTHER_PASSWORD,
-            'password_confirmation' => self::OTHER_PASSWORD,
-            'role' => User::STAFF,
-            'is_active' => true,
-            'location_id' => $here,
-        ];
+        $give = fn (int $role) => $this->putJson("/api/v1/tenant/users/{$colleague}/branches", [
+            'branches' => [['location_id' => $here, 'role_id' => $role, 'is_primary' => true]],
+        ]);
 
-        $this->postJson('/api/v1/tenant/users', $payload + ['role_id' => $powerful['id']])
+        $give($powerful)
             ->assertStatus(422)
-            ->assertJsonValidationErrors('role_id');
+            ->assertJsonValidationErrors('branches.0.role_id');
 
         // A role within their own reach goes through, so the refusal above was
         // the escalation rule and not something else about the payload.
-        $this->postJson('/api/v1/tenant/users', $payload + ['role_id' => $modest['id']])
-            ->assertCreated();
+        $give($modest)->assertOk();
     }
 
     /** The same rule on edit, which is the shorter path to the same place. */
@@ -335,13 +306,7 @@ class StaffScopeTest extends TenantTestCase
     {
         [$organization, $here, , $delegateId] = $this->network();
 
-        $this->signInAsOwner($organization);
-
-        $powerful = $this->postJson('/api/v1/tenant/roles', [
-            'name' => 'Everything',
-            'scope' => 'organization',
-            'capabilities' => ['people.view', 'people.edit', 'settings.manage'],
-        ])->assertCreated()->json('data');
+        $powerful = $this->organizationRole($organization, 'Everything', ['people.view', 'people.edit', 'settings.manage']);
 
         // Organization HR, so the refusal is the escalation rule and not the
         // organization-wide authority one (RoleScopeTest).
@@ -352,7 +317,7 @@ class StaffScopeTest extends TenantTestCase
             'name' => 'Staff',
             'email' => self::STAFF_EMAIL,
             'role' => User::STAFF,
-            'role_id' => $powerful['id'],
+            'role_id' => $powerful,
             'is_active' => true,
             'location_id' => $here,
         ])->assertStatus(422)->assertJsonValidationErrors('role_id');
@@ -522,23 +487,76 @@ class StaffScopeTest extends TenantTestCase
     {
         [$organization, $here] = $this->network();
 
+        $powerful = $this->branchRole($organization, $here, 'Everything', ['people.view', 'people.delete', 'customers.delete']);
+        $colleague = $this->colleagueAt($organization, $here);
+
         $this->signInAsOwner($organization);
 
-        $powerful = $this->postJson('/api/v1/tenant/roles', [
-            'name' => 'Everything',
-            'scope' => 'organization',
-            'capabilities' => ['people.view', 'people.delete', 'settings.manage'],
-        ])->assertCreated()->json('data');
+        $this->putJson("/api/v1/tenant/users/{$colleague}/branches", [
+            'branches' => [['location_id' => $here, 'role_id' => $powerful, 'is_primary' => true]],
+        ])->assertOk();
+    }
 
-        $this->postJson('/api/v1/tenant/users', [
-            'name' => 'Priya Sharma',
-            'email' => 'priya-'.uniqid().'@example.com',
-            'password' => self::OTHER_PASSWORD,
-            'password_confirmation' => self::OTHER_PASSWORD,
-            'role' => User::STAFF,
-            'role_id' => $powerful['id'],
-            'is_active' => true,
-            'location_id' => $here,
-        ])->assertCreated();
+    /**
+     * One of this branch's own roles.
+     *
+     * @param  list<string>  $capabilities
+     */
+    private function branchRole(Organization $organization, int $branch, string $name, array $capabilities): int
+    {
+        return $this->onTenant($organization, function () use ($branch, $name, $capabilities) {
+            $role = Role::on('organization')->create([
+                'name' => $name,
+                'slug' => Role::slugAt(strtolower($name), $branch),
+                'scope' => Role::SCOPE_BRANCH,
+                'location_id' => $branch,
+            ]);
+
+            $role->syncCapabilities($capabilities);
+
+            return $role->id;
+        });
+    }
+
+    /** Somebody else working at this branch, for a role to be handed to. */
+    private function colleagueAt(Organization $organization, int $branch): int
+    {
+        return $this->onTenant($organization, function () use ($branch) {
+            $colleague = User::on('organization')->create([
+                'name' => 'Asha Verma',
+                'email' => 'asha-'.uniqid().'@example.com',
+                'password' => bcrypt(self::OTHER_PASSWORD),
+                'is_active' => true,
+                'role' => User::STAFF,
+            ]);
+
+            BranchMembership::on('organization')->create([
+                'user_id' => $colleague->id,
+                'location_id' => $branch,
+                'is_primary' => true,
+            ]);
+
+            return $colleague->id;
+        });
+    }
+
+    /**
+     * A role across the network, which no screen writes any more.
+     *
+     * @param  list<string>  $capabilities
+     */
+    private function organizationRole(Organization $organization, string $name, array $capabilities): int
+    {
+        return $this->onTenant($organization, function () use ($name, $capabilities) {
+            $role = Role::on('organization')->create([
+                'name' => $name,
+                'slug' => strtolower($name),
+                'scope' => Role::SCOPE_ORGANIZATION,
+            ]);
+
+            $role->syncCapabilities($capabilities);
+
+            return $role->id;
+        });
     }
 }

@@ -15,6 +15,7 @@ import { TemplateTable } from '../components/TemplateTable';
 import { AutomationRules } from '../components/AutomationRules';
 import { RecentMessages } from '../components/RecentMessages';
 import { TestSendModal } from '../components/TestSendModal';
+import { BranchWordingModal } from '../components/BranchWordingModal';
 import { TemplateFormModal } from '../components/TemplateFormModal';
 import { MessageDetailModal } from '../components/MessageDetailModal';
 import { AutomationRuleModal } from '../components/AutomationRuleModal';
@@ -25,7 +26,7 @@ import { CampaignsTable } from '../components/CampaignsTable';
 import { ReasonDialog } from '@/core/medicines/components/ReasonDialog';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import {
-    useCampaigns,
+    asSentHere,    useCampaigns,
     useRemoveCampaign,
     useSendCampaign,
     useUnscheduleCampaign,
@@ -129,6 +130,13 @@ export default function EmailPage() {
      */
     const { can } = useTenantAuth();
     const manage = can('communication.manage');
+
+    /*
+     * A branch cannot hold `communication.manage`. What it may hold is this: its
+     * own wording of a template, which leaves the template itself alone.
+     */
+    const reword = !manage && can('communication.branch_templates');
+    const [rewording, setRewording] = useState<MessageTemplate | null>(null);
 
     const { data, isLoading, isError, error, refetch } = useChannelOverview('email', days);
 
@@ -296,7 +304,7 @@ It will reach ${reach} patients.` : ''),
 
                 {view === 'templates' && (
                     <TemplateTable
-                        templates={data.templates}
+                        templates={asSentHere(data.templates)}
                         categories={CATEGORIES}
                         selected={selected}
                         onSelect={setSelected}
@@ -304,7 +312,7 @@ It will reach ${reach} patients.` : ''),
                         actionLabel="Edit"
                         title="Email templates"
                         onCreate={manage ? () => setEditing(false) : undefined}
-                        onEdit={manage ? setEditing : undefined}
+                        onEdit={manage ? setEditing : reword ? setRewording : undefined}
                         onRemove={manage ? setRemoving : undefined}
                     />
                 )}
@@ -389,6 +397,8 @@ It will reach ${reach} patients.` : ''),
                 placeholder={data.account.handle ?? 'owner@careplus.com'}
                 hint="Goes out through the same transport as a real notification, so a failure here is a real failure."
             />
+
+            <BranchWordingModal template={rewording} channel="email" onClose={() => setRewording(null)} />
 
             <TemplateFormModal
                 open={editing !== null}

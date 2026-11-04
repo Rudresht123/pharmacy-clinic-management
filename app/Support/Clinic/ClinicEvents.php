@@ -63,6 +63,12 @@ final class ClinicEvents
     public const CONSULTATION_COMPLETED = 'consultation_completed';
 
     /**
+     * A patient reached the desk and joined the queue. Not a document, and not for
+     * the doctor: this is the patient's phone (AutomationSender).
+     */
+    public const PATIENT_CHECKED_IN = 'patient_checked_in';
+
+    /**
      * A patient's token was called, or called again.
      *
      * Not a document, and not for the televisions, which hear it on the doctor's
@@ -173,6 +179,12 @@ final class ClinicEvents
                 'at' => 'VisitWorkflow::completeConsultation()',
                 // Nothing to print — DocumentRuleController skips an event
                 // with no documents, so it is never offered as a rule.
+                'documents' => [],
+            ],
+            self::PATIENT_CHECKED_IN => [
+                'label' => 'Patient checked in',
+                'module' => 'appointments',
+                'at' => 'BookingService::checkIn()',
                 'documents' => [],
             ],
             self::TOKEN_CALLED => [

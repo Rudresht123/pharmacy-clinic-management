@@ -99,7 +99,7 @@ class PharmacyFoundationsTest extends TenantTestCase
 
     public function test_every_counter_reads_the_settings_but_only_setup_changes_them(): void
     {
-        $this->setStaffCapabilities($this->organization, ['pharmacy.view']);
+        $this->setStaffCapabilities($this->organization, ['pharmacy.sell']);
         $this->signInAsStaff($this->organization);
 
         // The POS prices and warns from these, so reading is the counter's.

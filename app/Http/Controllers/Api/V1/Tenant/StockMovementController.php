@@ -24,7 +24,7 @@ class StockMovementController extends BaseApiController
 
     public function index(Request $request, PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewMovements', $store);
 
         $query = $this->filtered($request, $store)->with(['medicine', 'batch']);
 
@@ -68,7 +68,7 @@ class StockMovementController extends BaseApiController
      */
     public function summary(Request $request, PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewMovements', $store);
 
         $current = $this->totals($this->filtered($request, $store));
         $previous = $this->totals($this->filtered($request, $store, previousPeriod: true));

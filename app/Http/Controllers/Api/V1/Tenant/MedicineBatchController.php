@@ -40,7 +40,7 @@ class MedicineBatchController extends BaseApiController
      */
     public function stock(Request $request, PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewStock', $store);
 
         $today = now()->toDateString();
         $term = trim((string) $request->query('search', ''));
@@ -171,7 +171,7 @@ class MedicineBatchController extends BaseApiController
      */
     public function categories(PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewStock', $store);
 
         $categories = MedicineBatch::query()
             ->where('pharmacy_store_id', $store->id)
@@ -188,7 +188,7 @@ class MedicineBatchController extends BaseApiController
 
     public function index(Request $request, PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewStock', $store);
 
         $term = trim((string) $request->query('search', ''));
 

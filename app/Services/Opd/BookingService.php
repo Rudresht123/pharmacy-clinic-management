@@ -11,6 +11,7 @@ use App\Services\Billing\BillingTriggerResolver;
 use App\Services\Clinic\ClinicEvent;
 use App\Services\Clinic\ClinicEventDispatcher;
 use App\Services\Communication\AppointmentReminders;
+use App\Services\Portal\PatientNotifications;
 use App\Services\Queue\QueueJournal;
 use App\Services\Queue\QueueTokenService;
 use App\Support\Clinic\ClinicEvents;
@@ -273,6 +274,13 @@ class BookingService
             ($this->billingTrigger ?? app(BillingTriggerResolver::class))->onCheckedIn($appointment);
 
             app(QueueJournal::class)->visit($appointment, QueueEvent::CHECKED_IN, null, Appointment::QUEUE_WAITING);
+
+            // Somebody on a video visit has not walked up to anything.
+            if (! $appointment->isVideo()) {
+                app(PatientNotifications::class)->checkedIn($appointment);
+
+                $this->events()->dispatch(ClinicEvent::for(ClinicEvents::PATIENT_CHECKED_IN, $appointment));
+            }
 
             return $appointment;
         });

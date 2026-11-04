@@ -5,7 +5,6 @@ namespace App\Http\Requests\Api\V1\Tenant;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
 use App\Services\Permissions\Permission;
-use App\Services\Permissions\StaffScope;
 use App\Support\Modules\ModuleRegistry;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -106,7 +105,8 @@ class SaveRoleRequest extends FormRequest
                 }
 
                 $scope = $this->effectiveScope();
-                $this->refuseWideningOwnRole($validator, $permission);
+                $this->refuseWhatThisBranchDoesNotRun($validator, $permission, $pool);
+                $this->refuseLockingThemselvesOut($validator);
 
                 foreach ((array) $this->input('capabilities', []) as $index => $capability) {
                     /*
@@ -184,21 +184,63 @@ class SaveRoleRequest extends FormRequest
     }
 
     /**
-     * Nobody widens a role they hold themselves beyond what they already have.
+     * Whoever writes a branch's roles draws only on what that branch runs.
      *
-     * Handing a role out is checked (StaffScope::canGrant), but somebody who
-     * already holds a role their branch wrote never needs to hand it out —
-     * editing it was a way to grant themselves anything the branch runs.
-     * Only what is being ADDED is compared, so removing permissions, or
-     * renaming, stays open; and writing roles for other people is unchanged.
+     * That is the limit the organization sets: it chooses which modules run at
+     * a branch, and the branch decides who holds what from them. The person
+     * writing is one of those people, so a branch manager may add to the role
+     * they hold themselves, the same as to anybody else's. Roles are written
+     * only from the branch, so nobody else could do it for them.
+     *
+     * Only what is being ADDED is compared. A role may still hold a permission
+     * whose module was switched off here since, and that must not stop
+     * somebody renaming it.
+     *
+     * @param  list<string>  $pool  what the organization holds; anything else is refused by the caller
      */
-    private function refuseWideningOwnRole(Validator $validator, Permission $permission): void
+    private function refuseWhatThisBranchDoesNotRun(Validator $validator, Permission $permission, array $pool): void
     {
-        $role = $this->route('role');
         $actor = Auth::guard('web')->user();
         $organization = $this->attributes->get('tenant.organization');
 
-        if (! $role instanceof Role || ! $actor instanceof User || ! $organization || $actor->isOwner()) {
+        if (! $actor instanceof User || ! $organization || $actor->isOwner()) {
+            return;
+        }
+
+        $role = $this->route('role');
+
+        $here = ModuleRegistry::capabilitiesFor(
+            $permission->modulesAt($organization, $permission->branchFor($actor)),
+        );
+
+        $added = array_diff(
+            (array) $this->input('capabilities', []),
+            $role instanceof Role ? $role->capabilityKeys() : [],
+            $here,
+        );
+
+        foreach (array_intersect($added, $pool) as $capability) {
+            $validator->errors()->add(
+                'capabilities',
+                "This branch does not run the module that grants \"{$capability}\". Ask your organization owner to switch it on here."
+            );
+        }
+    }
+
+    /**
+     * Nobody takes away their own way back.
+     *
+     * A branch's roles are written only from that branch, so somebody who
+     * unticks writing roles, or the screen it happens on, from the role they
+     * hold could leave nobody there able to put it back. The owner cannot: each
+     * branch sets its own (RoleController::mustBeWritable).
+     */
+    private function refuseLockingThemselvesOut(Validator $validator): void
+    {
+        $role = $this->route('role');
+        $actor = Auth::guard('web')->user();
+
+        if (! $role instanceof Role || ! $actor instanceof User || $actor->isOwner()) {
             return;
         }
 
@@ -209,12 +251,12 @@ class SaveRoleRequest extends FormRequest
             return;
         }
 
-        $added = array_values(array_diff((array) $this->input('capabilities', []), $role->capabilityKeys()));
+        $taken = array_diff($role->capabilityKeys(), (array) $this->input('capabilities', []));
 
-        if (! app(StaffScope::class)->canGrant($actor, $added, $permission->capabilitiesFor($organization, $actor))) {
+        if (array_intersect(['people.roles', 'people.roles_view'], $taken) !== []) {
             $validator->errors()->add(
                 'capabilities',
-                'You hold this role yourself, so you cannot add permissions to it that you do not already have. Ask an owner to change it.'
+                'You hold this role, so you cannot take off the permissions that let you change roles. Nobody here could put them back.'
             );
         }
     }

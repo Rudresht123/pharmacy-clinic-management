@@ -428,9 +428,9 @@ class RescheduleRequestTest extends TenantTestCase
         $startsWith = fn (string $notify) => collect(StaffAlertDefaults::rules($notify))
             ->firstWhere('event_key', AutomationRule::APPOINTMENT_RESCHEDULE_REQUESTED)['recipients']['to'];
 
-        $this->assertSame([['type' => 'front_desk']], $startsWith(AppointmentSetting::DESK));
+        $this->assertSame([['type' => 'front_desk'], ['type' => 'branch_manager']], $startsWith(AppointmentSetting::DESK));
         $this->assertSame([['type' => 'doctor']], $startsWith(AppointmentSetting::DOCTOR));
-        $this->assertSame([['type' => 'front_desk'], ['type' => 'doctor']], $startsWith(AppointmentSetting::BOTH));
+        $this->assertSame([['type' => 'front_desk'], ['type' => 'branch_manager'], ['type' => 'doctor']], $startsWith(AppointmentSetting::BOTH));
     }
 
     public function test_only_the_settings_holder_changes_them(): void

@@ -87,6 +87,7 @@ use App\Http\Controllers\Api\V1\Tenant\VideoCallController;
 use App\Http\Controllers\Api\V1\Tenant\WorkspaceLookupController;
 use App\Services\Pharmacy\PharmacyReports;
 use App\Services\Tenant\OrganizationSetup;
+use App\Support\Modules\ScreenTicks;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -642,7 +643,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | only pharmacy setup changes them.
             */
             Route::get('pharmacy/settings', [PharmacySettingController::class, 'show'])
-                ->middleware('permission:pharmacy.view')
+                ->middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_SETTINGS))
                 ->name('pharmacy.settings.show');
             Route::put('pharmacy/settings', [PharmacySettingController::class, 'update'])
                 ->middleware('permission:pharmacy.stores')
@@ -675,19 +676,18 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             });
 
             /*
-            | The list itself is behind `pharmacy.view` OR any one report —
-            | the Reports screen has to know which store it is reporting on
-            | before it can ask for anything, and a role holding only reports
-            | must not be locked out of the one call that picks the store. A
-            | single store's OWN detail and its medicine list stay behind
-            | `pharmacy.view` alone: those answer questions a report never
-            | asks.
+            | The list itself is behind any pharmacy screen OR any one report —
+            | every one of them has to know which store it is on before it can
+            | ask for anything, and a role holding only reports must not be
+            | locked out of the one call that picks the store. A single store's
+            | OWN detail and its medicine list are the Stores screen's: those
+            | answer questions a report never asks.
             */
             Route::get('pharmacy-stores', [PharmacyStoreController::class, 'index'])
-                ->middleware('permission:pharmacy.view,'.implode(',', PharmacyReports::CAPABILITIES))
+                ->middleware(ScreenTicks::gate([...ScreenTicks::PHARMACY_ANY, ...PharmacyReports::CAPABILITIES]))
                 ->name('pharmacy-stores.index');
 
-            Route::middleware('permission:pharmacy.view')->group(function () {
+            Route::middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_STORE))->group(function () {
                 Route::get('pharmacy-stores/{store}', [PharmacyStoreController::class, 'show'])
                     ->name('pharmacy-stores.show');
                 Route::get('pharmacy-stores/{store}/medicines', [StoreMedicineController::class, 'index'])
@@ -701,7 +701,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | the controller then asks the same of the STORE'S branch.
             */
             Route::get('pharmacy-stores/{store}/opd-patients', [PharmacyOpdHandoffController::class, 'index'])
-                ->middleware(['module:appointments', 'permission:pharmacy.view'])
+                ->middleware(['module:appointments', ScreenTicks::gate(ScreenTicks::PHARMACY_HANDOFF)])
                 ->name('pharmacy-stores.opd-patients');
 
             // What a store holds, for a doctor choosing what to prescribe.
@@ -721,7 +721,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 ->middleware('permission:pharmacy.restore')
                 ->name('suppliers.restore');
 
-            Route::middleware('permission:pharmacy.view')->group(function () {
+            Route::middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_SUPPLIERS))->group(function () {
                 Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
                 Route::get('suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
             });
@@ -737,16 +737,17 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | these routes only choose which document causes it. Stock-changing
             | POSTs require an Idempotency-Key header.
             */
-            Route::middleware('permission:pharmacy.view')->group(function () {
-                /*
-                | One store's day: takings, purchases, what the shelf is worth
-                | and what is about to stop being sellable. Read-only, and
-                | nothing on it that the stock and bill screens do not already
-                | answer one at a time.
-                */
-                Route::get('pharmacy-stores/{store}/dashboard', [PharmacyDashboardController::class, 'show'])
-                    ->name('pharmacy-stores.dashboard');
+            /*
+            | One store's day: takings, purchases, what the shelf is worth
+            | and what is about to stop being sellable. Read-only, and
+            | nothing on it that the stock and bill screens do not already
+            | answer one at a time.
+            */
+            Route::get('pharmacy-stores/{store}/dashboard', [PharmacyDashboardController::class, 'show'])
+                ->middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_DASHBOARD))
+                ->name('pharmacy-stores.dashboard');
 
+            Route::middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_STOCK))->group(function () {
                 Route::get('pharmacy-stores/{store}/stock', [MedicineBatchController::class, 'stock'])
                     ->name('pharmacy-stores.stock');
 
@@ -755,20 +756,29 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('pharmacy-stores.categories');
                 Route::get('pharmacy-stores/{store}/batches', [MedicineBatchController::class, 'index'])
                     ->name('pharmacy-stores.batches');
+            });
+
+            Route::middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_MOVEMENTS))->group(function () {
                 Route::get('pharmacy-stores/{store}/movements', [StockMovementController::class, 'index'])
                     ->name('pharmacy-stores.movements');
                 Route::get('pharmacy-stores/{store}/movements/summary', [StockMovementController::class, 'summary'])
                     ->name('pharmacy-stores.movements.summary');
-                Route::get('pharmacy-stores/{store}/inwards', [StockInwardController::class, 'index'])
-                    ->name('pharmacy-stores.inwards.index');
+            });
+
+            Route::get('pharmacy-stores/{store}/inwards', [StockInwardController::class, 'index'])
+                ->middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_PURCHASES))
+                ->name('pharmacy-stores.inwards.index');
+
+            Route::middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_STOCK_DOCUMENTS))->group(function () {
                 Route::get('pharmacy-stores/{store}/adjustments', [StockAdjustmentController::class, 'index'])
                     ->name('pharmacy-stores.adjustments.index');
                 Route::get('pharmacy-stores/{store}/transfers', [StockTransferController::class, 'index'])
                     ->name('pharmacy-stores.transfers.index');
-
-                Route::get('pharmacy-stores/{store}/sales', [PharmacySaleController::class, 'index'])
-                    ->name('pharmacy-stores.sales.index');
             });
+
+            Route::get('pharmacy-stores/{store}/sales', [PharmacySaleController::class, 'index'])
+                ->middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_BILLS))
+                ->name('pharmacy-stores.sales.index');
 
             /*
             | Reports — its OWN module, sold separately from the rest of
@@ -798,13 +808,18 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('pharmacy-stores.reports.rows');
             });
 
-            Route::middleware('permission:pharmacy.view')->group(function () {
-                Route::get('batches/{batch}', [MedicineBatchController::class, 'show'])->name('batches.show');
-                Route::get('inwards/{inward}', [StockInwardController::class, 'show'])->name('inwards.show');
-                Route::get('sales/{sale}', [PharmacySaleController::class, 'show'])->name('sales.show');
-                Route::get('stock-transfers/{transfer}', [StockTransferController::class, 'show'])
-                    ->name('stock-transfers.show');
-            });
+            Route::get('batches/{batch}', [MedicineBatchController::class, 'show'])
+                ->middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_STOCK))
+                ->name('batches.show');
+            Route::get('inwards/{inward}', [StockInwardController::class, 'show'])
+                ->middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_PURCHASES))
+                ->name('inwards.show');
+            Route::get('sales/{sale}', [PharmacySaleController::class, 'show'])
+                ->middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_ONE_BILL))
+                ->name('sales.show');
+            Route::get('stock-transfers/{transfer}', [StockTransferController::class, 'show'])
+                ->middleware(ScreenTicks::gate(ScreenTicks::PHARMACY_STOCK_DOCUMENTS))
+                ->name('stock-transfers.show');
 
             /*
             | The counter. One path for both ways the pharmacy sells: a sale
@@ -873,7 +888,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         | pharmacy and lab. A clinic that dispenses nothing still bills for
         | its consultations; a shop's own bills stay under `pharmacy.sell`.
         |
-        | Reading is `billing.view`; drawing an invoice is `billing.create`;
+        | Reading is each screen's own tick (ScreenTicks); drawing an invoice is `billing.create`;
         | rewriting an unpaid one is `billing.edit`; cancelling is
         | `billing.cancel`; taking money is `billing.collect_payment`;
         | refunding is `billing.refund`. Settings and the named-services
@@ -881,7 +896,11 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         | (`billing.manage_settings` / `billing.manage_services`).
         */
         Route::middleware('module:billing')->group(function () {
-            Route::middleware('permission:billing.view')->group(function () {
+            /*
+            | Each screen behind its own tick, and open to the others that read
+            | the same rows (ScreenTicks).
+            */
+            Route::middleware(ScreenTicks::gate(ScreenTicks::BILLING_OVERVIEW))->group(function () {
                 /*
                 | The counter's own two screens. `overview` is the dashboard —
                 | cards, trend, status breakdown and recent bills in one
@@ -898,17 +917,25 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 // page does not recompute every chart above them.
                 Route::get('billing/overview/invoices', [BillingOverviewController::class, 'invoices'])
                     ->name('billing.overview.invoices');
+            });
+
+            Route::middleware(ScreenTicks::gate(ScreenTicks::BILLING_OUTSTANDING))->group(function () {
                 Route::get('billing/overview/outstanding', [BillingOverviewController::class, 'outstanding'])
                     ->name('billing.overview.outstanding');
                 Route::get('billing/overview/outstanding/summary', [BillingOverviewController::class, 'outstandingSummary'])
                     ->name('billing.overview.outstanding.summary');
+            });
+
+            Route::middleware(ScreenTicks::gate(ScreenTicks::BILLING_PAYMENTS))->group(function () {
                 Route::get('billing/payments', [BillingOverviewController::class, 'payments'])
                     ->name('billing.payments');
                 Route::get('billing/payments/summary', [BillingOverviewController::class, 'paymentsSummary'])
                     ->name('billing.payments.summary');
                 Route::get('billing/payments/export', [BillingOverviewController::class, 'exportPayments'])
                     ->name('billing.payments.export');
+            });
 
+            Route::middleware(ScreenTicks::gate(ScreenTicks::BILLING_INVOICES))->group(function () {
                 Route::get('invoices', [InvoiceController::class, 'index'])
                     ->name('invoices.index');
                 // Before {invoice}, which would otherwise take "summary" for an id.
@@ -916,15 +943,20 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('invoices.summary');
                 Route::get('invoices/export', [InvoiceController::class, 'export'])
                     ->name('invoices.export');
-                Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])
-                    ->name('invoices.show');
-                Route::get('billable-services', [BillableServiceController::class, 'index'])
-                    ->name('billable-services.index');
-                Route::get('billing/settings', [BillingSettingController::class, 'show'])
-                    ->name('billing.settings.show');
-                Route::get('billing/numbering', [BillingNumberingController::class, 'show'])
-                    ->name('billing.numbering.show');
             });
+
+            Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])
+                ->middleware(ScreenTicks::gate(ScreenTicks::BILLING_ONE_INVOICE))
+                ->name('invoices.show');
+            Route::get('billable-services', [BillableServiceController::class, 'index'])
+                ->middleware(ScreenTicks::gate(ScreenTicks::BILLING_SERVICES))
+                ->name('billable-services.index');
+            Route::get('billing/settings', [BillingSettingController::class, 'show'])
+                ->middleware(ScreenTicks::gate(ScreenTicks::BILLING_SETTINGS))
+                ->name('billing.settings.show');
+            Route::get('billing/numbering', [BillingNumberingController::class, 'show'])
+                ->middleware(ScreenTicks::gate(ScreenTicks::BILLING_NUMBERING))
+                ->name('billing.numbering.show');
 
             Route::post('invoices', [InvoiceController::class, 'store'])
                 ->middleware('permission:billing.create')
@@ -1242,7 +1274,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | itself, booking, the queue's filter, the rota — so open to any
             | of their ticks rather than one.
             */
-            Route::middleware('permission:appointments.doctors_view,appointments.view,appointments.queue_view,appointments.book,appointments.schedule,appointments.doctors')->group(function () {
+            Route::middleware('permission:appointments.doctors_view,appointments.availability_view,appointments.view,appointments.queue_view,appointments.book,appointments.schedule,appointments.doctors')->group(function () {
                 Route::get('doctors/fields', [DoctorController::class, 'fields'])
                     ->name('doctors.fields');
                 Route::get('doctors', [DoctorController::class, 'index'])->name('doctors.index');
@@ -1257,7 +1289,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | that weekday, minus what is cancelled, with changed hours
             | applied, plus anything extra.
             */
-            Route::middleware('permission:appointments.doctors_view,appointments.view,appointments.book')->group(function () {
+            Route::middleware('permission:appointments.availability_view,appointments.doctors_view,appointments.view,appointments.book')->group(function () {
                 Route::get('availability/day', [AvailabilityController::class, 'day'])
                     ->name('availability.day');
                 Route::get('availability/week', [AvailabilityController::class, 'week'])
@@ -1284,7 +1316,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | refused at the moment they picked one.
             */
             Route::get('opd/branches', [OpdController::class, 'branches'])
-                ->middleware('permission:appointments.view,appointments.queue_view,appointments.doctors_view,appointments.book,queue.board,queue.my_console,queue.settings,queue.displays')
+                ->middleware('permission:appointments.view,appointments.queue_view,appointments.doctors_view,appointments.availability_view,appointments.book,queue.board,queue.my_console,queue.settings,queue.displays')
                 ->name('opd.branches');
 
             // Today's numbers: the OPD dashboard, the queue's counts, and the
@@ -1304,7 +1336,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | session, never the query string.
             */
             Route::get('opd/my-day', [OpdController::class, 'myDay'])
-                ->middleware('permission:appointments.my_day,appointments.my_queue')
+                ->middleware('permission:appointments.my_day,appointments.my_queue,appointments.my_consultations')
                 ->name('opd.my-day');
 
             Route::get('opd/my-month', [OpdController::class, 'myMonth'])
@@ -1312,7 +1344,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 ->name('opd.my-month');
 
             Route::get('opd/my-records', [OpdController::class, 'myRecords'])
-                ->middleware('permission:appointments.my_patients,appointments.my_day,appointments.my_queue')
+                ->middleware(ScreenTicks::gate(ScreenTicks::MY_RECORDS_ANY))
                 ->name('opd.my-records');
 
             /*
@@ -1548,12 +1580,11 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         /*
         | Departments and their sub-departments — what doctors are grouped by.
         | Read by anyone signed in (the doctor form and booking pick from the
-        | tree); changed under `settings.manage`, which kept the department
-        | list before it became a tree.
+        | tree); changed under the Departments screen's own tick.
         */
         Route::get('departments', [DepartmentController::class, 'index'])->name('departments.index');
 
-        Route::middleware('permission:settings.manage')->group(function () {
+        Route::middleware('permission:settings.departments')->group(function () {
             Route::post('departments', [DepartmentController::class, 'store'])->name('departments.store');
             Route::put('departments/{department}', [DepartmentController::class, 'update'])
                 ->name('departments.update');
@@ -1758,9 +1789,10 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         | Communication — WhatsApp, email and SMS
         |----------------------------------------------------------------------
         |
-        | Reading is `communication.view`, the branch capability a receptionist
-        | holds: the dashboards, the template library and the delivery log are
-        | what somebody at a desk opens to answer "did that go out".
+        | Reading is one branch capability per channel's screen (ScreenTicks),
+        | which a receptionist holds: the dashboards, the template library and
+        | the delivery log are what somebody at a desk opens to answer "did that
+        | go out". Which channel is asked for is checked in the controller.
         |
         | Writing is `communication.manage`, which is organisation-scoped —
         | a template, a from-address and an automation rule apply to every
@@ -1769,7 +1801,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         | Literal paths before {template} and {campaign}.
         */
         Route::middleware('module:communication')->group(function () {
-            Route::middleware('permission:communication.view')->group(function () {
+            Route::middleware(ScreenTicks::gate(ScreenTicks::COMMUNICATION_ANY))->group(function () {
                 Route::get('communication/segments', [CampaignController::class, 'segments'])
                     ->name('communication.segments');
                 Route::get('communication/templates', [MessageTemplateController::class, 'index'])
@@ -1792,10 +1824,12 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 Route::get('communication/templates/{template}/variants', [MessageTemplateVariantController::class, 'index'])
                     ->name('communication.templates.variants.index');
 
-                // The phones that can receive this clinic's App notifications.
-                Route::get('communication/push/devices', [PushDeviceController::class, 'index'])
-                    ->name('communication.push.devices.index');
             });
+
+            // The phones that can receive this clinic's App notifications.
+            Route::get('communication/push/devices', [PushDeviceController::class, 'index'])
+                ->middleware('permission:communication.push')
+                ->name('communication.push.devices.index');
 
             /*
             | Rewording a template for one branch. Either key opens the door —
@@ -1803,6 +1837,11 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | and the controller then checks the branch in the URL is one this
             | person may word, which no route gate can know.
             */
+            // Who gets each message, from the one central Recipients screen.
+            Route::put('communication/automation-rules/{rule}/recipients', [AutomationRuleController::class, 'saveRecipients'])
+                ->middleware('permission:communication.recipients')
+                ->name('communication.rules.recipients.update');
+
             Route::middleware('permission:communication.manage,communication.branch_templates')->group(function () {
                 Route::put('communication/templates/{template}/variants/{location}', [MessageTemplateVariantController::class, 'update'])
                     ->name('communication.templates.variants.update');

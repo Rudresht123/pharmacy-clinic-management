@@ -1,0 +1,739 @@
+/* =========================================================
+   My Profile (.ppf-)
+   ---------------------------------------------------------
+   The identity card on the left, the forms on the right.
+   Every colour is the accent from Appearance settings
+   (--brand) or a surface token, so it follows the setting
+   and the dark theme. The one exception is green, which only
+   ever means "good": Active, Online, a password rule met.
+   ========================================================= */
+
+.ppf-page {
+    --ppf-ok: #15803d;
+    --ppf-ok-bg: #dcfce7;
+
+    /* The accent as text and icons. Filled shapes keep --brand itself. */
+    --ppf-accent: rgb(var(--brand));
+
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+[data-theme='dark'] .ppf-page {
+    --ppf-ok: #4ade80;
+    --ppf-ok-bg: rgba(74, 222, 128, 0.14);
+
+    /* A dark accent as text on a dark card is close to unreadable. */
+    --ppf-accent: color-mix(in srgb, rgb(var(--brand)) 50%, #ffffff);
+}
+
+/* --- drawings -------------------------------------------- */
+
+.ppf-art-soft { fill: rgba(var(--brand), 0.1); }
+.ppf-art-mid { fill: rgba(var(--brand), 0.26); }
+.ppf-art-tree { fill: rgba(var(--brand), 0.34); }
+.ppf-art-strong { fill: rgb(var(--brand)); }
+.ppf-art-on-brand { fill: rgb(var(--brand-fg)); }
+.ppf-art-wall { fill: var(--surface); }
+.ppf-art-rim { fill: rgba(var(--brand), 0.2); }
+.ppf-art-shackle { fill: none; stroke: rgb(var(--brand-fg)); stroke-width: 7; stroke-linecap: round; }
+.ppf-art-ok { fill: #16a34a; }
+.ppf-art-ok-ring { fill: var(--surface); }
+.ppf-art-tick { fill: none; stroke: #ffffff; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* --- page header ----------------------------------------- */
+
+.ppf-hero {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: 14px;
+    background-color: var(--surface);
+    background-image: linear-gradient(100deg, rgba(var(--brand), 0.11), rgba(var(--brand), 0.04) 55%, rgba(var(--brand), 0.13));
+}
+
+.ppf-hero-title {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.ppf-hero-icon {
+    display: grid;
+    place-items: center;
+    width: 50px;
+    height: 50px;
+    flex-shrink: 0;
+    border-radius: 13px;
+    background: rgb(var(--brand));
+    color: rgb(var(--brand-fg));
+    font-size: 26px;
+}
+
+.ppf-hero h1 {
+    margin: 0;
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--ink);
+}
+
+.ppf-hero p {
+    margin: 3px 0 0;
+    font-size: 13.5px;
+    color: var(--ink-2);
+}
+
+.ppf-crumbs {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgba(var(--brand), 0.08);
+    font-size: 13px;
+    color: var(--ink-2);
+}
+
+.ppf-crumbs a {
+    display: inline-flex;
+    color: var(--ink-2);
+    font-size: 16px;
+    line-height: 1;
+}
+
+.ppf-crumbs a:hover {
+    color: var(--ppf-accent);
+}
+
+.ppf-crumb-sep {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.ppf-crumb-now {
+    font-weight: 600;
+    color: var(--ppf-accent);
+}
+
+.ppf-hero-art {
+    position: absolute;
+    right: 24px;
+    bottom: 0;
+    width: 300px;
+    height: auto;
+    pointer-events: none;
+}
+
+@media (max-width: 767.98px) {
+    .ppf-hero-art {
+        display: none;
+    }
+}
+
+/* --- layout ---------------------------------------------- */
+
+.ppf-layout {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    align-items: stretch;
+    gap: 16px;
+}
+
+/* Too narrow for two columns: beside a stacked panel the card would stretch to
+   the panel's height. On top it has the width, so its rows sit side by side. */
+@media (max-width: 1399.98px) {
+    .ppf-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ppf-layout .ppf-id-rows {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        column-gap: 24px;
+    }
+}
+
+.ppf-layout > .card {
+    height: auto;
+    margin-bottom: 0;
+}
+
+/* --- shared bits ----------------------------------------- */
+
+.ppf-tile {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 11px;
+    background: rgba(var(--brand), 0.09);
+    color: var(--ppf-accent);
+    font-size: 22px;
+}
+
+.ppf-tile--sm {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+}
+
+.ppf-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.ppf-pill--ok {
+    background: var(--ppf-ok-bg);
+    color: var(--ppf-ok);
+}
+
+.ppf-pill--off {
+    background: var(--surface-3);
+    color: var(--ink-3);
+}
+
+.ppf-pill-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.ppf-camera {
+    position: absolute;
+    right: 2px;
+    bottom: 6px;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 3px solid var(--surface);
+    border-radius: 50%;
+    background: rgb(var(--brand));
+    color: rgb(var(--brand-fg));
+    font-size: 18px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.ppf-camera:hover:not(:disabled) {
+    background: rgb(var(--brand-2));
+}
+
+.ppf-camera:focus-visible {
+    outline: 2px solid rgb(var(--brand));
+    outline-offset: 2px;
+}
+
+.ppf-camera:disabled {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+.ppf-camera--sm {
+    right: -2px;
+    bottom: 0;
+    width: 32px;
+    height: 32px;
+    font-size: 15px;
+}
+
+/* --- identity card --------------------------------------- */
+
+.ppf-id {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 20px 14px;
+}
+
+.ppf-id-banner {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 190px;
+    background-image: linear-gradient(180deg, rgba(var(--brand), 0.2), rgba(var(--brand), 0.04) 88%, transparent);
+}
+
+.ppf-id-waves {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.ppf-id-photo {
+    position: relative;
+    margin-top: 28px;
+    padding: 5px;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: 0 6px 20px rgba(var(--brand), 0.16);
+}
+
+.ppf-id-photo .pav {
+    display: flex;
+}
+
+.ppf-id-who {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    max-width: 100%;
+}
+
+.ppf-id-name {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+}
+
+.ppf-id-name h2 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+    text-align: center;
+}
+
+.ppf-id-role {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 16px;
+    border-radius: 999px;
+    background: rgba(var(--brand), 0.09);
+    color: var(--ppf-accent);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.ppf-id-role i {
+    font-size: 16px;
+}
+
+.ppf-id-rows {
+    /* The rows share out whatever height the panel beside gives this card, so
+       the two end level with no blank stretch under the last row. */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin: 16px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ppf-id-rows li {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 0;
+    border-top: 1px solid var(--line);
+}
+
+.ppf-id-row-text {
+    min-width: 0;
+}
+
+.ppf-id-row-label {
+    display: block;
+    font-size: 12.5px;
+    color: var(--ink-3);
+}
+
+.ppf-id-row-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+
+.ppf-id-row-note {
+    font-weight: 400;
+    color: var(--ink-3);
+}
+
+.ppf-id-signin {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+}
+
+/* --- right panel ----------------------------------------- */
+
+.ppf-panel {
+    container: ppf-panel / inline-size;
+    overflow: hidden;
+}
+
+.ppf-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--line);
+}
+
+.ppf-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 13px 16px 11px;
+    margin-bottom: -1px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--ink-2);
+    font-size: 14.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.ppf-tab i {
+    font-size: 20px;
+}
+
+.ppf-tab:hover {
+    color: var(--ppf-accent);
+}
+
+.ppf-tab.is-active {
+    border-bottom-color: var(--ppf-accent);
+    color: var(--ppf-accent);
+    font-weight: 600;
+}
+
+.ppf-tab:focus-visible {
+    outline: 2px solid rgb(var(--brand));
+    outline-offset: -2px;
+    border-radius: 6px;
+}
+
+.ppf-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+    background-image: linear-gradient(rgba(var(--brand), 0.025), rgba(var(--brand), 0.025));
+    flex: 1;
+}
+
+/* A card inside a card: its border alone sets it apart, never a shadow. */
+.ppf-section {
+    padding: 16px 20px;
+    border: 1px solid var(--line-2);
+    border-radius: 13px;
+    background: var(--surface);
+}
+
+.ppf-section-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.ppf-section-head h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+
+.ppf-section-head p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--ink-3);
+}
+
+/* --- fields ---------------------------------------------- */
+
+.ppf-field {
+    margin-bottom: 10px;
+}
+
+.ppf-field .form-label {
+    margin-bottom: 5px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.ppf-input {
+    position: relative;
+}
+
+.ppf-input-icon {
+    position: absolute;
+    top: 50%;
+    left: 13px;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: var(--ink-3);
+    pointer-events: none;
+}
+
+.ppf-input .form-control {
+    height: 38px;
+    padding-left: 42px;
+    /* Bootstrap's error glyph would land on the eye. The red border is enough. */
+    background-image: none;
+}
+
+.ppf-input--eye .form-control {
+    padding-right: 42px;
+}
+
+.ppf-eye {
+    position: absolute;
+    top: 0;
+    right: 3px;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink-3);
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.ppf-eye:hover {
+    color: var(--ppf-accent);
+}
+
+.ppf-eye:focus-visible {
+    outline: 2px solid rgb(var(--brand));
+    outline-offset: -4px;
+    border-radius: 8px;
+}
+
+.ppf-form-end {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
+/* --- personal information -------------------------------- */
+
+.ppf-personal {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 20px 24px;
+}
+
+.ppf-photo-box {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 18px;
+    border: 1px dashed var(--line-2);
+    border-radius: 13px;
+}
+
+.ppf-photo-frame {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.ppf-photo-frame .pav {
+    display: flex;
+}
+
+.ppf-photo-text {
+    min-width: 0;
+}
+
+.ppf-photo-text strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.ppf-photo-text small {
+    display: block;
+    margin-top: 2px;
+    font-size: 12.5px;
+    color: var(--ink-3);
+}
+
+.ppf-photo-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.btn.ppf-btn-accent {
+    border-color: rgba(var(--brand), 0.4);
+    background: rgba(var(--brand), 0.05);
+    color: var(--ppf-accent);
+    font-weight: 600;
+}
+
+.btn.ppf-btn-accent:hover:not(:disabled) {
+    border-color: var(--ppf-accent);
+    background: rgba(var(--brand), 0.1);
+    color: var(--ppf-accent);
+}
+
+.btn.ppf-btn-quiet {
+    border-color: var(--line-2);
+    background: var(--surface);
+    color: var(--ink-2);
+}
+
+.btn.ppf-btn-quiet:hover:not(:disabled) {
+    border-color: var(--line-2);
+    background: var(--surface-3);
+    color: var(--ink);
+}
+
+/* --- security -------------------------------------------- */
+
+.ppf-security {
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1fr) 305px;
+    align-items: start;
+    gap: 18px;
+}
+
+.ppf-shield {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-top: 14px;
+}
+
+.ppf-security-fields .ppf-field:last-child {
+    margin-bottom: 0;
+}
+
+.ppf-security-side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+
+.ppf-rules {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 11px;
+    background: rgba(var(--brand), 0.045);
+}
+
+.ppf-rules h4 {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ppf-accent);
+}
+
+.ppf-rules h4 i {
+    font-size: 18px;
+}
+
+.ppf-rules ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ppf-rules li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 2.5px 0;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--ink-2);
+}
+
+/* Grey until the new password actually meets it: a list of green ticks over an
+   empty field would say a password that does not exist is fine. */
+.ppf-rules li i {
+    flex-shrink: 0;
+    margin-top: 1px;
+    font-size: 15px;
+    color: var(--muted);
+    transition: color 0.15s ease;
+}
+
+.ppf-rules li.is-met i {
+    color: var(--ppf-ok);
+}
+
+.ppf-update-password {
+    min-width: 190px;
+}
+
+/* --- narrow panel: the columns give way ------------------- */
+
+@container ppf-panel (max-width: 800px) {
+    .ppf-security {
+        grid-template-columns: minmax(0, 1fr) 260px;
+    }
+
+    .ppf-shield {
+        display: none;
+    }
+}
+
+@container ppf-panel (max-width: 680px) {
+    .ppf-personal,
+    .ppf-security {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ppf-section {
+        padding: 16px;
+    }
+
+    .ppf-tab {
+        padding-inline: 8px;
+        font-size: 13.5px;
+    }
+}

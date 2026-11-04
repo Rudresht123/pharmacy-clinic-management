@@ -99,8 +99,8 @@ class PatientRecord
             'visits' => $visits,
             'prescriptions' => $can('prescriptions.view'),
             'laboratory' => $can('laboratory.view'),
-            'pharmacy' => $can('pharmacy.view'),
-            'billing' => $can('billing.view'),
+            'pharmacy' => $can('pharmacy.view') || $can('pharmacy.bills_view'),
+            'billing' => $can('billing.view') || $can('billing.invoices_view'),
             'documents' => $can('documents.view'),
         ];
     }

@@ -44,7 +44,7 @@ class PharmacyOpdHandoffController extends BaseApiController
 
     public function index(Request $request, PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewHandoff', $store);
 
         $organization = $request->attributes->get('tenant.organization');
         $locationId = $store->location_id === null ? null : (int) $store->location_id;

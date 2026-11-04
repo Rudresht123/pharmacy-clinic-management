@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Tenant;
 
 use App\Http\Controllers\Api\V1\BaseApiController;
+use App\Http\Controllers\Api\V1\Tenant\Concerns\AsksAboutChannels;
 use App\Http\Resources\Tenant\AutomationRuleResource;
 use App\Http\Resources\Tenant\MessageLogResource;
 use App\Http\Resources\Tenant\MessageTemplateResource;
@@ -10,11 +11,13 @@ use App\Models\Tenant\AutomationRule;
 use App\Models\Tenant\CommunicationChannel;
 use App\Models\Tenant\MessageLog;
 use App\Models\Tenant\MessageTemplate;
+use App\Models\Tenant\User;
 use App\Services\Email\EmailMessage;
+use App\Services\Permissions\Permission;
 use App\Services\Push\PushManager;
 use App\Services\Tenant\CommunicationOverview;
-use App\Support\Communication\MessageVariables;
 use App\Services\WhatsApp\WhatsAppMessage;
+use App\Support\Communication\MessageVariables;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -35,13 +38,35 @@ use Illuminate\Validation\Rule;
  */
 class CommunicationController extends BaseApiController
 {
+    use AsksAboutChannels;
+
     public function __construct(
         private readonly CommunicationOverview $overview,
     ) {}
 
+    /**
+     * The branch whose wording this person reads in the template list.
+     *
+     * Staff see what their own branch sends, or a saved wording would look lost.
+     * Whoever manages communication writes the template itself, so they read it
+     * as it stands.
+     */
+    private function branchWhoseWordingToShow(Request $request): ?int
+    {
+        $user = Auth::guard('web')->user();
+
+        if (! $user instanceof User || $this->holds($request, 'communication.manage')) {
+            return null;
+        }
+
+        return app(Permission::class)->branchFor($user);
+    }
+
     public function show(Request $request, string $channel): JsonResponse
     {
         abort_unless(in_array($channel, CommunicationChannel::CHANNELS, true), 404);
+
+        abort_unless($this->mayOpenChannel($request, $channel), 403, 'Your role does not include this channel.');
 
         $days = (int) $request->integer('days', CommunicationOverview::DEFAULT_DAYS);
         $connection = CommunicationChannel::forChannel($channel);
@@ -74,7 +99,16 @@ class CommunicationController extends BaseApiController
             'analytics' => $this->overview->analytics($channel, $days),
 
             'templates' => MessageTemplateResource::collection(
-                MessageTemplate::query()->forChannel($channel)->withCount('variants')->get()
+                MessageTemplate::query()
+                    ->forChannel($channel)
+                    ->withCount('variants')
+                    ->when(
+                        $this->branchWhoseWordingToShow($request),
+                        fn ($query, int $branch) => $query->with([
+                            'variants' => fn ($variants) => $variants->where('location_id', $branch)->where('is_active', true),
+                        ]),
+                    )
+                    ->get()
             ),
 
             'rules' => AutomationRuleResource::collection(

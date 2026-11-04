@@ -64,8 +64,14 @@ class AutomationRule extends Model
     /** The clinic said no; the visit stays where it was. */
     public const APPOINTMENT_RESCHEDULE_REJECTED = 'appointment.reschedule_rejected';
 
+    /** The desk checked the patient in. */
+    public const CHECKED_IN = 'queue.checked_in';
+
     /** A doctor's queue called the patient's token. */
     public const TOKEN_CALLED = 'queue.token_called';
+
+    /** The doctor completed the consultation. */
+    public const CONSULTATION_COMPLETED = 'queue.consultation_completed';
 
     protected $connection = 'organization';
 

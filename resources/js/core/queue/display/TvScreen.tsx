@@ -61,6 +61,27 @@ function usePages(total: number, perPage: number): { page: number; pageCount: nu
     return { page: Math.min(page, pageCount - 1), pageCount };
 }
 
+/**
+ * An uploaded picture, from whichever address this screen was opened on.
+ *
+ * The server writes its links from APP_URL. A television is a different machine, so
+ * a link naming `localhost` would point at the television itself. Files kept
+ * elsewhere, such as cloud storage, have another path and are left alone.
+ */
+function picture(url: string | null | undefined): string | null {
+    if (!url) {
+        return null;
+    }
+
+    try {
+        const { pathname } = new URL(url, window.location.origin);
+
+        return pathname.startsWith('/storage/') ? pathname : url;
+    } catch {
+        return url;
+    }
+}
+
 /** Tokens and rooms never wrap: a split token is a token misread. */
 function Next({ tokens }: { tokens: string[] }) {
     if (tokens.length === 0) {
@@ -141,8 +162,16 @@ function callLine(card: QueueCard): ReactNode {
         return (
             <>
                 <i className="ti ti-walk" aria-hidden="true" />
-                Please proceed to{' '}
-                {card.room ? <b>Room {card.room}</b> : <b>{card.doctor_name ?? 'the doctor'}&rsquo;s room</b>}
+                {/* One span, so a long doctor's name wraps as a sentence, not as two columns. */}
+                {card.room ? (
+                    <span>
+                        Please proceed to <b>Room {card.room}</b>
+                    </span>
+                ) : (
+                    <span>
+                        Please go to <b className="is-name">{card.doctor_name ?? 'the doctor'}&rsquo;s room</b>
+                    </span>
+                )}
             </>
         );
     }
@@ -174,7 +203,7 @@ function FeaturedDoctor({ card, calling, solo = false }: { card: QueueCard; call
     return (
         <section className={`tv-feature${solo ? ' is-solo' : ''}`}>
             <header className="tv-feature-who">
-                <Avatar name={card.doctor_name} src={card.photo_url} preview={false} className="tv-face" />
+                <Avatar name={card.doctor_name} src={picture(card.photo_url)} preview={false} className="tv-face" />
 
                 <div className="tv-feature-text">
                     <h2>{card.doctor_name}</h2>
@@ -200,7 +229,7 @@ function FeaturedDoctor({ card, calling, solo = false }: { card: QueueCard; call
                         <div className="tv-call-patient">
                             <Avatar
                                 name={card.patient.name}
-                                src={card.patient.photo_url}
+                                src={picture(card.patient.photo_url)}
                                 preview={false}
                                 className="tv-call-face"
                             />
@@ -333,7 +362,7 @@ function DoctorRows({
                         <span className="tv-row-number">{firstNumber + index}</span>
 
                         <span className="tv-row-who">
-                            <Avatar name={card.doctor_name} src={card.photo_url} preview={false} className="tv-row-face" />
+                            <Avatar name={card.doctor_name} src={picture(card.photo_url)} preview={false} className="tv-row-face" />
 
                             <span className="tv-row-text">
                                 <b>{card.doctor_name}</b>
@@ -559,7 +588,7 @@ export function TvScreen({
                     {state.organization.logo_url ? (
                         <Avatar
                             name={state.organization.name}
-                            src={state.organization.logo_url}
+                            src={picture(state.organization.logo_url)}
                             shape="rounded"
                             preview={false}
                             className="tv-logo"

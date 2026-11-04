@@ -32,7 +32,7 @@ class StoreMedicineController extends BaseApiController
 
     public function index(Request $request, PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewStore', $store);
 
         $term = trim((string) $request->query('search', ''));
 

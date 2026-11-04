@@ -300,7 +300,7 @@ export default function OpdTodayPage() {
      * when the desk does. The server answers with the visit's bill if it
      * already has one, so offering it on every finished visit is safe.
      */
-    const canBill = can('billing.create') && can('billing.view');
+    const canBill = can('billing.create') && (can('billing.view') || can('billing.invoices_view'));
     const { data: billingSettings } = useBillingSettings(canBill);
     const billsByHand = canBill && billingSettings?.default_trigger === 'manual';
     const billVisit = useBillVisit();

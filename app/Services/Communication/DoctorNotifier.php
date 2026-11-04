@@ -3,6 +3,8 @@
 namespace App\Services\Communication;
 
 use App\Models\Platform\Organization;
+use App\Models\Tenant\AutomationRule;
+use App\Models\Tenant\CommunicationChannel;
 use App\Services\Clinic\ClinicEvent;
 use App\Services\Email\EmailManager;
 use App\Services\Email\EmailMessage;
@@ -40,6 +42,16 @@ class DoctorNotifier
         ClinicEvents::RESCHEDULE_REJECTED,
     ];
 
+    /**
+     * Events a doctor is not told about at all. They completed the consultation
+     * themselves, and a check-in is the desk's news for the patient: both would
+     * only be noise on the phone of somebody who is busy seeing patients.
+     */
+    public const NOT_FOR_THE_DOCTOR = [
+        ClinicEvents::CONSULTATION_COMPLETED,
+        ClinicEvents::PATIENT_CHECKED_IN,
+    ];
+
     public function __construct(
         private readonly PushManager $push,
         private readonly EmailManager $email,
@@ -47,7 +59,7 @@ class DoctorNotifier
 
     public function handle(ClinicEvent $event): void
     {
-        if (in_array($event->key, self::RULED, true)) {
+        if (in_array($event->key, self::RULED, true) || in_array($event->key, self::NOT_FOR_THE_DOCTOR, true)) {
             return;
         }
 
@@ -66,8 +78,30 @@ class DoctorNotifier
         $title = ClinicEvents::all()[$event->key]['label'] ?? $event->key;
         $body = $this->body($title, $subject);
 
-        $this->notifyByPush($organization, $subject, $event, $title, $body);
-        $this->notifyByEmail($organization, $subject, $title, $body);
+        if (! $this->aTemplateDecides($event, CommunicationChannel::PUSH)) {
+            $this->notifyByPush($organization, $subject, $event, $title, $body);
+        }
+
+        if (! $this->aTemplateDecides($event, CommunicationChannel::EMAIL)) {
+            $this->notifyByEmail($organization, $subject, $title, $body);
+        }
+    }
+
+    /**
+     * Where a template sends this event on this channel, its ticks say who hears,
+     * the doctor included. Telling them here as well would be a copy nobody can
+     * turn off. An event with no template on the channel has nothing to tick, so
+     * it still reaches them.
+     */
+    private function aTemplateDecides(ClinicEvent $event, string $channel): bool
+    {
+        $rule = AutomationSender::RULES[$event->key] ?? null;
+
+        return $rule !== null && AutomationRule::query()
+            ->where('event_key', $rule)
+            ->where('channel', $channel)
+            ->whereNotNull('message_template_id')
+            ->exists();
     }
 
     /**

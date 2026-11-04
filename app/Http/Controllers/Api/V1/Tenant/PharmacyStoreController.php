@@ -122,7 +122,7 @@ class PharmacyStoreController extends BaseApiController
 
     public function show(PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewStore', $store);
 
         return $this->ok(PharmacyStoreResource::make(
             $store->load(['location', 'pharmacist'])->loadCount('storeMedicines')

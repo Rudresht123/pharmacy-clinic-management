@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Tenant;
 
 use App\Http\Controllers\Api\V1\BaseApiController;
+use App\Http\Controllers\Api\V1\Tenant\Concerns\AsksAboutChannels;
 use App\Http\Requests\Api\V1\Tenant\UpdateAutomationRuleRequest;
 use App\Http\Resources\Tenant\AutomationRuleResource;
 use App\Models\Tenant\AutomationRule;
@@ -26,11 +27,13 @@ use Illuminate\Support\Facades\Auth;
  */
 class AutomationRuleController extends BaseApiController
 {
+    use AsksAboutChannels;
+
     public function index(Request $request): JsonResponse
     {
         $channel = $request->string('channel')->toString();
 
-        $query = AutomationRule::query()->with('template');
+        $query = AutomationRule::query()->with('template')->whereIn('channel', $this->readableChannels($request));
 
         if ($channel !== '') {
             $query->forChannel($channel);
@@ -73,6 +76,27 @@ class AutomationRuleController extends BaseApiController
             'roles' => $roles,
             'staff' => $staff,
         ]);
+    }
+
+    /**
+     * Who gets one message: all the central Recipients screen ever writes.
+     *
+     * A route of its own so that screen's tick reaches this and nothing else about
+     * the rule, like its template or its switch.
+     */
+    public function saveRecipients(UpdateAutomationRuleRequest $request, AutomationRule $rule): JsonResponse
+    {
+        $recipients = $request->recipients();
+
+        if ($recipients === null) {
+            return $this->respond(null, 'Say who this message goes to.', [], 422);
+        }
+
+        $rule->recipients = $recipients;
+        $rule->updated_by = Auth::guard('web')->id();
+        $rule->save();
+
+        return $this->ok(AutomationRuleResource::make($rule->load('template')), 'Saved');
     }
 
     public function update(UpdateAutomationRuleRequest $request, AutomationRule $rule): JsonResponse

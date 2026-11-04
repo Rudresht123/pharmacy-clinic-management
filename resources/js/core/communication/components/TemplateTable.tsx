@@ -188,6 +188,10 @@ export function TemplateTable({
                                             </span>
 
                                             {template.name}
+
+                                            {template.branch_wording && (
+                                                <small className="comm-own-wording">This branch’s wording</small>
+                                            )}
                                         </span>
                                     </td>
 

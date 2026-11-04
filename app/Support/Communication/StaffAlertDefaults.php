@@ -121,8 +121,9 @@ final class StaffAlertDefaults
 
         $requested = match ($rescheduleNotify) {
             'doctor' => [['type' => RuleRecipients::DOCTOR]],
-            'both' => [['type' => RuleRecipients::FRONT_DESK], ['type' => RuleRecipients::DOCTOR]],
-            default => [['type' => RuleRecipients::FRONT_DESK]],
+            // The manager answers these too, and Reception no longer includes them.
+            'both' => [['type' => RuleRecipients::FRONT_DESK], ['type' => RuleRecipients::BRANCH_MANAGER], ['type' => RuleRecipients::DOCTOR]],
+            default => [['type' => RuleRecipients::FRONT_DESK], ['type' => RuleRecipients::BRANCH_MANAGER]],
         };
 
         return [

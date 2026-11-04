@@ -129,7 +129,7 @@ class Permission
      *     filter as the six reports above. Never `billing.create` or
      *     `billing.collect_payment` — raising or settling a bill is the
      *     clinical floor's transaction, not a number to read;
-     *   - the pharmacy's own `pharmacy.view`: the shop read rather than run —
+     *   - the pharmacy's own read ticks: the shop read rather than run —
      *     its dashboard, stock, purchases, bills, movements and suppliers,
      *     all list screens. Never `pharmacy.sell`, `.dispense`, `.inward`,
      *     `.adjust`, `.transfer` or the rest of the counter's own write
@@ -155,16 +155,17 @@ class Permission
         // Reading the roles they are assigning. Writing one stays `people.roles`.
         'people.roles_view',
 
-        'appointments.view', 'appointments.doctors_view', 'appointments.doctors', 'appointments.schedule',
+        'appointments.view', 'appointments.doctors_view', 'appointments.availability_view', 'appointments.doctors', 'appointments.schedule',
 
         // Where they land.
         'dashboard.view',
 
-        'billing.view', 'billing.finance',
+        'billing.view', 'billing.invoices_view', 'billing.payments_view', 'billing.outstanding_view', 'billing.finance',
 
-        'pharmacy.view',
+        'pharmacy.view', 'pharmacy.inventory_view', 'pharmacy.purchases_view', 'pharmacy.bills_view',
+        'pharmacy.movements_view', 'pharmacy.suppliers_view', 'pharmacy.stores_view', 'pharmacy.settings_view',
 
-        'settings.manage', 'settings.audit',
+        'settings.manage', 'settings.departments', 'settings.audit',
 
         // The account holder renews the account, however narrowly capped.
         'settings.subscription',

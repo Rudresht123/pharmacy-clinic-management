@@ -122,6 +122,7 @@ export function PushTemplateList({
                                         <span className="ph-row-name">
                                             {template.name}
                                             {!template.is_active && <small>Not in use</small>}
+                                            {template.branch_wording && <small>This branch’s wording</small>}
                                         </span>
                                         {/* The title only where it says something the
                                             name does not — otherwise the row reads

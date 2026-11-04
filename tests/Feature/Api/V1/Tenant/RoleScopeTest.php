@@ -5,8 +5,10 @@ namespace Tests\Feature\Api\V1\Tenant;
 use App\Models\Platform\Organization;
 use App\Models\Tenant\BranchMembership;
 use App\Models\Tenant\Location;
+use App\Models\Tenant\LocationModule;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User;
+use App\Services\Permissions\Permission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TenantTestCase;
 
@@ -17,9 +19,10 @@ use Tests\TenantTestCase;
  * organization-wide access, while an edit that leaves it alone goes through;
  * the patient app's role is never a staff role; a role one branch wrote is
  * given at that branch alone; a branch role cannot be slipped an
- * organization-only permission by claiming another scope; nobody widens a role
- * they hold themselves; and the role list tells the screen who each role is
- * for and whether the person asking may hand it out.
+ * organization-only permission by claiming another scope; a branch manager adds
+ * to the role they hold from what the branch runs, and cannot lock themselves
+ * out of it; and the role list tells the screen who each role is for and whether
+ * the person asking may hand it out.
  */
 class RoleScopeTest extends TenantTestCase
 {
@@ -84,10 +87,8 @@ class RoleScopeTest extends TenantTestCase
             ]);
             $this->colleague = $colleague->id;
 
-            // The patient app's role, as PatientAccountProvisioner makes it.
-            $patient = Role::on('organization')->create([
-                'name' => 'Patient', 'slug' => 'patient', 'scope' => Role::SCOPE_ORGANIZATION,
-            ]);
+            // The patient app's role: granting the module above already made it.
+            $patient = Role::on('organization')->where('slug', 'patient')->firstOrFail();
             $patient->syncCapabilities(['portal.appointments.view', 'portal.appointments.book']);
             $this->patientRole = $patient->id;
         });
@@ -223,14 +224,14 @@ class RoleScopeTest extends TenantTestCase
         ])->assertStatus(422)->assertJsonValidationErrors('capabilities.1');
     }
 
-    public function test_nobody_widens_a_role_they_hold_themselves(): void
+    /** A role Lucknow wrote, with the delegate on it, signed in. */
+    private function signInOnOwnRole(array $capabilities): int
     {
-        // A role Lucknow wrote, which the delegate is on.
-        $mine = $this->onTenant($this->organization, function () {
+        $mine = $this->onTenant($this->organization, function () use ($capabilities) {
             $role = Role::on('organization')->create([
                 'name' => 'Lucknow lead', 'slug' => 'lucknow-lead', 'scope' => Role::SCOPE_BRANCH, 'location_id' => $this->lucknow,
             ]);
-            $role->syncCapabilities(['people.view', 'people.roles']);
+            $role->syncCapabilities($capabilities);
 
             BranchMembership::on('organization')
                 ->where('user_id', $this->delegate)
@@ -241,23 +242,98 @@ class RoleScopeTest extends TenantTestCase
 
         $this->signInAsStaff($this->organization);
 
+        return $mine;
+    }
+
+    public function test_a_branch_manager_adds_to_the_role_they_hold_from_what_the_branch_runs(): void
+    {
+        $mine = $this->signInOnOwnRole(['people.view', 'people.roles', 'people.roles_view']);
+
+        $this->getJson('/api/v1/tenant/customers')->assertForbidden();
+
         $this->putJson("/api/v1/tenant/roles/{$mine}", [
             'name' => 'Lucknow lead',
-            'capabilities' => ['people.view', 'people.roles', 'customers.delete'],
-        ])->assertStatus(422)->assertJsonValidationErrors('capabilities');
+            'capabilities' => ['people.view', 'people.roles', 'people.roles_view', 'customers.view'],
+        ])->assertOk();
+
+        // It is really theirs now, not only written down. Signed in again because
+        // a test keeps one process, and the session remembers the role as it was.
+        $this->signInAsStaff($this->organization);
+        $this->getJson('/api/v1/tenant/customers')->assertOk();
 
         // Renaming it, or narrowing it, is still theirs to do.
         $this->putJson("/api/v1/tenant/roles/{$mine}", [
             'name' => 'Lucknow team lead',
-            'capabilities' => ['people.view', 'people.roles'],
+            'capabilities' => ['people.view', 'people.roles', 'people.roles_view'],
         ])->assertOk();
 
-        // And writing a role for other people is unchanged: bounded by what
-        // the branch runs, and checked again whenever it is handed out.
+        // And writing a role for other people is unchanged.
         $this->postJson('/api/v1/tenant/roles', [
             'name' => 'Records clerk',
             'capabilities' => ['customers.view', 'customers.delete'],
         ])->assertCreated();
+    }
+
+    public function test_a_module_this_branch_does_not_run_cannot_be_added_to_any_role(): void
+    {
+        $mine = $this->signInOnOwnRole(['people.view', 'people.roles', 'people.roles_view', 'appointments.view']);
+
+        $this->onTenant($this->organization, fn () => LocationModule::on('organization')->create([
+            'location_id' => $this->lucknow,
+            'module_key' => 'appointments',
+            'is_enabled' => false,
+        ]));
+
+        app(Permission::class)->forget();
+
+        // The organization holds the module, but this branch does not run it.
+        $this->putJson("/api/v1/tenant/roles/{$mine}", [
+            'name' => 'Lucknow lead',
+            'capabilities' => ['people.view', 'people.roles', 'people.roles_view', 'appointments.view', 'appointments.book'],
+        ])->assertStatus(422)->assertJsonValidationErrors('capabilities');
+
+        $this->postJson('/api/v1/tenant/roles', [
+            'name' => 'Desk',
+            'capabilities' => ['appointments.book'],
+        ])->assertStatus(422)->assertJsonValidationErrors('capabilities');
+
+        // What the role already held does not stop it being renamed.
+        $this->putJson("/api/v1/tenant/roles/{$mine}", [
+            'name' => 'Lucknow team lead',
+            'capabilities' => ['people.view', 'people.roles', 'people.roles_view', 'appointments.view'],
+        ])->assertOk();
+    }
+
+    public function test_nobody_takes_writing_roles_off_the_role_they_hold(): void
+    {
+        $mine = $this->signInOnOwnRole(['people.view', 'people.roles', 'people.roles_view', 'customers.view']);
+
+        foreach (['people.roles', 'people.roles_view'] as $wayBack) {
+            $this->putJson("/api/v1/tenant/roles/{$mine}", [
+                'name' => 'Lucknow lead',
+                'capabilities' => array_values(array_diff(
+                    ['people.view', 'people.roles', 'people.roles_view', 'customers.view'],
+                    [$wayBack],
+                )),
+            ])->assertStatus(422)->assertJsonValidationErrors('capabilities');
+        }
+
+        // Anything else on it is theirs to take off.
+        $this->putJson("/api/v1/tenant/roles/{$mine}", [
+            'name' => 'Lucknow lead',
+            'capabilities' => ['people.view', 'people.roles', 'people.roles_view'],
+        ])->assertOk();
+
+        // Somebody else's role is not their way back, so that stays an ordinary edit.
+        $other = $this->postJson('/api/v1/tenant/roles', [
+            'name' => 'Deputy',
+            'capabilities' => ['people.roles', 'people.roles_view'],
+        ])->assertCreated()->json('data.id');
+
+        $this->putJson("/api/v1/tenant/roles/{$other}", [
+            'name' => 'Deputy',
+            'capabilities' => ['people.roles_view'],
+        ])->assertOk();
     }
 
     public function test_templates_for_an_organization_role_keep_organization_permissions(): void

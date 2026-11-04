@@ -47,7 +47,18 @@ class File extends Model
             return null;
         }
 
-        return Storage::disk($this->disk ?: 'public')->url($this->file_path);
+        $disk = $this->disk ?: 'public';
+
+        // The public disk's URL is built from APP_URL, which is one host and
+        // one port. Every clinic is its own subdomain, and the dev server is
+        // not always on the port APP_URL names — so the picture was fetched
+        // from a different site and never showed. Within a request, keep
+        // to the origin the browser is already talking to.
+        if ($disk === 'public' && ! app()->runningInConsole()) {
+            return request()->getSchemeAndHttpHost().'/storage/'.ltrim($this->file_path, '/');
+        }
+
+        return Storage::disk($disk)->url($this->file_path);
     }
 
     /**

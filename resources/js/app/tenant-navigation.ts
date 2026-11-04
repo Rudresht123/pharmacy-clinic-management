@@ -7,6 +7,22 @@ import { EXPORT_CAPABILITIES } from '@/core/exports/capabilities';
  * (`reports`), separate from the rest of the pharmacy. Kept here rather than
  * imported from the reports screen itself, which the menu must not depend on.
  */
+/**
+ * The rows of the Pharmacy group that hang off a tick of their own. Any one of
+ * them puts the group on screen; the catalogue, the customer book and the reports
+ * come along only then, and Pharmacy settings live in the Settings group.
+ */
+const PHARMACY_ROW_CAPABILITIES = [
+    'pharmacy.view',
+    'pharmacy.inventory_view',
+    'pharmacy.purchases_view',
+    'pharmacy.sell',
+    'pharmacy.bills_view',
+    'pharmacy.movements_view',
+    'pharmacy.suppliers_view',
+    'pharmacy.stores_view',
+];
+
 const REPORT_CAPABILITIES = [
     'reports.sales',
     'reports.purchases',
@@ -227,7 +243,9 @@ export function tenantNavigation(
             // Keeps it highlighted on every entity tab.
             match: '/settings/fields',
         });
+    }
 
+    if (can('settings.departments')) {
         // Departments and their sub-departments — the doctor form's own list.
         settings.push({
             label: 'Departments',
@@ -341,12 +359,9 @@ export function tenantNavigation(
     /*
      * How the shop prices, rounds and warns.
      *
-     * The condition is spelled out rather than reusing the `pharmacy` const
-     * below — that one is declared further down, with the clinical group it
-     * belongs to, and a `const` read before its declaration is a runtime
-     * ReferenceError rather than an undefined.
+     * Its own tick, apart from the Pharmacy group's rows further down.
      */
-    const runsPharmacy = hasModule('pharmacy') && can('pharmacy.view');
+    const runsPharmacy = hasModule('pharmacy') && can('pharmacy.settings_view');
 
     if (runsPharmacy) {
         settings.push({
@@ -366,7 +381,7 @@ export function tenantNavigation(
             icon: 'ti ti-settings',
             match: [
                 '/settings',
-                ...(can('settings.manage') ? ['/departments'] : []),
+                ...(can('settings.departments') ? ['/departments'] : []),
                 ...(runsPharmacy ? ['/pharmacy/settings'] : []),
             ],
             children: settings,
@@ -417,44 +432,52 @@ export function tenantNavigation(
         }
 
         if (can('appointments.my_queue')) {
-            mine.push(
-                { label: 'My queue', to: '/my-queue', icon: 'ti ti-list-numbers', match: '/my-queue' },
-                {
-                    label: 'Consultations',
-                    to: '/my-consultations',
-                    icon: 'ti ti-clipboard-text',
-                    match: '/my-consultations',
-                },
-            );
+            mine.push({ label: 'My queue', to: '/my-queue', icon: 'ti ti-list-numbers', match: '/my-queue' });
+        }
+
+        if (can('appointments.my_consultations')) {
+            mine.push({
+                label: 'Consultations',
+                to: '/my-consultations',
+                icon: 'ti ti-clipboard-text',
+                match: '/my-consultations',
+            });
         }
 
         if (can('appointments.my_patients')) {
-            mine.push(
-                {
-                    label: 'Appointments',
-                    to: '/my-appointments',
-                    icon: 'ti ti-calendar',
-                    match: '/my-appointments',
-                },
-                {
-                    label: 'Prescriptions',
-                    to: '/my-prescriptions',
-                    icon: 'ti ti-file-text',
-                    match: '/my-prescriptions',
-                },
-                {
-                    label: 'Investigations',
-                    to: '/my-investigations',
-                    icon: 'ti ti-microscope',
-                    match: '/my-investigations',
-                },
-                {
-                    label: 'Follow-ups',
-                    to: '/my-follow-ups',
-                    icon: 'ti ti-calendar-repeat',
-                    match: '/my-follow-ups',
-                },
-            );
+            mine.push({
+                label: 'Appointments',
+                to: '/my-appointments',
+                icon: 'ti ti-calendar',
+                match: '/my-appointments',
+            });
+        }
+
+        if (can('appointments.my_prescriptions')) {
+            mine.push({
+                label: 'Prescriptions',
+                to: '/my-prescriptions',
+                icon: 'ti ti-file-text',
+                match: '/my-prescriptions',
+            });
+        }
+
+        if (can('appointments.my_investigations')) {
+            mine.push({
+                label: 'Investigations',
+                to: '/my-investigations',
+                icon: 'ti ti-microscope',
+                match: '/my-investigations',
+            });
+        }
+
+        if (can('appointments.my_follow_ups')) {
+            mine.push({
+                label: 'Follow-ups',
+                to: '/my-follow-ups',
+                icon: 'ti ti-calendar-repeat',
+                match: '/my-follow-ups',
+            });
         }
 
         if (can('appointments.my_schedule')) {
@@ -499,11 +522,11 @@ export function tenantNavigation(
      * "may this person see it" but "which menu is already showing it" — a row
      * that appears in two places reads as two different screens.
      */
-    const pharmacy = hasModule('pharmacy') && can('pharmacy.view');
+    const pharmacy = hasModule('pharmacy') && PHARMACY_ROW_CAPABILITIES.some((capability) => can(capability));
     const medicines = hasModule('medicines') && can('medicines.view');
 
     /*
-     * Sold as its own module, so it must not need `pharmacy.view` to be
+     * Sold as its own module, so it must not need a pharmacy row's tick to be
      * reachable — a role can hold every report and nothing else the counter
      * does. Whether it sits inside the Pharmacy group or stands on its own
      * depends only on whether that group is rendering at all (below).
@@ -575,7 +598,7 @@ export function tenantNavigation(
             opd.push({ label: 'Schedules', to: '/schedules', icon: 'ti ti-calendar-cog', match: '/schedules' });
         }
 
-        if (can('appointments.doctors_view')) {
+        if (can('appointments.availability_view')) {
             opd.push({
                 label: 'Availability',
                 to: '/availability',
@@ -626,7 +649,7 @@ export function tenantNavigation(
      * find a medicine to prescribe, and that clinic has no pharmacy heading to
      * look under. It steps aside only when the pharmacy group below is on
      * screen and already carries it as Products — which also covers somebody
-     * who has the pharmacy module but not `pharmacy.view`, where that group
+     * who has the pharmacy module but none of its rows, where that group
      * never renders and this entry is their only way to the list.
      */
     if (medicines && !pharmacy) {
@@ -646,14 +669,175 @@ export function tenantNavigation(
      * and a Pharmacy group below it — which left a medical store's own
      * catalogue outside its own menu.
      *
-     * The parent opens the overview rather than the stock list: a group header
-     * here is a link as well as a lid, and "the pharmacy" is a dashboard
+     * The parent opens the first row this role holds: a group header here is a
+     * link as well as a lid, and for most people "the pharmacy" is a dashboard
      * before it is a shelf.
      */
     if (pharmacy) {
+        /*
+         * In the order a shop is run: how it is doing, what it sells, what
+         * is on the shelf, what came in, the counter, what it billed, what
+         * moved — then the people and the set-up behind all of it.
+         */
+        const pharmacyRows: NavItem[] = [
+            ...(can('pharmacy.view')
+                ? [
+                      {
+                          label: 'Dashboard',
+                          to: '/pharmacy/dashboard',
+                          icon: 'ti ti-layout-dashboard',
+                          match: '/pharmacy/dashboard',
+                      },
+                  ]
+                : []),
+
+            /*
+             * The medicine master under the name a counter uses for it.
+             * Its own module and its own capability, because a store can
+             * be sold the pharmacy without the catalogue being readable by
+             * whoever is standing at the till.
+             */
+            ...(medicines
+                ? [
+                      {
+                          label: labels?.medicine ?? 'Products',
+                          to: '/medicines',
+                          icon: 'ti ti-pill',
+                          match: '/medicines',
+                      },
+                  ]
+                : []),
+
+            ...(can('pharmacy.inventory_view')
+                ? [
+                      {
+                          label: 'Inventory',
+                          to: '/pharmacy/stock',
+                          icon: 'ti ti-packages',
+                          match: '/pharmacy/stock',
+                      },
+                  ]
+                : []),
+
+            ...(can('pharmacy.purchases_view')
+                ? [
+                      {
+                          label: 'Purchases',
+                          to: '/pharmacy/inwards',
+                          icon: 'ti ti-truck-delivery',
+                          match: '/pharmacy/inwards',
+                      },
+                  ]
+                : []),
+
+            // Only whoever may actually take money, as the route asks.
+            ...(can('pharmacy.sell')
+                ? [
+                      {
+                          label: 'Sales (POS)',
+                          to: '/pharmacy/pos',
+                          icon: 'ti ti-building-store',
+                          match: '/pharmacy/pos',
+                      },
+                  ]
+                : []),
+
+            ...(can('pharmacy.bills_view')
+                ? [
+                      {
+                          label: 'Bills',
+                          to: '/pharmacy/sales',
+                          icon: 'ti ti-receipt',
+                          match: '/pharmacy/sales',
+                      },
+                  ]
+                : []),
+
+            ...(can('pharmacy.movements_view')
+                ? [
+                      {
+                          label: 'Movements',
+                          to: '/pharmacy/movements',
+                          icon: 'ti ti-arrows-exchange',
+                          match: '/pharmacy/movements',
+                      },
+                  ]
+                : []),
+
+            // The shop's own name for the customer book — see above.
+            ...(customersUnderPharmacy
+                ? [
+                      {
+                          label: labels?.customer ?? 'Customers',
+                          to: '/customers',
+                          icon: 'ti ti-users',
+                          match: '/customers',
+                      },
+                  ]
+                : []),
+
+            /*
+             * Its own module, sold separately, and its own capability per
+             * report inside the screen — so the row itself needs both:
+             * the module bought at all, and at least one report this
+             * person may actually open. A row leading to a screen that
+             * would show nothing is worse than no row.
+             */
+            ...(reports
+                ? [
+                      {
+                          label: 'Reports',
+                          to: '/pharmacy/reports',
+                          icon: 'ti ti-report-analytics',
+                          match: '/pharmacy/reports',
+                      },
+                  ]
+                : []),
+
+            ...(can('pharmacy.suppliers_view')
+                ? [
+                      {
+                          label: 'Suppliers',
+                          to: '/pharmacy/suppliers',
+                          icon: 'ti ti-truck',
+                          match: '/pharmacy/suppliers',
+                      },
+                  ]
+                : []),
+
+            /*
+             * Prescriptions would belong here, between who buys and where
+             * it is kept, and the module exists in ModuleRegistry — but
+             * nothing is built behind it. The only prescriptions screen in
+             * the router is a doctor's own list, which a counter cannot
+             * open. The "Coming soon" row at the bottom is the honest
+             * answer until there is a screen to link to.
+             */
+
+            ...(can('pharmacy.stores_view')
+                ? [
+                      {
+                          label: 'Stores',
+                          to: '/pharmacy/stores',
+                          icon: 'ti ti-building-store',
+                          match: '/pharmacy/stores',
+                      },
+                  ]
+                : []),
+
+            /*
+             * The pharmacy's own settings used to sit here. They now live
+             * under the one Settings group with every other thing that
+             * configures the software — somebody looking for "where do I
+             * change this" should have one place to look, not four. The
+             * row is not repeated here, because the same link in two
+             * menus reads as two different screens.
+             */
+        ];
+
         clinical.push({
             label: 'Pharmacy',
-            to: '/pharmacy/dashboard',
+            to: pharmacyRows[0].to,
             icon: 'ti ti-building-warehouse',
             /*
              * Two of the group's screens are other modules' routes, so the
@@ -665,135 +849,7 @@ export function tenantNavigation(
                 ...(medicines ? ['/medicines'] : []),
                 ...(customersUnderPharmacy ? ['/customers'] : []),
             ],
-            /*
-             * In the order a shop is run: how it is doing, what it sells, what
-             * is on the shelf, what came in, the counter, what it billed, what
-             * moved — then the people and the set-up behind all of it.
-             */
-            children: [
-                {
-                    label: 'Dashboard',
-                    to: '/pharmacy/dashboard',
-                    icon: 'ti ti-layout-dashboard',
-                    match: '/pharmacy/dashboard',
-                },
-
-                /*
-                 * The medicine master under the name a counter uses for it.
-                 * Its own module and its own capability, because a store can
-                 * be sold the pharmacy without the catalogue being readable by
-                 * whoever is standing at the till.
-                 */
-                ...(medicines
-                    ? [
-                          {
-                              label: labels?.medicine ?? 'Products',
-                              to: '/medicines',
-                              icon: 'ti ti-pill',
-                              match: '/medicines',
-                          },
-                      ]
-                    : []),
-
-                {
-                    label: 'Inventory',
-                    to: '/pharmacy/stock',
-                    icon: 'ti ti-packages',
-                    match: '/pharmacy/stock',
-                },
-                {
-                    label: 'Purchases',
-                    to: '/pharmacy/inwards',
-                    icon: 'ti ti-truck-delivery',
-                    match: '/pharmacy/inwards',
-                },
-
-                // Only whoever may actually take money, as the route asks.
-                ...(can('pharmacy.sell')
-                    ? [
-                          {
-                              label: 'Sales (POS)',
-                              to: '/pharmacy/pos',
-                              icon: 'ti ti-building-store',
-                              match: '/pharmacy/pos',
-                          },
-                      ]
-                    : []),
-
-                {
-                    label: 'Bills',
-                    to: '/pharmacy/sales',
-                    icon: 'ti ti-receipt',
-                    match: '/pharmacy/sales',
-                },
-                {
-                    label: 'Movements',
-                    to: '/pharmacy/movements',
-                    icon: 'ti ti-arrows-exchange',
-                    match: '/pharmacy/movements',
-                },
-
-                // The shop's own name for the customer book — see above.
-                ...(customersUnderPharmacy
-                    ? [
-                          {
-                              label: labels?.customer ?? 'Customers',
-                              to: '/customers',
-                              icon: 'ti ti-users',
-                              match: '/customers',
-                          },
-                      ]
-                    : []),
-
-                /*
-                 * Its own module, sold separately, and its own capability per
-                 * report inside the screen — so the row itself needs both:
-                 * the module bought at all, and at least one report this
-                 * person may actually open. A row leading to a screen that
-                 * would show nothing is worse than no row.
-                 */
-                ...(reports
-                    ? [
-                          {
-                              label: 'Reports',
-                              to: '/pharmacy/reports',
-                              icon: 'ti ti-report-analytics',
-                              match: '/pharmacy/reports',
-                          },
-                      ]
-                    : []),
-                {
-                    label: 'Suppliers',
-                    to: '/pharmacy/suppliers',
-                    icon: 'ti ti-truck',
-                    match: '/pharmacy/suppliers',
-                },
-
-                /*
-                 * Prescriptions would belong here, between who buys and where
-                 * it is kept, and the module exists in ModuleRegistry — but
-                 * nothing is built behind it. The only prescriptions screen in
-                 * the router is a doctor's own list, which a counter cannot
-                 * open. The "Coming soon" row at the bottom is the honest
-                 * answer until there is a screen to link to.
-                 */
-
-                {
-                    label: 'Stores',
-                    to: '/pharmacy/stores',
-                    icon: 'ti ti-building-store',
-                    match: '/pharmacy/stores',
-                },
-
-                /*
-                 * The pharmacy's own settings used to sit here. They now live
-                 * under the one Settings group with every other thing that
-                 * configures the software — somebody looking for "where do I
-                 * change this" should have one place to look, not four. The
-                 * row is not repeated here, because the same link in two
-                 * menus reads as two different screens.
-                 */
-            ],
+            children: pharmacyRows,
         });
     }
 
@@ -813,96 +869,75 @@ export function tenantNavigation(
     }
 
     /*
-     * Billing. The menu only shows where the module runs and this person may
-     * look at an invoice. The screen inside decides what
-     * they may then do — take payment, cancel, refund — from their own
-     * capability list, same as the pharmacy.
+     * Billing. One tick per row; the group shows whichever this role holds,
+     * opening on the first. The screen inside decides what they may then do —
+     * take payment, cancel, refund — from their own capability list, same as
+     * the pharmacy.
+     *
+     * In the order somebody at the counter works through them: what is the
+     * state of the money, what has been billed, what came in, what is still
+     * owed.
+     *
+     * Billing's settings are not a row here — they are in the Settings group
+     * with the rest of the set-up screens. The same row in two menus reads as
+     * two different screens. The price list is not a row either: it opens from
+     * Settings › Billing.
      */
-    if (hasModule('billing') && can('billing.view')) {
-        clinical.push({
-            label: 'Billing',
-            to: '/billing',
-            icon: 'ti ti-receipt',
-            match: '/billing',
-            /*
-             * In the order somebody at the counter works through them: what
-             * is the state of the money, what has been billed, what came in,
-             * what is still owed.
-             *
-             * Billing's settings are not a row here — they are in the
-             * Settings group with the rest of the set-up screens. The same
-             * row in two menus reads as two different screens.
-             */
-            children: [
-                { label: 'Overview', to: '/billing', icon: 'ti ti-layout-dashboard' },
-                {
-                    label: 'Invoices',
-                    to: '/billing/invoices',
-                    icon: 'ti ti-file-invoice',
-                    match: '/billing/invoices',
-                },
-                {
-                    label: 'Payments',
-                    to: '/billing/payments',
-                    icon: 'ti ti-cash',
-                    match: '/billing/payments',
-                },
-                {
-                    label: 'Outstanding',
-                    to: '/billing/outstanding',
-                    icon: 'ti ti-clock-dollar',
-                    match: '/billing/outstanding',
-                },
-                /*
-                 * Every department's money together — OPD, lab and pharmacy.
-                 * Its own capability: a management view, not a counter one.
-                 */
-                ...(can('billing.finance')
-                    ? [{ label: 'Finance', to: '/billing/finance', icon: 'ti ti-chart-pie', match: '/billing/finance' }]
-                    : []),
-                /*
-                 * The price list is not a menu row either: it is set up once
-                 * and then read by the software rather than by a person. It
-                 * opens from Settings › Billing.
-                 */
-            ],
-        });
+    if (hasModule('billing')) {
+        const billing: NavItem[] = [
+            ...(can('billing.view') ? [{ label: 'Overview', to: '/billing', icon: 'ti ti-layout-dashboard' }] : []),
+            ...(can('billing.invoices_view')
+                ? [{ label: 'Invoices', to: '/billing/invoices', icon: 'ti ti-file-invoice', match: '/billing/invoices' }]
+                : []),
+            ...(can('billing.payments_view')
+                ? [{ label: 'Payments', to: '/billing/payments', icon: 'ti ti-cash', match: '/billing/payments' }]
+                : []),
+            ...(can('billing.outstanding_view')
+                ? [{ label: 'Outstanding', to: '/billing/outstanding', icon: 'ti ti-clock-dollar', match: '/billing/outstanding' }]
+                : []),
+            // Every department's money together — OPD, lab and pharmacy. A management view.
+            ...(can('billing.finance')
+                ? [{ label: 'Finance', to: '/billing/finance', icon: 'ti ti-chart-pie', match: '/billing/finance' }]
+                : []),
+        ];
+
+        if (billing.length > 0) {
+            clinical.push({
+                label: 'Billing',
+                to: billing[0].to,
+                icon: 'ti ti-receipt',
+                match: '/billing',
+                children: billing,
+            });
+        }
     }
 
-    if (hasModule('communication') && can('communication.view')) {
-        clinical.push({
-            label: 'Communication',
-            to: '/communication/whatsapp',
-            icon: 'ti ti-messages',
-            match: '/communication',
-            children: [
-                {
-                    label: 'WhatsApp',
-                    to: '/communication/whatsapp',
-                    icon: 'ti ti-brand-whatsapp',
-                    match: '/communication/whatsapp',
-                },
-                {
-                    label: 'Email',
-                    to: '/communication/email',
-                    icon: 'ti ti-mail',
-                    match: '/communication/email',
-                },
-                {
-                    // Push to the patient app — a channel like the two above.
-                    label: 'Push notifications',
-                    to: '/communication/push',
-                    icon: 'ti ti-bell-ringing',
-                    match: '/communication/push',
-                },
-                {
-                    label: 'SMS',
-                    to: '/communication/sms',
-                    icon: 'ti ti-message',
-                    soon: true,
-                },
-            ],
-        });
+    /* One tick per channel's screen; SMS has no screen yet and only says so. */
+    if (hasModule('communication')) {
+        const channels: NavItem[] = [
+            ...(can('communication.view')
+                ? [{ label: 'WhatsApp', to: '/communication/whatsapp', icon: 'ti ti-brand-whatsapp', match: '/communication/whatsapp' }]
+                : []),
+            ...(can('communication.email')
+                ? [{ label: 'Email', to: '/communication/email', icon: 'ti ti-mail', match: '/communication/email' }]
+                : []),
+            ...(can('communication.push')
+                ? [{ label: 'Push notifications', to: '/communication/push', icon: 'ti ti-bell-ringing', match: '/communication/push' }]
+                : []),
+            ...(can('communication.recipients')
+                ? [{ label: 'Recipients', to: '/communication/recipients', icon: 'ti ti-users-group', match: '/communication/recipients' }]
+                : []),
+        ];
+
+        if (channels.length > 0) {
+            clinical.push({
+                label: 'Communication',
+                to: channels[0].to,
+                icon: 'ti ti-messages',
+                match: '/communication',
+                children: [...channels, { label: 'SMS', to: '/communication/sms', icon: 'ti ti-message', soon: true }],
+            });
+        }
     }
 
     /*

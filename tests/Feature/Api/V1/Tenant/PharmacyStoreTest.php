@@ -243,7 +243,7 @@ class PharmacyStoreTest extends TenantTestCase
         $mine = $this->addStore($here);
         $theirs = $this->addStore($there);
 
-        $this->setStaffCapabilities($organization, ['pharmacy.view']);
+        $this->setStaffCapabilities($organization, ['pharmacy.stores_view']);
         $this->signInAsStaff($organization);
 
         $listed = array_column($this->getJson('/api/v1/tenant/pharmacy-stores')->assertOk()->json('data'), 'id');

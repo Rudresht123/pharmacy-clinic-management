@@ -32,7 +32,10 @@ return [
         'credentials' => env('FIREBASE_CREDENTIALS'),
     ],
 
-    // Which queue the sending job uses, so pushes can be given their own worker.
-    'queue' => env('PUSH_QUEUE', 'default'),
+    /*
+     * Their own queue and their own worker: `queue:work --queue=push`. Nothing else
+     * is sent from it, so that worker can never pick up a WhatsApp or an email.
+     */
+    'queue' => env('PUSH_QUEUE', 'push'),
 
 ];

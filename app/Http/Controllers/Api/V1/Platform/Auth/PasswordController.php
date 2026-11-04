@@ -80,7 +80,8 @@ class PasswordController extends BaseApiController
     {
         $request->validate([
             'current_password' => ['required', 'current_password:platform'],
-            'password' => ['required', 'confirmed', Password::defaults()],
+            // What the profile page's requirements list promises (ProfileScreen.tsx).
+            'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
         ]);
 
         $request->user()->update([

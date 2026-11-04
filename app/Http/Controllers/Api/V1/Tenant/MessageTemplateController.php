@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Tenant;
 
 use App\Http\Controllers\Api\V1\BaseApiController;
+use App\Http\Controllers\Api\V1\Tenant\Concerns\AsksAboutChannels;
 use App\Http\Resources\Tenant\MessageTemplateResource;
 use App\Models\Tenant\AutomationRule;
 use App\Models\Tenant\CommunicationChannel;
@@ -25,11 +26,13 @@ use Illuminate\Validation\ValidationException;
  */
 class MessageTemplateController extends BaseApiController
 {
+    use AsksAboutChannels;
+
     public function index(Request $request): JsonResponse
     {
         $channel = $request->string('channel')->toString();
 
-        $query = MessageTemplate::query();
+        $query = MessageTemplate::query()->whereIn('channel', $this->readableChannels($request));
 
         if ($channel !== '') {
             $query->forChannel($channel);

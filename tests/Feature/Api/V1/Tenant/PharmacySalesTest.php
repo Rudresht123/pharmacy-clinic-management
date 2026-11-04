@@ -393,7 +393,7 @@ class PharmacySalesTest extends TenantTestCase
         $this->postJson("/api/v1/tenant/sales/{$sale['id']}/cancel", ['reason' => 'Mistake'])
             ->assertForbidden();
 
-        $this->setStaffCapabilities($this->organization, ['pharmacy.view']);
+        $this->setStaffCapabilities($this->organization, ['pharmacy.bills_view']);
         $this->signInAsStaff($this->organization);
 
         $this->sell()->assertForbidden();

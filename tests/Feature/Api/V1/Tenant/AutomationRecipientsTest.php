@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Api\V1\Tenant;
 
+use App\Services\Clinic\ClinicEvent;
+use App\Services\Communication\DoctorNotifier;
+use App\Support\Clinic\ClinicEvents;
 use App\Jobs\SendEmailMessage;
 use App\Jobs\SendPushMessage;
 use App\Models\Platform\Organization;
@@ -385,9 +388,8 @@ class AutomationRecipientsTest extends TenantTestCase
         $this->putJson($rules.$email, ['recipients' => ['to' => [['type' => 'patient']]]])
             ->assertUnprocessable()->assertJsonValidationErrors('recipients.to.0');
 
-        // …and the patient's own message never drops them.
-        $this->putJson($rules.$patientEmail, ['recipients' => ['to' => [['type' => 'doctor']]]])
-            ->assertUnprocessable()->assertJsonValidationErrors('recipients.to');
+        // …while the patient's own message is the clinic's to send to whoever it chooses.
+        $this->putJson($rules.$patientEmail, ['recipients' => ['to' => [['type' => 'doctor']]]])->assertOk();
 
         // Somebody who exists, and an address that is one.
         $this->putJson($rules.$email, ['recipients' => ['to' => [['type' => 'role', 'id' => 99999]]]])
@@ -417,6 +419,245 @@ class AutomationRecipientsTest extends TenantTestCase
         $this->putJson(self::STAFF.'/communication/automation-rules/'.$this->rule(CommunicationChannel::EMAIL)->id, [
             'recipients' => ['to' => [['type' => 'email', 'address' => 'me@example.com']]],
         ])->assertForbidden();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | The one central screen
+    |--------------------------------------------------------------------------
+    */
+
+    private function connect(string $channel): void
+    {
+        $this->onTenant($this->organization, fn () => CommunicationChannel::forChannel($channel)
+            ->forceFill(['is_connected' => true])->save());
+    }
+
+    /** Saved as the central Recipients screen saves it. */
+    private function central(string $channel, array $recipients, string $audience = AutomationRule::STAFF, string $event = AutomationRule::APPOINTMENT_CONFIRMED)
+    {
+        $this->fresh();
+        $this->signInAsOwner($this->organization);
+
+        return $this->putJson(self::STAFF.'/communication/automation-rules/'.$this->rule($channel, $audience, $event)->id.'/recipients', [
+            'recipients' => $recipients,
+        ]);
+    }
+
+    public function test_only_who_the_central_screen_names_hears_a_message(): void
+    {
+        $this->connect(CommunicationChannel::PUSH);
+
+        // The doctor, and not the patient it was written for.
+        $this->central(CommunicationChannel::PUSH, ['to' => [['type' => 'doctor']]], AutomationRule::PATIENT)
+            ->assertOk()
+            ->assertJsonPath('data.recipients.to.0.label', 'Doctor');
+
+        // The staff alert stays out of the way, so only that message is in play.
+        $this->putJson(self::STAFF.'/communication/automation-rules/'.$this->rule(CommunicationChannel::PUSH)->id, ['is_enabled' => false])
+            ->assertOk();
+
+        $this->book(customer: $this->patientId);
+
+        // The doctor's phone gets it in the type the staff app routes by.
+        $this->assertSame([[$this->login(self::DOCTOR_LOGIN)]], $this->pushes('appointment_booked'));
+
+        // The patient's phone is never told.
+        $this->assertSame([], $this->pushes('appointment.confirmed'));
+    }
+
+    public function test_the_central_screen_reaches_a_whole_role_at_the_visits_branch(): void
+    {
+        $this->signInAsReceptionist($this->organization, $this->gurgaon);
+
+        $roleId = $this->onTenant($this->organization, fn () => Role::query()
+            ->where('slug', Role::slugAt(self::RECEPTIONIST_ROLE, $this->gurgaon))->value('id'));
+
+        $this->central(CommunicationChannel::PUSH, ['to' => [['type' => 'role', 'id' => $roleId]]])
+            ->assertOk()
+            ->assertJsonPath('data.recipients.to.0.label', 'Receptionist');
+
+        $this->book();
+
+        $this->assertSame([[$this->login(self::RECEPTIONIST_EMAIL)]], $this->pushes('appointment_booked'));
+    }
+
+    public function test_reception_and_the_branch_manager_are_two_separate_columns(): void
+    {
+        $this->signInAsReceptionist($this->organization, $this->gurgaon);
+
+        // A manager by role, with nobody named on the branch: how most clinics run.
+        $holder = $this->onTenant($this->organization, function () {
+            Location::query()->whereKey($this->gurgaon)->update(['manager_id' => null]);
+
+            $role = Role::query()->where('slug', Role::slugAt('branch-manager', $this->gurgaon))->firstOrFail();
+
+            // They can answer reschedule requests, so the desk would have swept them in.
+            $this->assertContains('appointments.reschedule', $role->capabilityKeys());
+
+            $person = TenantUser::query()->create([
+                'name' => 'Priya Manager', 'email' => 'priya.manager@clinic.test', 'password' => bcrypt('secret-123'),
+                'is_active' => true, 'role' => TenantUser::STAFF,
+            ]);
+
+            BranchMembership::query()->create(['user_id' => $person->id, 'location_id' => $this->gurgaon, 'role_id' => $role->id]);
+
+            return $person->id;
+        });
+
+        $this->central(CommunicationChannel::PUSH, ['to' => [['type' => 'front_desk']]])->assertOk();
+        $this->book('10:00');
+
+        $this->central(CommunicationChannel::PUSH, ['to' => [['type' => 'branch_manager']]])->assertOk();
+        $this->book('10:30');
+
+        $this->assertSame(
+            [[$this->login(self::RECEPTIONIST_EMAIL)], [$holder]],
+            $this->pushes('appointment_booked'),
+        );
+    }
+
+    public function test_the_central_screen_sets_to_cc_and_bcc_on_an_email(): void
+    {
+        $this->connect(CommunicationChannel::EMAIL);
+
+        $this->central(CommunicationChannel::EMAIL, [
+            'to' => [['type' => 'patient']],
+            'cc' => [['type' => 'branch_manager']],
+            'bcc' => [['type' => 'doctor']],
+        ], AutomationRule::PATIENT)->assertOk();
+
+        $this->book(customer: $this->patientId);
+
+        $this->assertSame([[
+            'to' => 'rohit@example.com',
+            'also_to' => [],
+            'cc' => [self::MANAGER_EMAIL],
+            'bcc' => [self::DOCTOR_EMAIL],
+        ]], $this->emails('Appointment confirmed — {{clinic_name}}'));
+    }
+
+    public function test_the_central_screen_changes_who_hears_and_nothing_else_about_the_message(): void
+    {
+        $before = $this->rule(CommunicationChannel::PUSH);
+
+        $this->central(CommunicationChannel::PUSH, ['to' => [['type' => 'front_desk']]])->assertOk();
+
+        // Sent anyway, and ignored: those belong to the channel's own settings.
+        $this->putJson(self::STAFF."/communication/automation-rules/{$before->id}/recipients", [
+            'recipients' => ['to' => [['type' => 'doctor']]],
+            'title' => 'Renamed',
+            'message_template_id' => null,
+        ])->assertOk();
+
+        $after = $this->rule(CommunicationChannel::PUSH);
+
+        $this->assertSame($before->title, $after->title);
+        $this->assertSame($before->message_template_id, $after->message_template_id);
+        $this->assertSame([['type' => 'doctor']], $after->recipients['to']);
+    }
+
+    public function test_what_a_message_cannot_be_sent_to_is_refused_by_name(): void
+    {
+        // Staff wording never reaches the patient.
+        $this->central(CommunicationChannel::PUSH, ['to' => [['type' => 'patient']]])
+            ->assertUnprocessable()->assertJsonValidationErrors('recipients.to.0');
+
+        // A message that is on has to tell somebody.
+        $this->central(CommunicationChannel::PUSH, ['to' => []])
+            ->assertUnprocessable()->assertJsonValidationErrors('recipients.to');
+
+        // A role that exists.
+        $this->central(CommunicationChannel::PUSH, ['to' => [['type' => 'role', 'id' => 99999]]])
+            ->assertUnprocessable()->assertJsonValidationErrors('recipients.to.0');
+
+        // Saying nothing at all is not an answer.
+        $this->putJson(self::STAFF.'/communication/automation-rules/'.$this->rule(CommunicationChannel::PUSH)->id.'/recipients', [])
+            ->assertUnprocessable();
+    }
+
+    public function test_the_central_screen_has_its_own_tick(): void
+    {
+        $rule = $this->rule(CommunicationChannel::PUSH)->id;
+        $url = self::STAFF."/communication/automation-rules/{$rule}/recipients";
+        $body = ['recipients' => ['to' => [['type' => 'front_desk']]]];
+
+        // Everything else about communication is no way in.
+        $this->fresh();
+        $this->signInAsReceptionist($this->organization, $this->gurgaon);
+        $this->setRoleTicks(['communication.view', 'communication.email', 'communication.push', 'communication.branch_templates']);
+        $this->putJson($url, $body)->assertForbidden();
+
+        // An organization-wide role holding it writes, and reads every channel's messages.
+        $this->fresh();
+        $this->onTenant($this->organization, function () {
+            $role = Role::query()->create([
+                'name' => 'Comms', 'slug' => 'comms', 'scope' => Role::SCOPE_ORGANIZATION,
+            ]);
+            $role->syncCapabilities(['communication.recipients']);
+
+            TenantUser::query()->where('email', self::RECEPTIONIST_EMAIL)->update(['role_id' => $role->id]);
+        });
+        $this->signIn($this->organization, self::RECEPTIONIST_EMAIL);
+        $this->setRoleTicks([]);
+
+        $this->putJson($url, $body)->assertOk();
+
+        $channels = collect($this->getJson(self::STAFF.'/communication/automation-rules')->assertOk()->json('data'))
+            ->pluck('channel')->unique();
+
+        $this->assertContains(CommunicationChannel::EMAIL, $channels);
+        $this->assertContains(CommunicationChannel::PUSH, $channels);
+    }
+
+    /** What the receptionist's own branch role holds. */
+    private function setRoleTicks(array $ticks): void
+    {
+        $this->onTenant($this->organization, fn () => Role::query()
+            ->where('slug', Role::slugAt(self::RECEPTIONIST_ROLE, $this->gurgaon))
+            ->firstOrFail()
+            ->syncCapabilities($ticks));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Nobody is told a second way
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_where_a_message_exists_the_doctor_only_hears_if_it_names_them(): void
+    {
+        $this->connect(CommunicationChannel::PUSH);
+        $this->grantModule($this->organization, 'queue');
+
+        $event = fn () => new ClinicEvent(
+            key: ClinicEvents::TOKEN_CALLED,
+            database: $this->organization->database_name,
+            subjectType: (new Appointment)->getMorphClass(),
+            subjectId: $this->onTenant($this->organization, fn () => Appointment::query()->value('id')),
+            locationId: $this->gurgaon,
+        );
+
+        $this->fresh();
+        $this->signInAsOwner($this->organization);
+        $this->book(customer: $this->patientId);
+
+        $alerts = fn () => collect(Queue::pushed(SendPushMessage::class))
+            ->filter(fn (SendPushMessage $job) => ($job->content['data']['type'] ?? null) === ClinicEvents::TOKEN_CALLED)
+            ->count();
+
+        // A template sends this on push, and it does not name the doctor.
+        $this->onTenant($this->organization, fn () => app(DoctorNotifier::class)->handle($event()));
+        $this->assertSame(0, $alerts());
+
+        // An event with no template on this channel has nothing to tick, so it still reaches them.
+        $this->onTenant($this->organization, fn () => AutomationRule::query()
+            ->where('event_key', AutomationRule::TOKEN_CALLED)
+            ->where('channel', CommunicationChannel::PUSH)
+            ->update(['message_template_id' => null, 'is_enabled' => false]));
+
+        $this->onTenant($this->organization, fn () => app(DoctorNotifier::class)->handle($event()));
+        $this->assertSame(1, $alerts());
     }
 
     public function test_the_choices_are_places_roles_and_staff_never_patients(): void

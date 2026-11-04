@@ -231,7 +231,7 @@ class PushDevicesTest extends TenantTestCase
         Queue::assertPushed(SendPushMessage::class, 1);
     }
 
-    public function test_reading_the_list_needs_view_and_sending_needs_manage(): void
+    public function test_reading_the_list_needs_the_push_screen_and_sending_needs_manage(): void
     {
         // `communication.view` is a branch capability, so the staff member
         // works somewhere.
@@ -246,7 +246,7 @@ class PushDevicesTest extends TenantTestCase
         $this->getJson('/api/v1/tenant/communication/push/devices')->assertForbidden();
         $this->postJson('/api/v1/tenant/communication/push/send', [])->assertForbidden();
 
-        $this->setStaffCapabilities($this->apollo, ['communication.view']);
+        $this->setStaffCapabilities($this->apollo, ['communication.push']);
         $this->signInAsStaff($this->apollo);
 
         $this->getJson('/api/v1/tenant/communication/push/devices')->assertOk();

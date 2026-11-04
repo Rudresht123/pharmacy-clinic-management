@@ -67,7 +67,9 @@ class AutomationSender
     public const RULES = [
         ClinicEvents::APPOINTMENT_BOOKED => AutomationRule::APPOINTMENT_CONFIRMED,
         ClinicEvents::APPOINTMENT_CANCELLED => AutomationRule::APPOINTMENT_CANCELLED,
+        ClinicEvents::PATIENT_CHECKED_IN => AutomationRule::CHECKED_IN,
         ClinicEvents::TOKEN_CALLED => AutomationRule::TOKEN_CALLED,
+        ClinicEvents::CONSULTATION_COMPLETED => AutomationRule::CONSULTATION_COMPLETED,
         ClinicEvents::RESCHEDULE_REQUESTED => AutomationRule::APPOINTMENT_RESCHEDULE_REQUESTED,
         ClinicEvents::APPOINTMENT_RESCHEDULED => AutomationRule::APPOINTMENT_RESCHEDULED,
         ClinicEvents::RESCHEDULE_REJECTED => AutomationRule::APPOINTMENT_RESCHEDULE_REJECTED,
@@ -102,6 +104,8 @@ class AutomationSender
 
         $context = match ($event->key) {
             ClinicEvents::APPOINTMENT_BOOKED,
+            ClinicEvents::PATIENT_CHECKED_IN,
+            ClinicEvents::CONSULTATION_COMPLETED,
             ClinicEvents::APPOINTMENT_CANCELLED => $this->appointment($event, $organization),
             ClinicEvents::TOKEN_CALLED => $this->tokenCalled($event, $organization),
             ClinicEvents::RESCHEDULE_REQUESTED,
@@ -188,6 +192,7 @@ class AutomationSender
                 continue;
             }
 
+            // Each phone in the type its own app routes by, whichever rule named it.
             $logs = $this->channels->queueTo(
                 $organization,
                 $channel,
@@ -196,7 +201,8 @@ class AutomationSender
                 $rule->template,
                 $variables,
                 $locationId,
-                data: ['type' => $rule->isForStaff() && $event !== null ? $event : $ruleKey] + $this->references($subject),
+                data: ['type' => $ruleKey] + $this->references($subject),
+                staffData: ['type' => $event ?? $ruleKey] + $this->references($subject),
             );
 
             if ($logs !== [] && ! $rule->isForStaff()) {

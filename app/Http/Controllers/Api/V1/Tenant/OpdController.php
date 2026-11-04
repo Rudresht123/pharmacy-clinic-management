@@ -8,7 +8,9 @@ use App\Services\Opd\AvailabilityService;
 use App\Services\Opd\DoctorDay;
 use App\Services\Opd\DoctorRecords;
 use App\Services\Opd\OpdBoard;
+use App\Services\Permissions\Permission;
 use App\Services\Tenancy\TenantBranchAccess;
+use App\Support\Modules\ScreenTicks;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -102,6 +104,8 @@ class OpdController extends BaseApiController
             'q' => ['nullable', 'string', 'max:100'],
         ]);
 
+        $this->assertMayReadRecords($request);
+
         $doctor = $this->signedInDoctor($request);
 
         $from = $request->filled('from') ? Carbon::parse($request->input('from')) : null;
@@ -128,6 +132,22 @@ class OpdController extends BaseApiController
      * These screens are "mine". Taking a doctor id from the request would let
      * one doctor read another's patients under a capability every doctor holds.
      */
+    /** The route opens for any of a doctor's lists; this asks about the one requested. */
+    private function assertMayReadRecords(Request $request): void
+    {
+        $organization = $request->attributes->get('tenant.organization');
+        $user = Auth::guard('web')->user();
+        $permission = app(Permission::class);
+
+        foreach (ScreenTicks::MY_RECORDS[$request->string('view')->toString()] as $tick) {
+            if ($organization !== null && $user !== null && $permission->allows($organization, $user, $tick)) {
+                return;
+            }
+        }
+
+        abort(403, 'Your role does not include this list.');
+    }
+
     private function signedInDoctor(Request $request): Doctor
     {
         $user = $request->user();

@@ -104,6 +104,7 @@ class RoleTemplates
                     'appointments.view',
                     'appointments.queue_view',
                     'appointments.doctors_view',
+                    'appointments.availability_view',
                     'appointments.book',
                     'appointments.queue',
                     'queue.board',
@@ -136,6 +137,13 @@ class RoleTemplates
 
                     'medicines.view',
                     'pharmacy.view',
+                    'pharmacy.inventory_view',
+                    'pharmacy.purchases_view',
+                    'pharmacy.bills_view',
+                    'pharmacy.movements_view',
+                    'pharmacy.suppliers_view',
+                    'pharmacy.stores_view',
+                    'pharmacy.settings_view',
                     'pharmacy.sell',
                     /* Covers the counter, so dispenses as well as sells. */
                     'pharmacy.dispense',
@@ -174,6 +182,9 @@ class RoleTemplates
                      * every branch.
                      */
                     'billing.view',
+                    'billing.invoices_view',
+                    'billing.payments_view',
+                    'billing.outstanding_view',
                     'billing.create',
                     'billing.edit',
                     'billing.cancel',
@@ -182,6 +193,8 @@ class RoleTemplates
                     // The branch's money across OPD, lab and pharmacy, together.
                     'billing.finance',
                     'communication.view',
+                    'communication.email',
+                    'communication.push',
                     /* Their own branch's records as files — never another branch's. */
                     'exports.patients',
                     'exports.pharmacy',
@@ -226,8 +239,12 @@ class RoleTemplates
                     // doctor lands on their day, not the manager's numbers.
                     'appointments.my_day',
                     'appointments.my_queue',
+                    'appointments.my_consultations',
                     'appointments.my_schedule',
                     'appointments.my_patients',
+                    'appointments.my_prescriptions',
+                    'appointments.my_investigations',
+                    'appointments.my_follow_ups',
 
                     /*
                      * The consultation is theirs, both ends of it. These two
@@ -307,6 +324,7 @@ class RoleTemplates
                     'appointments.view',
                     'appointments.queue_view',
                     'appointments.doctors_view',
+                    'appointments.availability_view',
                     'appointments.book',
                     'appointments.queue',
                     'queue.board',
@@ -328,8 +346,13 @@ class RoleTemplates
                      * the branch manager's.
                      */
                     'billing.view',
+                    'billing.invoices_view',
+                    'billing.payments_view',
+                    'billing.outstanding_view',
                     'billing.collect_payment',
                     'communication.view',
+                    'communication.email',
+                    'communication.push',
 
                     // Its own thread with a patient, apart from the one they
                     // may also have with a doctor.
@@ -410,6 +433,13 @@ class RoleTemplates
                     'medicines.view',
                     'prescriptions.view',
                     'pharmacy.view',
+                    'pharmacy.inventory_view',
+                    'pharmacy.purchases_view',
+                    'pharmacy.bills_view',
+                    'pharmacy.movements_view',
+                    'pharmacy.suppliers_view',
+                    'pharmacy.stores_view',
+                    'pharmacy.settings_view',
                     'pharmacy.sell',
                     'pharmacy.dispense',
                     'pharmacy.inward',
@@ -432,6 +462,9 @@ class RoleTemplates
                      * on this same list).
                      */
                     'billing.view',
+                    'billing.invoices_view',
+                    'billing.payments_view',
+                    'billing.outstanding_view',
                     'billing.collect_payment',
                 ],
             ],
@@ -466,6 +499,9 @@ class RoleTemplates
                     'customers.records_view',
                     'customers.contact',
                     'billing.view',
+                    'billing.invoices_view',
+                    'billing.payments_view',
+                    'billing.outstanding_view',
                     'billing.create',
                     'billing.edit',
                     'billing.cancel',
@@ -523,6 +559,7 @@ class RoleTemplates
                     'appointments.queue_view',
                     'queue.board',
                     'appointments.doctors_view',
+                    'appointments.availability_view',
                     /* The doctor roster, organization-wide — see ModuleRegistry. */
                     'appointments.doctors',
                     'documents.view',
@@ -545,6 +582,9 @@ class RoleTemplates
                     'billing.manage_settings',
                     'billing.manage_services',
                     'billing.view',
+                    'billing.invoices_view',
+                    'billing.payments_view',
+                    'billing.outstanding_view',
                     'billing.create',
                     'billing.edit',
                     'billing.cancel',

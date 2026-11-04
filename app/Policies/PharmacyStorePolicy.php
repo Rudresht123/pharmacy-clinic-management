@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\Tenant\PharmacyStore;
 use App\Models\Tenant\User;
 use App\Policies\Concerns\AsksAboutBranch;
+use App\Support\Modules\ScreenTicks;
 
 /**
  * May this person touch this store?
@@ -29,17 +30,63 @@ class PharmacyStorePolicy
         return $this->mayAt($user, $locationId, 'pharmacy.stores');
     }
 
+    /** Any pharmacy screen at this store's branch. */
     public function view(User $user, PharmacyStore $store): bool
     {
-        return $this->mayAt($user, $store->location_id, 'pharmacy.view');
+        return $this->mayAtAny($user, $store->location_id, ScreenTicks::PHARMACY_ANY);
+    }
+
+    public function viewDashboard(User $user, PharmacyStore $store): bool
+    {
+        return $this->mayAtAny($user, $store->location_id, ScreenTicks::PHARMACY_DASHBOARD);
+    }
+
+    public function viewStock(User $user, PharmacyStore $store): bool
+    {
+        return $this->mayAtAny($user, $store->location_id, ScreenTicks::PHARMACY_STOCK);
+    }
+
+    public function viewMovements(User $user, PharmacyStore $store): bool
+    {
+        return $this->mayAtAny($user, $store->location_id, ScreenTicks::PHARMACY_MOVEMENTS);
+    }
+
+    public function viewStockDocuments(User $user, PharmacyStore $store): bool
+    {
+        return $this->mayAtAny($user, $store->location_id, ScreenTicks::PHARMACY_STOCK_DOCUMENTS);
+    }
+
+    public function viewPurchases(User $user, PharmacyStore $store): bool
+    {
+        return $this->mayAtAny($user, $store->location_id, ScreenTicks::PHARMACY_PURCHASES);
+    }
+
+    public function viewBills(User $user, PharmacyStore $store): bool
+    {
+        return $this->mayAtAny($user, $store->location_id, ScreenTicks::PHARMACY_BILLS);
+    }
+
+    public function viewOneBill(User $user, PharmacyStore $store): bool
+    {
+        return $this->mayAtAny($user, $store->location_id, ScreenTicks::PHARMACY_ONE_BILL);
+    }
+
+    /** The store's own page, and what it stocks. */
+    public function viewStore(User $user, PharmacyStore $store): bool
+    {
+        return $this->mayAtAny($user, $store->location_id, ScreenTicks::PHARMACY_STORE);
+    }
+
+    public function viewHandoff(User $user, PharmacyStore $store): bool
+    {
+        return $this->mayAtAny($user, $store->location_id, ScreenTicks::PHARMACY_HANDOFF);
     }
 
     /**
      * One of the six reports, at this store's branch.
      *
      * Its own capability per report (`reports.sales`, `reports.profit`, …) —
-     * not `pharmacy.view`, which also opens the dashboard, the stock list and
-     * settings. A cashier who may see what sold today has no structural need
+     * not a pharmacy screen's. A cashier who may see what sold today has no structural need
      * to see what it cost, and this is what lets an owner staff the counter
      * with the first and keep the second for themselves.
      */
@@ -50,7 +97,7 @@ class PharmacyStorePolicy
 
     /**
      * What the store holds of a medicine — asked by a doctor choosing what to
-     * prescribe, who holds `medicines.view` rather than `pharmacy.view`.
+     * prescribe, who holds `medicines.view` rather than a pharmacy screen's tick.
      */
     public function checkAvailability(User $user, PharmacyStore $store): bool
     {

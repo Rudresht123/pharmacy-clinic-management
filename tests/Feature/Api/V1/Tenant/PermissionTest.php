@@ -161,6 +161,7 @@ class PermissionTest extends TenantTestCase
          * or not the clinic has bought it: they do nothing until it does.
          */
         $this->assertSame([
+            'appointments.availability_view',
             'appointments.book',
             'appointments.cancel',
             'appointments.doctors_view',

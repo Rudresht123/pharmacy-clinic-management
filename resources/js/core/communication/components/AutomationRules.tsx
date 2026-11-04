@@ -18,6 +18,9 @@ const WIRED = [
     'patient.registered',
     'appointment.reminder_day',
     'appointment.reminder_hour',
+    'queue.checked_in',
+    'queue.token_called',
+    'queue.consultation_completed',
 ];
 
 /**
@@ -127,7 +130,7 @@ function readiness(
 }
 
 /** "1440 minutes before" is not how anybody says a day. */
-function lead(minutes: number | null): string | null {
+export function lead(minutes: number | null): string | null {
     if (minutes === null || minutes === 0) {
         return null;
     }

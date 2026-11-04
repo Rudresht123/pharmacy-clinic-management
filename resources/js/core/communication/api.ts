@@ -6,6 +6,7 @@ import type {
     AudienceFilter,
     AudiencePreview,
     AudienceSegment,
+    AutomationRule,
     Campaign,
     Channel,
     ChannelOverview,
@@ -13,6 +14,7 @@ import type {
     PushDevicePage,
     PushRecipient,
     RecipientOptions,
+    RuleRecipients,
 } from './types';
 
 const ROOT = '/tenant/communication';
@@ -91,7 +93,39 @@ export function useRuleRecipientOptions(enabled: boolean) {
     });
 }
 
-/** The rule's wording, template, timing and who it tells — everything but its event. */
+/** Every message the software sends by itself, across the channels. */
+export function useAutomationRules() {
+    return useQuery({
+        queryKey: ['communication', 'rules'],
+        queryFn: async (): Promise<AutomationRule[]> => {
+            const { data } = await http.get<ApiResponse<AutomationRule[]>>(`${ROOT}/automation-rules`);
+
+            return data.data;
+        },
+    });
+}
+
+/** Who gets one message: all the central Recipients screen ever writes. */
+export function useSaveRuleRecipients() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ id, recipients }: { id: number; recipients: RuleRecipients }) => {
+            const { data } = await http.put<ApiResponse<AutomationRule>>(
+                `${ROOT}/automation-rules/${id}/recipients`,
+                { recipients },
+            );
+
+            return data;
+        },
+        onSuccess: () => {
+            notify.success('Saved');
+            void queryClient.invalidateQueries({ queryKey: ['communication'] });
+        },
+    });
+}
+
+/** The rule's wording, template and timing — everything but its event and who gets it. */
 export function useSaveRule() {
     const queryClient = useQueryClient();
 
@@ -466,6 +500,25 @@ export interface TemplateVariants {
     branches: BranchWording[];
 }
 
+/**
+ * The templates as this branch sends them: its own wording where it has one.
+ * A list showing the organisation's after somebody saved their own would read as
+ * though the save had not worked.
+ */
+export function asSentHere(templates: MessageTemplate[]): MessageTemplate[] {
+    return templates.map((template) =>
+        template.branch_wording
+            ? {
+                  ...template,
+                  subject: template.branch_wording.subject ?? template.subject,
+                  content: template.branch_wording.content,
+                  org_subject: template.subject,
+                  org_content: template.content,
+              }
+            : template,
+    );
+}
+
 export function useTemplateVariants(templateId: number | undefined) {
     return useQuery({
         queryKey: ['communication', 'variants', templateId],
@@ -502,9 +555,10 @@ export function useSaveVariant() {
 
             return data.data;
         },
-        onSuccess: (_, variables) => {
+        onSuccess: () => {
             notify.success('Branch wording saved');
-            void queryClient.invalidateQueries({ queryKey: ['communication', 'variants', variables.templateId] });
+            // The list as well: it shows what this branch sends, and counts who rewords.
+            void queryClient.invalidateQueries({ queryKey: ['communication'] });
         },
     });
 }
@@ -520,9 +574,9 @@ export function useRemoveVariant() {
 
             return data.data;
         },
-        onSuccess: (_, variables) => {
+        onSuccess: () => {
             notify.success('Back to the organisation’s wording');
-            void queryClient.invalidateQueries({ queryKey: ['communication', 'variants', variables.templateId] });
+            void queryClient.invalidateQueries({ queryKey: ['communication'] });
         },
     });
 }

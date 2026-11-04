@@ -175,4 +175,31 @@ class AuthenticationTest extends TestCase
             'password_confirmation' => 'password',
         ])->assertStatus(404);
     }
+
+    /** The requirements the profile page lists are the ones enforced. */
+    public function test_a_new_password_must_meet_the_listed_requirements(): void
+    {
+        $admin = $this->admin(['password' => Hash::make('Current-passw0rd')]);
+
+        foreach (['Sh0rt!', 'no-upper-case-1', 'NO-LOWER-CASE-1', 'No-Numbers-Here', 'N0Symbols1nHere'] as $weak) {
+            $this->actingAs($admin, 'platform')
+                ->putJson('/api/v1/admin/auth/password', [
+                    'current_password' => 'Current-passw0rd',
+                    'password' => $weak,
+                    'password_confirmation' => $weak,
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('password');
+        }
+
+        $this->actingAs($admin, 'platform')
+            ->putJson('/api/v1/admin/auth/password', [
+                'current_password' => 'Current-passw0rd',
+                'password' => 'A-new-passw0rd',
+                'password_confirmation' => 'A-new-passw0rd',
+            ])
+            ->assertOk();
+
+        $this->assertTrue(Hash::check('A-new-passw0rd', $admin->fresh()->password));
+    }
 }

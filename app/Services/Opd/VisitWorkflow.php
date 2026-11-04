@@ -453,6 +453,8 @@ class VisitWorkflow
              */
             $this->events()->dispatch(ClinicEvent::for(ClinicEvents::CONSULTATION_COMPLETED, $locked));
 
+            app(PatientNotifications::class)->consultationCompleted($locked);
+
             // A finished consultation is new evidence for their average.
             app(EstimatedWaitingTimeService::class)->forget((int) $locked->doctor_id, (int) $locked->location_id);
 

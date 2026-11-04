@@ -94,7 +94,7 @@ export const NEXT_ACTION_STEP: Record<NextAction, {
         label: 'Collect payment',
         icon: 'ti ti-cash',
         to: '/pharmacy/sales?unpaid_only=1',
-        needs: 'pharmacy.view',
+        needs: 'pharmacy.bills_view',
     },
     follow_up: {
         label: 'Follow-up booked in',

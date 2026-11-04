@@ -18,6 +18,7 @@ use App\Models\Tenant\User as TenantUser;
 use App\Services\Tenancy\DatabaseService;
 use App\Services\Tenancy\TenantConnectionService;
 use App\Services\Tenant\DefaultRoleSeeder;
+use App\Services\Tenant\DefaultTemplateSeeder;
 use App\Services\Tenant\DoctorPostings;
 use App\Support\Platform\OrganizationCode;
 use Illuminate\Support\Facades\Artisan;
@@ -403,6 +404,9 @@ abstract class TenantTestCase extends TestCase
                 $this->grantModule($organization, $key);
             }
         });
+
+        // What ModuleGrantSetup does when a super admin grants them on the screen.
+        $this->onTenant($organization, fn () => app(DefaultTemplateSeeder::class)->seed($organization));
     }
 
     protected function revokeFoundationModules(Organization $organization): void

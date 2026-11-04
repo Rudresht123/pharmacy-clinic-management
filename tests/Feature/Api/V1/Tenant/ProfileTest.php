@@ -3,7 +3,6 @@
 namespace Tests\Feature\Api\V1\Tenant;
 
 use App\Models\Tenant\File;
-use App\Models\Tenant\User as TenantUser;
 use App\Services\Tenancy\TenantConnectionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -114,8 +113,8 @@ class ProfileTest extends TenantTestCase
 
         $this->putJson('/api/v1/tenant/auth/password', [
             'current_password' => self::PASSWORD,
-            'password' => 'a-new-password',
-            'password_confirmation' => 'a-new-password',
+            'password' => 'A-new-passw0rd',
+            'password_confirmation' => 'A-new-passw0rd',
         ])->assertOk();
 
         $this->flushSession();
@@ -124,7 +123,7 @@ class ProfileTest extends TenantTestCase
         $this->postJson('/api/v1/tenant/auth/login', [
             'subdomain' => $organization->subdomain,
             'email' => self::STAFF_EMAIL,
-            'password' => 'a-new-password',
+            'password' => 'A-new-passw0rd',
         ])->assertOk();
     }
 
@@ -135,9 +134,24 @@ class ProfileTest extends TenantTestCase
 
         $this->putJson('/api/v1/tenant/auth/password', [
             'current_password' => 'not-the-password',
-            'password' => 'a-new-password',
-            'password_confirmation' => 'a-new-password',
-        ])->assertStatus(422);
+            'password' => 'A-new-passw0rd',
+            'password_confirmation' => 'A-new-passw0rd',
+        ])->assertStatus(422)->assertJsonValidationErrors('current_password');
+    }
+
+    /** The requirements the profile page lists are the ones enforced. */
+    public function test_a_new_password_must_meet_the_listed_requirements(): void
+    {
+        $organization = $this->provisionOrganization('PR');
+        $this->signInAsStaff($organization);
+
+        foreach (['Sh0rt!', 'no-upper-case-1', 'NO-LOWER-CASE-1', 'No-Numbers-Here', 'N0Symbols1nHere'] as $weak) {
+            $this->putJson('/api/v1/tenant/auth/password', [
+                'current_password' => self::PASSWORD,
+                'password' => $weak,
+                'password_confirmation' => $weak,
+            ])->assertStatus(422)->assertJsonValidationErrors('password');
+        }
     }
 
     public function test_profile_endpoints_reject_a_guest(): void

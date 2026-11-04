@@ -8,8 +8,8 @@ use App\Models\Tenant\Doctor;
 use App\Models\Tenant\DoctorQueueSetting;
 use App\Services\Opd\AvailabilityService;
 use App\Services\Tenancy\CurrentTenant;
-use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 

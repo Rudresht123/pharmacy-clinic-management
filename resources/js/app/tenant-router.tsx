@@ -87,6 +87,7 @@ const GuidePage = lazy(() => import('@/core/guides/pages/GuidePage'));
 const WhatsAppPage = lazy(() => import('@/core/communication/pages/WhatsAppPage'));
 const EmailPage = lazy(() => import('@/core/communication/pages/EmailPage'));
 const PushPage = lazy(() => import('@/core/communication/pages/PushPage'));
+const RecipientsPage = lazy(() => import('@/core/communication/pages/RecipientsPage'));
 const CampaignWizardPage = lazy(() => import('@/core/communication/pages/CampaignWizardPage'));
 
 /**
@@ -442,6 +443,8 @@ export function TenantAppRoutes() {
                                 </Route>
                                 <Route element={<RequireCapability capability="appointments.my_queue" />}>
                                     <Route path="/my-queue" element={<MyQueuePage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="appointments.my_consultations" />}>
                                     {/*
                                         Consultations are worked, not read: the
                                         list and the write-up on one screen,
@@ -455,24 +458,30 @@ export function TenantAppRoutes() {
                                 <Route element={<RequireCapability capability="appointments.my_schedule" />}>
                                     <Route path="/my-schedule" element={<MySchedulePage />} />
                                 </Route>
+                                {/*
+                                    Readings of the same rows, so one component
+                                    with a prop rather than near-identical files;
+                                    one tick each all the same.
+                                */}
                                 <Route element={<RequireCapability capability="appointments.my_patients" />}>
-                                    {/*
-                                        Readings of the same rows, so one
-                                        component with a prop rather than
-                                        near-identical files.
-                                    */}
                                     <Route
                                         path="/my-appointments"
                                         element={<MyRecordsPage view="appointments" />}
                                     />
+                                </Route>
+                                <Route element={<RequireCapability capability="appointments.my_prescriptions" />}>
                                     <Route
                                         path="/my-prescriptions"
                                         element={<MyRecordsPage view="prescriptions" />}
                                     />
+                                </Route>
+                                <Route element={<RequireCapability capability="appointments.my_investigations" />}>
                                     <Route
                                         path="/my-investigations"
                                         element={<MyRecordsPage view="investigations" />}
                                     />
+                                </Route>
+                                <Route element={<RequireCapability capability="appointments.my_follow_ups" />}>
                                     {/* Worked from, not only read: tiles, filters, contact. */}
                                     <Route path="/my-follow-ups" element={<FollowUpsPage />} />
                                 </Route>
@@ -493,6 +502,11 @@ export function TenantAppRoutes() {
                                     element={<RequireCapability capability="appointments.doctors_view" />}
                                 >
                                     <Route path="/doctors" element={<DoctorListPage />} />
+                                </Route>
+
+                                <Route
+                                    element={<RequireCapability capability="appointments.availability_view" />}
+                                >
                                     <Route path="/availability" element={<AvailabilityPage />} />
                                 </Route>
 
@@ -615,8 +629,8 @@ export function TenantAppRoutes() {
 
                                 {/*
                                     Its own module, sold separately from the
-                                    rest of the pharmacy — no `pharmacy.view`
-                                    requirement here. WHICH of the six reports
+                                    rest of the pharmacy — no pharmacy row's
+                                    tick required here. WHICH of the six reports
                                     somebody may open is decided inside the
                                     page and by the API per request, the same
                                     split `documents.view_clinical` makes
@@ -626,6 +640,7 @@ export function TenantAppRoutes() {
                                     <Route path="/pharmacy/reports" element={<PharmacyReportsPage />} />
                                 </Route>
 
+                                {/* One tick per screen, as the menu shows them. */}
                                 <Route element={<RequireCapability capability="pharmacy.view" />}>
                                     {/* One store's day, gathered from the
                                         screens below it. */}
@@ -633,18 +648,31 @@ export function TenantAppRoutes() {
                                         path="/pharmacy/dashboard"
                                         element={<PharmacyDashboardPage />}
                                     />
+                                </Route>
+                                <Route element={<RequireCapability capability="pharmacy.bills_view" />}>
                                     <Route path="/pharmacy/sales" element={<SalesListPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="pharmacy.stores_view" />}>
                                     <Route path="/pharmacy/stores" element={<StoreListPage />} />
                                     <Route
                                         path="/pharmacy/stores/:id/medicines"
                                         element={<StoreMedicinesPage />}
                                     />
+                                </Route>
+                                <Route element={<RequireCapability capability="pharmacy.inventory_view" />}>
                                     <Route path="/pharmacy/stock" element={<StockPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="pharmacy.purchases_view" />}>
                                     <Route path="/pharmacy/inwards" element={<InwardListPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="pharmacy.movements_view" />}>
                                     <Route path="/pharmacy/movements" element={<MovementsPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="pharmacy.suppliers_view" />}>
                                     <Route path="/pharmacy/suppliers" element={<SuppliersPage />} />
-                                    {/* Read by everyone at a counter; the page
-                                        itself only lets pharmacy setup save. */}
+                                </Route>
+                                {/* The page itself only lets pharmacy setup save. */}
+                                <Route element={<RequireCapability capability="pharmacy.settings_view" />}>
                                     <Route
                                         path="/pharmacy/settings"
                                         element={<PharmacySettingsPage />}
@@ -705,24 +733,46 @@ export function TenantAppRoutes() {
                                     <Route path="/billing/finance" element={<FinancePage />} />
                                 </Route>
 
+                                {/* The counter's own screens, in the order the
+                                    menu lists them, one tick each. */}
                                 <Route element={<RequireCapability capability="billing.view" />}>
-                                    {/* The counter's own screens, in the order
-                                        the menu lists them. */}
                                     <Route path="/billing" element={<BillingOverviewPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="billing.invoices_view" />}>
                                     <Route
                                         path="/billing/invoices"
                                         element={<InvoiceListPage />}
                                     />
+                                </Route>
+                                <Route element={<RequireCapability capability="billing.payments_view" />}>
                                     <Route path="/billing/payments" element={<PaymentsPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="billing.outstanding_view" />}>
                                     <Route
                                         path="/billing/outstanding"
                                         element={<OutstandingPage />}
                                     />
+                                </Route>
+                                <Route
+                                    element={
+                                        <RequireAnyCapability
+                                            capabilities={['billing.view', 'billing.manage_services']}
+                                        />
+                                    }
+                                >
                                     <Route path="/billing/services" element={<ServicesPage />} />
-                                    {/* Under /settings with the rest of the
-                                        set-up screens, so only the Settings
-                                        menu lights up on it. The old address
-                                        still lands there for bookmarks. */}
+                                </Route>
+                                {/* Under /settings with the rest of the set-up
+                                    screens, so only the Settings menu lights up
+                                    on it. The old address still lands there for
+                                    bookmarks. */}
+                                <Route
+                                    element={
+                                        <RequireAnyCapability
+                                            capabilities={['billing.view', 'billing.manage_settings']}
+                                        />
+                                    }
+                                >
                                     <Route
                                         path="/settings/billing"
                                         element={<BillingSettingsPage />}
@@ -731,6 +781,20 @@ export function TenantAppRoutes() {
                                         path="/billing/settings"
                                         element={<Navigate to="/settings/billing" replace />}
                                     />
+                                </Route>
+                                {/* One invoice opens from any list that names it. */}
+                                <Route
+                                    element={
+                                        <RequireAnyCapability
+                                            capabilities={[
+                                                'billing.view',
+                                                'billing.invoices_view',
+                                                'billing.outstanding_view',
+                                                'billing.payments_view',
+                                            ]}
+                                        />
+                                    }
+                                >
                                     <Route
                                         path="/billing/invoices/:id"
                                         element={<InvoicePage />}
@@ -741,8 +805,15 @@ export function TenantAppRoutes() {
                             <Route element={<RequireModule module="communication" />}>
                                 <Route element={<RequireCapability capability="communication.view" />}>
                                     <Route path="/communication/whatsapp" element={<WhatsAppPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="communication.email" />}>
                                     <Route path="/communication/email" element={<EmailPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="communication.push" />}>
                                     <Route path="/communication/push" element={<PushPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="communication.recipients" />}>
+                                    <Route path="/communication/recipients" element={<RecipientsPage />} />
                                 </Route>
 
                                 {/* Building a campaign is a write, and the
@@ -809,9 +880,10 @@ export function TenantAppRoutes() {
                                     path="/settings/fields/:entity"
                                     element={<FieldSettingsPage />}
                                 />
+                            </Route>
 
-                                {/* Departments and their sub-departments, kept
-                                    under the same capability as the settings. */}
+                            {/* Departments and their sub-departments. */}
+                            <Route element={<RequireCapability capability="settings.departments" />}>
                                 <Route path="/departments" element={<DepartmentsPage />} />
                             </Route>
 

@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\Tenant\MedicineBatch;
 use App\Models\Tenant\User;
 use App\Policies\Concerns\AsksAboutBranch;
+use App\Support\Modules\ScreenTicks;
 
 /**
  * May this person act on this batch? Asked about the branch of the store
@@ -16,7 +17,7 @@ class MedicineBatchPolicy
 
     public function view(User $user, MedicineBatch $batch): bool
     {
-        return $this->mayAt($user, $batch->store->location_id, 'pharmacy.view');
+        return $this->mayAtAny($user, $batch->store->location_id, ScreenTicks::PHARMACY_STOCK);
     }
 
     /** Block, recall or unblock. */

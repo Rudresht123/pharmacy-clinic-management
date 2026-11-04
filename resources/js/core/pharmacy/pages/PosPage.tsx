@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -259,6 +260,7 @@ function StockBadge({ row }: { row: StockRow }) {
  * double-tap or a retry on a bad connection bills once.
  */
 export default function PosPage() {
+    const { can } = useTenantAuth();
     const { stores, store, choose, isLoading } = useChosenStore();
     const { data: settings } = usePharmacySettings();
     const client = useQueryClient();
@@ -319,7 +321,7 @@ export default function PosPage() {
 
     const { data: categories } = useStoreCategories(store?.id);
     const { data: customers } = customersHooks.useList({ per_page: 100 });
-    const { data: day, isLoading: dayLoading } = usePharmacyDashboard(store?.id);
+    const { data: day, isLoading: dayLoading } = usePharmacyDashboard(can('pharmacy.view') ? store?.id : undefined);
     const handoff = useOpdHandoff(store?.id);
     const sell = useCreateSale(store?.id);
 

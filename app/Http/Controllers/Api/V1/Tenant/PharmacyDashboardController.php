@@ -29,7 +29,7 @@ class PharmacyDashboardController extends BaseApiController
 
     public function show(PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewDashboard', $store);
 
         return $this->ok($this->dashboard->for($store->load('location')));
     }

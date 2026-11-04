@@ -581,7 +581,7 @@ export interface PaymentRow {
     is_refund: boolean;
 }
 
-export function usePayments(params: Params) {
+export function usePayments(params: Params, enabled = true) {
     return useQuery({
         queryKey: resourceKey('tenant/billing', 'payments', params),
         queryFn: async (): Promise<Page<PaymentRow>> => {
@@ -591,6 +591,7 @@ export function usePayments(params: Params) {
 
             return data;
         },
+        enabled,
     });
 }
 

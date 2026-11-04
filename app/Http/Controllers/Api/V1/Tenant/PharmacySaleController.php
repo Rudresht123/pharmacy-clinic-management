@@ -41,7 +41,7 @@ class PharmacySaleController extends BaseApiController
     /** The day's bills at one store, newest first. */
     public function index(Request $request, PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewBills', $store);
 
         $query = PharmacySale::query()
             ->where('pharmacy_store_id', $store->id)
@@ -83,7 +83,7 @@ class PharmacySaleController extends BaseApiController
 
     public function show(PharmacySale $sale): JsonResponse
     {
-        $this->authorizeTenant('view', $sale->store);
+        $this->authorizeTenant('viewOneBill', $sale->store);
 
         return $this->ok(PharmacySaleResource::make(
             $sale->load(['items.medicine', 'payments', 'customer.photograph', 'doctor', 'store', 'returns.items']),

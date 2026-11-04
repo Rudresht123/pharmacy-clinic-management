@@ -2,16 +2,21 @@
 
 namespace Tests\Feature\Api\V1\Tenant;
 
+use App\Jobs\SendPushMessage;
 use App\Models\Platform\Module;
 use App\Models\Platform\Organization;
+use App\Models\Tenant\Appointment;
 use App\Models\Tenant\CommunicationChannel;
+use App\Models\Tenant\Consultation;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\DoctorSchedule;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\MessageLog;
 use App\Services\Opd\BookingService;
+use App\Services\Opd\VisitWorkflow;
 use App\Services\Tenant\DoctorAccountProvisioner;
+use App\Support\Clinic\ClinicEvents;
 use App\Support\Opd\Weekday;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -176,6 +181,64 @@ class DoctorNotifierTest extends TenantTestCase
     }
 
     /** A doctor with no login and no email on file costs nothing — no error, no row. */
+    public function test_a_doctor_is_not_told_about_a_check_in_or_the_consultation_they_just_completed(): void
+    {
+        [$organization, $doctorId, $branchId] = $this->clinicWithDoctorLogin();
+
+        Queue::fake();
+
+        $this->onTenant($organization, function () use ($doctorId, $branchId) {
+            $customer = Customer::on('organization')->create([
+                'name' => 'Asha Rane',
+                'phone' => '9876500033',
+                'is_active' => true,
+            ]);
+
+            $id = app(BookingService::class)->book([
+                'customer_id' => $customer->id,
+                'doctor_id' => $doctorId,
+                'location_id' => $branchId,
+                'appointment_date' => self::MONDAY,
+                'slot_at' => '10:30',
+            ])->id;
+
+            $toldAlready = MessageLog::query()->where('recipient_name', 'Dr. Priya Sharma')->count();
+            $this->assertGreaterThan(0, $toldAlready, 'The booking should have told the doctor, or this proves nothing.');
+
+            Queue::fake();
+
+            $find = fn () => Appointment::on('organization')->findOrFail($id);
+            $workflow = app(VisitWorkflow::class);
+
+            app(BookingService::class)->checkIn($find());
+            $workflow->call($find());
+            $workflow->startConsultation($find());
+            Consultation::on('organization')->where('appointment_id', $id)->update(['chief_complaint' => 'Cough']);
+            $workflow->completeConsultation($find());
+
+            $this->assertNotNull($find()->completed_at);
+
+            $labels = [
+                ClinicEvents::all()[ClinicEvents::PATIENT_CHECKED_IN]['label'],
+                ClinicEvents::all()[ClinicEvents::CONSULTATION_COMPLETED]['label'],
+            ];
+
+            $emails = MessageLog::query()
+                ->where('channel', CommunicationChannel::EMAIL)
+                ->where('recipient_name', 'Dr. Priya Sharma')
+                ->pluck('subject')
+                ->all();
+
+            $this->assertSame([], array_values(array_intersect($labels, $emails)));
+
+            $pushes = Queue::pushed(SendPushMessage::class)
+                ->map(fn (SendPushMessage $job) => $job->content['title'] ?? null)
+                ->all();
+
+            $this->assertSame([], array_values(array_intersect($labels, $pushes)));
+        });
+    }
+
     public function test_a_doctor_with_no_login_and_no_email_is_simply_skipped(): void
     {
         $organization = $this->provisionOrganization('DN');

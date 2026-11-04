@@ -33,7 +33,7 @@ class StockInwardController extends BaseApiController
 
     public function index(Request $request, PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewPurchases', $store);
 
         $query = StockInward::query()
             ->where('pharmacy_store_id', $store->id)
@@ -56,7 +56,7 @@ class StockInwardController extends BaseApiController
 
     public function show(StockInward $inward): JsonResponse
     {
-        $this->authorizeTenant('view', $inward->store);
+        $this->authorizeTenant('viewPurchases', $inward->store);
 
         return $this->ok(StockInwardResource::make($inward->load(['items.medicine', 'supplier', 'store'])));
     }

@@ -17020,6 +17020,7 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 .comm-table tbody tr:hover{ background:var(--surface-2); }
 .comm-table tbody tr.is-active{ background:rgba(var(--brand), .05); }
 .comm-row-name{ display:flex; align-items:center; gap:10px; }
+.comm-own-wording{ padding:1px 7px; border-radius:999px; background:var(--surface-3); font-size:10.5px; font-weight:600; color:var(--ink-3); white-space:nowrap; }
 .comm-subject{ max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-3); }
 .comm-actions-col{ width:1%; white-space:nowrap; text-align:right; }
 .comm-row-actions{ display:flex; align-items:center; justify-content:flex-end; gap:6px; }
@@ -28352,7 +28353,9 @@ fieldset:disabled .bset-method:not(.is-on):hover {
     color:#0c2340;
 }
 
+.tv-call-line > span{ min-width:0; }
 .tv-call-line b{ font-size:2.9vh; font-weight:800; color:#0b4fb3; }
+.tv-call-line b.is-name{ font-size:2.5vh; }
 .tv-call-line i{ font-size:3.1vh; color:#0b4fb3; }
 
 .tv-upnext{ flex:none; padding:0 .5vw; }
@@ -28427,12 +28430,12 @@ fieldset:disabled .bset-method:not(.is-on):hover {
 .tv-pill{
     flex:0 1 auto;
     min-width:0;
-    padding:.6vh .5vw;
+    padding:.6vh .4vw;
     border:1px solid var(--tv-line);
     border-radius:1vh;
     background:var(--tv-row);
     font:inherit;
-    font-size:1.62vh;
+    font-size:1.5vh;
     font-weight:600;
     color:var(--tv-ink);
     white-space:nowrap;
@@ -28443,7 +28446,7 @@ fieldset:disabled .bset-method:not(.is-on):hover {
 
 .tv-pill.is-fixed{ flex:none; }
 .tv-pill.is-on{ border-color:transparent; background:var(--tv-accent); color:#fff; }
-.tv-pill-more{ width:4.8vw; padding-right:.2vw; }
+.tv-pill-more{ width:4.4vw; padding-right:.1vw; }
 .tv-pill-more option{ color:#0c2340; background:#fff; }
 
 .tv-pages{ font-size:1.8vh; font-weight:600; color:var(--tv-ink-2); white-space:nowrap; }

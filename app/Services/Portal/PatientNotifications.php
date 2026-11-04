@@ -98,6 +98,37 @@ class PatientNotifications
         );
     }
 
+    /** They are in the queue, and this is the token to listen for. */
+    public function checkedIn(Appointment $appointment): void
+    {
+        $this->write(
+            $appointment,
+            'checked_in',
+            'Checked in',
+            sprintf(
+                '%s visit with %s is checked in. Token %s. We will tell you when it is your turn.',
+                $this->whose($appointment),
+                $appointment->doctor?->name ?? 'your doctor',
+                $appointment->tokenLabel() ?? '',
+            ),
+        );
+    }
+
+    /** The doctor has finished. */
+    public function consultationCompleted(Appointment $appointment): void
+    {
+        $this->write(
+            $appointment,
+            'consultation_completed',
+            'Consultation complete',
+            sprintf(
+                '%s consultation with %s is complete.',
+                $this->whose($appointment),
+                $appointment->doctor?->name ?? 'your doctor',
+            ),
+        );
+    }
+
     /** It is their turn. Rings for every call, including a second one. */
     public function tokenCalled(Appointment $appointment): void
     {

@@ -5,15 +5,20 @@ namespace Tests\Feature\Api\V1\Tenant;
 use App\Http\Middleware\ResolveTenantFromHeader;
 use App\Jobs\SendPushMessage;
 use App\Models\Platform\Organization;
+use App\Models\Tenant\Appointment;
 use App\Models\Tenant\AutomationRule;
 use App\Models\Tenant\CommunicationChannel;
+use App\Models\Tenant\Consultation;
 use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\DoctorSchedule;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\MessageLog;
 use App\Models\Tenant\MessageTemplate;
+use App\Models\Tenant\PatientNotification;
 use App\Models\Tenant\User as TenantUser;
+use App\Services\Opd\BookingService;
+use App\Services\Opd\VisitWorkflow;
 use App\Services\Portal\Otp\OtpSender;
 use App\Services\Push\DeviceRegistry;
 use App\Services\Push\PushManager;
@@ -178,19 +183,26 @@ class AppNotificationsChannelTest extends TenantTestCase
             CommunicationChannel::forChannel(CommunicationChannel::PUSH),
         ]);
 
-        // Confirmed, reminder, cancelled, payment, registered; the two
-        // reschedule answers; the four staff alerts.
-        $this->assertCount(11, $templates);
+        // Confirmed, reminder, cancelled, payment, registered; the two reschedule
+        // answers; the three steps of a visit; the four staff alerts.
+        $this->assertCount(14, $templates);
         $this->assertTrue($templates->every(fn ($t) => $t->status === MessageTemplate::APPROVED && $t->is_active));
         $this->assertCount(4, $templates->where('audience', AutomationRule::STAFF));
 
         [$patient, $staff] = $rules->partition(fn ($r) => $r->audience === AutomationRule::PATIENT);
 
-        // Messaging a patient is the clinic's to switch on — all but the two
-        // answers to a reschedule request, which always reached the patient.
-        $answers = [AutomationRule::APPOINTMENT_RESCHEDULED, AutomationRule::APPOINTMENT_RESCHEDULE_REJECTED];
+        // Messaging a patient is the clinic's to switch on, but for the two answers
+        // to a reschedule request, which always reached the patient, and the three
+        // steps of a visit. All of them still wait for the channel, below.
+        $answers = [
+            AutomationRule::APPOINTMENT_RESCHEDULED,
+            AutomationRule::APPOINTMENT_RESCHEDULE_REJECTED,
+            AutomationRule::CHECKED_IN,
+            AutomationRule::TOKEN_CALLED,
+            AutomationRule::CONSULTATION_COMPLETED,
+        ];
 
-        $this->assertCount(8, $patient);
+        $this->assertCount(11, $patient);
         $this->assertTrue($patient->every(fn ($r) => $r->message_template_id !== null
             && $r->is_enabled === in_array($r->event_key, $answers, true)));
 
@@ -258,6 +270,126 @@ class AppNotificationsChannelTest extends TenantTestCase
 
     /*
     |--------------------------------------------------------------------------
+    | The three steps of a visit
+    |--------------------------------------------------------------------------
+    */
+
+    /** From the desk to the doctor finishing, the way the two of them do it. */
+    private function throughTheVisit(int $visit): void
+    {
+        $this->onTenant($this->organization, function () use ($visit) {
+            $find = fn () => Appointment::on('organization')->findOrFail($visit);
+            $workflow = app(VisitWorkflow::class);
+
+            app(BookingService::class)->checkIn($find());
+            $workflow->call($find());
+            $workflow->startConsultation($find());
+
+            Consultation::on('organization')->where('appointment_id', $visit)->update(['chief_complaint' => 'Headache']);
+
+            $workflow->completeConsultation($find());
+        });
+    }
+
+    /** @return list<string> the rule behind each push the visit queued, in order */
+    private function pushesFor(int $visit): array
+    {
+        Queue::fake();
+        $this->throughTheVisit($visit);
+
+        return Queue::pushed(SendPushMessage::class)
+            ->map(fn (SendPushMessage $job) => $job->content['data']['type'] ?? null)
+            ->values()
+            ->all();
+    }
+
+    public function test_the_patient_hears_at_check_in_at_the_call_and_at_the_end(): void
+    {
+        $this->grantModule($this->organization, 'queue');
+        $this->switchOn(ruleKey: null);
+
+        $visit = $this->bookInApp($this->patientToken());
+
+        $patientLogin = (int) $this->onTenant($this->organization, fn () => TenantUser::query()
+            ->where('userable_type', Customer::class)->value('id'));
+
+        Queue::fake();
+        $this->throughTheVisit($visit);
+
+        $pushed = Queue::pushed(SendPushMessage::class);
+
+        $this->assertSame(
+            [AutomationRule::CHECKED_IN, AutomationRule::TOKEN_CALLED, AutomationRule::CONSULTATION_COMPLETED],
+            $pushed->map(fn (SendPushMessage $job) => $job->content['data']['type'])->values()->all(),
+        );
+        $this->assertTrue($pushed->every(fn (SendPushMessage $job) => $job->content['user_ids'] === [$patientLogin]));
+
+        $this->assertStringStartsWith('Rahul Tiwari is checked in for Dr. Priya Sharma. Your token is ', $pushed->first()->content['body']);
+
+        // And the bell inside the app, beside the phone.
+        $this->assertSame(
+            ['checked_in', 'token_called', 'consultation_completed'],
+            $this->onTenant($this->organization, fn () => PatientNotification::query()
+                ->where('appointment_id', $visit)
+                ->whereIn('type', ['checked_in', 'token_called', 'consultation_completed'])
+                ->orderBy('id')
+                ->pluck('type')
+                ->all()),
+        );
+    }
+
+    public function test_one_step_switched_off_stays_quiet_and_the_others_still_go(): void
+    {
+        $this->grantModule($this->organization, 'queue');
+        $this->switchOn(ruleKey: null);
+
+        $visit = $this->bookInApp($this->patientToken());
+
+        $this->onTenant($this->organization, fn () => AutomationRule::query()
+            ->where('channel', CommunicationChannel::PUSH)
+            ->where('event_key', AutomationRule::CHECKED_IN)
+            ->update(['is_enabled' => false]));
+
+        $this->assertSame(
+            [AutomationRule::TOKEN_CALLED, AutomationRule::CONSULTATION_COMPLETED],
+            $this->pushesFor($visit),
+        );
+    }
+
+    public function test_the_clinics_own_wording_is_what_a_step_says(): void
+    {
+        $this->switchOn(ruleKey: null);
+
+        $visit = $this->bookInApp($this->patientToken());
+        $template = $this->pushTemplateId('You are checked in');
+
+        $this->onTenant($this->organization, fn () => MessageTemplate::query()
+            ->whereKey($template)
+            ->update(['content' => 'Welcome {{patient_name}}, please take a seat.']));
+
+        Queue::fake();
+        $this->throughTheVisit($visit);
+
+        Queue::assertPushed(SendPushMessage::class, fn (SendPushMessage $job) => $job->content['data']['type'] === AutomationRule::CHECKED_IN
+            && $job->content['body'] === 'Welcome Rahul Tiwari, please take a seat.');
+    }
+
+    public function test_with_the_channel_off_no_step_of_a_visit_reaches_a_phone(): void
+    {
+        $this->grantModule($this->organization, 'queue');
+
+        $visit = $this->bookInApp($this->patientToken());
+
+        $this->assertSame([], $this->pushesFor($visit));
+    }
+
+    public function test_pushes_wait_on_their_own_queue_for_their_own_worker(): void
+    {
+        $this->assertSame('push', (new SendPushMessage(1, 1))->queue);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Organisation → Branch
     |--------------------------------------------------------------------------
     */
@@ -289,6 +421,29 @@ class AppNotificationsChannelTest extends TenantTestCase
 
         $this->reword($template, $this->gurgaon, 'Gurgaon wording.')->assertOk();
         $this->reword($template, $this->delhi, 'Delhi wording.')->assertStatus(403);
+    }
+
+    public function test_a_branch_reads_its_own_wording_in_the_list_and_the_template_stays_as_it_was(): void
+    {
+        $template = $this->pushTemplateId('Appointment confirmed');
+
+        $row = fn () => collect($this->getJson('/api/v1/tenant/communication/push/overview')->assertOk()->json('data.templates'))
+            ->firstWhere('id', $template);
+
+        $this->placeStaffAt($this->organization, $this->gurgaon);
+        $this->setStaffCapabilities($this->organization, ['communication.push', 'communication.branch_templates']);
+        $this->signInAsStaff($this->organization);
+
+        $this->assertNull($row()['branch_wording']);
+
+        $this->reword($template, $this->gurgaon, 'Gurgaon wording.')->assertOk();
+
+        $this->assertSame('Gurgaon wording.', $row()['branch_wording']['content']);
+        $this->assertNotSame('Gurgaon wording.', $row()['content']);
+
+        // Whoever manages communication writes the template itself, and reads it as it stands.
+        $this->signInAsOwner($this->organization);
+        $this->assertArrayNotHasKey('branch_wording', $row());
     }
 
     public function test_a_whatsapp_template_cannot_be_reworded_by_a_branch(): void

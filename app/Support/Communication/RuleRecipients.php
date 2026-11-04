@@ -17,8 +17,10 @@ use App\Models\Tenant\CommunicationChannel;
  *   patient          the patient the event is about (patient rules only)
  *   doctor           the doctor on it — the one doing the work
  *   creator          whoever made the record: booked the visit, raised the bill
- *   branch_manager   the manager of the event's branch
- *   front_desk       everybody at that branch who answers reschedule requests
+ *   branch_manager   the manager named on the event's branch, and whoever holds
+ *                    that branch's manager role
+ *   front_desk       everybody else at that branch who answers reschedule
+ *                    requests: the screen calls them Reception
  *   role             everybody holding one role there (`id`)
  *   user             one named member of staff (`id`)
  *   email            an address typed in (`address`; email only)
@@ -62,7 +64,7 @@ final class RuleRecipients
         self::DOCTOR => 'Doctor',
         self::CREATOR => 'Booked by',
         self::BRANCH_MANAGER => 'Branch manager',
-        self::FRONT_DESK => 'Front desk',
+        self::FRONT_DESK => 'Reception',
     ];
 
     public const TO = 'to';

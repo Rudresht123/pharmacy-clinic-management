@@ -31,7 +31,7 @@ class StockTransferController extends BaseApiController
     /** Transfers out of or into this store. */
     public function index(Request $request, PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewStockDocuments', $store);
 
         $query = StockTransfer::query()
             ->where(fn (Builder $q) => $q->where('from_store_id', $store->id)->orWhere('to_store_id', $store->id))
@@ -54,7 +54,7 @@ class StockTransferController extends BaseApiController
     public function show(StockTransfer $transfer): JsonResponse
     {
         abort_unless(
-            $this->tenantMay('view', $transfer->fromStore) || $this->tenantMay('view', $transfer->toStore),
+            $this->tenantMay('viewStockDocuments', $transfer->fromStore) || $this->tenantMay('viewStockDocuments', $transfer->toStore),
             403,
             'This action is not available to you.',
         );

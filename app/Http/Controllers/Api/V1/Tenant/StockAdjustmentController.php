@@ -30,7 +30,7 @@ class StockAdjustmentController extends BaseApiController
 
     public function index(Request $request, PharmacyStore $store): JsonResponse
     {
-        $this->authorizeTenant('view', $store);
+        $this->authorizeTenant('viewStockDocuments', $store);
 
         return $this->paginated(
             $this->tableQuery(

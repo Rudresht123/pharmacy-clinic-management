@@ -129,6 +129,7 @@ class ChannelSender
      * @param  array<string, scalar|null>  $variables
      * @param  array<string, mixed>  $extra
      * @param  array<string, scalar|null>  $data
+     * @param  array<string, scalar|null>  $staffData  what staff phones are given instead, when it differs
      * @return list<MessageLog>
      */
     public function queueTo(
@@ -141,6 +142,7 @@ class ChannelSender
         ?int $locationId = null,
         array $extra = [],
         array $data = [],
+        array $staffData = [],
     ): array {
         if (! in_array($channel, self::DELIVERABLE, true) || ! self::sendable($template, $channel) || $recipients->isEmpty()) {
             return [];
@@ -207,7 +209,7 @@ class ChannelSender
                 $label,
                 $title,
                 $body,
-                $data,
+                $staffData ?: $data,
                 $logged + ['recipient_name' => mb_substr($label, 0, 150)],
             );
         }

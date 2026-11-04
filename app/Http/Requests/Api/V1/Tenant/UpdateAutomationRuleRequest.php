@@ -20,8 +20,7 @@ use Illuminate\Validation\Validator;
  * named, so the questions a list can get wrong are answered here, by field:
  *
  *   - a channel's own lists only: no CC on a push, no list at all on WhatsApp
- *   - a staff alert never names the patient — it is written for staff — and
- *     the patient's own message never drops them from To
+ *   - a staff alert never names the patient, since it is written for staff
  *   - a role or a person that exists, and is staff; an address that is one
  *   - a rule switched on tells somebody
  *   - its template is written for the same reader as the rule
@@ -151,14 +150,6 @@ class UpdateAutomationRuleRequest extends FormRequest
                 if ($problem !== null) {
                     $validator->errors()->add("recipients.{$field}.{$index}", $problem);
                 }
-            }
-        }
-
-        if (! $rule->isForStaff() && $fields !== []) {
-            $onTo = collect((array) ($sent[RuleRecipients::TO] ?? []))->contains(fn ($entry) => ($entry['type'] ?? null) === RuleRecipients::PATIENT);
-
-            if (! $onTo) {
-                $validator->errors()->add('recipients.to', 'This is the patient\'s own message, so the patient stays on To. Copy others in beside them.');
             }
         }
     }

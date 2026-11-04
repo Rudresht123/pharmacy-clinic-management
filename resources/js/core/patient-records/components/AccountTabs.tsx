@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { INVOICE_KIND_LABELS, PAYMENT_METHOD_LABELS, useInvoices, usePayments } from '@/core/billing/api';
 import { DocumentsPanel } from '@/core/documents/components/DocumentsPanel';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { cn } from '@/shared/utils/cn';
 import { usePatientPharmacy } from '../api';
 import { clock, day, invoicePill, rupees, salePill } from '../labels';
@@ -119,6 +120,7 @@ export function PharmacyTab({ patientId }: { patientId: number }) {
 */
 
 export function BillingTab({ record }: { record: PatientRecordSummary }) {
+    const { can } = useTenantAuth();
     const patientId = record.patient.id;
     const [invoicePage, setInvoicePage] = useState(1);
     const [paymentPage, setPaymentPage] = useState(1);
@@ -130,7 +132,9 @@ export function BillingTab({ record }: { record: PatientRecordSummary }) {
         sort: 'invoice_date',
         direction: 'desc',
     });
-    const payments = usePayments({ customer_id: patientId, page: paymentPage, per_page: PER_PAGE });
+    // The Payments screen's own tick: a role without it sees the bills but not the register.
+    const seesPayments = can('billing.payments_view');
+    const payments = usePayments({ customer_id: patientId, page: paymentPage, per_page: PER_PAGE }, seesPayments);
 
     // Invoices carry a branch id; the record already knows this patient's branches by name.
     const branch = new Map(record.branches.map((entry) => [entry.id, entry.name]));
@@ -224,6 +228,7 @@ export function BillingTab({ record }: { record: PatientRecordSummary }) {
                 )}
             </RecordCard>
 
+            {seesPayments && (
             <RecordCard title="Payment History" icon="ti ti-cash">
                 {payments.isLoading ? (
                     <Loading />
@@ -279,6 +284,7 @@ export function BillingTab({ record }: { record: PatientRecordSummary }) {
                     </div>
                 )}
             </RecordCard>
+            )}
         </div>
     );
 }

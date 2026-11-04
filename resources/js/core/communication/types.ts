@@ -39,6 +39,14 @@ export interface MessageTemplate {
     is_default?: boolean;
     /** Branches sending their own wording; present where it was counted. */
     branch_wordings?: number;
+    /**
+     * This person's branch's own wording. Absent for whoever manages
+     * communication, who writes the template itself.
+     */
+    branch_wording?: { subject: string | null; content: string } | null;
+    /** The organisation's wording, kept when `asSentHere` shows the branch's. */
+    org_subject?: string | null;
+    org_content?: string;
     /** Who it is written for — a staff alert never goes to a patient. */
     audience: Audience;
     updated_at: string | null;

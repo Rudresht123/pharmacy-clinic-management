@@ -14,6 +14,7 @@ import { PushSendForm } from '../components/PushSendForm';
 import { PushRecentTable } from '../components/PushRecentTable';
 import { AutomationRules } from '../components/AutomationRules';
 import { RecentMessages } from '../components/RecentMessages';
+import { BranchWordingModal } from '../components/BranchWordingModal';
 import { TemplateFormModal } from '../components/TemplateFormModal';
 import { MessageDetailModal } from '../components/MessageDetailModal';
 import { AutomationRuleModal } from '../components/AutomationRuleModal';
@@ -23,7 +24,7 @@ import { CampaignsTable } from '../components/CampaignsTable';
 import { ReasonDialog } from '@/core/medicines/components/ReasonDialog';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import {
-    useCampaigns,
+    asSentHere,    useCampaigns,
     useRemoveCampaign,
     useSendCampaign,
     useUnscheduleCampaign,
@@ -86,6 +87,13 @@ export default function PushPage() {
 
     const { can } = useTenantAuth();
     const manage = can('communication.manage');
+
+    /*
+     * A branch cannot hold `communication.manage`. What it may hold is this: its
+     * own wording of a template, which leaves the template itself alone.
+     */
+    const reword = !manage && can('communication.branch_templates');
+    const [rewording, setRewording] = useState<MessageTemplate | null>(null);
 
     const { data, isLoading, isError, error, refetch } = useChannelOverview('push', days);
 
@@ -241,7 +249,7 @@ export default function PushPage() {
                             rules={data.rules}
                             onOpen={openTemplate}
                             onCreate={manage ? () => setEditing(false) : undefined}
-                            onEdit={manage ? setEditing : undefined}
+                            onEdit={manage ? setEditing : reword ? setRewording : undefined}
                             onRemove={manage ? setRemoving : undefined}
                         />
 
@@ -268,12 +276,12 @@ export default function PushPage() {
             {/* The templates and nothing else: no preview, no side panel. */}
             {view === 'templates' && (
                 <PushTemplateList
-                    templates={data.templates}
+                    templates={asSentHere(data.templates)}
                     categories={CATEGORIES}
                     selected={selected}
                     onSelect={setSelected}
                     onCreate={manage ? () => setEditing(false) : undefined}
-                    onEdit={manage ? setEditing : undefined}
+                    onEdit={manage ? setEditing : reword ? setRewording : undefined}
                     onRemove={manage ? setRemoving : undefined}
                 />
             )}
@@ -345,6 +353,8 @@ export default function PushPage() {
                     </div>
                 </>
             )}
+
+            <BranchWordingModal template={rewording} channel="push" onClose={() => setRewording(null)} />
 
             <TemplateFormModal
                 open={editing !== null}

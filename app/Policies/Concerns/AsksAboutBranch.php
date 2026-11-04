@@ -25,4 +25,20 @@ trait AsksAboutBranch
             && app(TenantBranchAccess::class)->canUse($user, $locationId)
             && app(Permission::class)->allows($organization, $user, $capability, $locationId);
     }
+
+    /**
+     * The same question, where any one of several screens reads this data.
+     *
+     * @param  list<string>  $capabilities
+     */
+    protected function mayAtAny(User $user, int $locationId, array $capabilities): bool
+    {
+        foreach ($capabilities as $capability) {
+            if ($this->mayAt($user, $locationId, $capability)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

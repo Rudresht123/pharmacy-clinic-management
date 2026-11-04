@@ -6,6 +6,7 @@ use App\Models\Platform\Organization;
 use App\Models\Tenant\User;
 use App\Services\Permissions\Permission;
 use App\Services\Tenancy\TenantBranchAccess;
+use App\Support\Modules\ScreenTicks;
 use Illuminate\Support\Facades\Request;
 
 /**
@@ -24,7 +25,7 @@ use Illuminate\Support\Facades\Request;
  *      branch-scoped write uses.
  *   3. FEATURE. The branch must run both the OPD and the pharmacy. A medical
  *      shop with no OPD has no channel to hear on.
- *   4. CAPABILITY. `pharmacy.view` at that branch — whoever may see the
+ *   4. CAPABILITY. The counter's or the dashboard's tick at that branch — whoever may see the
  *      counter's queue over HTTP, and nobody else.
  *
  * Users are numbered per tenant database, so user 7 exists in every
@@ -60,6 +61,7 @@ class BranchPharmacyChannel
 
         return $this->branches->canUse($user, $locationId)
             && ($this->permission->featuresAt($current, $locationId)['opd_pharmacy_handoff'] ?? false)
-            && $this->permission->allows($current, $user, 'pharmacy.view', $locationId);
+            && collect(ScreenTicks::PHARMACY_HANDOFF)
+                ->contains(fn (string $tick) => $this->permission->allows($current, $user, $tick, $locationId));
     }
 }

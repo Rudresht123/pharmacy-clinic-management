@@ -8,6 +8,8 @@ export interface Capability {
     audience?: RoleAudience;
     /** Opens a screen ("Can open"), rather than an action on one ("Can do"). */
     screen?: boolean;
+    /** One line saying what it means in practice. */
+    hint?: string;
 }
 
 export type RoleScope = 'organization' | 'branch';
@@ -25,6 +27,7 @@ export type RoleAudience = 'staff' | 'patient';
 export interface GrantableModule {
     key: string;
     name: string;
+    description?: string;
     icon: string;
     capabilities: Capability[];
 }

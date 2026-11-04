@@ -684,7 +684,7 @@ export function DepartmentManager() {
     };
 
     const actions: Actions = {
-        editable: can('settings.manage'),
+        editable: can('settings.departments'),
         edit: (department) => setForm({ department }),
         addChild: (department) => setForm({ parentId: department.id }),
         toggleActive: (department) =>

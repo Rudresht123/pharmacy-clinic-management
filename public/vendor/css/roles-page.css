@@ -1,0 +1,1247 @@
+/* =========================================================
+   Roles & Permissions (.rlp-)
+   core/roles/pages/RolesPage.tsx
+   ---------------------------------------------------------
+   Fits the window: the role list, the module list and one
+   module's permissions each scroll inside their own card, and
+   Save stays in sight. White cards on the page ground, colour
+   only on what carries meaning (icon tiles, states, the accent).
+
+   Editing a role's name, the templates, Overview and Members
+   keep the .rp- classes in custom.css, which the branch module
+   panels share too.
+   ========================================================= */
+
+:root {
+    --rlp-accent: var(--brand);
+}
+
+/* The brand blue is too deep to read as text on the dark ground. */
+[data-theme='dark'] {
+    --rlp-accent: 147, 155, 240;
+}
+
+/* --- the page's title line ------------------------------- */
+
+.rlp-top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 16px;
+}
+
+.rlp-top-icon {
+    flex: 0 0 auto;
+    font-size: 34px;
+    line-height: 1;
+    color: rgb(var(--rlp-accent));
+}
+
+.rlp-top-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.rlp-top-text h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--ink);
+}
+
+.rlp-top-text p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: var(--ink-3);
+}
+
+/* --- a search box, at either end of the screen ------------ */
+
+.rlp-search {
+    position: relative;
+    min-width: 0;
+}
+
+.rlp-top-search {
+    flex: 0 0 300px;
+}
+
+.rlp-search i {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: var(--muted);
+    pointer-events: none;
+}
+
+/* Styled outright: `.app-content .form-control` sets padding a
+   single class cannot beat, which puts the icon over the text. */
+.rlp-search input {
+    box-sizing: border-box;
+    width: 100%;
+    height: 38px;
+    padding: 0 12px 0 36px;
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    background: var(--surface);
+    font-size: 13px;
+    color: var(--ink);
+    outline: 0;
+}
+
+.rlp-search input::placeholder {
+    color: var(--muted);
+    text-overflow: ellipsis;
+}
+
+.rlp-search input:focus {
+    border-color: rgb(var(--brand));
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.13);
+}
+
+/* --- the card every surface here is drawn from ------------ */
+
+.rlp-stats,
+.rlp-rbac,
+.rlp-rail,
+.rlp-panel {
+    border: 1px solid transparent;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+[data-theme='dark'] .rlp-stats,
+[data-theme='dark'] .rlp-rbac,
+[data-theme='dark'] .rlp-rail,
+[data-theme='dark'] .rlp-panel {
+    border-color: var(--line);
+    background: var(--surface);
+}
+
+/* --- the three numbers, and what the screen is for -------- */
+
+.rlp-kpis {
+    display: grid;
+    grid-template-columns: minmax(0, 46fr) minmax(0, 54fr);
+    gap: 16px;
+    margin: 0 0 16px;
+}
+
+.rlp-stats {
+    display: flex;
+    align-items: center;
+    padding: 13px 8px;
+}
+
+.rlp-stat {
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-width: 0;
+    font-size: 13.5px;
+    color: var(--ink-2);
+}
+
+.rlp-stat + .rlp-stat {
+    border-left: 1px solid var(--line-2);
+}
+
+.rlp-stat b {
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.rlp-rbac {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    min-width: 0;
+    padding: 8px 22px;
+    overflow: hidden;
+}
+
+.rlp-rbac-icon {
+    flex: 0 0 auto;
+    font-size: 30px;
+    line-height: 1;
+    color: rgb(var(--rlp-accent));
+}
+
+.rlp-rbac-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.rlp-rbac-text b {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.rlp-rbac-text span {
+    display: block;
+    margin-top: 1px;
+    font-size: 12.5px;
+    color: var(--ink-3);
+}
+
+.rlp-art {
+    flex: 0 0 auto;
+    width: 124px;
+    height: 52px;
+}
+
+.rlp-art-paper {
+    fill: var(--surface);
+    stroke: rgba(var(--brand), 0.45);
+    stroke-width: 1.6;
+}
+
+.rlp-art-solid {
+    fill: rgb(var(--brand));
+}
+
+.rlp-art-tick {
+    fill: none;
+    stroke: rgb(var(--rlp-accent));
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.rlp-art-line {
+    fill: none;
+    stroke: rgba(var(--brand), 0.28);
+    stroke-width: 2.6;
+    stroke-linecap: round;
+}
+
+.rlp-art-tube {
+    fill: none;
+    stroke: rgba(var(--brand), 0.6);
+    stroke-width: 2.4;
+    stroke-linecap: round;
+}
+
+.rlp-art-end {
+    fill: rgba(var(--brand), 0.6);
+}
+
+.rlp-art-plus {
+    fill: #ffffff;
+}
+
+/* --- the two columns, sized to the window ----------------- */
+
+.rlp-split {
+    display: grid;
+    grid-template-columns: 318px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 16px;
+    height: calc(100vh - var(--tb-height, 62px) - 176px);
+    min-height: 680px;
+}
+
+/* --- the roles -------------------------------------------- */
+
+.rlp-rail {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.rlp-rail-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 18px;
+    padding: 15px 0 13px;
+    border-bottom: 1px solid var(--line-2);
+}
+
+.rlp-rail-head h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.rlp-rail-add {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgb(var(--brand));
+    font-size: 16px;
+    color: rgb(var(--brand-fg));
+    box-shadow: 0 4px 12px rgba(var(--brand), 0.28);
+    cursor: pointer;
+    transition: transform 0.14s ease;
+}
+
+.rlp-rail-add:hover {
+    transform: scale(1.06);
+}
+
+.rlp-rail-note {
+    margin: 11px 18px 0;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+.rlp-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px 18px 4px;
+}
+
+.rlp-pill {
+    height: 28px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--surface-3);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.rlp-pill:hover {
+    color: rgb(var(--rlp-accent));
+}
+
+.rlp-pill.is-on {
+    background: rgb(var(--brand));
+    color: rgb(var(--brand-fg));
+}
+
+.rlp-rail-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 10px 14px 14px;
+}
+
+.rlp-rail-empty {
+    margin: 0;
+    padding: 22px 8px;
+    font-size: 12.5px;
+    text-align: center;
+    color: var(--muted);
+}
+
+.rlp-role {
+    position: relative;
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+    background: var(--surface);
+    transition: border-color 0.14s ease;
+}
+
+.rlp-role + .rlp-role {
+    margin-top: 8px;
+}
+
+.rlp-role:hover {
+    border-color: rgba(var(--brand), 0.4);
+}
+
+.rlp-role.is-active {
+    border-color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.05);
+    box-shadow: 0 0 0 1px rgb(var(--brand));
+}
+
+.rlp-role-main {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    padding: 10px 11px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+
+.rlp-role-icon {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: var(--surface-3);
+    font-size: 19px;
+    color: var(--ink-2);
+}
+
+.rlp-role.is-active .rlp-role-icon {
+    background: rgba(var(--brand), 0.12);
+    color: rgb(var(--rlp-accent));
+}
+
+.rlp-role-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.rlp-role-text b {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.rlp-role-text b > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rlp-role.is-active .rlp-role-text b {
+    padding-right: 66px;
+    color: rgb(var(--rlp-accent));
+}
+
+.rlp-role-text small {
+    display: block;
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: var(--ink-3);
+}
+
+.rlp-role.is-active .rlp-role-text small {
+    padding-right: 18px;
+}
+
+.rlp-role-text small.rlp-role-desc {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Beside the name on the chosen role, and at the panel's head. */
+.rlp-badge {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px 2px 8px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--ink-3);
+    white-space: nowrap;
+}
+
+.rlp-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.75;
+}
+
+.rlp-badge.is-on {
+    background: rgba(34, 197, 94, 0.14);
+    color: #15803d;
+}
+
+[data-theme='dark'] .rlp-badge.is-on {
+    background: rgba(34, 197, 94, 0.16);
+    color: #86efac;
+}
+
+.rlp-role-state {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    display: inline-flex;
+}
+
+.rlp-role-menu {
+    position: absolute;
+    right: 3px;
+    bottom: 7px;
+}
+
+.rlp-role-more {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    font-size: 16px;
+    color: var(--ink-2);
+    cursor: pointer;
+}
+
+.rlp-role-more:hover {
+    background: rgba(var(--brand), 0.1);
+    color: rgb(var(--rlp-accent));
+}
+
+.rlp-role-menu .rp-menu-list {
+    z-index: 6;
+    min-width: 170px;
+}
+
+.rp-menu-list button.is-danger {
+    color: #c92a3a;
+}
+
+/* --- what the chosen role may do -------------------------- */
+
+.rlp-panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Everything above Save. Scrolls only when the name form or a
+   short window leaves the permissions too little room. */
+.rlp-panel-scroll {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.rlp-head {
+    flex: 0 0 auto;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--line-2);
+}
+
+.rlp-head-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 -20px;
+    padding: 11px 20px;
+    border-bottom: 1px solid var(--line-2);
+}
+
+.rlp-head-icon {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: rgba(var(--brand), 0.09);
+    font-size: 21px;
+    color: rgb(var(--rlp-accent));
+}
+
+.rlp-head-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.rlp-head-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--ink);
+}
+
+.rlp-head-name > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rlp-head-desc {
+    margin: 1px 0 0;
+    overflow: hidden;
+    font-size: 12.5px;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink-3);
+}
+
+.rlp-head-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+}
+
+.rlp-head-actions .rp-act {
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 9px;
+    font-size: 12.5px;
+}
+
+.rlp-head-actions .rp-act.is-icon {
+    width: 34px;
+    padding: 0;
+}
+
+/* Softer than an outline: still plainly the dangerous one, but it no
+   longer outweighs the role's name beside it. */
+.rlp-head-actions .rp-act.is-danger {
+    border-color: transparent;
+    background: rgba(220, 53, 69, 0.08);
+}
+
+.rlp-head-actions .rp-act.is-danger:hover {
+    border-color: transparent;
+    background: rgba(220, 53, 69, 0.15);
+}
+
+.rlp-tabs {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.rlp-head .rp-edit,
+.rlp-head .rp-shared,
+.rlp-head .ras-scope-line {
+    margin-top: 12px;
+}
+
+.rlp-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 16px 11px;
+    border: 0;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: color 0.14s ease;
+}
+
+.rlp-tab i {
+    font-size: 17px;
+}
+
+.rlp-tab:hover {
+    color: rgb(var(--rlp-accent));
+}
+
+.rlp-tab.is-active {
+    color: rgb(var(--rlp-accent));
+}
+
+.rlp-tab::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    bottom: -1px;
+    left: 8px;
+    height: 2.5px;
+    border-radius: 2px;
+    background: transparent;
+    transition: background-color 0.14s ease;
+}
+
+.rlp-tab.is-active::after {
+    background: rgb(var(--brand));
+}
+
+/* The body fills what is left, so the two columns below it can
+   scroll on their own. `is-static` is for content that should
+   simply be as tall as it is: Overview, Members, the templates. */
+.rlp-body {
+    display: flex;
+    flex: 1 0 400px;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 0;
+    padding: 14px 20px;
+}
+
+.rlp-body.is-static {
+    flex: 0 0 auto;
+}
+
+/* --- modules on the left, one module on the right --------- */
+
+.rlp-matrix {
+    display: grid;
+    flex: 1 1 0;
+    grid-template-columns: 292px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 14px;
+    min-height: 0;
+}
+
+.rlp-body.is-static .rlp-matrix {
+    flex: 0 0 460px;
+}
+
+.rlp-cats {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border: 1px solid var(--line-2);
+    border-radius: 13px;
+    background: var(--surface);
+    overflow: hidden;
+}
+
+.rlp-cats > header {
+    flex: 0 0 auto;
+    padding: 12px 15px 9px;
+}
+
+.rlp-cats > header b {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.rlp-cats > header small {
+    display: block;
+    margin-top: 1px;
+    font-size: 11.5px;
+    color: var(--ink-3);
+}
+
+.rlp-cats-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 8px 8px;
+}
+
+.rlp-cats-heading {
+    margin: 11px 7px 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+.rlp-cat {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    padding: 9px 9px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.14s ease;
+}
+
+.rlp-cat + .rlp-cat {
+    margin-top: 2px;
+}
+
+.rlp-cat:hover {
+    background: var(--surface-2);
+}
+
+.rlp-cat.is-active {
+    background: rgba(var(--brand), 0.1);
+}
+
+.rlp-cat-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.rlp-cat-text b {
+    display: block;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink);
+}
+
+.rlp-cat.is-active .rlp-cat-text b {
+    color: rgb(var(--rlp-accent));
+}
+
+.rlp-cat-text small {
+    display: block;
+    margin-top: 1px;
+    font-size: 11.5px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.rlp-cat > i {
+    flex: 0 0 auto;
+    font-size: 15px;
+    color: var(--ink-3);
+}
+
+.rlp-cat > i.is-done {
+    font-size: 19px;
+    color: #16a34a;
+}
+
+/* --- one module ------------------------------------------- */
+
+.rlp-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    min-height: 0;
+}
+
+.rlp-detail-tools {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 12px;
+}
+
+.rlp-detail-tools .rlp-search {
+    flex: 1 1 auto;
+    max-width: 350px;
+}
+
+.rlp-detail-count {
+    margin-left: auto;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.rlp-enable {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: rgba(var(--brand), 0.1);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: rgb(var(--rlp-accent));
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.14s ease;
+}
+
+.rlp-enable i {
+    font-size: 17px;
+}
+
+.rlp-enable:hover:not(:disabled) {
+    background: rgba(var(--brand), 0.18);
+}
+
+.rlp-enable:disabled {
+    cursor: default;
+}
+
+.rlp-module {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    border: 1px solid var(--line-2);
+    border-radius: 13px;
+    background: var(--surface);
+    overflow: hidden;
+}
+
+.rlp-module-head {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 18px;
+}
+
+.rlp-module-head-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.rlp-module-head-text h6 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.rlp-module-head-text p {
+    margin: 1px 0 0;
+    font-size: 12.5px;
+    color: var(--ink-3);
+}
+
+/* Bootstrap's switch keeps room for a label it does not have here. */
+.rlp-switch {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.rlp-switch .form-check-input {
+    float: none;
+    margin: 0;
+    cursor: pointer;
+}
+
+.rlp-module-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 18px 16px;
+}
+
+.rlp-sec {
+    border: 1px solid var(--line-2);
+    border-radius: 11px;
+    overflow: hidden;
+}
+
+.rlp-sec + .rlp-sec {
+    margin-top: 12px;
+}
+
+.rlp-sec > header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line-2);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+}
+
+.rlp-sec > header i {
+    font-size: 15px;
+    color: var(--ink-3);
+}
+
+.rlp-perm {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 12px 14px;
+}
+
+.rlp-perm + .rlp-perm {
+    border-top: 1px solid var(--line-2);
+}
+
+.rlp-perm-check.form-check-input {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.rlp-perm-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.rlp-perm-text b {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.rlp-perm-text small {
+    display: block;
+    margin-top: 1px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--ink-3);
+}
+
+/* Why this one cannot go alone: the rest of the module rests on it. */
+.rlp-perm-text em {
+    display: inline-block;
+    margin-left: 7px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 1.7;
+    color: var(--ink-3);
+    vertical-align: 1px;
+    white-space: nowrap;
+}
+
+/* --- what is pending -------------------------------------- */
+
+.rlp-foot {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 20px;
+    border-top: 1px solid var(--line-2);
+    background: var(--surface);
+}
+
+.rlp-foot[hidden] {
+    display: none;
+}
+
+.rlp-foot-icon {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(34, 197, 94, 0.14);
+    font-size: 18px;
+    color: #16a34a;
+}
+
+.rlp-foot.is-dirty .rlp-foot-icon {
+    background: rgba(217, 119, 6, 0.14);
+    color: #b45309;
+}
+
+.rlp-foot-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.rlp-foot-text b {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.rlp-foot-text small {
+    display: block;
+    font-size: 11.5px;
+    color: var(--ink-3);
+}
+
+.rlp-foot-text small em {
+    font-style: normal;
+    font-weight: 600;
+    color: #b45309;
+}
+
+.rlp-foot .btn {
+    height: 38px;
+    border-radius: 9px;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.rlp-foot .btn-light,
+.rlp-foot .btn-light:disabled {
+    border: 1px solid var(--line-2) !important;
+    background: var(--surface) !important;
+    color: var(--ink-2) !important;
+}
+
+[data-theme='dark'] .rlp-head-actions .rp-act.is-danger {
+    color: #ff8f99;
+}
+
+/* --- narrower --------------------------------------------- */
+
+@media (max-width: 1399.98px) {
+    .rlp-split {
+        grid-template-columns: 280px minmax(0, 1fr);
+    }
+
+    .rlp-matrix {
+        grid-template-columns: 240px minmax(0, 1fr);
+    }
+
+    .rlp-kpis {
+        grid-template-columns: minmax(0, 58fr) minmax(0, 42fr);
+    }
+
+    .rlp-stat {
+        gap: 8px;
+        padding: 0 6px;
+        font-size: 13px;
+    }
+
+    .rlp-art {
+        display: none;
+    }
+
+}
+
+/* Past this the panel is too narrow for the role header's buttons
+   and three columns of lists at once, so the page simply flows. */
+@media (max-width: 1199.98px) {
+    .rlp-split {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto;
+        height: auto;
+        min-height: 0;
+    }
+
+    .rlp-rail-list {
+        max-height: 300px;
+    }
+
+    .rlp-panel,
+    .rlp-panel-scroll {
+        overflow: visible;
+    }
+
+    .rlp-foot {
+        position: sticky;
+        bottom: 0;
+        z-index: 3;
+        border-radius: 0 0 16px 16px;
+    }
+
+    .rlp-body,
+    .rlp-body.is-static {
+        flex: 0 0 auto;
+    }
+
+    .rlp-matrix,
+    .rlp-body.is-static .rlp-matrix {
+        flex: 0 0 auto;
+        grid-template-rows: auto;
+    }
+
+    .rlp-cats-list {
+        max-height: 420px;
+    }
+
+    .rlp-module-body {
+        overflow: visible;
+    }
+}
+
+@media (max-width: 899.98px) {
+    .rlp-kpis {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .rlp-matrix {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .rlp-cats-list {
+        max-height: 260px;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .rlp-top {
+        flex-wrap: wrap;
+    }
+
+    .rlp-top-search {
+        flex: 1 1 100%;
+    }
+
+    .rlp-head-top {
+        flex-wrap: wrap;
+    }
+
+    .rlp-head-text {
+        flex: 1 1 calc(100% - 54px);
+    }
+
+    .rlp-head-desc {
+        white-space: normal;
+    }
+
+    .rlp-head-actions {
+        width: 100%;
+    }
+
+    .rlp-tab {
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+
+    .rlp-detail-tools {
+        flex-wrap: wrap;
+    }
+
+    .rlp-detail-tools .rlp-search {
+        flex: 1 1 100%;
+        max-width: none;
+    }
+
+    .rlp-detail-count {
+        margin-left: 0;
+    }
+
+    .rlp-foot {
+        flex-wrap: wrap;
+    }
+
+    .rlp-foot-text {
+        flex: 1 1 calc(100% - 42px);
+    }
+}

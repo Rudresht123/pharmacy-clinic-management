@@ -1,0 +1,152 @@
+/* =========================================================
+   Recipients (.rcp-)
+   core/communication/pages/RecipientsPage.tsx
+   ---------------------------------------------------------
+   Every automatic message down the side, everybody it can go
+   to across the top. One table, read like a grid.
+   ========================================================= */
+
+.rcp-tabs {
+    margin-bottom: 16px;
+}
+
+.rcp-table {
+    font-size: 13px;
+}
+
+.rcp-table th.rcp-col,
+.rcp-table td.rcp-col {
+    width: 112px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.rcp-group th {
+    padding: 9px 14px 7px;
+    background: var(--surface-2);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.rcp-message b {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.rcp-message b em {
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    font-size: 10.5px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 1.7;
+    color: var(--ink-3);
+    white-space: nowrap;
+}
+
+.rcp-message b em.is-off {
+    background: rgba(217, 119, 6, 0.14);
+    color: #b45309;
+}
+
+.rcp-message small {
+    display: block;
+    margin-top: 1px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--ink-3);
+}
+
+/* To, CC or BCC. A filled cell is somebody who gets it, so the grid can be read
+   across at a glance without reading each word. */
+.rcp-select {
+    width: 72px;
+    height: 30px;
+    padding: 0 6px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 12.5px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--muted);
+    cursor: pointer;
+    outline: 0;
+}
+
+.rcp-select.is-on {
+    border-color: rgba(var(--brand), 0.35);
+    background: rgba(var(--brand), 0.09);
+    color: rgb(var(--brand));
+}
+
+.rcp-select:focus {
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.13);
+}
+
+.rcp-select:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.rcp-check.form-check-input {
+    float: none;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.rcp-none {
+    color: var(--muted);
+    cursor: help;
+}
+
+.rcp-others {
+    min-width: 170px;
+}
+
+.rcp-tag {
+    display: inline-block;
+    margin: 2px 4px 2px 0;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+.rcp-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-3);
+    cursor: pointer;
+}
+
+.rcp-add:hover {
+    background: rgba(var(--brand), 0.09);
+    color: rgb(var(--brand));
+}
+
+[data-theme='dark'] .rcp-select.is-on,
+[data-theme='dark'] .rcp-add:hover {
+    color: rgb(147, 155, 240);
+}

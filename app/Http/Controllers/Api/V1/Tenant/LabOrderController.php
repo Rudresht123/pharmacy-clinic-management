@@ -79,6 +79,7 @@ class LabOrderController extends BaseApiController
         }
 
         $handlesMoney = $this->permission->allows($organization, $user, 'billing.view')
+            || $this->permission->allows($organization, $user, 'billing.invoices_view')
             || $this->permission->allows($organization, $user, 'billing.collect_payment');
 
         return $handlesMoney ? ['liveInvoice'] : [];

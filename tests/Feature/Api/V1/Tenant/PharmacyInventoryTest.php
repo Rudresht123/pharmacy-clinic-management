@@ -357,7 +357,7 @@ class PharmacyInventoryTest extends TenantTestCase
         $this->receive()->assertCreated();
         $batch = $this->batch();
 
-        $this->setStaffCapabilities($this->organization, ['pharmacy.view', 'pharmacy.transfer']);
+        $this->setStaffCapabilities($this->organization, ['pharmacy.inventory_view', 'pharmacy.transfer']);
         $this->signInAsStaff($this->organization);
 
         // The staff member works at Noida, not Delhi.

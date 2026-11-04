@@ -16,6 +16,7 @@ use App\Models\Tenant\User;
 use App\Services\Permissions\Permission;
 use App\Support\Communication\RuleRecipients;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -117,7 +118,7 @@ class RecipientResolver
             ]],
             RuleRecipients::DOCTOR => $this->doctor($subject),
             RuleRecipients::CREATOR => $this->staff([$this->creatorOf($subject)]),
-            RuleRecipients::BRANCH_MANAGER => $this->staff([$locationId === null ? null : Location::query()->find($locationId)?->manager]),
+            RuleRecipients::BRANCH_MANAGER => $this->staff($this->managers($locationId)),
             RuleRecipients::FRONT_DESK => $this->staff($this->frontDesk($organization, $locationId)),
             RuleRecipients::ROLE => $this->staff($id > 0 ? $this->holding($id, $locationId) : []),
             RuleRecipients::USER => $this->staff([$id > 0 ? User::query()->find($id) : null]),
@@ -184,8 +185,40 @@ class RecipientResolver
     }
 
     /**
+     * Whoever runs the branch: the manager named on it, and whoever holds its
+     * manager's role. Most clinics do only the second, and a tick reaching nobody
+     * there would look like a notification that got lost.
+     *
+     * By slug, which survives a role being renamed.
+     *
+     * @return Collection<int, User>
+     */
+    private function managers(?int $locationId): Collection
+    {
+        if ($locationId === null) {
+            return new Collection;
+        }
+
+        $roles = Role::query()
+            ->where('location_id', $locationId)
+            ->whereIn('slug', [Role::slugAt('branch-manager', $locationId), Role::slugAt('branch-admin', $locationId)])
+            ->select('id');
+
+        $holders = User::query()
+            ->whereIn('id', BranchMembership::query()->where('location_id', $locationId)->whereIn('role_id', $roles)->select('user_id'))
+            ->get();
+
+        $named = Location::query()->find($locationId)?->manager;
+
+        return $named === null ? $holders : $holders->push($named)->unique('id')->values();
+    }
+
+    /**
      * Everybody at the branch who answers reschedule requests — the desk by
      * what they may do, not by what their role happens to be called.
+     *
+     * Not its manager, who can answer them too. Managers have their own tick, and
+     * ticking only Reception must not reach them as well.
      *
      * @return iterable<User>
      */
@@ -195,8 +228,11 @@ class RecipientResolver
             return [];
         }
 
+        $managers = $this->managers($locationId)->modelKeys();
+
         return User::query()
             ->whereIn('id', BranchMembership::query()->where('location_id', $locationId)->select('user_id'))
+            ->whereNotIn('id', $managers)
             ->where('is_active', true)
             ->where(fn (Builder $query) => $query
                 ->whereNull('userable_type')

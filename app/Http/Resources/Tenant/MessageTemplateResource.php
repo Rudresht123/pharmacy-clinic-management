@@ -41,6 +41,13 @@ class MessageTemplateResource extends JsonResource
             // How many branches send their own wording, where it was counted.
             'branch_wordings' => $this->whenCounted('variants'),
 
+            // This person's branch's own wording, where the list loaded it.
+            'branch_wording' => $this->whenLoaded('variants', function () {
+                $variant = $this->variants->first();
+
+                return $variant === null ? null : ['subject' => $variant->subject, 'content' => $variant->content];
+            }),
+
             'updated_at' => $this->updated_at?->toIso8601String(),
             'updated_by_name' => $this->whenLoaded('editor', fn () => $this->editor?->name),
         ];
