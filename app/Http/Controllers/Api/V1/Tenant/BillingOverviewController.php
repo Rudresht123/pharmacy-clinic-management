@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -43,6 +44,10 @@ class BillingOverviewController extends BaseApiController
     {
         [$from, $to] = $this->window($request);
 
+        // What the cards' "+12%" is measured against — the Compare menu.
+        $request->validate(['compare' => ['nullable', Rule::in(BillingReports::COMPARISONS)]]);
+        $compare = $request->string('compare')->toString() ?: BillingReports::COMPARE_PERIOD;
+
         $allowed = $this->branches->allowed($request->user());
         $asked = $request->filled('location_id') ? $request->integer('location_id') : null;
 
@@ -60,7 +65,7 @@ class BillingOverviewController extends BaseApiController
             ->get();
 
         return $this->ok([
-            ...$this->reports->overview($from, $to, $allowed, $asked),
+            ...$this->reports->overview($from, $to, $allowed, $asked, $compare),
             'recent' => InvoiceResource::collection($recent),
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),

@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { CategoryTag, TemplatePill } from './StatusPill';
-import type { MessageTemplate } from '../types';
+import { recipientSummary } from './AutomationRules';
+import { TemplateRowEditor } from './TemplateRowEditor';
+import type { AutomationRule, MessageTemplate } from '../types';
 
 /**
  * The App notification templates.
@@ -23,6 +25,10 @@ export function PushTemplateList({
     onCreate,
     onEdit,
     onRemove,
+    rules = [],
+    canChoose = false,
+    canManage = false,
+    canReword = false,
 }: {
     templates: MessageTemplate[];
     categories: readonly string[];
@@ -31,7 +37,15 @@ export function PushTemplateList({
     onCreate?: () => void;
     onEdit?: (template: MessageTemplate) => void;
     onRemove?: (template: MessageTemplate) => void;
+    /** Every rule on this channel, to say who gets each template. */
+    rules?: AutomationRule[];
+    /** Open a template's row to change who gets it and what it says. `onEdit` is its name, category and look. */
+    canChoose?: boolean;
+    canManage?: boolean;
+    canReword?: boolean;
 }) {
+    // Arriving from the overview with one chosen opens it.
+    const [opened, setOpened] = useState<number | null>(selected?.id ?? null);
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState('All');
 
@@ -105,6 +119,9 @@ export function PushTemplateList({
                 <ul className="ph-list">
                     {matched.map((template) => {
                         const active = selected?.id === template.id;
+                        const sending = rules.filter((rule) => rule.message_template_id === template.id);
+                        const opens = canManage || canReword || (canChoose && sending.length > 0);
+                        const isOpen = opens && opened === template.id;
 
                         return (
                             <li key={template.id} className={active ? 'is-active' : undefined}>
@@ -112,7 +129,13 @@ export function PushTemplateList({
                                     type="button"
                                     className="ph-row-main"
                                     aria-pressed={active}
-                                    onClick={() => onSelect(template)}
+                                    onClick={() => {
+                                        onSelect(template);
+
+                                        if (opens) {
+                                            setOpened(isOpen ? null : template.id);
+                                        }
+                                    }}
                                 >
                                     <span className={`comm-glyph is-${template.tone ?? 'violet'}`} aria-hidden="true">
                                         <i className={template.icon ?? 'ti ti-bell'} />
@@ -139,22 +162,37 @@ export function PushTemplateList({
                                     </span>
 
                                     <span className="ph-row-meta">
+                                        <span className="rcp-who-text" title={sending[0] ? (recipientSummary(sending[0]) ?? '') : undefined}>
+                                            {sending[0] ? recipientSummary(sending[0]) : 'Campaigns only'}
+                                        </span>
                                         <CategoryTag label={template.category} />
                                         <TemplatePill status={template.status} />
                                     </span>
                                 </button>
 
-                                {(onEdit || onRemove) && (
+                                {(onEdit || onRemove || opens) && (
                                     <span className="ph-row-actions">
-                                        {onEdit && (
+                                        {opens && (
                                             <button
                                                 type="button"
                                                 className="ph-icon-btn"
                                                 title={`Edit ${template.name}`}
                                                 aria-label={`Edit ${template.name}`}
-                                                onClick={() => onEdit(template)}
+                                                aria-expanded={isOpen}
+                                                onClick={() => setOpened(isOpen ? null : template.id)}
                                             >
                                                 <i className="ti ti-pencil" />
+                                            </button>
+                                        )}
+                                        {onEdit && (
+                                            <button
+                                                type="button"
+                                                className="ph-icon-btn"
+                                                title="Name, category and look"
+                                                aria-label={`Name, category and look of ${template.name}`}
+                                                onClick={() => onEdit(template)}
+                                            >
+                                                <i className="ti ti-adjustments" />
                                             </button>
                                         )}
                                         {onRemove && (
@@ -169,6 +207,20 @@ export function PushTemplateList({
                                             </button>
                                         )}
                                     </span>
+                                )}
+
+                                {isOpen && (
+                                    <div className="rcp-open-block">
+                                        <TemplateRowEditor
+                                            channel="push"
+                                            template={template}
+                                            rules={sending}
+                                            canChoose={canChoose}
+                                            canManage={canManage}
+                                            canReword={canReword}
+                                            onClose={() => setOpened(null)}
+                                        />
+                                    </div>
                                 )}
                             </li>
                         );

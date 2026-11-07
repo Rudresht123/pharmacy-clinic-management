@@ -10,6 +10,8 @@ interface FormModalProps {
     subtitle?: ReactNode;
     size?: ModalSize;
     icon?: ReactNode;
+    /** On the dialog, for a screen that needs to adjust its own forms. */
+    className?: string;
     /** Usually react-hook-form's handleSubmit(...) result. */
     onSubmit: FormEventHandler<HTMLFormElement>;
     submitting?: boolean;
@@ -62,6 +64,7 @@ export function FormModal({
     subtitle,
     size = 'lg',
     icon,
+    className,
     onSubmit,
     submitting = false,
     loading = false,
@@ -80,6 +83,7 @@ export function FormModal({
             subtitle={subtitle}
             size={size}
             icon={icon}
+            className={className}
             busy={submitting}
             footer={
                 <>

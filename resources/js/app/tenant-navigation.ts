@@ -372,6 +372,19 @@ export function tenantNavigation(
         });
     }
 
+    /*
+     * How the lab approves results, and its short lists — departments, sample
+     * types, units. Read by the bench, saved by lab setup.
+     */
+    if (hasModule('laboratory') && (can('laboratory.settings_view') || can('laboratory.settings_manage'))) {
+        settings.push({
+            label: 'Laboratory',
+            to: '/settings/laboratory',
+            icon: 'ti ti-flask',
+            match: '/settings/laboratory',
+        });
+    }
+
     if (settings.length > 0) {
         organization.push({
             label: 'Settings',
@@ -924,7 +937,7 @@ export function tenantNavigation(
             ...(can('communication.push')
                 ? [{ label: 'Push notifications', to: '/communication/push', icon: 'ti ti-bell-ringing', match: '/communication/push' }]
                 : []),
-            ...(can('communication.recipients')
+            ...(can('communication.recipients') || can('communication.branch_templates')
                 ? [{ label: 'Recipients', to: '/communication/recipients', icon: 'ti ti-users-group', match: '/communication/recipients' }]
                 : []),
         ];

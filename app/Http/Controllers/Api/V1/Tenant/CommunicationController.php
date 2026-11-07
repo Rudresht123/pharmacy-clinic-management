@@ -112,7 +112,7 @@ class CommunicationController extends BaseApiController
             ),
 
             'rules' => AutomationRuleResource::collection(
-                AutomationRule::query()->forChannel($channel)->with('template')->get()
+                $this->withOwnBranchChoice(AutomationRule::query()->forChannel($channel)->with('template'), $request)->get()
             ),
 
             /*

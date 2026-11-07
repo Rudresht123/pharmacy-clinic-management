@@ -60,6 +60,16 @@ final class ScreenTicks
         'pharmacy.stores',
     ];
 
+    /** The Laboratory settings screen reads them; lab setup saves them. */
+    public const LAB_SETTINGS = ['laboratory.settings_view', 'laboratory.settings_manage'];
+
+    /**
+     * The lab's short lists (departments, sample types, units…). Read by the
+     * settings screen today; every later lab screen that picks from them joins
+     * this list in its own phase.
+     */
+    public const LAB_LISTS = ['laboratory.settings_view', 'laboratory.settings_manage'];
+
     public const BILLING_OVERVIEW = ['billing.view'];
 
     /** The Overview's outstanding table, and the Outstanding screen. */
@@ -102,7 +112,7 @@ final class ScreenTicks
         'sms' => 'communication.view',
     ];
 
-    public const COMMUNICATION_ANY = ['communication.view', 'communication.email', 'communication.push', 'communication.recipients'];
+    public const COMMUNICATION_ANY = ['communication.view', 'communication.email', 'communication.push', 'communication.recipients', 'communication.branch_templates'];
 
     /**
      * Each of a doctor's own lists. My day and My queue read the first three as

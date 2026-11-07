@@ -6,6 +6,7 @@ use App\Support\History\RecordsHistory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -109,6 +110,12 @@ class AutomationRule extends Model
     public function scopeForChannel(Builder $query, string $channel): Builder
     {
         return $query->where('channel', $channel)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /** Branches that chose for themselves who gets this message. */
+    public function branchRecipients(): HasMany
+    {
+        return $this->hasMany(AutomationRuleBranchRecipients::class);
     }
 
     public function template(): BelongsTo

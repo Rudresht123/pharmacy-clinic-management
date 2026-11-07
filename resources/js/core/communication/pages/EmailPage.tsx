@@ -15,7 +15,6 @@ import { TemplateTable } from '../components/TemplateTable';
 import { AutomationRules } from '../components/AutomationRules';
 import { RecentMessages } from '../components/RecentMessages';
 import { TestSendModal } from '../components/TestSendModal';
-import { BranchWordingModal } from '../components/BranchWordingModal';
 import { TemplateFormModal } from '../components/TemplateFormModal';
 import { MessageDetailModal } from '../components/MessageDetailModal';
 import { AutomationRuleModal } from '../components/AutomationRuleModal';
@@ -130,13 +129,6 @@ export default function EmailPage() {
      */
     const { can } = useTenantAuth();
     const manage = can('communication.manage');
-
-    /*
-     * A branch cannot hold `communication.manage`. What it may hold is this: its
-     * own wording of a template, which leaves the template itself alone.
-     */
-    const reword = !manage && can('communication.branch_templates');
-    const [rewording, setRewording] = useState<MessageTemplate | null>(null);
 
     const { data, isLoading, isError, error, refetch } = useChannelOverview('email', days);
 
@@ -311,8 +303,15 @@ It will reach ${reach} patients.` : ''),
                         filter="search"
                         actionLabel="Edit"
                         title="Email templates"
+                        who={{
+                            channel: 'email',
+                            rules: data.rules,
+                            canChoose: can('communication.recipients') || can('communication.branch_templates'),
+                            canManage: manage,
+                            canReword: can('communication.branch_templates'),
+                        }}
                         onCreate={manage ? () => setEditing(false) : undefined}
-                        onEdit={manage ? setEditing : reword ? setRewording : undefined}
+                        onEdit={manage ? setEditing : undefined}
                         onRemove={manage ? setRemoving : undefined}
                     />
                 )}
@@ -398,13 +397,12 @@ It will reach ${reach} patients.` : ''),
                 hint="Goes out through the same transport as a real notification, so a failure here is a real failure."
             />
 
-            <BranchWordingModal template={rewording} channel="email" onClose={() => setRewording(null)} />
-
             <TemplateFormModal
                 open={editing !== null}
                 channel="email"
                 template={editing || null}
                 categories={CATEGORIES}
+                rules={data.rules}
                 saving={saveTemplate.isPending}
                 onClose={() => setEditing(null)}
                 onSave={(values) => saveTemplate.mutateAsync(values)}

@@ -6,6 +6,14 @@
    to across the top. One table, read like a grid.
    ========================================================= */
 
+:root {
+    --rcp-accent: var(--brand);
+}
+
+[data-theme='dark'] {
+    --rcp-accent: 147, 155, 240;
+}
+
 .rcp-tabs {
     margin-bottom: 16px;
 }
@@ -149,4 +157,623 @@
 [data-theme='dark'] .rcp-select.is-on,
 [data-theme='dark'] .rcp-add:hover {
     color: rgb(147, 155, 240);
+}
+
+/* The way back from a branch's own choice, under the message it belongs to. */
+.rcp-forget {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 3px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink-3);
+    cursor: pointer;
+}
+
+.rcp-forget:hover {
+    color: rgb(var(--brand));
+}
+
+/* --- a template's own form --------------------------------- */
+
+/* A proper header on these forms: room above and below, the title and its line
+   reading as one block beside the icon. */
+.rcp-modal .modal-header {
+    padding: 15px 56px 15px 20px;
+}
+
+.rcp-modal .modal-header .me-2 {
+    margin-right: 13px !important;
+}
+
+.rcp-modal .modal-icon-box {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+}
+
+.rcp-modal .modal-title {
+    font-size: 15.5px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.rcp-modal .modal-subtitle {
+    margin-top: 2px;
+    font-size: 12.5px;
+    line-height: 1.35;
+}
+
+/* --- who gets it, on a template's own row ------------------- */
+
+.rcp-who-cell {
+    max-width: 240px;
+}
+
+.rcp-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    color: var(--ink-2);
+    cursor: pointer;
+}
+
+.rcp-toggle span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rcp-toggle i {
+    flex: 0 0 auto;
+    font-size: 15px;
+    color: var(--ink-3);
+}
+
+.rcp-toggle:hover,
+.rcp-toggle[aria-expanded='true'] {
+    border-color: rgba(var(--brand), 0.4);
+    color: rgb(var(--brand));
+}
+
+.rcp-who-text {
+    display: inline-block;
+    max-width: 220px;
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink-3);
+    vertical-align: middle;
+}
+
+/* The opened row belongs to the one above it, so it shares its ground. */
+.pf-table tr.rcp-open-row > td {
+    padding: 0;
+    background: var(--surface-2);
+    box-shadow: inset 3px 0 0 rgb(var(--brand));
+}
+
+.rcp-open-block {
+    flex: 1 1 100%;
+    margin: 0 -12px 0 0;
+    border-top: 1px solid var(--line-2);
+    background: var(--surface-2);
+    box-shadow: inset 3px 0 0 rgb(var(--brand));
+}
+
+.ph-list > li:has(.rcp-open-block) {
+    flex-wrap: wrap;
+}
+
+/* What it says on one side, To, CC and BCC on the other, one Save under both: two
+   white cards of one height on the opened row's ground. */
+.rcp-editor {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 14px;
+    padding: 16px 18px;
+    text-align: left;
+    white-space: normal;
+}
+
+.rcp-editor-words,
+.rcp-editor-who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 15px 16px;
+    border: 1px solid var(--line-2);
+    border-radius: 13px;
+    background: var(--surface);
+}
+
+.rcp-editor-who:only-of-type {
+    grid-column: 1 / -1;
+}
+
+.rcp-editor h6 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    margin: 0 0 13px;
+    padding-bottom: 11px;
+    border-bottom: 1px solid var(--line-2);
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.rcp-editor h6 i {
+    font-size: 16px;
+    color: rgb(var(--rcp-accent));
+}
+
+.rcp-editor h6 small {
+    margin-left: auto;
+    padding: 1px 9px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-3);
+}
+
+/* The theme draws a box around every fieldset; this one only groups the words. */
+.rcp-editor fieldset.rcp-fields {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0 !important;
+}
+
+.rcp-fields:disabled {
+    opacity: 0.6;
+}
+
+.rcp-editor .comm-field-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.rcp-editor .form-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+.rcp-editor textarea.form-control {
+    line-height: 1.55;
+    resize: vertical;
+}
+
+.rcp-editor .comm-tokens {
+    margin-top: 0;
+}
+
+/* To, CC and BCC, divided. Each list is its own band: its label, its pills, then a
+   dashed Add. */
+.rcp-lists {
+    flex: 1 1 auto;
+    margin-bottom: 12px;
+}
+
+.rcp-list {
+    position: relative;
+    padding: 0 0 13px;
+}
+
+.rcp-list + .rcp-list {
+    padding-top: 12px;
+    border-top: 1px dashed var(--line-2);
+}
+
+.rcp-list-label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+.rcp-pills {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.rcp-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 30px;
+    padding: 0 5px 0 11px;
+    border-radius: 8px;
+    background: rgba(var(--brand), 0.1);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: rgb(var(--rcp-accent));
+    white-space: nowrap;
+}
+
+.rcp-pill button {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    font-size: 13px;
+    color: inherit;
+    cursor: pointer;
+}
+
+.rcp-pill button:hover {
+    background: rgba(var(--brand), 0.18);
+}
+
+.rcp-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 30px;
+    padding: 0 11px 0 9px;
+    border: 1px dashed var(--ink-3);
+    border-radius: 8px;
+    background: transparent;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-3);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 0.14s ease, color 0.14s ease, background-color 0.14s ease;
+}
+
+.rcp-add-btn i {
+    font-size: 14px;
+}
+
+.rcp-add-btn:hover,
+.rcp-add-btn.is-open {
+    border-color: rgb(var(--rcp-accent));
+    background: rgba(var(--brand), 0.05);
+    color: rgb(var(--rcp-accent));
+}
+
+/* Floats over whatever is below, so opening it moves nothing on the page. */
+.rcp-menu {
+    position: absolute;
+    top: calc(100% - 6px);
+    right: 0;
+    left: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    max-height: 320px;
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.08),
+        0 16px 38px rgba(var(--brand), 0.18);
+    overflow: hidden;
+}
+
+.rcp-menu.is-up {
+    top: auto;
+    bottom: calc(100% - 26px);
+}
+
+.rcp-menu-search {
+    position: relative;
+    flex: 0 0 auto;
+    padding: 8px;
+    border-bottom: 1px solid var(--line-2);
+}
+
+.rcp-menu-search i {
+    position: absolute;
+    top: 50%;
+    left: 18px;
+    transform: translateY(-50%);
+    font-size: 15px;
+    color: var(--muted);
+    pointer-events: none;
+}
+
+.rcp-menu-search input {
+    box-sizing: border-box;
+    width: 100%;
+    height: 34px;
+    padding: 0 10px 0 32px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 12.5px;
+    color: var(--ink);
+    outline: 0;
+}
+
+.rcp-menu-search input:focus {
+    border-color: rgb(var(--brand));
+    box-shadow: 0 0 0 3px rgba(var(--brand), 0.12);
+}
+
+.rcp-menu-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 5px;
+}
+
+.rcp-menu-none {
+    margin: 0;
+    padding: 14px;
+    font-size: 12.5px;
+    text-align: center;
+    color: var(--muted);
+}
+
+.rcp-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 7px 9px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 13px;
+    text-align: left;
+    color: var(--ink-2);
+    cursor: pointer;
+}
+
+.rcp-menu-item:hover:not(:disabled) {
+    background: var(--surface-2);
+}
+
+.rcp-menu-item > i {
+    flex: 0 0 auto;
+    font-size: 17px;
+    color: var(--muted);
+}
+
+.rcp-menu-item.is-on {
+    font-weight: 600;
+    color: rgb(var(--rcp-accent));
+}
+
+.rcp-menu-item.is-on > i {
+    color: rgb(var(--rcp-accent));
+}
+
+.rcp-menu-item > span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rcp-menu-item small,
+.rcp-menu-custom small {
+    display: block;
+    margin-top: 1px;
+    overflow: hidden;
+    font-size: 11.5px;
+    font-weight: 400;
+    text-overflow: ellipsis;
+    color: var(--muted);
+}
+
+/* The way through to anybody on the staff, under the jobs. */
+.rcp-menu-custom {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 10px 14px;
+    border: 0;
+    border-top: 1px solid var(--line-2);
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.rcp-menu-custom:hover {
+    background: var(--surface-2);
+}
+
+.rcp-menu-custom > i {
+    flex: 0 0 auto;
+    font-size: 17px;
+    color: var(--ink-3);
+}
+
+.rcp-menu-custom > span {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.rcp-menu-custom em {
+    flex: 0 0 auto;
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(var(--brand), 0.12);
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 20px;
+    text-align: center;
+    color: rgb(var(--rcp-accent));
+}
+
+.rcp-menu-back {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--line-2);
+    background: transparent;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: left;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.rcp-menu-back:hover {
+    background: var(--surface-2);
+}
+
+.rcp-menu-back i {
+    font-size: 16px;
+    color: var(--ink-3);
+}
+
+.rcp-menu-item em {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.rcp-menu-item:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+/* A list frame clips what overflows it, which is exactly what the menu has to do. */
+.pf-table-wrap:has(.rcp-editor),
+.ph-list:has(.rcp-editor) {
+    overflow: visible;
+}
+
+.rcp-editor-note {
+    display: flex;
+    gap: 7px;
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 9px;
+    background: var(--surface-2);
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--ink-3);
+    overflow-wrap: anywhere;
+}
+
+.rcp-editor-note i {
+    flex: 0 0 auto;
+    font-size: 15px;
+    color: var(--muted);
+}
+
+.rcp-editor-foot {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line-2);
+}
+
+.rcp-editor-foot .btn-light {
+    border: 1px solid var(--line-2) !important;
+    background: var(--surface) !important;
+}
+
+.rcp-editor-back {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    min-width: 0;
+}
+
+.rcp-editor-back button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-3);
+    cursor: pointer;
+}
+
+.rcp-editor-back button:hover {
+    color: rgb(var(--brand));
+}
+
+@media (max-width: 991.98px) {
+    .rcp-editor {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.rcp-goes-to {
+    display: flex;
+    gap: 10px;
+    margin: 0 0 16px;
+    padding: 11px 13px;
+    border: 1px solid var(--line-2);
+    border-radius: 11px;
+    background: var(--surface-2);
+}
+
+.rcp-goes-to > i {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    font-size: 17px;
+    color: var(--ink-3);
+}
+
+.rcp-goes-to b {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.rcp-goes-to small {
+    display: block;
+    margin-top: 1px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--ink-3);
 }

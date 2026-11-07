@@ -28,11 +28,20 @@ use Illuminate\Support\Facades\DB;
  */
 class BillingReports
 {
+    /** What the dashboard's cards are compared with — see comparisonWindow(). */
+    public const COMPARE_PERIOD = 'previous_period';
+
+    public const COMPARE_MONTH = 'previous_month';
+
+    public const COMPARE_YEAR = 'previous_year';
+
+    public const COMPARISONS = [self::COMPARE_PERIOD, self::COMPARE_MONTH, self::COMPARE_YEAR];
+
     /**
      * @param  list<int>|null  $branches  null means every branch
      * @return array<string, mixed>
      */
-    public function overview(Carbon $from, Carbon $to, ?array $branches, ?int $branchId = null): array
+    public function overview(Carbon $from, Carbon $to, ?array $branches, ?int $branchId = null, string $compare = self::COMPARE_PERIOD): array
     {
         $scope = fn (Builder $query) => $query
             ->when($branches !== null, fn (Builder $q) => $q->whereIn('location_id', $branches))
@@ -90,7 +99,7 @@ class BillingReports
                 'today_amount' => round((float) $today->sum('total_amount'), 2),
             ],
 
-            'previous' => $this->previousWindow($from, $to, $branches, $branchId),
+            'previous' => $this->previousWindow($from, $to, $branches, $branchId, $compare),
             'trend' => $this->trend($from, $to, $branches, $branchId),
             'statuses' => $this->statuses($from, $to, $branches, $branchId),
 
@@ -332,21 +341,17 @@ class BillingReports
     }
 
     /**
-     * The same window, one window earlier — for the "+12%" on each card.
+     * The window the dashboard's cards are measured against — for the "+12%".
      *
-     * A percentage against nothing is not a percentage, so a previous total
-     * of zero reports null rather than an infinity the screen would have to
-     * special-case anyway.
+     * Raw sums only: the percentage is worked out on screen, where a previous
+     * total of zero shows no badge rather than an infinity.
      *
      * @param  list<int>|null  $branches
-     * @return array<string, float>
+     * @return array<string, float|int|string>
      */
-    private function previousWindow(Carbon $from, Carbon $to, ?array $branches, ?int $branchId): array
+    private function previousWindow(Carbon $from, Carbon $to, ?array $branches, ?int $branchId, string $compare): array
     {
-        $length = $from->diffInDays($to) + 1;
-
-        $previousTo = (clone $from)->subDay()->endOfDay();
-        $previousFrom = (clone $previousTo)->subDays($length - 1)->startOfDay();
+        [$previousFrom, $previousTo] = $this->comparisonWindow($from, $to, $compare);
 
         $query = Invoice::query()
             ->when($branches !== null, fn (Builder $q) => $q->whereIn('location_id', $branches))
@@ -362,7 +367,49 @@ class BillingReports
             'billed_patients' => (int) (clone $query)
                 ->distinct()
                 ->count(DB::raw('COALESCE(customer_id::text, walk_in_phone)')),
+            // So the screen can say what the badge is "vs".
+            'from' => $previousFrom->toDateString(),
+            'to' => $previousTo->toDateString(),
         ];
+    }
+
+    /**
+     * Which dates the window is compared with.
+     *
+     * The previous period is the same number of days immediately before. The
+     * previous month and year are the same DATES a month or a year back, so
+     * the 1st–7th reads against last month's 1st–7th, not its final week. A
+     * window that is exactly one calendar month compares with the whole of
+     * the other month — November against all 31 days of October, not 30.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public function comparisonWindow(Carbon $from, Carbon $to, string $compare = self::COMPARE_PERIOD): array
+    {
+        $wholeMonth = $from->isSameDay((clone $from)->startOfMonth())
+            && $to->isSameDay((clone $from)->endOfMonth());
+
+        $back = match ($compare) {
+            self::COMPARE_MONTH => fn (Carbon $day) => (clone $day)->subMonthNoOverflow(),
+            self::COMPARE_YEAR => fn (Carbon $day) => (clone $day)->subYearNoOverflow(),
+            default => null,
+        };
+
+        if ($back === null) {
+            // Whole days: Carbon 3 returns a fraction for 00:00 → 23:59:59.
+            $length = (int) (clone $from)->startOfDay()->diffInDays((clone $to)->startOfDay()) + 1;
+            $previousTo = (clone $from)->subDay()->endOfDay();
+
+            return [(clone $previousTo)->subDays($length - 1)->startOfDay(), $previousTo];
+        }
+
+        if ($wholeMonth) {
+            $month = $back($from);
+
+            return [(clone $month)->startOfMonth(), (clone $month)->endOfMonth()];
+        }
+
+        return [$back($from)->startOfDay(), $back($to)->endOfDay()];
     }
 
     /**

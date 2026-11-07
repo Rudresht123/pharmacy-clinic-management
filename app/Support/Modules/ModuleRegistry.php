@@ -55,7 +55,13 @@ class ModuleRegistry
      * receptionist holding it at Lucknow has no business reading Delhi's book.
      *
      * The role screen filters by this, so an organization-scoped capability is
-     * never offered on a branch role — not shown greyed out, not shown at all.
+     * not offered on a branch role — not shown greyed out, not shown at all.
+     *
+     * The exception is the Settings menu, marked `'settings' => true` on each
+     * entry. Every staff role is a branch's own now, so leaving these out would
+     * mean nobody but the owner could ever hold one. The reach does not change:
+     * a branch role holding `settings.manage` still changes what every branch
+     * calls a patient. See branchRoleMayHold().
      */
     public const SCOPE_ORGANIZATION = 'organization';
 
@@ -86,6 +92,10 @@ class ModuleRegistry
      *
      * `hint` is one line saying what the capability means in practice, shown
      * under its name on the role screen.
+     *
+     * `'settings' => true` marks what opens or saves a row of the Settings menu.
+     * The role screen files them together under one Settings heading, whichever
+     * module grants them, and a branch role may hold them.
      */
 
     /**
@@ -303,9 +313,9 @@ class ModuleRegistry
                 'group' => self::GROUP_FOUNDATION,
                 'is_org_level' => true,
                 'capabilities' => [
-                    ['key' => 'settings.manage', 'screen' => true, 'name' => 'Change field settings and naming', 'hint' => 'The fields on each form, and what the organization calls each record.', 'scope' => self::SCOPE_ORGANIZATION],
-                    ['key' => 'settings.departments', 'screen' => true, 'name' => 'See and change Departments', 'hint' => 'The department list doctors are filed under.', 'scope' => self::SCOPE_ORGANIZATION],
-                    ['key' => 'settings.audit', 'screen' => true, 'name' => 'Read the organization-wide activity log', 'hint' => 'Who changed what, across every branch.', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'settings.manage', 'screen' => true, 'settings' => true, 'name' => 'Change field settings and naming', 'hint' => 'The fields on each form, and what the organization calls each record.', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'settings.departments', 'screen' => true, 'settings' => true, 'name' => 'See and change Departments', 'hint' => 'The department list doctors are filed under.', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'settings.audit', 'screen' => true, 'settings' => true, 'name' => 'Read the organization-wide activity log', 'hint' => 'Who changed what, across every branch.', 'scope' => self::SCOPE_ORGANIZATION],
 
                     /*
                      * The organization's own account with the platform: its
@@ -318,7 +328,7 @@ class ModuleRegistry
                      * is locked: renewing is how a locked organization gets
                      * back in.
                      */
-                    ['key' => 'settings.subscription', 'screen' => true, 'name' => 'View and renew the subscription, and buy add-ons', 'hint' => 'The organization\'s plan, usage and invoices with the platform.', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'settings.subscription', 'screen' => true, 'settings' => true, 'name' => 'View and renew the subscription, and buy add-ons', 'hint' => 'The organization\'s plan, usage and invoices with the platform.', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             /*
@@ -376,8 +386,8 @@ class ModuleRegistry
                      * medicine master is — an invoice reads the same at every
                      * branch that raises it.
                      */
-                    ['key' => 'billing.manage_settings', 'screen' => true, 'name' => 'Change billing settings', 'hint' => 'The billing trigger, tax rules, numbering and terms, for everybody.', 'scope' => self::SCOPE_ORGANIZATION],
-                    ['key' => 'billing.manage_services', 'screen' => true, 'name' => 'Manage billable services', 'hint' => 'The catalogue of named services, such as Consultation or Injection.', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'billing.manage_settings', 'screen' => true, 'settings' => true, 'name' => 'Change billing settings', 'hint' => 'The billing trigger, tax rules, numbering and terms, for everybody.', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'billing.manage_services', 'screen' => true, 'settings' => true, 'name' => 'Manage billable services', 'hint' => 'The catalogue of named services, such as Consultation or Injection.', 'scope' => self::SCOPE_ORGANIZATION],
 
                     /*
                      * The money across every department — OPD and lab
@@ -511,7 +521,7 @@ class ModuleRegistry
                      * How appointments behave across the organization — today,
                      * who is told when a patient asks to reschedule.
                      */
-                    ['key' => 'appointments.settings', 'screen' => true, 'name' => 'Change appointment settings', 'hint' => 'How appointments behave across the organization.', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'appointments.settings', 'screen' => true, 'settings' => true, 'name' => 'Change appointment settings', 'hint' => 'How appointments behave across the organization.', 'scope' => self::SCOPE_ORGANIZATION],
 
                     /*
                      * A doctor writing to their own patients, and reading what
@@ -603,12 +613,17 @@ class ModuleRegistry
             ],
             [
                 /*
-                 * The other thing a consultation produces.
+                 * The other thing a consultation produces, and a diagnostic
+                 * lab's whole business.
                  *
-                 * Sold separately from appointments, and requiring them,
-                 * because a lab order hangs off a visit: there is nothing to
-                 * order against without one. A clinic that refers its bloods
-                 * out never buys this and never sees a technician's queue.
+                 * REQUIRES ONLY CUSTOMERS since 2026-11-07 (the user's decision,
+                 * docs/architecture/laboratory.md D4). It used to require
+                 * appointments because every order hung off a visit; a
+                 * standalone diagnostic lab takes walk-ins and referrals and
+                 * has no OPD. What still needs a visit — a doctor ordering at a
+                 * consultation — only appears where appointments also runs.
+                 * A clinic that refers its bloods out never buys this and never
+                 * sees a technician's queue.
                  *
                  * FOUR CAPABILITIES ALONG THE LINE THE WORK ACTUALLY SPLITS.
                  * Ordering is the doctor's and nobody else's. Reading results
@@ -622,15 +637,23 @@ class ModuleRegistry
                  */
                 'key' => 'laboratory',
                 'name' => 'Laboratory',
-                'description' => 'Lab orders raised at a visit, and the results that come back.',
+                'description' => 'Lab orders from a visit or the lab desk, samples, results and reports.',
                 'icon' => 'ti ti-flask',
                 'group' => self::GROUP_CLINICAL,
-                'requires' => ['appointments'],
+                'requires' => ['customers'],
                 'capabilities' => [
                     ['key' => 'laboratory.view', 'screen' => true, 'name' => 'View lab orders and results', 'hint' => 'Orders, and the results that came back.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'laboratory.order', 'name' => 'Order tests at a consultation', 'hint' => 'Ask for tests during a visit.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'laboratory.process', 'name' => 'Take on lab work and enter results', 'hint' => 'The bench\'s work: pick up an order and record the values.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'laboratory.complete', 'name' => 'Sign off and cancel lab orders', 'hint' => 'A signed-off result is what the doctor will act on.', 'scope' => self::SCOPE_BRANCH],
+                    /*
+                     * Settings › Laboratory: the lab's own short lists and how
+                     * its workflow runs. Reading is a branch tick (the bench
+                     * looks things up); saving is organisation-wide, because a
+                     * chain runs one menu of departments and sample types.
+                     */
+                    ['key' => 'laboratory.settings_view', 'screen' => true, 'settings' => true, 'name' => 'See the Laboratory settings', 'hint' => 'Departments, sample types, units and how results are approved.', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'laboratory.settings_manage', 'screen' => true, 'settings' => true, 'name' => 'Set up the laboratory and save its settings', 'hint' => 'Decides the lab\'s lists and its approval steps for every branch.', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             /*
@@ -668,8 +691,8 @@ class ModuleRegistry
                     ['key' => 'queue.priority', 'name' => 'Change a patient\'s priority in the queue', 'hint' => 'Puts one patient ahead of others.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'queue.reassign', 'name' => 'Move a waiting patient to another doctor', 'hint' => 'Hands somebody waiting over to a different doctor.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'queue.any_doctor', 'name' => 'Doctors: run another doctor\'s queue', 'hint' => 'The desk can already. This lets a doctor\'s own login do it.', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'queue.settings', 'screen' => true, 'name' => 'Set rooms, token prefixes and queue settings', 'hint' => 'How tokens and rooms are set up at this branch.', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'queue.displays', 'screen' => true, 'name' => 'Set up and manage TV displays', 'hint' => 'Screens for the waiting room and each room.', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'queue.settings', 'screen' => true, 'settings' => true, 'name' => 'Set rooms, token prefixes and queue settings', 'hint' => 'How tokens and rooms are set up at this branch.', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'queue.displays', 'screen' => true, 'settings' => true, 'name' => 'Set up and manage TV displays', 'hint' => 'Screens for the waiting room and each room.', 'scope' => self::SCOPE_BRANCH],
                 ],
             ],
             [
@@ -731,9 +754,9 @@ class ModuleRegistry
                      * decisions — the last one is what every patient handed a
                      * document after it will see.
                      */
-                    ['key' => 'documents.template_view', 'screen' => true, 'name' => 'View document templates', 'hint' => 'See how this branch\'s documents are laid out.', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'documents.template_edit', 'name' => 'Edit this branch’s document templates', 'hint' => 'Change how this branch\'s documents are laid out.', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'documents.template_publish', 'name' => 'Put a template version into use', 'hint' => 'Every patient handed a document after this sees the change.', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'documents.template_view', 'screen' => true, 'settings' => true, 'name' => 'View document templates', 'hint' => 'See how this branch\'s invoices, receipts and prescriptions are laid out.', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'documents.template_edit', 'settings' => true, 'name' => 'Edit this branch’s document templates', 'hint' => 'Change this branch\'s layouts and its logo. The branch gets its own copy.', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'documents.template_publish', 'settings' => true, 'name' => 'Put a template version into use', 'hint' => 'Every patient handed a document after this sees the change.', 'scope' => self::SCOPE_BRANCH],
 
                     /*
                      * The whole authority model, in one key.
@@ -749,7 +772,7 @@ class ModuleRegistry
                      * a manager cannot be given it for their own branch and
                      * thereby reach everybody else's.
                      */
-                    ['key' => 'documents.template_org', 'screen' => true, 'name' => 'Manage every branch’s templates and lock fields', 'hint' => 'Sets the default branches inherit, and fields they may not change.', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'documents.template_org', 'screen' => true, 'settings' => true, 'name' => 'Manage every branch’s templates and lock fields', 'hint' => 'Sets the default branches inherit and the fields they may not change, and opens Automatic documents.', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             [
@@ -790,7 +813,7 @@ class ModuleRegistry
                     ['key' => 'pharmacy.movements_view', 'screen' => true, 'name' => 'See the Movements screen', 'hint' => 'Every stock change, in and out.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.suppliers_view', 'screen' => true, 'name' => 'See the Suppliers screen', 'hint' => 'The suppliers stock comes from.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.stores_view', 'screen' => true, 'name' => 'See the Stores screen', 'hint' => 'The pharmacy stores at this branch.', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'pharmacy.settings_view', 'screen' => true, 'name' => 'See the Pharmacy settings', 'hint' => 'How the pharmacy is set up.', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'pharmacy.settings_view', 'screen' => true, 'settings' => true, 'name' => 'See the Pharmacy settings', 'hint' => 'How the pharmacy is set up.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.dispense', 'name' => 'Dispense prescriptions', 'hint' => 'Hand over what a prescription asks for.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.sell', 'screen' => true, 'name' => 'Sell at the counter', 'hint' => 'Bill a customer at the pharmacy counter.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.sale_cancel', 'name' => 'Cancel a bill or take goods back', 'hint' => 'Undo a sale, or accept a return.', 'scope' => self::SCOPE_BRANCH],
@@ -799,7 +822,7 @@ class ModuleRegistry
                     ['key' => 'pharmacy.transfer', 'name' => 'Transfer stock between stores', 'hint' => 'Move stock from one store to another.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.batches', 'name' => 'Manage batches', 'hint' => 'Keep batch details right.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'pharmacy.reverse', 'name' => 'Reverse a dispensing', 'hint' => 'Undo a dispensing that should not have gone out.', 'scope' => self::SCOPE_BRANCH],
-                    ['key' => 'pharmacy.stores', 'screen' => true, 'name' => 'Set up stores', 'hint' => 'Decides which stores exist.', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'pharmacy.stores', 'screen' => true, 'settings' => true, 'name' => 'Set up stores and save Pharmacy settings', 'hint' => 'Decides which stores and suppliers exist, and how the pharmacy prices.', 'scope' => self::SCOPE_ORGANIZATION],
                     ['key' => 'pharmacy.restore', 'name' => 'Restore removed pharmacy records', 'hint' => 'Bring back a record somebody removed.', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
@@ -863,7 +886,7 @@ class ModuleRegistry
                      * Gurgaon's and nobody else's; `communication.manage`
                      * reaches every branch's.
                      */
-                    ['key' => 'communication.branch_templates', 'name' => 'Reword templates for this branch', 'hint' => 'This branch\'s own wording for email and app notifications.', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'communication.branch_templates', 'screen' => true, 'name' => 'Change templates and who gets them, for this branch', 'hint' => 'This branch\'s own wording, and who gets each email and app notification here.', 'scope' => self::SCOPE_BRANCH],
                 ],
             ],
         ];
@@ -1078,6 +1101,26 @@ class ModuleRegistry
         return null;
     }
 
+    /**
+     * Whether a role belonging to one branch may hold this.
+     *
+     * Branch-scoped capabilities, and the Settings menu's own. Anything else
+     * organization-scoped stays refused: `people.across_branches` would lift
+     * the wall between branches, and adding a branch is the owner's.
+     */
+    public static function branchRoleMayHold(string $capability): bool
+    {
+        foreach (self::all() as $module) {
+            foreach ($module['capabilities'] as $entry) {
+                if ($entry['key'] === $capability) {
+                    return $entry['scope'] === self::SCOPE_BRANCH || ($entry['settings'] ?? false);
+                }
+            }
+        }
+
+        return false;
+    }
+
     /** Who a capability is for — see AUDIENCE_PATIENT. Unknown keys count as staff's. */
     public static function capabilityAudience(string $capability): string
     {
@@ -1100,12 +1143,10 @@ class ModuleRegistry
      * the rule is asymmetric, the same asymmetry `SaveRoleRequest` enforces on
      * save:
      *
-     *   SCOPE_BRANCH        only branch-scoped capabilities. A branch role is
-     *                       never offered `settings.manage`, because there is
-     *                       no version of it that applies at one branch and
-     *                       not another — offering it would be a choice the
-     *                       software could not honour, and ticking it would
-     *                       only fail on save.
+     *   SCOPE_BRANCH        what branchRoleMayHold() allows: branch-scoped
+     *                       capabilities and the Settings menu's own. The rest
+     *                       is not offered, because ticking it would only fail
+     *                       on save.
      *   SCOPE_ORGANIZATION  everything, branch-scoped included. An
      *                       organization-wide role applies everywhere, so a
      *                       branch capability on it simply applies at every
@@ -1135,7 +1176,7 @@ class ModuleRegistry
             $capabilities = $scope === self::SCOPE_BRANCH
                 ? array_values(array_filter(
                     $module['capabilities'],
-                    fn (array $entry) => $entry['scope'] === self::SCOPE_BRANCH,
+                    fn (array $entry) => self::branchRoleMayHold($entry['key']),
                 ))
                 : $module['capabilities'];
 

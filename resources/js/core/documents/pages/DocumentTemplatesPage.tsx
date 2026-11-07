@@ -7,6 +7,7 @@ import { notify } from '@/shared/utils/notify';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import {
     previewTemplate,
+    useCreateTemplate,
     useDocumentTemplate,
     useDocumentTemplates,
     useDocumentTypes,
@@ -45,6 +46,7 @@ export default function DocumentTemplatesPage() {
 
     const save = useSaveTemplate();
     const publish = usePublishTemplate();
+    const create = useCreateTemplate();
 
     /*
      * WHOSE LOGO THIS SCREEN IS LOOKING AT.
@@ -131,8 +133,33 @@ export default function DocumentTemplatesPage() {
         }
 
         try {
+            /*
+             * The organisation's default is not a branch's to rewrite. Somebody
+             * holding only their own branch's ticks gets a copy for that
+             * branch, which prints there from now on, and every other branch
+             * keeps printing from the default.
+             */
+            if (detail.template.is_organization_default && !canLock && draft) {
+                const own = await create.mutateAsync({
+                    document_type: detail.template.document_type,
+                    location_id: activeBranch,
+                    name: detail.template.name,
+                    config: draft,
+                });
+
+                await publish.mutateAsync(own.id);
+                choose(own.id);
+                notify.success('Published. This branch now prints from its own copy.');
+
+                return;
+            }
+
             if (dirty && draft) {
-                await save.mutateAsync({ id: detail.template.id, config: draft });
+                await save.mutateAsync({
+                    id: detail.template.id,
+                    name: detail.template.name,
+                    config: draft,
+                });
                 setDirty(false);
             }
 
@@ -176,7 +203,7 @@ export default function DocumentTemplatesPage() {
         const toBranch = !fromOrganization && logoBranchId !== null;
         const own = toBranch && Boolean(branch?.has_logo);
 
-        const canChange = toBranch ? can('branches.edit') : user?.role === 'owner';
+        const canChange = toBranch ? can('branches.edit') || canEdit : user?.role === 'owner';
 
         const done = (message: string) => {
             notify.success(message);
@@ -218,7 +245,7 @@ export default function DocumentTemplatesPage() {
                     ? null
                     : 'This is the organisation’s mark — every branch without its own prints it.'
                 : toBranch
-                  ? 'Changing a branch’s logo needs permission to edit branches.'
+                  ? 'Changing a branch’s logo needs permission to edit document templates.'
                   : 'Only the organisation’s owner can change its logo.',
         };
     }
@@ -281,7 +308,7 @@ export default function DocumentTemplatesPage() {
                                     type="button"
                                     className="btn btn-primary btn-sm px-3 fw-600"
                                     onClick={() => void publishDraft()}
-                                    disabled={publish.isPending || !hasPendingChanges}
+                                    disabled={create.isPending || publish.isPending || !hasPendingChanges}
                                     title={
                                         hasPendingChanges
                                             ? 'Save and put into use'

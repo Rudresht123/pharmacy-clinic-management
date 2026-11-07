@@ -206,7 +206,7 @@ class RoleScopeTest extends TenantTestCase
         $this->postJson('/api/v1/tenant/roles', [
             'name' => 'Sneaky',
             'scope' => Role::SCOPE_ORGANIZATION,
-            'capabilities' => ['settings.manage'],
+            'capabilities' => ['branches.create'],
         ])->assertStatus(422)->assertJsonValidationErrors('capabilities.0');
 
         $desk = $this->postJson('/api/v1/tenant/roles', [
@@ -220,7 +220,7 @@ class RoleScopeTest extends TenantTestCase
         $this->putJson("/api/v1/tenant/roles/{$desk['id']}", [
             'name' => 'Lucknow desk',
             'scope' => Role::SCOPE_ORGANIZATION,
-            'capabilities' => ['customers.view', 'settings.manage'],
+            'capabilities' => ['customers.view', 'branches.create'],
         ])->assertStatus(422)->assertJsonValidationErrors('capabilities.1');
     }
 

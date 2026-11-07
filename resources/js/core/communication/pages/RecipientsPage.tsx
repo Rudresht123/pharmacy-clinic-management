@@ -4,9 +4,10 @@ import { PageHeader } from '@/shared/components/ui/PageHeader';
 import { Card } from '@/shared/components/ui/Card';
 import { Tabs, type TabItem } from '@/shared/components/ui/Tabs';
 import { ErrorState, LoadingBlock } from '@/shared/components/ui/Feedback';
-import { resolveErrorMessage } from '@/shared/api/http';
+import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
-import { useAutomationRules, useSaveRuleRecipients } from '../api';
+import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
+import { useAutomationRules, useForgetRuleRecipients, useSaveRuleRecipients } from '../api';
 import { lead } from '../components/AutomationRules';
 import { RecipientOthersModal } from '../components/RecipientOthersModal';
 import type { AutomationRule, RecipientEntry, RecipientType, RuleRecipients } from '../types';
@@ -23,7 +24,7 @@ const CHANNELS: readonly TabItem<Channel>[] = [
 const COLUMNS: { type: RecipientType; label: string }[] = [
     { type: 'patient', label: 'Patient' },
     { type: 'doctor', label: 'Doctor' },
-    { type: 'front_desk', label: 'Reception' },
+    { type: 'front_desk', label: 'Receptionist' },
     { type: 'branch_manager', label: 'Branch manager' },
 ];
 
@@ -80,6 +81,10 @@ function others(rule: AutomationRule): { key: string; label: string }[] {
  * Worked out each time a message goes: Doctor is that visit's own doctor, and
  * Reception and Branch manager are whoever holds those jobs at that visit's branch.
  *
+ * Two levels, like a template's wording. The owner's choice is the organisation's;
+ * somebody working at one branch sets that branch's own, which replaces it there
+ * and nowhere else. A template's form shows the same lists and saves to the same place.
+ *
  * WhatsApp has no row. It only ever goes to the patient's own number.
  */
 export default function RecipientsPage() {
@@ -88,6 +93,10 @@ export default function RecipientsPage() {
 
     const { data: rules, isLoading, isError, refetch } = useAutomationRules();
     const save = useSaveRuleRecipients();
+    const forget = useForgetRuleRecipients();
+
+    const { can } = useTenantAuth();
+    const forOneBranch = !can('communication.recipients');
 
     const [editing, setEditing] = useState<AutomationRule | null>(null);
 
@@ -98,11 +107,21 @@ export default function RecipientsPage() {
         { key: 'staff', title: 'Alerts written for staff', rules: shown.filter((rule) => rule.audience === 'staff') },
     ].filter((group) => group.rules.length > 0);
 
-    /** Refused with the server's own reason: "Choose who this rule tells…". */
+    /**
+     * A refusal says why: "Choose who this rule tells…". Only a 422 is said here,
+     * because the http layer already shows every other failure and leaves those to
+     * the screen.
+     */
     function change(rule: AutomationRule, type: RecipientType, field: Field | null) {
         save.mutate(
             { id: rule.id, recipients: placed(rule, type, field) },
-            { onError: (error) => notify.error(resolveErrorMessage(error)) },
+            {
+                onError: (error) => {
+                    if (getValidationErrors(error)) {
+                        notify.error(resolveErrorMessage(error));
+                    }
+                },
+            },
         );
     }
 
@@ -110,7 +129,11 @@ export default function RecipientsPage() {
         <>
             <PageHeader
                 title="Recipients"
-                subtitle="One place for who gets every email and push notification."
+                subtitle={
+                    forOneBranch
+                        ? 'One place for who gets every email and push notification at your branch.'
+                        : 'One place for who gets every email and push notification.'
+                }
                 icon="ti ti-users-group"
                 tone="violet"
                 crumbs={[{ label: 'Communication' }, { label: 'Recipients' }]}
@@ -181,8 +204,20 @@ export default function RecipientsPage() {
                                                             {rule.template_name ?? rule.title}
                                                             {timing && <em>{timing}</em>}
                                                             {!rule.is_enabled && <em className="is-off">Off</em>}
+                                                            {rule.branch_own && <em>This branch’s choice</em>}
                                                         </b>
                                                         {rule.description && <small>{rule.description}</small>}
+                                                        {rule.branch_own && (
+                                                            <button
+                                                                type="button"
+                                                                className="rcp-forget"
+                                                                disabled={forget.isPending}
+                                                                onClick={() => forget.mutate(rule.id)}
+                                                            >
+                                                                <i className="ti ti-arrow-back-up" aria-hidden="true" />
+                                                                Use the organisation’s
+                                                            </button>
+                                                        )}
                                                     </td>
 
                                                     {COLUMNS.map((column) => {

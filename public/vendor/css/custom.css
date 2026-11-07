@@ -16993,8 +16993,10 @@ button.dc-card:focus-visible .dc-card-hint{ color:var(--dpt-hue); }
 /* ---- Search and filters ---- */
 .comm-search{ position:relative; }
 .comm-search i{ position:absolute; top:50%; left:11px; transform:translateY(-50%); font-size:15px; color:var(--muted); pointer-events:none; }
-.comm-search .form-control{ width:210px; padding-left:32px; font-size:12.5px; }
-.comm-select{ width:auto; min-width:150px; font-size:12.5px; }
+/* With .app-content: its own padding on every form control would otherwise win, and
+   the icon sits on top of the words. */
+.app-content .comm-search .form-control{ width:230px; height:38px; padding-left:34px; font-size:13px; }
+.app-content .form-select.comm-select{ width:auto; min-width:150px; height:38px; font-size:13px; }
 
 .comm-filters{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
 .comm-filter{ padding:5px 12px; border:1px solid var(--line); border-radius:999px; background:var(--surface-2); font-size:11.5px; font-weight:600; color:var(--ink-3); transition:background .16s ease, color .16s ease, border-color .16s ease; }

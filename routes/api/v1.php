@@ -463,8 +463,9 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         // The dropdown reading needs no tick; the screen's is checked inside.
         Route::get('locations', [LocationController::class, 'index'])
             ->name('locations.index');
+        // The template editor reads its own branch's logo; the controller holds it to that.
         Route::get('locations/{location}', [LocationController::class, 'show'])
-            ->middleware('permission:branches.view')
+            ->middleware('permission:branches.view,documents.template_view')
             ->name('locations.show');
 
         /*
@@ -1150,6 +1151,9 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                 ->name('lab-orders.bill');
         });
 
+        // The laboratory's own area, /lab/* (routes/api/v1/laboratory.php).
+        require __DIR__.'/v1/laboratory.php';
+
         /*
         |----------------------------------------------------------------------
         | Patient documents
@@ -1217,13 +1221,14 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('documents.templates.update');
                 Route::delete('document-templates/{template}', [DocumentTemplateController::class, 'destroy'])
                     ->name('documents.templates.destroy');
-
-                /* Rendered and thrown away — see the controller. Behind edit
-                   rather than view, because it renders a config the caller
-                   sent rather than one that was saved. */
-                Route::post('document-templates/preview', [DocumentTemplateController::class, 'preview'])
-                    ->name('documents.templates.preview');
             });
+
+            /* Rendered from sample values and thrown away — see the controller.
+               The screen draws it for everybody it opens for, so the View tick
+               alone must not end in a refusal beside the template. */
+            Route::post('document-templates/preview', [DocumentTemplateController::class, 'preview'])
+                ->middleware('permission:documents.template_view,documents.template_edit')
+                ->name('documents.templates.preview');
 
             Route::post('document-templates/{template}/publish', [DocumentTemplateController::class, 'publish'])
                 ->middleware('permission:documents.template_publish')
@@ -1511,7 +1516,7 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | draws those buttons; changed by whoever holds the setting.
             */
             Route::get('appointment-settings', [AppointmentSettingController::class, 'show'])
-                ->middleware('permission:appointments.view,appointments.queue,appointments.consult_start')
+                ->middleware('permission:appointments.view,appointments.queue,appointments.consult_start,appointments.settings')
                 ->name('appointment-settings.show');
             Route::put('appointment-settings', [AppointmentSettingController::class, 'update'])
                 ->middleware('permission:appointments.settings')
@@ -1676,10 +1681,10 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
         | would think to grant.
         */
         Route::post('locations/{location}/logo', [LocationController::class, 'uploadLogo'])
-            ->middleware('permission:branches.edit')
+            ->middleware('permission:branches.edit,documents.template_edit')
             ->name('locations.logo.store');
         Route::delete('locations/{location}/logo', [LocationController::class, 'deleteLogo'])
-            ->middleware('permission:branches.edit')
+            ->middleware('permission:branches.edit,documents.template_edit')
             ->name('locations.logo.destroy');
 
         /*
@@ -1837,10 +1842,13 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             | and the controller then checks the branch in the URL is one this
             | person may word, which no route gate can know.
             */
-            // Who gets each message, from the one central Recipients screen.
-            Route::put('communication/automation-rules/{rule}/recipients', [AutomationRuleController::class, 'saveRecipients'])
-                ->middleware('permission:communication.recipients')
-                ->name('communication.rules.recipients.update');
+            // Who gets each message: the organisation's choice, or one branch's own.
+            Route::middleware('permission:communication.recipients,communication.branch_templates')->group(function () {
+                Route::put('communication/automation-rules/{rule}/recipients', [AutomationRuleController::class, 'saveRecipients'])
+                    ->name('communication.rules.recipients.update');
+                Route::delete('communication/automation-rules/{rule}/recipients', [AutomationRuleController::class, 'forgetRecipients'])
+                    ->name('communication.rules.recipients.destroy');
+            });
 
             Route::middleware('permission:communication.manage,communication.branch_templates')->group(function () {
                 Route::put('communication/templates/{template}/variants/{location}', [MessageTemplateVariantController::class, 'update'])

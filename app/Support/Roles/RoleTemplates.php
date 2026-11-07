@@ -134,6 +134,8 @@ class RoleTemplates
                      * off — that stays with whoever ran the sample.
                      */
                     'laboratory.view',
+                    // Reads how the lab is set up, like the pharmacy's; saving is head office's.
+                    'laboratory.settings_view',
 
                     'medicines.view',
                     'pharmacy.view',
@@ -592,6 +594,13 @@ class RoleTemplates
                     'billing.refund',
                     // Every branch's money, every department, by scope-lift.
                     'billing.finance',
+                    /*
+                     * The lab's set-up — departments, sample types, units,
+                     * approval steps — is one menu for the whole network,
+                     * kept by whoever already keeps its price lists.
+                     */
+                    'laboratory.settings_view',
+                    'laboratory.settings_manage',
                     'settings.audit',
                 ],
             ],

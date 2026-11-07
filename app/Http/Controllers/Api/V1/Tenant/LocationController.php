@@ -93,9 +93,20 @@ class LocationController extends BaseApiController
         );
     }
 
-    public function show(Location $location): JsonResponse
+    /**
+     * One branch.
+     *
+     * `branches.view` reads any of them. The document template editor opens
+     * this too, for the logo on the letterhead, and a branch role cannot hold
+     * `branches.view`, so that reader is held to a branch they work at.
+     */
+    public function show(Request $request, Location $location): JsonResponse
     {
-        return $this->ok(LocationResource::make($location->load('manager')));
+        if (! $this->permission->allows($request->attributes->get('tenant.organization'), $request->user(), 'branches.view')) {
+            $this->mustWorkHere($request, $location);
+        }
+
+        return $this->ok(LocationResource::make($location->load(['manager', 'logo'])));
     }
 
     /**
@@ -219,11 +230,12 @@ class LocationController extends BaseApiController
     }
 
     /**
-     * `branches.edit` is BRANCH-SCOPED, so holding it is not the whole answer.
+     * The capability is not the whole answer.
      *
-     * The capability says this person may edit a branch; it does not say which
-     * one. Without this, somebody managing one clinic could change the
-     * letterhead another clinic prints on its bills.
+     * `branches.edit` or `documents.template_edit` says this person may change
+     * a branch's logo; neither says which branch. Without this, somebody
+     * managing one clinic could change the letterhead another clinic prints on
+     * its bills.
      */
     private function mustWorkHere(Request $request, Location $location): void
     {

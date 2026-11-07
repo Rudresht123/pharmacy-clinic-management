@@ -16,6 +16,11 @@ class AutomationRuleResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        // Loaded for somebody working at one branch: what is true there.
+        $own = $this->relationLoaded('branchRecipients')
+            ? $this->branchRecipients->first()?->recipients
+            : null;
+
         return [
             'id' => $this->id,
             'channel' => $this->channel,
@@ -31,7 +36,10 @@ class AutomationRuleResource extends JsonResource
             'message_template_id' => $this->message_template_id,
             'template_name' => $this->whenLoaded('template', fn () => $this->template?->name),
 
-            'recipients' => $this->labelled(RuleRecipients::of($this->resource)),
+            'recipients' => $this->labelled(RuleRecipients::of($this->resource, $own)),
+
+            // Whether this is the branch's own choice rather than the organisation's.
+            'branch_own' => $this->when($this->relationLoaded('branchRecipients'), $own !== null),
         ];
     }
 

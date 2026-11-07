@@ -2,12 +2,14 @@
 export interface Capability {
     key: string;
     name: string;
-    /** Where it may apply: every branch, or one. A branch role never holds an organization one. */
+    /** Where it reaches: every branch, or one. A branch role holds an organization one only from Settings. */
     scope?: RoleScope;
     /** Who it is for. Absent means staff; `patient` is the patient app's own. */
     audience?: RoleAudience;
     /** Opens a screen ("Can open"), rather than an action on one ("Can do"). */
     screen?: boolean;
+    /** Opens or saves a row of the Settings menu, so the role screen files it under Settings. */
+    settings?: boolean;
     /** One line saying what it means in practice. */
     hint?: string;
 }

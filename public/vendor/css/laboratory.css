@@ -1,0 +1,257 @@
+/* =========================================================
+   Laboratory (.lab-)
+   ---------------------------------------------------------
+   The LIS screens. Prefix checked free across every
+   stylesheet; the TV's .tv-lab* rows live in custom.css and
+   are not these.
+   ========================================================= */
+
+/* ---- Settings › Laboratory: a menu down the side, the panel beside it ---- */
+
+.lab-settings {
+    display: grid;
+    grid-template-columns: 236px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.lab-nav {
+    position: sticky;
+    top: 84px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px;
+    background: var(--surface);
+    border-radius: 14px;
+    box-shadow:
+        0 1px 3px rgba(var(--brand), 0.06),
+        0 12px 32px rgba(var(--brand), 0.1);
+}
+
+.lab-nav-heading {
+    margin: 10px 10px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.lab-nav-heading:first-child {
+    margin-top: 2px;
+}
+
+.lab-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--ink-2);
+    font-size: 13.5px;
+    font-weight: 500;
+    text-align: left;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.lab-nav-item i {
+    font-size: 17px;
+    color: var(--ink-3);
+}
+
+.lab-nav-item:hover {
+    background: var(--surface-3);
+    color: var(--ink);
+}
+
+.lab-nav-item.is-active {
+    background: rgba(var(--brand), 0.08);
+    color: rgb(var(--brand));
+    font-weight: 600;
+}
+
+.lab-nav-item.is-active i {
+    color: rgb(var(--brand));
+}
+
+.lab-settings-body {
+    min-width: 0;
+}
+
+/* ---- One list ---------------------------------------------------------- */
+
+.lab-panel {
+    margin-bottom: 0;
+}
+
+/* The heading gives way to the buttons, never the other way round: a long
+   description must not stack "Load starter list" over "Add". */
+.lab-panel > .card-header {
+    gap: 16px;
+}
+
+.lab-panel-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.lab-code {
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: var(--surface-3);
+    color: var(--ink-2);
+    font-size: 12px;
+}
+
+/* A container's cap, the way a collector knows it. */
+.lab-cap {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.lab-cap-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    flex: 0 0 auto;
+}
+
+.lab-cap-dot.is-red { background: #d93a3a; }
+.lab-cap-dot.is-gold { background: #d4a72c; }
+.lab-cap-dot.is-yellow { background: #f2d33d; }
+.lab-cap-dot.is-lavender { background: #a98ad8; }
+.lab-cap-dot.is-pink { background: #ee8fb4; }
+.lab-cap-dot.is-light_blue { background: #7cc0ec; }
+.lab-cap-dot.is-royal_blue { background: #2f5fc4; }
+.lab-cap-dot.is-grey { background: #9aa0ad; }
+.lab-cap-dot.is-green { background: #3f9c5a; }
+.lab-cap-dot.is-black { background: #2a2d34; }
+.lab-cap-dot.is-orange { background: #ee8a36; }
+.lab-cap-dot.is-white { background: #ffffff; }
+.lab-cap-dot.is-clear {
+    background: repeating-linear-gradient(45deg, #ffffff 0 3px, #e6e9f0 3px 6px);
+}
+
+/* ---- General: two cards, always the same height ------------------------ */
+
+.lab-general {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    align-items: stretch;
+}
+
+.lab-general > .card {
+    height: 100%;
+    margin-bottom: 0;
+}
+
+/* The two approval routes, as tiles. */
+.lab-choices {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.lab-choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+    background: var(--surface);
+    text-align: left;
+    color: var(--ink-2);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.lab-choice i {
+    font-size: 20px;
+    color: var(--ink-3);
+    margin-top: 1px;
+}
+
+.lab-choice b {
+    display: block;
+    color: var(--ink);
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.lab-choice small {
+    display: block;
+    margin-top: 2px;
+    color: var(--ink-3);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.lab-choice:hover:not(:disabled) {
+    border-color: rgba(var(--brand), 0.4);
+}
+
+.lab-choice.is-active {
+    border-color: rgb(var(--brand));
+    background: rgba(var(--brand), 0.05);
+}
+
+.lab-choice.is-active i {
+    color: rgb(var(--brand));
+}
+
+.lab-choice:disabled {
+    cursor: default;
+    opacity: 0.75;
+}
+
+/* ---- Dark mode: borders back, no shadow (the card rule) ---------------- */
+
+[data-theme='dark'] .lab-nav {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: none;
+}
+
+[data-theme='dark'] .lab-cap-dot.is-white {
+    border-color: var(--line-2);
+}
+
+/* ---- Narrow screens: the menu becomes a strip above the panel ---------- */
+
+@media (max-width: 991.98px) {
+    .lab-settings {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lab-nav {
+        position: static;
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 8px;
+    }
+
+    .lab-nav-heading {
+        display: none;
+    }
+
+    .lab-nav-item {
+        width: auto;
+        white-space: nowrap;
+    }
+
+    .lab-general,
+    .lab-choices {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

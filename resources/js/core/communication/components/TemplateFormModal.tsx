@@ -4,7 +4,8 @@ import { SelectField, TextField } from '@/shared/components/form/Fields';
 import { useApiForm } from '@/shared/components/form/useApiForm';
 import { PLACEHOLDERS } from '../placeholders';
 import { TemplatePreview } from './TemplatePreview';
-import type { Audience, Channel, MessageTemplate, TemplateStatus } from '../types';
+import { WhoGetsIt } from './WhoGetsIt';
+import type { AutomationRule, Audience, Channel, MessageTemplate, TemplateStatus } from '../types';
 
 /** The tints a template may carry, as the list screens read them. */
 const TONES = ['sky', 'violet', 'emerald', 'rose', 'amber', 'teal'] as const;
@@ -96,6 +97,7 @@ export function TemplateFormModal({
     channel,
     template,
     categories,
+    rules = [],
     onClose,
     onSave,
     saving,
@@ -105,6 +107,8 @@ export function TemplateFormModal({
     /** Null creates; a template edits it. */
     template: MessageTemplate | null;
     categories: readonly string[];
+    /** Every rule on this channel, to say who gets this template. */
+    rules?: AutomationRule[];
     onClose: () => void;
     onSave: (values: Partial<MessageTemplate> & { id?: number }) => Promise<unknown>;
     saving?: boolean;
@@ -134,6 +138,8 @@ export function TemplateFormModal({
         setValue,
         formState: { errors, isSubmitting },
     } = useApiForm<Values>({ defaultValues: { ...EMPTY, template_type: types[0].value } });
+
+    const sending = rules.filter((rule) => template !== null && rule.message_template_id === template.id);
 
     useEffect(() => {
         if (!open) {
@@ -244,6 +250,7 @@ export function TemplateFormModal({
             }
             icon={<i className="ti ti-template" />}
             size="xl"
+            className="rcp-modal"
             onSubmit={onSubmit}
             submitting={isSubmitting || saving}
             submitLabel={template ? 'Save changes' : 'Create template'}
@@ -352,6 +359,8 @@ export function TemplateFormModal({
                             ))}
                         </div>
                     </div>
+
+                    {template && <WhoGetsIt channel={channel} rules={sending} />}
 
                     {/*
                         Icon and colour are one decision — how the row looks in

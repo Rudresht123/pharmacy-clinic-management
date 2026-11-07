@@ -105,12 +105,17 @@ export function useAutomationRules() {
     });
 }
 
-/** Who gets one message: all the central Recipients screen ever writes. */
+/**
+ * Who gets one message: the organisation's choice, or for somebody working at one
+ * branch that branch's own. The server decides which from who is asking.
+ *
+ * `quiet` when another save beside it has already said so.
+ */
 export function useSaveRuleRecipients() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ id, recipients }: { id: number; recipients: RuleRecipients }) => {
+        mutationFn: async ({ id, recipients }: { id: number; recipients: RuleRecipients; quiet?: boolean }) => {
             const { data } = await http.put<ApiResponse<AutomationRule>>(
                 `${ROOT}/automation-rules/${id}/recipients`,
                 { recipients },
@@ -118,8 +123,28 @@ export function useSaveRuleRecipients() {
 
             return data;
         },
+        onSuccess: (_, variables) => {
+            if (!variables.quiet) {
+                notify.success('Saved');
+            }
+
+            void queryClient.invalidateQueries({ queryKey: ['communication'] });
+        },
+    });
+}
+
+/** Back to the organisation's choice at this person's branch. */
+export function useForgetRuleRecipients() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (id: number) => {
+            const { data } = await http.delete<ApiResponse<AutomationRule>>(`${ROOT}/automation-rules/${id}/recipients`);
+
+            return data;
+        },
         onSuccess: () => {
-            notify.success('Saved');
+            notify.success('Back to the organisation’s choice');
             void queryClient.invalidateQueries({ queryKey: ['communication'] });
         },
     });

@@ -1,3 +1,5 @@
+import type { GrantableModule } from './types';
+
 /**
  * Modules filed the way the sidebar is, in the same order, so somebody looking
  * for a menu row knows where its module is. Every screen in the organization
@@ -35,4 +37,38 @@ export function toModuleSections<T extends { key: string }>(modules: T[]) {
         })),
         { title: 'Other', modules: modules.filter((module) => !filed.includes(module.key)) },
     ].filter((section) => section.modules.length > 0);
+}
+
+/**
+ * The Settings menu's ticks under one heading, whichever module grants them.
+ *
+ * Somebody setting a role looks for Document templates where the sidebar has
+ * it, under Settings, and not under Patient documents. Each tick still belongs
+ * to its own module on the server; this only decides where it is listed, and
+ * listing it once, because a tick in two places reads as two permissions.
+ */
+export function fileSettingsTogether(modules: GrantableModule[]): GrantableModule[] {
+    const settings = modules.flatMap((module) =>
+        module.capabilities.filter((capability) => capability.settings),
+    );
+
+    if (settings.length === 0) {
+        return modules;
+    }
+
+    return [
+        ...modules
+            .map((module) => ({
+                ...module,
+                capabilities: module.capabilities.filter((capability) => !capability.settings),
+            }))
+            .filter((module) => module.capabilities.length > 0),
+        {
+            key: 'settings',
+            name: 'Settings',
+            description: 'Every screen in the Settings menu, with the activity log and the subscription.',
+            icon: 'ti ti-settings',
+            capabilities: settings,
+        },
+    ];
 }

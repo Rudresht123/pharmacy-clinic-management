@@ -2,9 +2,6 @@
 
 namespace Tests\Feature\Api\V1\Tenant;
 
-use App\Services\Clinic\ClinicEvent;
-use App\Services\Communication\DoctorNotifier;
-use App\Support\Clinic\ClinicEvents;
 use App\Jobs\SendEmailMessage;
 use App\Jobs\SendPushMessage;
 use App\Models\Platform\Organization;
@@ -19,9 +16,12 @@ use App\Models\Tenant\Location;
 use App\Models\Tenant\MessageTemplate;
 use App\Models\Tenant\Role;
 use App\Models\Tenant\User as TenantUser;
+use App\Services\Clinic\ClinicEvent;
+use App\Services\Communication\DoctorNotifier;
 use App\Services\Tenant\DefaultRoleSeeder;
 use App\Services\Tenant\DoctorPostings;
 use App\Services\Tenant\PatientAccountProvisioner;
+use App\Support\Clinic\ClinicEvents;
 use App\Support\Opd\Weekday;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -453,6 +453,10 @@ class AutomationRecipientsTest extends TenantTestCase
             ->assertOk()
             ->assertJsonPath('data.recipients.to.0.label', 'Doctor');
 
+        // A new clinic's patient messages start switched off.
+        $this->putJson(self::STAFF.'/communication/automation-rules/'.$this->rule(CommunicationChannel::PUSH, AutomationRule::PATIENT)->id, ['is_enabled' => true])
+            ->assertOk();
+
         // The staff alert stays out of the way, so only that message is in play.
         $this->putJson(self::STAFF.'/communication/automation-rules/'.$this->rule(CommunicationChannel::PUSH)->id, ['is_enabled' => false])
             ->assertOk();
@@ -527,6 +531,10 @@ class AutomationRecipientsTest extends TenantTestCase
             'bcc' => [['type' => 'doctor']],
         ], AutomationRule::PATIENT)->assertOk();
 
+        // A new clinic's patient messages start switched off.
+        $this->putJson(self::STAFF.'/communication/automation-rules/'.$this->rule(CommunicationChannel::EMAIL, AutomationRule::PATIENT)->id, ['is_enabled' => true])
+            ->assertOk();
+
         $this->book(customer: $this->patientId);
 
         $this->assertSame([[
@@ -585,7 +593,7 @@ class AutomationRecipientsTest extends TenantTestCase
         // Everything else about communication is no way in.
         $this->fresh();
         $this->signInAsReceptionist($this->organization, $this->gurgaon);
-        $this->setRoleTicks(['communication.view', 'communication.email', 'communication.push', 'communication.branch_templates']);
+        $this->setRoleTicks(['communication.view', 'communication.email', 'communication.push']);
         $this->putJson($url, $body)->assertForbidden();
 
         // An organization-wide role holding it writes, and reads every channel's messages.
@@ -610,6 +618,123 @@ class AutomationRecipientsTest extends TenantTestCase
         $this->assertContains(CommunicationChannel::PUSH, $channels);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | One branch's own choice
+    |--------------------------------------------------------------------------
+    */
+
+    public function test_a_branch_chooses_for_itself_and_no_other_branch_changes(): void
+    {
+        $this->signInAsReceptionist($this->organization, $this->gurgaon);
+        $this->setRoleTicks(['communication.push', 'communication.branch_templates', 'appointments.reschedule']);
+
+        // A second doctor's week at Delhi, so a visit can be booked there too.
+        $this->onTenant($this->organization, function () {
+            DoctorSchedule::on('organization')->create([
+                'doctor_id' => $this->doctorId, 'location_id' => $this->delhi, 'name' => 'Morning OPD',
+                'weekday' => Weekday::MONDAY, 'starts_at' => '10:00', 'ends_at' => '12:00',
+                'slot_minutes' => 30, 'is_active' => true,
+            ]);
+
+            app(DoctorPostings::class)->ensure(Doctor::query()->findOrFail($this->doctorId), $this->delhi);
+        });
+
+        $rule = $this->rule(CommunicationChannel::PUSH);
+        $url = self::STAFF."/communication/automation-rules/{$rule->id}/recipients";
+
+        $this->fresh();
+        $this->signIn($this->organization, self::RECEPTIONIST_EMAIL);
+
+        $this->putJson($url, ['recipients' => ['to' => [['type' => 'front_desk']]]])
+            ->assertOk()
+            ->assertJsonPath('data.recipients.to.0.label', 'Receptionist')
+            ->assertJsonPath('data.branch_own', true);
+
+        // The rule itself, which every other branch reads, is as it was.
+        $this->assertSame([['type' => 'doctor']], $this->rule(CommunicationChannel::PUSH)->recipients['to']);
+
+        // The branch reads back its own choice, everywhere it reads rules from.
+        $this->assertSame('Receptionist', collect($this->getJson(self::STAFF.'/communication/push/overview')->assertOk()->json('data.rules'))
+            ->firstWhere('id', $rule->id)['recipients']['to'][0]['label']);
+
+        // A booking at Gurgaon follows Gurgaon's choice, one at Delhi the organisation's.
+        $this->fresh();
+        $this->signInAsOwner($this->organization);
+
+        $book = fn (int $branch, string $slot) => $this->postJson(self::STAFF.'/appointments', [
+            'customer_id' => $this->onTenant($this->organization, fn () => Customer::on('organization')->create([
+                'name' => 'Walk-up '.$slot, 'phone' => '98'.random_int(10000000, 99999999), 'is_active' => true,
+            ])->id),
+            'doctor_id' => $this->doctorId,
+            'location_id' => $branch,
+            'appointment_date' => self::MONDAY,
+            'type' => Appointment::BOOKED,
+            'slot_at' => $slot,
+        ])->assertCreated();
+
+        $book($this->gurgaon, '10:00');
+        $book($this->delhi, '10:30');
+
+        $this->assertSame([
+            [$this->login(self::RECEPTIONIST_EMAIL)],
+            [$this->login(self::DOCTOR_LOGIN)],
+        ], $this->pushes('appointment_booked'));
+
+        // The owner reads the organisation's choice, not one branch's.
+        $this->assertSame('Doctor', collect($this->getJson(self::STAFF.'/communication/push/overview')->assertOk()->json('data.rules'))
+            ->firstWhere('id', $rule->id)['recipients']['to'][0]['label']);
+
+        // Back to the organisation's.
+        $this->fresh();
+        $this->signIn($this->organization, self::RECEPTIONIST_EMAIL);
+
+        $this->deleteJson($url)
+            ->assertOk()
+            ->assertJsonPath('data.recipients.to.0.label', 'Doctor')
+            ->assertJsonPath('data.branch_own', false);
+    }
+
+    public function test_a_branch_chooses_from_its_own_staff_only(): void
+    {
+        $this->signInAsReceptionist($this->organization, $this->gurgaon);
+        $this->setRoleTicks(['communication.push', 'communication.branch_templates']);
+
+        [$here, $there] = $this->onTenant($this->organization, function () {
+            $person = fn (string $name, int $branch) => tap(TenantUser::query()->create([
+                'name' => $name, 'email' => strtolower($name).'@clinic.test', 'password' => bcrypt('secret-123'),
+                'is_active' => true, 'role' => TenantUser::STAFF,
+            ]), fn (TenantUser $user) => BranchMembership::query()->create([
+                'user_id' => $user->id, 'location_id' => $branch,
+            ]))->id;
+
+            return [$person('Asha', $this->gurgaon), $person('Delhi', $this->delhi)];
+        });
+
+        $this->fresh();
+        $this->signIn($this->organization, self::RECEPTIONIST_EMAIL);
+
+        $offered = collect($this->getJson(self::STAFF.'/communication/automation-rules/recipients')->assertOk()->json('data.staff'))
+            ->pluck('id');
+
+        $this->assertContains($here, $offered);
+        $this->assertNotContains($there, $offered);
+
+        $url = self::STAFF.'/communication/automation-rules/'.$this->rule(CommunicationChannel::PUSH)->id.'/recipients';
+
+        $this->putJson($url, ['recipients' => ['to' => [['type' => 'user', 'id' => $there]]]])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('recipients.to.0');
+
+        $this->putJson($url, ['recipients' => ['to' => [['type' => 'user', 'id' => $here]]]])->assertOk();
+
+        // The owner chooses from everybody.
+        $this->fresh();
+        $this->signInAsOwner($this->organization);
+
+        $this->assertContains($there, collect($this->getJson(self::STAFF.'/communication/automation-rules/recipients')->assertOk()->json('data.staff'))->pluck('id'));
+    }
+
     /** What the receptionist's own branch role holds. */
     private function setRoleTicks(array $ticks): void
     {
@@ -630,33 +755,29 @@ class AutomationRecipientsTest extends TenantTestCase
         $this->connect(CommunicationChannel::PUSH);
         $this->grantModule($this->organization, 'queue');
 
-        $event = fn () => new ClinicEvent(
-            key: ClinicEvents::TOKEN_CALLED,
-            database: $this->organization->database_name,
-            subjectType: (new Appointment)->getMorphClass(),
-            subjectId: $this->onTenant($this->organization, fn () => Appointment::query()->value('id')),
-            locationId: $this->gurgaon,
-        );
-
         $this->fresh();
         $this->signInAsOwner($this->organization);
         $this->book(customer: $this->patientId);
+
+        $tellTheDoctor = fn () => $this->onTenant($this->organization, fn () => app(DoctorNotifier::class)->handle(
+            ClinicEvent::for(ClinicEvents::TOKEN_CALLED, Appointment::query()->firstOrFail()),
+        ));
 
         $alerts = fn () => collect(Queue::pushed(SendPushMessage::class))
             ->filter(fn (SendPushMessage $job) => ($job->content['data']['type'] ?? null) === ClinicEvents::TOKEN_CALLED)
             ->count();
 
-        // A template sends this on push, and it does not name the doctor.
-        $this->onTenant($this->organization, fn () => app(DoctorNotifier::class)->handle($event()));
+        // A message sends this on push, and it does not name the doctor.
+        $tellTheDoctor();
         $this->assertSame(0, $alerts());
 
-        // An event with no template on this channel has nothing to tick, so it still reaches them.
+        // An event with no message on this channel has nothing to choose, so it still reaches them.
         $this->onTenant($this->organization, fn () => AutomationRule::query()
             ->where('event_key', AutomationRule::TOKEN_CALLED)
             ->where('channel', CommunicationChannel::PUSH)
             ->update(['message_template_id' => null, 'is_enabled' => false]));
 
-        $this->onTenant($this->organization, fn () => app(DoctorNotifier::class)->handle($event()));
+        $tellTheDoctor();
         $this->assertSame(1, $alerts());
     }
 

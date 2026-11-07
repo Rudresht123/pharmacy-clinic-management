@@ -20,7 +20,7 @@ use App\Models\Tenant\CommunicationChannel;
  *   branch_manager   the manager named on the event's branch, and whoever holds
  *                    that branch's manager role
  *   front_desk       everybody else at that branch who answers reschedule
- *                    requests: the screen calls them Reception
+ *                    requests: the screen calls them Receptionist
  *   role             everybody holding one role there (`id`)
  *   user             one named member of staff (`id`)
  *   email            an address typed in (`address`; email only)
@@ -64,7 +64,7 @@ final class RuleRecipients
         self::DOCTOR => 'Doctor',
         self::CREATOR => 'Booked by',
         self::BRANCH_MANAGER => 'Branch manager',
-        self::FRONT_DESK => 'Reception',
+        self::FRONT_DESK => 'Receptionist',
     ];
 
     public const TO = 'to';
@@ -93,11 +93,14 @@ final class RuleRecipients
      * choice, and every one the optional-module seeder still writes. A list
      * a channel cannot carry (CC on a push) is dropped rather than obeyed.
      *
+     * [$own] is one branch's own choice, which replaces the organisation's there.
+     *
+     * @param  array<string, list<array<string, mixed>>>|null  $own
      * @return array{to: list<array<string, mixed>>, cc: list<array<string, mixed>>, bcc: list<array<string, mixed>>}
      */
-    public static function of(AutomationRule $rule): array
+    public static function of(AutomationRule $rule, ?array $own = null): array
     {
-        $saved = $rule->recipients ?? ($rule->isForStaff() ? [] : [self::TO => [['type' => self::PATIENT]]]);
+        $saved = $own ?? $rule->recipients ?? ($rule->isForStaff() ? [] : [self::TO => [['type' => self::PATIENT]]]);
         $fields = self::fieldsFor((string) $rule->channel);
 
         $lists = [];

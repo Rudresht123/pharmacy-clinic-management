@@ -117,6 +117,7 @@ export function AutomationRuleModal({
             subtitle="What this sends, and when"
             icon={<i className="ti ti-settings-automation" />}
             size="md"
+            className="rcp-modal"
             onSubmit={onSubmit}
             submitting={isSubmitting || saving}
             submitLabel="Save rule"

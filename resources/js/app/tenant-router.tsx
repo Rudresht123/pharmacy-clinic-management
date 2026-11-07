@@ -65,6 +65,7 @@ const InwardFormPage = lazy(() => import('@/core/pharmacy/pages/InwardFormPage')
 const MovementsPage = lazy(() => import('@/core/pharmacy/pages/MovementsPage'));
 const SuppliersPage = lazy(() => import('@/core/pharmacy/pages/SuppliersPage'));
 const PharmacySettingsPage = lazy(() => import('@/core/pharmacy/pages/PharmacySettingsPage'));
+const LabSettingsPage = lazy(() => import('@/core/laboratory/settings/pages/LabSettingsPage'));
 const PharmacyDashboardPage = lazy(() => import('@/core/pharmacy/pages/PharmacyDashboardPage'));
 const PharmacyReportsPage = lazy(() => import('@/core/pharmacy/pages/PharmacyReportsPage'));
 const PosPage = lazy(() => import('@/core/pharmacy/pages/PosPage'));
@@ -430,6 +431,24 @@ export function TenantAppRoutes() {
                                     <Route path="/settings/tv-displays" element={<QueueDisplaysPage />} />
                                     <Route path="/settings/tv-displays/new" element={<QueueDisplayFormPage />} />
                                     <Route path="/settings/tv-displays/:id/edit" element={<QueueDisplayFormPage />} />
+                                </Route>
+                            </Route>
+
+                            {/*
+                                The laboratory, a module of its own that needs only
+                                the patient register — a diagnostic lab can buy it
+                                alone. Its set-up lives under Settings; the page
+                                itself only lets lab setup save.
+                            */}
+                            <Route element={<RequireModule module="laboratory" />}>
+                                <Route
+                                    element={
+                                        <RequireAnyCapability
+                                            capabilities={['laboratory.settings_view', 'laboratory.settings_manage']}
+                                        />
+                                    }
+                                >
+                                    <Route path="/settings/laboratory" element={<LabSettingsPage />} />
                                 </Route>
                             </Route>
 
@@ -812,7 +831,13 @@ export function TenantAppRoutes() {
                                 <Route element={<RequireCapability capability="communication.push" />}>
                                     <Route path="/communication/push" element={<PushPage />} />
                                 </Route>
-                                <Route element={<RequireCapability capability="communication.recipients" />}>
+                                <Route
+                                    element={
+                                        <RequireAnyCapability
+                                            capabilities={['communication.recipients', 'communication.branch_templates']}
+                                        />
+                                    }
+                                >
                                     <Route path="/communication/recipients" element={<RecipientsPage />} />
                                 </Route>
 

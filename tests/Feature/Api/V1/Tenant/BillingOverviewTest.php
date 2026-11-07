@@ -131,6 +131,34 @@ class BillingOverviewTest extends TenantTestCase
         $this->assertCount(2, $overview->json('data.outstanding_patients_list'));
     }
 
+    public function test_the_cards_compare_with_the_window_the_compare_menu_picks(): void
+    {
+        // Oldest first: the reads below run at the last bill's time.
+        $this->billOn('2025-09-05', $this->patients[2], 250);   // a year back
+        $this->billOn('2026-08-03', $this->patients[0], 400);   // last month, same dates
+        $this->billOn('2026-08-30', $this->patients[1], 900);   // the seven days just before
+
+        $window = ['from' => '2026-09-01', 'to' => '2026-09-07'];
+        $previous = fn (array $query) => $this->read('billing/overview', $query)->assertOk()->json('data.previous');
+
+        $period = $previous($window);
+        $this->assertSame(['2026-08-25', '2026-08-31', 900.0], [$period['from'], $period['to'], (float) $period['invoiced']]);
+
+        $month = $previous($window + ['compare' => 'previous_month']);
+        $this->assertSame(['2026-08-01', '2026-08-07', 400.0], [$month['from'], $month['to'], (float) $month['invoiced']]);
+
+        $year = $previous($window + ['compare' => 'previous_year']);
+        $this->assertSame(['2025-09-01', '2025-09-07', 250.0], [$year['from'], $year['to'], (float) $year['invoiced']]);
+
+        // A whole calendar month reads against the whole of the other one — all 31 days of August.
+        $whole = $previous(['from' => '2026-09-01', 'to' => '2026-09-30', 'compare' => 'previous_month']);
+        $this->assertSame(['2026-08-01', '2026-08-31', 1300.0], [$whole['from'], $whole['to'], (float) $whole['invoiced']]);
+
+        $this->read('billing/overview', $window + ['compare' => 'last_decade'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['compare']);
+    }
+
     public function test_a_range_that_ends_before_it_starts_is_refused(): void
     {
         $this->read('billing/overview/invoices', ['from' => '2026-09-10', 'to' => '2026-09-01'])

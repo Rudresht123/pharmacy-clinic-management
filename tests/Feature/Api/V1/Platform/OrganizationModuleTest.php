@@ -349,6 +349,30 @@ class OrganizationModuleTest extends TestCase
         $this->assertTrue(app(ModuleAccess::class)->has($organization, 'prescriptions'));
     }
 
+    /**
+     * A diagnostic lab takes walk-ins and referrals and has no OPD, so the
+     * laboratory needs the patient register and nothing else (decided
+     * 2026-11-07, docs/architecture/laboratory.md D4).
+     */
+    public function test_the_laboratory_can_be_granted_with_patients_alone(): void
+    {
+        $organization = $this->organization();
+
+        $refused = $this->actingAsAdmin()
+            ->putJson("/api/v1/admin/organizations/{$organization->uuid}/modules", [
+                'modules' => [['key' => 'laboratory', 'is_enabled' => true]],
+            ])
+            ->assertStatus(422);
+
+        $this->assertStringContainsString('Laboratory needs Customers & Patients', (string) $refused->json('errors.modules.0'));
+
+        $this->bind($organization, [['key' => 'laboratory', 'is_enabled' => true]]);
+
+        $access = app(ModuleAccess::class);
+        $this->assertTrue($access->has($organization->fresh(), 'laboratory'));
+        $this->assertFalse($access->has($organization->fresh(), 'appointments'));
+    }
+
     public function test_a_module_binds_once_what_it_requires_is_bound_with_it(): void
     {
         $organization = $this->organization();

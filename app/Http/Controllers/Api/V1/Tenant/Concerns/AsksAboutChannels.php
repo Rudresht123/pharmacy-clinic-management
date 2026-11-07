@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api\V1\Tenant\Concerns;
 
 use App\Models\Platform\Organization;
+use App\Models\Tenant\User;
 use App\Services\Permissions\Permission;
 use App\Support\Modules\ScreenTicks;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -37,7 +39,7 @@ trait AsksAboutChannels
      *
      * Every channel for whoever manages communication: a campaign and a test
      * message are written from those lists. The same for the Recipients screen,
-     * which is every channel's messages in one place.
+     * which is every channel's messages in one place, at either level.
      *
      * @return list<string>
      */
@@ -45,10 +47,36 @@ trait AsksAboutChannels
     {
         $channels = array_keys(ScreenTicks::COMMUNICATION_CHANNELS);
 
-        if ($this->holds($request, 'communication.manage') || $this->holds($request, 'communication.recipients')) {
-            return $channels;
+        foreach (['communication.manage', 'communication.recipients', 'communication.branch_templates'] as $tick) {
+            if ($this->holds($request, $tick)) {
+                return $channels;
+            }
         }
 
         return array_values(array_filter($channels, fn (string $channel) => $this->mayOpenChannel($request, $channel)));
+    }
+
+    /**
+     * The branch this person reads and chooses recipients for.
+     *
+     * Null for whoever holds the organisation's tick, who works on the rule itself.
+     */
+    private function ownBranch(Request $request): ?int
+    {
+        $user = Auth::guard('web')->user();
+
+        if (! $user instanceof User || $this->holds($request, 'communication.recipients')) {
+            return null;
+        }
+
+        return app(Permission::class)->branchFor($user);
+    }
+
+    /** Rules as they stand for this person: their own branch's choice, if it made one. */
+    private function withOwnBranchChoice(Builder $rules, Request $request): Builder
+    {
+        return $rules->when($this->ownBranch($request), fn (Builder $query, int $branch) => $query->with([
+            'branchRecipients' => fn ($own) => $own->where('location_id', $branch),
+        ]));
     }
 }

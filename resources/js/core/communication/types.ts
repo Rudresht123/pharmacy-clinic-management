@@ -152,6 +152,8 @@ export interface AutomationRule {
     event_key: string;
     audience: Audience;
     recipients: RuleRecipients;
+    /** This is the branch's own choice rather than the organisation's. Absent for the organisation's own view. */
+    branch_own?: boolean;
     title: string;
     description: string | null;
     icon: string | null;

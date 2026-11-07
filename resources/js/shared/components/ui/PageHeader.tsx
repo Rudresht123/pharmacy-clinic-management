@@ -18,6 +18,8 @@ interface PageHeaderProps {
     tone?: Tone;
     /** Set false to drop the leading dashboard link. */
     home?: boolean;
+    /** Where the arrow before the icon goes back to, on a page opened from a list. */
+    back?: string;
 }
 
 /**
@@ -35,12 +37,19 @@ export function PageHeader({
     icon,
     tone = 'indigo',
     home = true,
+    back,
 }: PageHeaderProps) {
     const showTrail = home || crumbs.length > 0;
 
     return (
         // The tone is set here so both the icon and the corner glow inherit it.
         <div className="page-head" data-tone={tone}>
+            {back && (
+                <Link to={back} className="page-head-back" aria-label="Back" title="Back">
+                    <i className="ti ti-arrow-left" aria-hidden="true" />
+                </Link>
+            )}
+
             {icon && (
                 <span className="page-head-icon" aria-hidden="true">
                     <i className={icon} />

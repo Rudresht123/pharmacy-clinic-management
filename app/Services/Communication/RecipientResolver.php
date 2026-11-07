@@ -6,6 +6,7 @@ use App\Models\Platform\Organization;
 use App\Models\Tenant\ActivityLog;
 use App\Models\Tenant\AppointmentRescheduleRequest;
 use App\Models\Tenant\AutomationRule;
+use App\Models\Tenant\AutomationRuleBranchRecipients;
 use App\Models\Tenant\BranchMembership;
 use App\Models\Tenant\CommunicationChannel;
 use App\Models\Tenant\Customer;
@@ -56,8 +57,14 @@ class RecipientResolver
         $patientOn = false;
         $patientAddress = null;
 
+        // The branch's own choice where it made one, the organisation's otherwise.
+        $own = $locationId === null ? null : AutomationRuleBranchRecipients::query()
+            ->where('automation_rule_id', $rule->getKey())
+            ->where('location_id', $locationId)
+            ->first()?->recipients;
+
         // To, then CC, then BCC: whoever is named twice keeps the higher.
-        foreach (RuleRecipients::of($rule) as $field => $entries) {
+        foreach (RuleRecipients::of($rule, $own) as $field => $entries) {
             foreach ($entries as $entry) {
                 foreach ($this->people($organization, (array) $entry, $subject, $patient, $locationId) as $person) {
                     if ($person['patient']) {

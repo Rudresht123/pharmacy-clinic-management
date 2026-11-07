@@ -58,6 +58,8 @@
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/export-center.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/follow-ups.css') }}">
     <link rel="stylesheet" href="{{ versionedAsset('vendor/css/profile-page.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/tv-display-form.css') }}">
+    <link rel="stylesheet" href="{{ versionedAsset('vendor/css/laboratory.css') }}">
 
     @viteReactRefresh
     @vite('resources/js/app/main.tsx')

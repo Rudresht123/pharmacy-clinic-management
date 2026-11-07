@@ -49,9 +49,9 @@ class RoleController extends BaseApiController
         $organization = $request->attributes->get('tenant.organization');
 
         /*
-         * Narrowed by scope when the screen asks. A branch role is never
-         * offered `settings.manage` — not greyed out, not shown at all, which
-         * is the honest way to present a choice that cannot be honoured.
+         * Narrowed by scope when the screen asks. A branch role is not offered
+         * what it may not hold (ModuleRegistry::branchRoleMayHold) — not greyed
+         * out, not shown at all.
          */
         $scope = in_array($request->query('scope'), Role::SCOPES, true)
             ? $request->query('scope')

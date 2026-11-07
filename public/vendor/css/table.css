@@ -409,15 +409,20 @@
     transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
 }
 
+/*
+ * The fallbacks matter: pages that build their own footer (.inv-foot on the
+ * invoice lists, payments, outstanding) never set --dt-primary, and without
+ * one the active page went white-on-white again.
+ */
 .dt-page:hover:not(:disabled):not(.is-active) {
     background: var(--surface-3);
     border-color: var(--line-2);
-    color: var(--dt-primary);
+    color: var(--dt-primary, rgb(var(--brand)));
 }
 
 .dt-page.is-active {
-    background: var(--dt-primary);
-    border-color: var(--dt-primary);
+    background: var(--dt-primary, rgb(var(--brand)));
+    border-color: var(--dt-primary, rgb(var(--brand)));
     color: #fff;
     box-shadow: 0 4px 10px -2px rgba(var(--brand), 0.4);
 }

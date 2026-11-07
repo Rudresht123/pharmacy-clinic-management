@@ -8,7 +8,7 @@ import { useConfigurableEntities } from '@/core/field-settings/api';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { tenantNavigation } from '@/app/tenant-navigation';
 import { rolesHooks, useGrantable, useRoleMembers, useRoleTemplates } from '../api';
-import { toModuleSections } from '../moduleSections';
+import { fileSettingsTogether, toModuleSections } from '../moduleSections';
 import { ROLE_ICONS, type Capability, type GrantableModule, type Role, type RoleScope } from '../types';
 
 /**
@@ -156,14 +156,16 @@ export default function RolesPage() {
 
     const modules = useMemo(
         () =>
-            (pool ?? [])
-                .map((module) => ({
-                    ...module,
-                    capabilities: module.capabilities.filter(
-                        (capability) => (capability.audience === 'patient') === forPatients,
-                    ),
-                }))
-                .filter((module) => module.capabilities.length > 0),
+            fileSettingsTogether(
+                (pool ?? [])
+                    .map((module) => ({
+                        ...module,
+                        capabilities: module.capabilities.filter(
+                            (capability) => (capability.audience === 'patient') === forPatients,
+                        ),
+                    }))
+                    .filter((module) => module.capabilities.length > 0),
+            ),
         [pool, forPatients],
     );
 
@@ -332,10 +334,17 @@ export default function RolesPage() {
             entry.capabilities.some((capability) => capability.key === key),
         );
 
+        /*
+         * Under Settings the only actions are a template's edit and publish, and
+         * they rest on the Document templates screen rather than on a
+         * `settings.view`, which does not exist.
+         */
         const viewKey =
-            module && module.key !== 'appointments'
-                ? module.capabilities.find((capability) => capability.key === `${module.key}.view`)?.key
-                : undefined;
+            module?.key === 'settings'
+                ? 'documents.template_view'
+                : module && module.key !== 'appointments'
+                  ? module.capabilities.find((capability) => capability.key === `${module.key}.view`)?.key
+                  : undefined;
 
         const isScreen = Boolean(module?.capabilities.find((capability) => capability.key === key)?.screen);
 

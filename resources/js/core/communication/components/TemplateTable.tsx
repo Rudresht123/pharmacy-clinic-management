@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Pagination } from '@/shared/components/ui/Pagination';
 import { CategoryTag, TemplatePill } from './StatusPill';
-import type { MessageTemplate } from '../types';
+import { recipientSummary } from './AutomationRules';
+import { TemplateRowEditor } from './TemplateRowEditor';
+import type { AutomationRule, MessageTemplate } from '../types';
 
 const PER_PAGE = 8;
 
@@ -31,6 +33,7 @@ export function TemplateTable({
     actionLabel = 'Use',
     title = 'Message templates',
     description = 'Pre-approved templates for patient communication',
+    who,
 }: {
     templates: MessageTemplate[];
     categories: readonly string[];
@@ -44,7 +47,20 @@ export function TemplateTable({
     actionLabel?: string;
     title?: string;
     description?: string;
+    /**
+     * Says who gets each template, and opens its row to change that and its wording,
+     * with `onEdit` left for its name, category and look. Left out on WhatsApp, whose
+     * wording is the provider's and which only goes to the patient's own number.
+     */
+    who?: {
+        channel: 'email' | 'push';
+        rules: AutomationRule[];
+        canChoose: boolean;
+        canManage: boolean;
+        canReword: boolean;
+    };
 }) {
+    const [opened, setOpened] = useState<number | null>(null);
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState('All');
     const [page, setPage] = useState(1);
@@ -77,7 +93,11 @@ export function TemplateTable({
      * An empty column with a heading reads as a feature that is broken; a
      * column that is not there reads as a list, which is what it is.
      */
-    const actionable = Boolean(onEdit || onRemove);
+    const wording = Boolean(who?.canManage || who?.canReword);
+    const actionable = Boolean(onEdit || onRemove || wording);
+
+    const sending = (template: MessageTemplate) =>
+        (who?.rules ?? []).filter((rule) => rule.message_template_id === template.id);
 
     const pageCount = Math.max(1, Math.ceil(matched.length / PER_PAGE));
     const current = Math.min(page, pageCount);
@@ -166,17 +186,29 @@ export function TemplateTable({
                                 <th>Template name</th>
                                 <th>Category</th>
                                 <th>{filter === 'search' ? 'Subject' : 'Message preview'}</th>
+                                {who && <th>Who gets it</th>}
                                 <th>Status</th>
                                 {actionable && <th className="comm-actions-col">Actions</th>}
                             </tr>
                         </thead>
 
                         <tbody>
-                            {rows.map((template) => (
+                            {rows.map((template) => {
+                                const rules = sending(template);
+                                const opens = wording || Boolean(who?.canChoose && rules.length > 0);
+                                const isOpen = opens && opened === template.id;
+
+                                return (
+                                <Fragment key={template.id}>
                                 <tr
-                                    key={template.id}
                                     className={selected?.id === template.id ? 'is-active' : undefined}
-                                    onClick={() => onSelect(template)}
+                                    onClick={() => {
+                                        onSelect(template);
+
+                                        if (opens) {
+                                            setOpened(isOpen ? null : template.id);
+                                        }
+                                    }}
                                 >
                                     <td className="pf-strong">
                                         <span className="comm-row-name">
@@ -211,6 +243,24 @@ export function TemplateTable({
                                         </span>
                                     </td>
 
+                                    {who && (
+                                        <td className="rcp-who-cell">
+                                            {opens ? (
+                                                <button type="button" className="rcp-toggle" aria-expanded={isOpen}>
+                                                    <span>{rules.length > 0 ? recipientSummary(rules[0]) : 'Campaigns only'}</span>
+                                                    <i
+                                                        className={isOpen ? 'ti ti-chevron-up' : 'ti ti-chevron-down'}
+                                                        aria-hidden="true"
+                                                    />
+                                                </button>
+                                            ) : (
+                                                <span className="rcp-who-text">
+                                                    {rules.length > 0 ? recipientSummary(rules[0]) : 'Campaigns only'}
+                                                </span>
+                                            )}
+                                        </td>
+                                    )}
+
                                     <td>
                                         <TemplatePill status={template.status} />
                                     </td>
@@ -223,17 +273,48 @@ export function TemplateTable({
                                     {actionable && (
                                     <td className="comm-actions-col">
                                         <div className="comm-row-actions">
-                                            {onEdit && (
-                                                <Button
-                                                    variant="light"
-                                                    size="sm"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        onEdit(template);
-                                                    }}
-                                                >
-                                                    {actionLabel}
-                                                </Button>
+                                            {who && opens ? (
+                                                <>
+                                                    <Button
+                                                        variant="light"
+                                                        size="sm"
+                                                        aria-expanded={isOpen}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setOpened(isOpen ? null : template.id);
+                                                        }}
+                                                    >
+                                                        {actionLabel}
+                                                    </Button>
+
+                                                    {onEdit && (
+                                                        <button
+                                                            type="button"
+                                                            className="comm-more"
+                                                            title="Name, category and look"
+                                                            aria-label={`Name, category and look of ${template.name}`}
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                onEdit(template);
+                                                            }}
+                                                        >
+                                                            <i className="ti ti-adjustments" />
+                                                        </button>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                onEdit && (
+                                                    <Button
+                                                        variant="light"
+                                                        size="sm"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            onEdit(template);
+                                                        }}
+                                                    >
+                                                        {actionLabel}
+                                                    </Button>
+                                                )
                                             )}
 
                                             {onRemove && (
@@ -254,7 +335,25 @@ export function TemplateTable({
                                     </td>
                                     )}
                                 </tr>
-                            ))}
+
+                                {isOpen && who && (
+                                    <tr className="rcp-open-row">
+                                        <td colSpan={4 + 1 + (actionable ? 1 : 0)}>
+                                            <TemplateRowEditor
+                                                channel={who.channel}
+                                                template={template}
+                                                rules={rules}
+                                                canChoose={who.canChoose}
+                                                canManage={who.canManage}
+                                                canReword={who.canReword}
+                                                onClose={() => setOpened(null)}
+                                            />
+                                        </td>
+                                    </tr>
+                                )}
+                                </Fragment>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

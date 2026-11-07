@@ -117,14 +117,14 @@ class SaveRoleRequest extends FormRequest
                      * applies everywhere — which is exactly what head-office HR
                      * needs from `people.view`.
                      *
-                     * A branch role may NOT hold an organization-scoped one.
-                     * `settings.manage` changes what every branch calls a
-                     * patient; there is no version of it that applies at one
-                     * branch, so offering it there is a choice the software
-                     * cannot honour.
+                     * A branch role may NOT hold an organization-scoped one,
+                     * apart from the Settings menu's own: every staff role is a
+                     * branch's now, so nobody but the owner could hold those
+                     * otherwise. `branches.create` stays refused.
                      */
                     if ($scope === Role::SCOPE_BRANCH
-                        && ModuleRegistry::capabilityScope($capability) === ModuleRegistry::SCOPE_ORGANIZATION) {
+                        && ModuleRegistry::supportsCapability($capability)
+                        && ! ModuleRegistry::branchRoleMayHold($capability)) {
                         $validator->errors()->add(
                             "capabilities.{$index}",
                             "\"{$capability}\" applies across the whole organization and cannot be put on a branch role."
