@@ -373,15 +373,26 @@ export function tenantNavigation(
     }
 
     /*
-     * How the lab approves results, and its short lists — departments, sample
-     * types, units. Read by the bench, saved by lab setup.
+     * The lab's set-up, one row: how it approves results, the Test Catalogue
+     * (tests, parameters, ranges, prices) and the short lists — departments,
+     * sample types, units. The catalogue is a tab of this page, not a row of
+     * its own (the user's ask, 2026-11-08), so either set of ticks opens it.
      */
-    if (hasModule('laboratory') && (can('laboratory.settings_view') || can('laboratory.settings_manage'))) {
+    if (
+        hasModule('laboratory') &&
+        [
+            'laboratory.settings_view',
+            'laboratory.settings_manage',
+            'laboratory.catalog_view',
+            'laboratory.catalog_manage',
+            'laboratory.ranges_manage',
+        ].some(can)
+    ) {
         settings.push({
             label: 'Laboratory',
             to: '/settings/laboratory',
             icon: 'ti ti-flask',
-            match: '/settings/laboratory',
+            match: ['/settings/laboratory', '/settings/lab-tests'],
         });
     }
 
@@ -867,6 +878,36 @@ export function tenantNavigation(
     }
 
     /*
+     * The laboratory, its own group: one row per screen, each on its own tick,
+     * growing phase by phase (docs/architecture/laboratory.md). Only screens
+     * that exist are listed — the orders, collection and result screens join
+     * here as they are built. Its set-up (lists, approval steps) stays under
+     * Settings › Laboratory.
+     */
+    if (hasModule('laboratory')) {
+        const labRows: NavItem[] = [
+            ...(can('laboratory.dashboard')
+                ? [{ label: 'Dashboard', to: '/lab/dashboard', icon: 'ti ti-layout-dashboard', match: '/lab/dashboard' }]
+                : []),
+            // Every test requested for a patient — the lab's daily list.
+            ...(can('laboratory.view')
+                ? [{ label: 'Tests', to: '/lab/orders', icon: 'ti ti-list-details', match: '/lab/orders' }]
+                : []),
+            // The test catalogue is set-up, so it lives under Settings (the user's ask, 2026-11-08).
+        ];
+
+        if (labRows.length > 0) {
+            clinical.push({
+                label: 'Laboratory',
+                to: labRows[0].to,
+                icon: 'ti ti-microscope',
+                match: '/lab',
+                children: labRows,
+            });
+        }
+    }
+
+    /*
      * A role that holds reports and nothing else the counter does — an
      * accountant, say — still needs a way in. Only when the Pharmacy group
      * itself is not already carrying it (see above): showing the same link
@@ -1027,7 +1068,15 @@ export function tenantNavigation(
         title: 'Coming soon',
         items: [
             { label: 'Prescriptions', to: '/prescriptions', icon: 'ti ti-file-text', soon: true },
-            { label: 'Lab tests', to: '/lab', icon: 'ti ti-microscope', soon: true },
+            /*
+             * Listed as coming only where the organisation has no laboratory.
+             * Once it has, the real Laboratory group above carries whatever
+             * lab screens this role may open — an inert row beside it read as
+             * a broken link (the user found exactly that, 2026-11-08).
+             */
+            ...(hasModule('laboratory')
+                ? []
+                : [{ label: 'Lab tests', to: '/lab', icon: 'ti ti-microscope', soon: true }]),
             // Listed as coming only where the real entry above is not.
             ...(hasModule('pharmacy')
                 ? []

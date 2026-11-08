@@ -4,6 +4,7 @@ import { resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { cn } from '@/shared/utils/cn';
 import { downloadExport, useExportPreview } from '../api';
+import { useStartExport } from '../runs';
 import { rangeOf } from '../periods';
 import type { ExportDataset, ExportFormat, ExportParams, ExportTab } from '../types';
 import { ColumnPicker } from './ColumnPicker';
@@ -70,6 +71,7 @@ export function ExportWorkspace({
     const [selected, setSelected] = useState<number[]>([]);
     const [busy, setBusy] = useState<ExportFormat | null>(null);
     const exportMenu = usePopover();
+    const begin = useStartExport();
 
     const set = (next: Partial<Filters>) => setDraft((current) => ({ ...current, ...next }));
 
@@ -115,13 +117,29 @@ export function ExportWorkspace({
     const branchName = tab.branches.find((entry) => String(entry.id) === applied.branch)?.name;
     const scope = branchName ?? (tab.all_branches ? 'All branches' : tab.branches.map((entry) => entry.name).join(', '));
 
+    /*
+     * Rows ticked on screen (a hundred at most) download at once. A whole
+     * export is made on the queue (the user's ask, 2026-11-08): a long register
+     * outlived the web request and the browser said "Cannot reach the server".
+     * It goes to the tray, which shows how far it has got and about how long
+     * is left, and downloads the file when ready — the person keeps working,
+     * on this screen or any other.
+     */
     async function take(format: ExportFormat, only?: number[]) {
         exportMenu.setOpen(false);
         setBusy(format);
 
+        const ids = only ?? selected;
+
         try {
-            const ids = only ?? selected;
-            await downloadExport(dataset.key, { ...narrowing, ids: ids.length > 0 ? ids.join(',') : undefined }, format);
+            if (ids.length > 0) {
+                await downloadExport(dataset.key, { ...narrowing, ids: ids.join(',') }, format);
+            } else {
+                await begin.mutateAsync({ dataset: dataset.key, params: narrowing, format });
+                notify.info(`Preparing your ${FORMATS.find((entry) => entry.format === format)?.label} file`, {
+                    description: 'Keep working — it downloads by itself when ready. Watch it in the Exports tray.',
+                });
+            }
         } catch (failure) {
             notify.error(resolveErrorMessage(failure));
         } finally {
@@ -159,7 +177,7 @@ export function ExportWorkspace({
                                 aria-expanded={exportMenu.open}
                             >
                                 <i className={busy ? 'ti ti-loader-2 exc-spin' : 'ti ti-download'} aria-hidden="true" />
-                                {busy ? 'Preparing…' : 'Export'}
+                                {busy ? 'Starting…' : 'Export'}
                                 <i className="ti ti-chevron-down" aria-hidden="true" />
                             </button>
 
@@ -169,6 +187,11 @@ export function ExportWorkspace({
                                         {selected.length > 0
                                             ? `${selected.length} selected ${selected.length === 1 ? 'record' : 'records'}`
                                             : `${narrowed ? '' : 'All '}${total.toLocaleString('en-IN')} ${dataset.noun}${narrowed ? ' matching your filters' : ''}`}
+                                        {selected.length === 0 && (
+                                            <small className="exc-export-bg">
+                                                <i className="ti ti-clock-play" aria-hidden="true" /> Prepared in the background — keep working
+                                            </small>
+                                        )}
                                     </p>
                                     {FORMATS.map((entry) => (
                                         <button key={entry.format} type="button" role="menuitem" onClick={() => void take(entry.format)}>

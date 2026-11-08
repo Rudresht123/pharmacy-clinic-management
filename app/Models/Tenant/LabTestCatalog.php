@@ -9,6 +9,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
+ * FROZEN SINCE 2026-11-08. The test master (LabTest, with LabBranchPrice)
+ * replaced this price list; migration 2026_11_08_000100 moved every row across
+ * and recorded which test each became (`lab_tests.legacy_catalog_id`). Nothing
+ * writes here now. It stays so orders placed before can still name their row.
+ *
  * The tests a lab offers, and what each one costs.
  *
  * A PRICE LIST, not a taxonomy. Reference ranges, specimen handling and the

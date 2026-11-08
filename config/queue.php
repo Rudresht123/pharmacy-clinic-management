@@ -66,6 +66,28 @@ return [
             'after_commit' => true,
         ],
 
+        /*
+         * Export Center files (App\Jobs\RunExport).
+         *
+         * Its own connection, for the same reason as provisioning: the lease.
+         * A register of a hundred thousand rows is written in one job that
+         * can run for many minutes; on the default connection a job still
+         * running after `retry_after` (90s) is handed to a second worker and
+         * the file written twice. Its own queue too, so a person waiting on a
+         * file never waits behind the day's messages — and a worker started
+         * for exports touches nothing else.
+         *
+         * Worked by: php artisan queue:work exports --queue=exports --timeout=1800 --tries=1
+         */
+        'exports' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION', env('DB_CONNECTION', 'pgsql')),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => 'exports',
+            'retry_after' => (int) env('EXPORTS_QUEUE_RETRY_AFTER', 2000),
+            'after_commit' => true,
+        ],
+
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),

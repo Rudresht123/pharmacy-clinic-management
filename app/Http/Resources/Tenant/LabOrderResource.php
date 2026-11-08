@@ -24,6 +24,11 @@ class LabOrderResource extends JsonResource
             'customer_id' => $this->customer_id,
             'patient_name' => $this->whenLoaded('patient', fn () => $this->patient?->name),
             'patient_code' => $this->whenLoaded('patient', fn () => $this->patient?->code),
+            'patient_age' => $this->whenLoaded('patient', fn () => $this->patient?->age()),
+            'patient_gender' => $this->whenLoaded('patient', fn () => $this->patient?->gender),
+            'patient_photo_url' => $this->relationLoaded('patient') && $this->patient?->relationLoaded('photograph')
+                ? $this->patient->photograph?->url
+                : null,
 
             'doctor_id' => $this->doctor_id,
             'doctor_name' => $this->whenLoaded('doctor', fn () => $this->doctor?->name),
@@ -42,7 +47,22 @@ class LabOrderResource extends JsonResource
             'completed_by_name' => $this->whenLoaded('completer', fn () => $this->completer?->name),
 
             'cancelled_at' => $this->cancelled_at?->toIso8601String(),
+            'cancelled_by_name' => $this->whenLoaded('canceller', fn () => $this->canceller?->name),
             'cancellation_reason' => $this->cancellation_reason,
+
+            /*
+             * The departments and samples its tests belong to, as a list row
+             * shows them — from the test master where a test is one, the
+             * typed specimen otherwise.
+             */
+            'departments' => $this->whenLoaded('items', fn () => $this->items
+                ->map(fn (LabOrderItem $item) => $item->relationLoaded('labTest') ? $item->labTest?->department?->name : null)
+                ->filter()->unique()->values()->all()),
+            'sample_types' => $this->whenLoaded('items', fn () => $this->items
+                ->map(fn (LabOrderItem $item) => ($item->relationLoaded('labTest') ? $item->labTest?->sampleType?->name : null)
+                    ?? ($item->specimen ? ucfirst($item->specimen) : null))
+                ->filter()->unique()->values()->all()),
+            'abnormal_count' => $this->whenLoaded('items', fn () => $this->items->where('is_abnormal', true)->count()),
 
             /*
              * What the technician's queue shows without opening the order —

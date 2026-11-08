@@ -5,6 +5,7 @@ import { AppShell } from '@/shared/components/layout/AppShell';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { BranchSwitcher } from '@/core/tenant-auth/BranchSwitcher';
 import { PatientSearch } from '@/core/opd/components/PatientSearch';
+import { ExportTray } from '@/core/exports/components/ExportTray';
 import { tenantNavigation } from './tenant-navigation';
 import { useConfigurableEntities } from '@/core/field-settings/api';
 
@@ -109,6 +110,7 @@ export function TenantShell() {
             headerSearch={<PatientSearch />}
             headerExtra={<SubscriptionClock />}
             contentBanner={<SubscriptionBanner />}
+            overlay={<ExportTray />}
             sidebarExtra={<BranchSwitcher />}
             sidebarHelp={
                 <a

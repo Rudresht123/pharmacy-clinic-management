@@ -643,6 +643,7 @@ class ModuleRegistry
                 'requires' => ['customers'],
                 'capabilities' => [
                     ['key' => 'laboratory.view', 'screen' => true, 'name' => 'View lab orders and results', 'hint' => 'Orders, and the results that came back.', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'laboratory.dashboard', 'screen' => true, 'name' => 'See the Laboratory dashboard', 'hint' => 'Tests ordered, completed and pending, the trend and the split by department.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'laboratory.order', 'name' => 'Order tests at a consultation', 'hint' => 'Ask for tests during a visit.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'laboratory.process', 'name' => 'Take on lab work and enter results', 'hint' => 'The bench\'s work: pick up an order and record the values.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'laboratory.complete', 'name' => 'Sign off and cancel lab orders', 'hint' => 'A signed-off result is what the doctor will act on.', 'scope' => self::SCOPE_BRANCH],
@@ -654,6 +655,16 @@ class ModuleRegistry
                      */
                     ['key' => 'laboratory.settings_view', 'screen' => true, 'settings' => true, 'name' => 'See the Laboratory settings', 'hint' => 'Departments, sample types, units and how results are approved.', 'scope' => self::SCOPE_BRANCH],
                     ['key' => 'laboratory.settings_manage', 'screen' => true, 'settings' => true, 'name' => 'Set up the laboratory and save its settings', 'hint' => 'Decides the lab\'s lists and its approval steps for every branch.', 'scope' => self::SCOPE_ORGANIZATION],
+                    /*
+                     * The test master, which is lab set-up too: one menu of
+                     * tests for the whole network. Reference ranges are a tick
+                     * of their own because they are a clinical decision — the
+                     * person who keeps names and prices is often not the one
+                     * qualified to say what normal is.
+                     */
+                    ['key' => 'laboratory.catalog_view', 'screen' => true, 'settings' => true, 'name' => 'See the Lab tests screen', 'hint' => 'Every test the lab offers, with its parameters, ranges and prices.', 'scope' => self::SCOPE_BRANCH],
+                    ['key' => 'laboratory.catalog_manage', 'screen' => true, 'settings' => true, 'name' => 'Add and edit lab tests and their prices', 'hint' => 'Changes the test menu and its prices for every branch.', 'scope' => self::SCOPE_ORGANIZATION],
+                    ['key' => 'laboratory.ranges_manage', 'settings' => true, 'name' => 'Set reference ranges and critical limits', 'hint' => 'A clinical decision: what normal looks like for each test, by sex and age.', 'scope' => self::SCOPE_ORGANIZATION],
                 ],
             ],
             /*

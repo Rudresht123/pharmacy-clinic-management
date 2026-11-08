@@ -90,7 +90,14 @@ class LabMasterService
         $uses = [];
 
         foreach ($definition['used_by'] as $use) {
-            $count = $use['model']::query()->where($use['column'], $record->getKey())->count();
+            $count = $use['model']::query()
+                ->where($use['column'], $record->getKey())
+                // A use only counts while its parent is still there.
+                ->when($use['live'] ?? null, fn (Builder $query, string $parent) => $query->whereHas(
+                    $parent,
+                    fn (Builder $owner) => $owner->whereNull($owner->getModel()->getQualifiedDeletedAtColumn()),
+                ))
+                ->count();
 
             if ($count > 0) {
                 $uses[] = $count.' '.($count === 1 ? $use['one'] : $use['many']);

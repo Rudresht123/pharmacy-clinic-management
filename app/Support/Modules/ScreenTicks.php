@@ -65,10 +65,22 @@ final class ScreenTicks
 
     /**
      * The lab's short lists (departments, sample types, units…). Read by the
-     * settings screen today; every later lab screen that picks from them joins
-     * this list in its own phase.
+     * settings screen and the test page that picks from them; every later lab
+     * screen that picks from them joins this list in its own phase.
      */
-    public const LAB_LISTS = ['laboratory.settings_view', 'laboratory.settings_manage'];
+    public const LAB_LISTS = [
+        'laboratory.settings_view',
+        'laboratory.settings_manage',
+        'laboratory.catalog_view',
+        'laboratory.catalog_manage',
+        'laboratory.ranges_manage',
+    ];
+
+    /** The Lab tests screen, and whoever may change what it shows. */
+    public const LAB_CATALOG = ['laboratory.catalog_view', 'laboratory.catalog_manage', 'laboratory.ranges_manage'];
+
+    /** What can be ordered: the doctor's picker, and the test master's own screen. */
+    public const LAB_ORDERABLES = ['laboratory.order', 'laboratory.catalog_view', 'laboratory.catalog_manage'];
 
     public const BILLING_OVERVIEW = ['billing.view'];
 

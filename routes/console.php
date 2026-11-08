@@ -23,6 +23,9 @@ Schedule::command('pharmacy:reconcile-stock')->dailyAt('02:30')->withoutOverlapp
 // A prescription past its valid-until date stops being dispensable overnight.
 Schedule::command('prescriptions:expire')->dailyAt('00:15')->withoutOverlapping();
 
+// Export Center files hold patient records: deleted a day after they are made.
+Schedule::command('exports:prune')->hourly()->withoutOverlapping()->onOneServer();
+
 /*
 | Scheduled campaigns, every minute.
 |

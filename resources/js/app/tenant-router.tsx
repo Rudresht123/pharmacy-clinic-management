@@ -66,6 +66,11 @@ const MovementsPage = lazy(() => import('@/core/pharmacy/pages/MovementsPage'));
 const SuppliersPage = lazy(() => import('@/core/pharmacy/pages/SuppliersPage'));
 const PharmacySettingsPage = lazy(() => import('@/core/pharmacy/pages/PharmacySettingsPage'));
 const LabSettingsPage = lazy(() => import('@/core/laboratory/settings/pages/LabSettingsPage'));
+const LabTestListPage = lazy(() => import('@/core/laboratory/tests/pages/LabTestListPage'));
+const LabDashboardPage = lazy(() => import('@/core/laboratory/dashboard/pages/LabDashboardPage'));
+const LabOrderListPage = lazy(() => import('@/core/laboratory/orders/pages/LabOrderListPage'));
+const LabOrderPage = lazy(() => import('@/core/laboratory/orders/pages/LabOrderPage'));
+const LabTestFormPage = lazy(() => import('@/core/laboratory/tests/pages/LabTestFormPage'));
 const PharmacyDashboardPage = lazy(() => import('@/core/pharmacy/pages/PharmacyDashboardPage'));
 const PharmacyReportsPage = lazy(() => import('@/core/pharmacy/pages/PharmacyReportsPage'));
 const PosPage = lazy(() => import('@/core/pharmacy/pages/PosPage'));
@@ -437,18 +442,55 @@ export function TenantAppRoutes() {
                             {/*
                                 The laboratory, a module of its own that needs only
                                 the patient register — a diagnostic lab can buy it
-                                alone. Its set-up lives under Settings; the page
-                                itself only lets lab setup save.
+                                alone. Its set-up lives under Settings › Laboratory,
+                                the Test Catalogue as one of its tabs; the page shows
+                                each tab to the ticks that read it.
                             */}
                             <Route element={<RequireModule module="laboratory" />}>
                                 <Route
                                     element={
                                         <RequireAnyCapability
-                                            capabilities={['laboratory.settings_view', 'laboratory.settings_manage']}
+                                            capabilities={[
+                                                'laboratory.settings_view',
+                                                'laboratory.settings_manage',
+                                                'laboratory.catalog_view',
+                                                'laboratory.catalog_manage',
+                                                'laboratory.ranges_manage',
+                                            ]}
                                         />
                                     }
                                 >
                                     <Route path="/settings/laboratory" element={<LabSettingsPage />} />
+                                </Route>
+
+                                {/* A test's own page: read by the catalogue's ticks, written by
+                                    catalog_manage (ranges by ranges_manage) — the page decides what
+                                    is editable. The old list address forwards to the tab. */}
+                                <Route
+                                    element={
+                                        <RequireAnyCapability
+                                            capabilities={[
+                                                'laboratory.catalog_view',
+                                                'laboratory.catalog_manage',
+                                                'laboratory.ranges_manage',
+                                            ]}
+                                        />
+                                    }
+                                >
+                                    <Route path="/settings/lab-tests" element={<LabTestListPage />} />
+                                    <Route path="/settings/lab-tests/:id" element={<LabTestFormPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="laboratory.catalog_manage" />}>
+                                    <Route path="/settings/lab-tests/new" element={<LabTestFormPage />} />
+                                </Route>
+
+                                {/* The day's work: the dashboard, and every test requested for a patient. */}
+                                <Route element={<RequireCapability capability="laboratory.dashboard" />}>
+                                    <Route path="/lab/dashboard" element={<LabDashboardPage />} />
+                                </Route>
+                                <Route element={<RequireCapability capability="laboratory.view" />}>
+                                    <Route path="/lab/orders" element={<LabOrderListPage />} />
+                                    <Route path="/lab/orders/:id" element={<LabOrderPage />} />
                                 </Route>
                             </Route>
 

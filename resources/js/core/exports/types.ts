@@ -2,6 +2,37 @@
 
 export type ExportFormat = 'xlsx' | 'csv' | 'pdf';
 
+export type ExportRunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'expired';
+
+/** One file being made on the queue — what the tray watches. */
+export interface ExportRun {
+    id: number;
+    dataset: string;
+    format: ExportFormat;
+    /** "Billing — Invoices" */
+    title: string;
+    /** "invoices" */
+    noun: string;
+    status: ExportRunStatus;
+    total_rows: number;
+    processed_rows: number;
+    /** 0–100; 99 at most until the file is closed. */
+    percent: number;
+    /** From the pace so far; null before there is one, and while the file is closed. */
+    seconds_left: number | null;
+    /** Every row read; the file is being zipped or finished. */
+    finishing: boolean;
+    file_name: string | null;
+    /** Bytes, while the file is kept. */
+    file_size: number | null;
+    error: string | null;
+    created_at: string | null;
+    started_at: string | null;
+    finished_at: string | null;
+    expires_at: string | null;
+    downloaded_at: string | null;
+}
+
 export type TabKey = 'patients' | 'pharmacy' | 'billing' | 'communication';
 
 export interface ExportColumn {

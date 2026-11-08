@@ -9,7 +9,9 @@ use App\Models\Tenant\LabMethod;
 use App\Models\Tenant\LabOutsourceLab;
 use App\Models\Tenant\LabRejectionReason;
 use App\Models\Tenant\LabSampleType;
+use App\Models\Tenant\LabTest;
 use App\Models\Tenant\LabTestCategory;
+use App\Models\Tenant\LabTestParameter;
 use App\Models\Tenant\LabUnit;
 use App\Models\Tenant\Location;
 use Closure;
@@ -40,7 +42,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  *
  * `used_by` lists what points at a row, so removing one that is still in use is
  * refused with a sentence rather than left to a foreign key that never fires on
- * a soft delete. Later phases add the test master here.
+ * a soft delete. `live` names a parent that must itself still exist for the use
+ * to count: a parameter of a removed test no longer holds its unit.
  */
 final class LabMasters
 {
@@ -77,7 +80,7 @@ final class LabMasters
      *     label: string,
      *     starter: bool,
      *     fields: list<array<string, mixed>>,
-     *     used_by: list<array{model: class-string<Model>, column: string, one: string, many: string}>,
+     *     used_by: list<array{model: class-string<Model>, column: string, one: string, many: string, live?: string}>,
      * }>
      */
     public static function all(): array
@@ -99,6 +102,7 @@ final class LabMasters
                 'used_by' => [
                     ['model' => LabTestCategory::class, 'column' => 'department_id', 'one' => 'test category', 'many' => 'test categories'],
                     ['model' => LabEquipment::class, 'column' => 'department_id', 'one' => 'piece of equipment', 'many' => 'pieces of equipment'],
+                    ['model' => LabTest::class, 'column' => 'department_id', 'one' => 'test', 'many' => 'tests'],
                 ],
             ],
 
@@ -115,7 +119,9 @@ final class LabMasters
                     ['name' => 'code', 'label' => 'Code', 'type' => 'code', 'max' => 24, 'span' => 4],
                     ['name' => 'department_id', 'label' => 'Department', 'type' => 'select', 'source' => self::DEPARTMENTS, 'span' => 12, 'hint' => 'Leave empty for a category that spans departments.'],
                 ],
-                'used_by' => [],
+                'used_by' => [
+                    ['model' => LabTest::class, 'column' => 'category_id', 'one' => 'test', 'many' => 'tests'],
+                ],
             ],
 
             self::METHODS => [
@@ -130,7 +136,10 @@ final class LabMasters
                     ['name' => 'name', 'label' => 'Name', 'type' => 'text', 'required' => true, 'max' => 120, 'unique' => 'ci', 'span' => 12, 'placeholder' => 'Chemiluminescence immunoassay (CLIA)'],
                     ['name' => 'description', 'label' => 'Description', 'type' => 'textarea', 'max' => 1000, 'span' => 12, 'list' => false],
                 ],
-                'used_by' => [],
+                'used_by' => [
+                    ['model' => LabTest::class, 'column' => 'method_id', 'one' => 'test', 'many' => 'tests'],
+                    ['model' => LabTestParameter::class, 'column' => 'method_id', 'one' => 'test parameter', 'many' => 'test parameters', 'live' => 'test'],
+                ],
             ],
 
             self::UNITS => [
@@ -145,7 +154,9 @@ final class LabMasters
                     ['name' => 'symbol', 'label' => 'Symbol', 'type' => 'text', 'required' => true, 'max' => 32, 'unique' => 'cs', 'span' => 5, 'placeholder' => 'g/dL'],
                     ['name' => 'name', 'label' => 'Name', 'type' => 'text', 'max' => 80, 'span' => 7, 'placeholder' => 'Grams per decilitre'],
                 ],
-                'used_by' => [],
+                'used_by' => [
+                    ['model' => LabTestParameter::class, 'column' => 'unit_id', 'one' => 'test parameter', 'many' => 'test parameters', 'live' => 'test'],
+                ],
             ],
 
             self::CONTAINERS => [
@@ -164,6 +175,7 @@ final class LabMasters
                 ],
                 'used_by' => [
                     ['model' => LabSampleType::class, 'column' => 'default_container_id', 'one' => 'sample type', 'many' => 'sample types'],
+                    ['model' => LabTest::class, 'column' => 'container_id', 'one' => 'test', 'many' => 'tests'],
                 ],
             ],
 
@@ -181,7 +193,9 @@ final class LabMasters
                     ['name' => 'default_container_id', 'label' => 'Usual container', 'type' => 'select', 'source' => self::CONTAINERS, 'span' => 12],
                     ['name' => 'handling_notes', 'label' => 'Handling notes', 'type' => 'textarea', 'max' => 2000, 'span' => 12, 'list' => false, 'hint' => 'Storage and transport, e.g. "Separate within 2 hours, keep at 2–8 °C".'],
                 ],
-                'used_by' => [],
+                'used_by' => [
+                    ['model' => LabTest::class, 'column' => 'sample_type_id', 'one' => 'test', 'many' => 'tests'],
+                ],
             ],
 
             self::REJECTION_REASONS => [
@@ -236,7 +250,9 @@ final class LabMasters
                     ['name' => 'address', 'label' => 'Address', 'type' => 'textarea', 'max' => 1000, 'span' => 12, 'list' => false],
                     ['name' => 'notes', 'label' => 'Notes', 'type' => 'textarea', 'max' => 1000, 'span' => 12, 'list' => false],
                 ],
-                'used_by' => [],
+                'used_by' => [
+                    ['model' => LabTest::class, 'column' => 'outsource_lab_id', 'one' => 'test', 'many' => 'tests'],
+                ],
             ],
         ];
     }

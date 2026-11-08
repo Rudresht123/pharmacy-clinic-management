@@ -53,13 +53,17 @@ class LabOrderItem extends Model
         'test_name',
         'test_code',
         'specimen',
+        // The doctor's note on this test ("Fasting"); never the bench's `notes`.
+        'instructions',
         'sort_order',
 
         /*
-         * Set by LabOrders when the doctor picked a catalogue entry. The
-         * price is copied at that moment and never read back off the
-         * catalogue — see the class docblock.
+         * Set by LabOrders when the doctor picked a test from the test master.
+         * The price is copied at that moment and never read back off the
+         * master — see the class docblock. `lab_test_catalog_id` is the old
+         * price list's column, kept for the orders placed before it moved.
          */
+        'lab_test_id',
         'lab_test_catalog_id',
         'price_snapshot',
         'tax_percent_snapshot',
@@ -69,6 +73,7 @@ class LabOrderItem extends Model
     {
         return [
             'lab_order_id' => 'integer',
+            'lab_test_id' => 'integer',
             'is_abnormal' => 'boolean',
             'completed_at' => 'datetime',
             'sort_order' => 'integer',
@@ -83,6 +88,13 @@ class LabOrderItem extends Model
         return $this->price_snapshot !== null && (float) $this->price_snapshot > 0;
     }
 
+    /** The test-master test this line is, when it was picked rather than typed. */
+    public function labTest(): BelongsTo
+    {
+        return $this->belongsTo(LabTest::class, 'lab_test_id')->withTrashed();
+    }
+
+    /** The old price-list row, for orders placed before the test master. */
     public function catalogEntry(): BelongsTo
     {
         return $this->belongsTo(LabTestCatalog::class, 'lab_test_catalog_id');

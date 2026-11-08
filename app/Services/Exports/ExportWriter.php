@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -21,6 +22,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * PDF (so a person reads it). Excel and PDF close with a totals row under
  * the amounts; a CSV does not, because a row that is not a record breaks
  * every program that imports one.
+ *
+ * Two ways out, one writer: straight to the browser (download — the rows
+ * ticked on screen) or to a file on disk, row by row with a tick after each
+ * (toFile — the queued run, whose tick is the progress the screen shows).
  */
 final class ExportWriter
 {
@@ -32,6 +37,12 @@ final class ExportWriter
      */
     public const PDF_LIMIT = 25000;
 
+    private const MIME = [
+        'csv' => 'text/csv; charset=UTF-8',
+        'pdf' => 'application/pdf',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+
     public function __construct(
         private readonly PdfTable $pdf,
     ) {}
@@ -39,7 +50,7 @@ final class ExportWriter
     /**
      * @param  list<Column>  $columns  what to write, in order
      * @param  callable(Model): array<string, mixed>  $read  one record as its cells, keyed by column
-     * @param  array{organization: string, title: string, noun: string, by: string, filters?: list<string>}  $heading
+     * @param  array{organization: string, title: string, noun: string, by: string, filters?: list<string>, tab?: string, export?: string}  $heading
      * @param  (callable(Model): bool)|null  $muted  rows to print in grey in a PDF — an inactive patient
      */
     public function download(
@@ -52,13 +63,89 @@ final class ExportWriter
         array $heading,
         ?callable $muted = null,
     ): Response|StreamedResponse|BinaryFileResponse {
-        $file = $name.'-'.Carbon::today()->toDateString().'.'.$format;
+        $file = $this->fileName($name, $format);
 
         return match ($format) {
-            'csv' => $this->csv($file, $columns, $query, $read),
-            'pdf' => $this->pdf($file, $columns, $query, $read, $total, $heading, $muted),
-            default => $this->xlsx($file, $columns, $query, $read, $heading['title']),
+            'csv' => response()->streamDownload(function () use ($columns, $query, $read) {
+                $out = fopen('php://output', 'w');
+                $this->writeCsv($out, $columns, $query, $read);
+                fclose($out);
+            }, $file, ['Content-Type' => self::MIME['csv']]),
+
+            'pdf' => response($this->renderPdf($columns, $query, $read, $total, $heading, $muted), 200, [
+                'Content-Type' => self::MIME['pdf'],
+                'Content-Disposition' => 'attachment; filename="'.$file.'"',
+            ]),
+
+            default => response()
+                ->download($this->buildXlsx($columns, $query, $read, $heading['title']), $file, ['Content-Type' => self::MIME['xlsx']])
+                ->deleteFileAfterSend(),
         };
+    }
+
+    /**
+     * The same file, written to a path on disk.
+     *
+     * @param  list<Column>  $columns
+     * @param  callable(Model): array<string, mixed>  $read
+     * @param  array{organization: string, title: string, noun: string, by: string, filters?: list<string>, tab?: string, export?: string}  $heading
+     * @param  (callable(Model): bool)|null  $muted
+     * @param  (callable(int): void)|null  $tick  after each row, with how many are written — it may throw to stop
+     */
+    public function toFile(
+        string $format,
+        string $path,
+        array $columns,
+        Builder $query,
+        callable $read,
+        int $total,
+        array $heading,
+        ?callable $muted = null,
+        ?callable $tick = null,
+    ): void {
+        if ($format === 'csv') {
+            $out = fopen($path, 'w');
+
+            if ($out === false) {
+                throw new RuntimeException('The export file could not be opened for writing.');
+            }
+
+            try {
+                $this->writeCsv($out, $columns, $query, $read, $tick);
+            } finally {
+                fclose($out);
+            }
+
+            return;
+        }
+
+        if ($format === 'pdf') {
+            file_put_contents($path, $this->renderPdf($columns, $query, $read, $total, $heading, $muted, $tick));
+
+            return;
+        }
+
+        // Built in the temporary folder, then moved: copy, because the two may be different drives.
+        $built = $this->buildXlsx($columns, $query, $read, $heading['title'], $tick);
+
+        try {
+            if (! copy($built, $path)) {
+                throw new RuntimeException('The export file could not be saved.');
+            }
+        } finally {
+            @unlink($built);
+        }
+    }
+
+    /** "billing-invoices-2026-11-08.xlsx" */
+    public function fileName(string $name, string $format): string
+    {
+        return $name.'-'.Carbon::today()->toDateString().'.'.$format;
+    }
+
+    public static function mime(string $format): string
+    {
+        return self::MIME[$format] ?? 'application/octet-stream';
     }
 
     /** A value as a person reads it — the PDF's cells, and the screen's preview. */
@@ -87,48 +174,60 @@ final class ExportWriter
 
     /* ------------------------------------------------------------- formats */
 
-    /** @param list<Column> $columns */
-    private function csv(string $file, array $columns, Builder $query, callable $read): StreamedResponse
+    /**
+     * @param  resource  $out
+     * @param  list<Column>  $columns
+     */
+    private function writeCsv($out, array $columns, Builder $query, callable $read, ?callable $tick = null): void
     {
-        return response()->streamDownload(function () use ($columns, $query, $read) {
-            $out = fopen('php://output', 'w');
+        // So Excel reads ₹ and names in any script as UTF-8.
+        fwrite($out, "\xEF\xBB\xBF");
+        fputcsv($out, array_map(fn (Column $column) => $column->label, $columns));
 
-            // So Excel reads ₹ and names in any script as UTF-8.
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, array_map(fn (Column $column) => $column->label, $columns));
+        $done = 0;
 
-            $query->chunk(1000, function ($records) use ($out, $columns, $read) {
-                foreach ($records as $record) {
-                    $row = $read($record);
+        $query->chunk(1000, function ($records) use ($out, $columns, $read, $tick, &$done) {
+            foreach ($records as $record) {
+                $row = $read($record);
 
-                    fputcsv($out, array_map(function (Column $column) use ($row) {
-                        $value = $row[$column->key] ?? null;
+                fputcsv($out, array_map(function (Column $column) use ($row) {
+                    $value = $row[$column->key] ?? null;
 
-                        return $column->type === Column::MONEY && $value !== null
-                            ? number_format((float) $value, 2, '.', '')
-                            : ($value ?? '');
-                    }, $columns));
+                    return $column->type === Column::MONEY && $value !== null
+                        ? number_format((float) $value, 2, '.', '')
+                        : ($value ?? '');
+                }, $columns));
+
+                $done++;
+
+                if ($tick !== null) {
+                    $tick($done);
                 }
-            });
-
-            fclose($out);
-        }, $file, ['Content-Type' => 'text/csv; charset=UTF-8']);
+            }
+        });
     }
 
-    /** @param list<Column> $columns */
-    private function xlsx(string $file, array $columns, Builder $query, callable $read, string $title): BinaryFileResponse
+    /**
+     * @param  list<Column>  $columns
+     * @return string the path of the finished workbook, in the temporary folder
+     */
+    private function buildXlsx(array $columns, Builder $query, callable $read, string $title, ?callable $tick = null): string
     {
         $sheet = (new XlsxWriter($title))->header(array_map(fn (Column $column) => $column->label, $columns));
         $sums = $this->emptySums($columns);
         $count = 0;
 
-        $query->chunk(1000, function ($records) use ($sheet, $columns, $read, &$sums, &$count) {
+        $query->chunk(1000, function ($records) use ($sheet, $columns, $read, $tick, &$sums, &$count) {
             foreach ($records as $record) {
                 $row = $read($record);
                 $this->addUp($sums, $columns, $row);
                 $count++;
 
                 $sheet->row(array_map(fn (Column $column) => $row[$column->key] ?? null, $columns));
+
+                if ($tick !== null) {
+                    $tick($count);
+                }
             }
         });
 
@@ -136,60 +235,66 @@ final class ExportWriter
             $sheet->footer($this->totalsRow($columns, $sums, fn (Column $column, float $sum) => round($sum, 2)));
         }
 
-        return response()
-            ->download($sheet->save(), $file, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
-            ->deleteFileAfterSend();
+        return $sheet->save();
     }
 
-    /** @param list<Column> $columns */
-    private function pdf(
-        string $file,
+    /**
+     * @param  list<Column>  $columns
+     * @return string the PDF's bytes
+     */
+    private function renderPdf(
         array $columns,
         Builder $query,
         callable $read,
         int $total,
         array $heading,
         ?callable $muted,
-    ): Response {
+        ?callable $tick = null,
+    ): string {
         /*
-         * A long register is a long render; it is still one request. Raised
-         * for this render only, and only ever raised: under the CLI there is
-         * no limit at all, and a 300 left behind kills whatever runs next in
-         * the same process — a queue worker, or the test suite — five minutes
-         * after its first PDF export.
+         * A long register is a long render. Raised for this render only, and
+         * only ever raised: under the CLI there is no limit at all, and a 300
+         * left behind kills whatever runs next in the same process — a queue
+         * worker, or the test suite — five minutes after its first PDF export.
          */
         $limit = (int) ini_get('max_execution_time');
         $raised = $limit !== 0 && $limit < 300 && set_time_limit(300);
 
         $shown = min($total, self::PDF_LIMIT);
         $sums = $this->emptySums($columns);
+        $done = 0;
 
-        $notes = array_values(array_filter([
-            ($heading['filters'] ?? []) !== [] ? ['text' => 'Filtered: '.implode(' · ', $heading['filters']), 'tone' => 'info'] : null,
-            $shown < $total ? [
-                'text' => 'The first '.number_format($shown).' of '.number_format($total).' '.$heading['noun'].' are listed. '
-                    .'Download Excel or CSV for all of them, or narrow the dates.',
-                'tone' => 'warning',
-            ] : null,
-        ]));
+        $notes = $shown < $total ? [[
+            'text' => 'The first '.number_format($shown).' of '.number_format($total).' '.$heading['noun'].' are listed. '
+                .'Download Excel or CSV for all of them, or narrow the dates.',
+            'tone' => 'warning',
+        ]] : [];
 
-        $rows = $query->lazy(1000)->take($shown)->map(function (Model $record) use ($columns, $read, $muted, &$sums) {
+        $rows = $query->lazy(1000)->take($shown)->map(function (Model $record) use ($columns, $read, $muted, $tick, &$sums, &$done) {
             $row = $read($record);
             $this->addUp($sums, $columns, $row);
+            $done++;
+
+            if ($tick !== null) {
+                $tick($done);
+            }
 
             return ['cells' => $this->displayRow($columns, $row), 'muted' => $muted !== null && $muted($record)];
         });
 
         try {
-            $bytes = $this->pdf->render(
+            return $this->pdf->render(
                 [
                     'organization' => $heading['organization'],
                     'title' => $heading['title'],
-                    'meta' => [
-                        number_format($total).' '.$heading['noun'],
-                        'Generated '.Carbon::now()->format('d M Y, h:i A').' by '.$heading['by'],
+                    'eyebrow' => isset($heading['tab']) ? $heading['tab'].' export' : null,
+                    'stats' => [
+                        ['value' => number_format($total), 'label' => ucfirst($heading['noun'])],
+                        ['value' => Carbon::now()->format('d M Y, h:i A'), 'label' => 'Generated by '.$heading['by']],
                     ],
+                    'chips' => $heading['filters'] ?? [],
                     'notes' => $notes,
+                    'confidential' => true,
                 ],
                 array_map(fn (Column $column) => [
                     'label' => $column->label,
@@ -215,11 +320,6 @@ final class ExportWriter
                 set_time_limit($limit);
             }
         }
-
-        return response($bytes, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$file.'"',
-        ]);
     }
 
     /* -------------------------------------------------------------- totals */

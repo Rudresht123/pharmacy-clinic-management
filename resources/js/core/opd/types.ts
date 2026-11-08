@@ -282,6 +282,9 @@ export interface PrescriptionLine {
 export interface InvestigationLine {
     test: string;
     notes?: string | null;
+    /** Set when the test was sent to the lab: the server keeps these in step with the order. */
+    lab_order_id?: number | null;
+    lab_order_item_id?: number | null;
 }
 
 /** What was measured. Every field optional — most visits record two of them. */

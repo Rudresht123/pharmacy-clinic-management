@@ -45,7 +45,10 @@ class LabOrderController extends BaseApiController
 {
     use AuthorizesTenantUser, HandlesTableQueries;
 
-    private const WITH = ['items', 'patient', 'doctor', 'location', 'appointment', 'starter', 'completer'];
+    private const WITH = [
+        'items.labTest.department', 'items.labTest.sampleType', 'patient.photograph',
+        'doctor', 'location', 'appointment', 'starter', 'completer', 'canceller',
+    ];
 
     public function __construct(
         private readonly LabOrders $orders,
@@ -122,27 +125,86 @@ class LabOrderController extends BaseApiController
      */
     public function index(Request $request): JsonResponse
     {
-        $mine = $this->branches->allowed(Auth::guard('web')->user());
-
-        $query = LabOrder::query()
-            ->with(['items', 'patient', 'doctor', 'location', 'appointment', ...$this->billingRelations()])
-            ->when($mine !== null, fn (Builder $q) => $q->whereIn('location_id', $mine ?: [0]))
+        $query = $this->filtered($request)
+            ->with([
+                'items.labTest.department', 'items.labTest.sampleType', 'patient.photograph', 'doctor', 'location', 'appointment',
+                ...$this->billingRelations(),
+            ])
             ->when($request->boolean('outstanding'), fn (Builder $q) => $q->outstanding())
-            ->when($request->filled('status'), fn (Builder $q) => $q->where('status', $request->string('status')->toString()))
-            ->when($request->filled('customer_id'), fn (Builder $q) => $q->where('customer_id', (int) $request->input('customer_id')))
-            ->when($request->filled('doctor_id'), fn (Builder $q) => $q->where('doctor_id', (int) $request->input('doctor_id')))
-            ->when($request->filled('location_id'), fn (Builder $q) => $q->where('location_id', (int) $request->input('location_id')));
+            ->when($request->filled('status'), fn (Builder $q) => $q->where('status', $request->string('status')->toString()));
 
         return $this->paginated(
             $this->tableQuery(
                 $query,
                 $request,
-                searchable: ['order_number'],
+                // Searched in filtered(): the patient and the tests, not only the number.
+                searchable: [],
                 sortable: ['order_date', 'order_number', 'status', 'created_at'],
                 defaultSort: 'created_at',
             ),
             LabOrderResource::class,
         );
+    }
+
+    /**
+     * How many orders sit under each status, for the list's tabs — the same
+     * filters as the list (search, department, dates, branch), every status.
+     */
+    public function counts(Request $request): JsonResponse
+    {
+        $byStatus = $this->filtered($request)
+            ->toBase()
+            ->selectRaw('status, count(*) AS total')
+            ->groupBy('status')
+            ->pluck('total', 'status')
+            ->map(fn ($total) => (int) $total);
+
+        return $this->ok([
+            'all' => (int) $byStatus->sum(),
+            ...collect(LabOrder::STATUSES)->mapWithKeys(fn (string $status) => [$status => $byStatus->get($status, 0)])->all(),
+        ]);
+    }
+
+    /**
+     * The orders this caller may see, narrowed by what the list asks for.
+     *
+     * `search` reads the order number, the patient (name, ID, phone) and the
+     * tests on it, because a desk is asked "Amit Sharma's CBC", not "LAB-04211".
+     */
+    private function filtered(Request $request): Builder
+    {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'customer_id' => ['nullable', 'integer'],
+            'doctor_id' => ['nullable', 'integer'],
+            'location_id' => ['nullable', 'integer'],
+            'department_id' => ['nullable', 'integer'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $mine = $this->branches->allowed(Auth::guard('web')->user());
+        $term = trim((string) ($filters['search'] ?? ''));
+        $like = '%'.addcslashes($term, '%_\\').'%';
+
+        return LabOrder::query()
+            ->when($mine !== null, fn (Builder $q) => $q->whereIn('location_id', $mine ?: [0]))
+            ->when($filters['customer_id'] ?? null, fn (Builder $q, $id) => $q->where('customer_id', $id))
+            ->when($filters['doctor_id'] ?? null, fn (Builder $q, $id) => $q->where('doctor_id', $id))
+            ->when($filters['location_id'] ?? null, fn (Builder $q, $id) => $q->where('location_id', $id))
+            ->when($filters['date_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('order_date', '>=', $date))
+            ->when($filters['date_to'] ?? null, fn (Builder $q, $date) => $q->whereDate('order_date', '<=', $date))
+            ->when($filters['department_id'] ?? null, fn (Builder $q, $id) => $q->whereHas(
+                'items.labTest',
+                fn (Builder $test) => $test->where('department_id', $id),
+            ))
+            ->when($term !== '', fn (Builder $q) => $q->where(fn (Builder $any) => $any
+                ->where('order_number', 'ILIKE', $like)
+                ->orWhereHas('patient', fn (Builder $patient) => $patient
+                    ->where('name', 'ILIKE', $like)
+                    ->orWhere('code', 'ILIKE', $like)
+                    ->orWhere('phone', 'ILIKE', $like))
+                ->orWhereHas('items', fn (Builder $item) => $item->where('test_name', 'ILIKE', $like))));
     }
 
     public function show(LabOrder $order): JsonResponse

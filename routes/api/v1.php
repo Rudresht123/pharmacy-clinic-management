@@ -51,13 +51,13 @@ use App\Http\Controllers\Api\V1\Tenant\DeviceController;
 use App\Http\Controllers\Api\V1\Tenant\OrganizationModuleSettingController;
 use App\Http\Controllers\Api\V1\Tenant\PharmacyOpdHandoffController;
 use App\Http\Controllers\Api\V1\Tenant\LabOrderController;
-use App\Http\Controllers\Api\V1\Tenant\LabTestCatalogController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineAvailabilityController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineBatchController;
 use App\Http\Controllers\Api\V1\Tenant\MedicineController;
 use App\Http\Controllers\Api\V1\Tenant\OpdController;
 use App\Http\Controllers\Api\V1\Tenant\ExportCenterController;
 use App\Http\Controllers\Api\V1\Tenant\ExportColumnRuleController;
+use App\Http\Controllers\Api\V1\Tenant\ExportRunController;
 use App\Http\Controllers\Api\V1\Tenant\PatientRecordController;
 use App\Http\Controllers\Api\V1\Tenant\DocumentGenerationController;
 use App\Http\Controllers\Api\V1\Tenant\DocumentRuleController;
@@ -583,6 +583,29 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             ->name('exports.download');
 
         /*
+        | A whole export, made on the queue while the person keeps working
+        | (App\Jobs\RunExport); the tray watches the run. Each run is its
+        | maker's own — checked inside, so no capability here either.
+        */
+        Route::get('exports/runs', [ExportRunController::class, 'index'])
+            ->name('exports.runs.index');
+        Route::get('exports/runs/{run}', [ExportRunController::class, 'show'])
+            ->whereNumber('run')
+            ->name('exports.runs.show');
+        Route::get('exports/runs/{run}/file', [ExportRunController::class, 'file'])
+            ->whereNumber('run')
+            ->name('exports.runs.file');
+        Route::post('exports/runs/{run}/cancel', [ExportRunController::class, 'cancel'])
+            ->whereNumber('run')
+            ->name('exports.runs.cancel');
+        Route::delete('exports/runs/{run}', [ExportRunController::class, 'dismiss'])
+            ->whereNumber('run')
+            ->name('exports.runs.dismiss');
+        Route::post('exports/{dataset}/runs', [ExportRunController::class, 'store'])
+            ->where('dataset', '[a-z]+\.[a-z]+')
+            ->name('exports.runs.store');
+
+        /*
         | The medicine master — behind its own module, which prescriptions and
         | pharmacy both require.
         |
@@ -1021,33 +1044,12 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
                     ->name('billable-services.destroy');
 
                 /*
-                | The lab's price list lives under BILLING, not the lab.
-                |
-                | What the clinic charges for a test is a billing decision —
-                | the same organisation-wide key that owns every other price.
-                | A technician who may sign a result off has no business
-                | repricing it. Reading the list is the doctor's, below.
+                | The lab's old price list (`lab-test-catalog`) was retired on
+                | 2026-11-08: its rows moved into the test master, which prices
+                | tests per branch under `laboratory.catalog_manage`
+                | (routes/api/v1/laboratory.php, `lab/tests`).
                 */
-                Route::post('lab-test-catalog', [LabTestCatalogController::class, 'store'])
-                    ->name('lab-test-catalog.store');
-                Route::put('lab-test-catalog/{test}', [LabTestCatalogController::class, 'update'])
-                    ->name('lab-test-catalog.update');
-                Route::delete('lab-test-catalog/{test}', [LabTestCatalogController::class, 'destroy'])
-                    ->name('lab-test-catalog.destroy');
             });
-        });
-
-        /*
-        | Reading the lab's price list — the order screen picks from it.
-        |
-        | Outside the billing group on purpose: a doctor orders tests without
-        | holding any billing capability, and the list is what they choose
-        | from. Behind the laboratory module, because a clinic that refers its
-        | bloods out has no list to read.
-        */
-        Route::middleware(['module:laboratory', 'permission:laboratory.order'])->group(function () {
-            Route::get('lab-test-catalog', [LabTestCatalogController::class, 'index'])
-                ->name('lab-test-catalog.index');
         });
 
         /*
@@ -1111,6 +1113,9 @@ Route::prefix('tenant')->name('tenant.')->group(function () {
             Route::middleware('permission:laboratory.view')->group(function () {
                 Route::get('lab-orders', [LabOrderController::class, 'index'])
                     ->name('lab-orders.index');
+                // Before {order}, or "counts" would be read as an order id.
+                Route::get('lab-orders/counts', [LabOrderController::class, 'counts'])
+                    ->name('lab-orders.counts');
                 Route::get('lab-orders/{order}', [LabOrderController::class, 'show'])
                     ->name('lab-orders.show');
                 Route::get('appointments/{appointment}/lab-orders', [LabOrderController::class, 'forAppointment'])

@@ -64,13 +64,28 @@ class PdfTable
 
     private const BRAND = [0.118, 0.227, 0.541];
 
-    private const HEAD_FILL = [0.91, 0.941, 1.0];
+    private const WHITE = [1.0, 1.0, 1.0];
 
-    private const HEAD_RULE = [0.78, 0.843, 0.961];
+    /** The summary boxes beside the title. */
+    private const PANEL = [0.965, 0.973, 0.992];
+
+    private const PANEL_RULE = [0.871, 0.902, 0.953];
+
+    /** A filter, as a pill under the title. */
+    private const CHIP = [0.925, 0.945, 0.988];
+
+    /** The table's own rounded frame, on every page. */
+    private const FRAME = [0.839, 0.871, 0.925];
 
     private const RULE = [0.929, 0.941, 0.961];
 
-    private const ZEBRA = [0.98, 0.984, 0.992];
+    private const ZEBRA = [0.973, 0.98, 0.992];
+
+    /** The totals row under the money. */
+    private const TOTAL_FILL = [0.925, 0.945, 0.988];
+
+    /** The frame's and the header's corners. */
+    private const RADIUS = 4.0;
 
     /** A note's fill, rule and ink, by tone. */
     private const TONES = [
@@ -94,7 +109,14 @@ class PdfTable
     private float $size = 7.5;
 
     /**
-     * @param  array{organization: string, title: string, meta?: list<string>, notes?: list<array{text: string, tone?: string}>, footer?: string}  $heading
+     * The first page opens like a report: the organisation, the title and
+     * what it is, summary boxes on the right ("772 visits", when and by whom),
+     * and the filters as pills. The table sits in a rounded frame under a
+     * deep-blue header row, on every page; a page after the first carries a
+     * running title, and every page a footer — what it is, whether it is
+     * confidential, and "Page 3 of 41".
+     *
+     * @param  array{organization: string, title: string, eyebrow?: string|null, stats?: list<array{value: string, label: string}>, chips?: list<string>, meta?: list<string>, notes?: list<array{text: string, tone?: string}>, footer?: string, confidential?: bool}  $heading
      * @param  list<array{label: string, width: float, align?: string, bold?: bool, nowrap?: bool}>  $columns  each width a share of the row; the shares need not add up to anything; `nowrap` keeps a value on one line
      * @param  iterable<array{cells: list<string|int|float|null>, muted?: bool}>  $rows
      * @param  (callable(): (list<string>|null))|null  $totals  a closing row in bold, asked for after every row is drawn
@@ -144,11 +166,21 @@ class PdfTable
         $this->canvas->add_info('Title', $heading['title']);
 
         $y = $this->heading($heading, self::MARGIN_TOP);
+        $top = $y;
         $y = $this->headerRow($y);
 
         $floor = $this->canvas->get_height() - self::MARGIN_BOTTOM;
         $lineHeight = $this->size * self::LINE;
         $index = 0;
+
+        // Onto a fresh page: close this page's frame, then the running title and the header row again.
+        $turn = function (float $y) use ($heading, &$top): float {
+            $this->frame($top, $y);
+            $this->canvas->new_page();
+            $top = $this->runningTitle($heading, self::MARGIN_TOP);
+
+            return $this->headerRow($top);
+        };
 
         foreach ($rows as $row) {
             $cells = [];
@@ -162,10 +194,9 @@ class PdfTable
 
             $height = $lines * $lineHeight + 2 * self::PAD_Y;
 
-            // The header row again at the top of every page a row spills onto.
             if ($y + $height > $floor) {
-                $this->canvas->new_page();
-                $y = $this->headerRow(self::MARGIN_TOP);
+                $y = $turn($y);
+                $index = 0;
             }
 
             if ($index % 2 === 1) {
@@ -182,31 +213,42 @@ class PdfTable
                 }
             }
 
+            // A rule between rows; the frame is the last one's.
+            if ($index > 0) {
+                $this->canvas->line(self::MARGIN_X + 0.5, $y, self::MARGIN_X + $this->tableWidth() - 0.5, $y, self::RULE, 0.5);
+            }
+
             $y += $height;
-            $this->canvas->line(self::MARGIN_X, $y, self::MARGIN_X + $this->tableWidth(), $y, self::RULE, 0.5);
             $index++;
         }
 
         if ($index === 0) {
-            $this->canvas->text(self::MARGIN_X + self::PAD_X, $y + 10, $empty, $this->regular, 9, self::SOFT);
+            $this->canvas->text(self::MARGIN_X + 10, $y + 9, $empty, $this->regular, 8.5, self::SOFT);
+            $y += 30;
         } elseif ($totals !== null && ($cells = $totals()) !== null) {
-            $height = $lineHeight + 2 * (self::PAD_Y + 1);
+            $height = $lineHeight + 2 * (self::PAD_Y + 1.5);
 
             if ($y + $height > $floor) {
-                $this->canvas->new_page();
-                $y = $this->headerRow(self::MARGIN_TOP);
+                $y = $turn($y);
             }
 
-            $this->canvas->filled_rectangle(self::MARGIN_X, $y, $this->tableWidth(), $height, self::HEAD_FILL);
-            $this->canvas->line(self::MARGIN_X, $y, self::MARGIN_X + $this->tableWidth(), $y, self::HEAD_RULE, 0.8);
+            $this->roundRect(self::MARGIN_X, $y, $this->tableWidth(), $height, [0, 0, self::RADIUS, self::RADIUS], self::TOTAL_FILL);
+            $this->canvas->line(self::MARGIN_X, $y, self::MARGIN_X + $this->tableWidth(), $y, self::FRAME, 0.7);
 
             foreach ($this->columns as $i => $column) {
                 $text = $this->fit((string) ($cells[$i] ?? ''), $column['width'] - 2 * self::PAD_X, $this->bold, $this->size, 1)[0] ?? '';
-                $this->cellText($column, $text, $y + self::PAD_Y + 1, $this->bold, $this->size, self::BRAND);
+                $this->cellText($column, $text, $y + self::PAD_Y + 1.5, $this->bold, $this->size, self::BRAND);
             }
+
+            $y += $height;
         }
 
-        $this->footer($heading['footer'] ?? $heading['organization'].' · '.$heading['title']);
+        $this->frame($top, $y);
+
+        $this->footer(
+            $heading['footer'] ?? $heading['organization'].' · '.$heading['title'],
+            (bool) ($heading['confidential'] ?? false),
+        );
 
         return (string) $this->canvas->output();
     }
@@ -378,40 +420,128 @@ class PdfTable
         }
     }
 
-    /** The organization, the title and who asked, then any notes — first page only. */
+    /**
+     * The first page's head: a band of the brand along the top edge; the
+     * organisation, the title and what it is on the left; the summary boxes
+     * on the right; then the filters as pills, and any notes.
+     */
     private function heading(array $heading, float $y): float
     {
+        $left = self::MARGIN_X;
         $right = self::MARGIN_X + $this->tableWidth();
 
-        $this->canvas->text(self::MARGIN_X, $y, mb_strtoupper($heading['organization']), $this->bold, 8, self::BRAND);
-        $this->canvas->text(self::MARGIN_X, $y + 12, $heading['title'], $this->bold, 16, self::INK);
+        $this->canvas->filled_rectangle(0, 0, $this->canvas->get_width(), 4, self::BRAND);
 
-        foreach (array_values($heading['meta'] ?? []) as $n => $line) {
-            $width = $this->canvas->get_text_width($line, $this->regular, 7.5);
+        // The boxes first, right to left, so the title knows how much room it has.
+        $boxes = [];
+        $x = $right;
+
+        foreach (array_reverse($heading['stats'] ?? []) as $stat) {
+            $width = max($this->measure($stat['value'], $this->bold, 11), $this->measure($stat['label'], $this->regular, 6.5)) + 22;
+            $x -= $width;
+            $boxes[] = [$x, $width, $stat];
+            $x -= 6;
+        }
+
+        // An older caller's plain lines, right-aligned, where it sent no boxes.
+        foreach (array_values($boxes === [] ? ($heading['meta'] ?? []) : []) as $n => $line) {
+            $width = $this->measure($line, $this->regular, 7.5);
             $this->canvas->text($right - $width, $y + 8 + $n * 11, $line, $this->regular, 7.5, self::SOFT);
         }
 
-        $y += 40;
+        $room = ($boxes === [] ? $right - 220 : $x) - $left - 12;
+
+        $this->canvas->text($left, $y, mb_strtoupper($heading['organization']), $this->bold, 7.5, self::BRAND, 0.0, 0.9);
+        $this->canvas->text($left, $y + 11, $this->fit($heading['title'], $room, $this->bold, 17, 1)[0] ?? '', $this->bold, 17, self::INK);
+
+        if (($heading['eyebrow'] ?? null) !== null) {
+            $this->canvas->text($left, $y + 39, $heading['eyebrow'], $this->regular, 7.5, self::SOFT);
+        }
+
+        foreach ($boxes as [$bx, $width, $stat]) {
+            $this->roundRect($bx, $y - 3, $width, 40, [6, 6, 6, 6], self::PANEL);
+            $this->roundRect($bx, $y - 3, $width, 40, [6, 6, 6, 6], self::PANEL_RULE, 0.6);
+            $this->canvas->text($bx + 11, $y + 5, $stat['value'], $this->bold, 11, self::INK);
+            $this->canvas->text($bx + 11, $y + 22, $stat['label'], $this->regular, 6.5, self::SOFT);
+        }
+
+        $y += 60;
+
+        $y = $this->chips($heading['chips'] ?? null, $y);
 
         foreach ($heading['notes'] ?? [] as $note) {
             [$fill, $rule, $ink] = self::TONES[$note['tone'] ?? 'info'] ?? self::TONES['info'];
 
-            $lines = $this->fit($note['text'], $this->tableWidth() - 16, $this->regular, 7.5, 3);
-            $height = count($lines) * 7.5 * self::LINE + 10;
+            $lines = $this->fit($note['text'], $this->tableWidth() - 20, $this->regular, 7.5, 3);
+            $height = count($lines) * 7.5 * self::LINE + 11;
 
-            $this->canvas->filled_rectangle(self::MARGIN_X, $y, $this->tableWidth(), $height, $fill);
-            $this->canvas->rectangle(self::MARGIN_X, $y, $this->tableWidth(), $height, $rule, 0.6);
+            $this->roundRect($left, $y, $this->tableWidth(), $height, [5, 5, 5, 5], $fill);
+            $this->roundRect($left, $y, $this->tableWidth(), $height, [5, 5, 5, 5], $rule, 0.6);
 
             foreach ($lines as $n => $line) {
-                $this->canvas->text(self::MARGIN_X + 8, $y + 3.5 + $n * 7.5 * self::LINE, $line, $this->regular, 7.5, $ink);
+                $this->canvas->text($left + 10, $y + 4 + $n * 7.5 * self::LINE, $line, $this->regular, 7.5, $ink);
             }
 
-            $y += $height + 6;
+            $y += $height + 8;
         }
 
         return $y;
     }
 
+    /**
+     * "FILTERS  [Visit date 01 Nov – 08 Nov 2026]  [At MG Road]" — one pill a
+     * filter, wrapping onto a second line when they run out of room. No list
+     * at all (an older caller) draws nothing; an empty one says all records.
+     *
+     * @param  list<string>|null  $chips
+     */
+    private function chips(?array $chips, float $y): float
+    {
+        if ($chips === null) {
+            return $y;
+        }
+
+        $left = self::MARGIN_X;
+        $right = self::MARGIN_X + $this->tableWidth();
+        $label = 'FILTERS';
+        $start = $left + $this->measure($label, $this->bold, 6.5) + mb_strlen($label) * 0.7 + 10;
+        $height = 15.0;
+
+        $this->canvas->text($left, $y + 4.5, $label, $this->bold, 6.5, self::SOFT, 0.0, 0.7);
+
+        $x = $start;
+
+        foreach ($chips === [] ? ['All records'] : $chips as $chip) {
+            $text = $this->fit($chip, $right - $start - 14, $this->regular, 7, 1)[0] ?? '';
+            $width = $this->measure($text, $this->regular, 7) + 16;
+
+            if ($x > $start && $x + $width > $right) {
+                $x = $start;
+                $y += $height + 5;
+            }
+
+            $this->roundRect($x, $y, $width, $height, array_fill(0, 4, $height / 2), self::CHIP);
+            $this->canvas->text($x + 8, $y + 3.7, $text, $this->regular, 7, self::BRAND);
+
+            $x += $width + 5;
+        }
+
+        return $y + $height + 12;
+    }
+
+    /** A page after the first: whose register, and which, above the header row. */
+    private function runningTitle(array $heading, float $y): float
+    {
+        $organization = mb_strtoupper($heading['organization']);
+        $width = $this->measure($organization, $this->bold, 6.5) + mb_strlen($organization) * 0.7;
+
+        $this->canvas->text(self::MARGIN_X, $y, $organization, $this->bold, 6.5, self::BRAND, 0.0, 0.7);
+        $this->canvas->text(self::MARGIN_X + $width + 8, $y - 0.5, $heading['title'], $this->bold, 7.5, self::INK);
+
+        return $y + 16;
+    }
+
+    /** Deep blue, rounded at the top, the labels in white. */
     private function headerRow(float $y): float
     {
         $size = $this->size - 0.5;
@@ -422,35 +552,92 @@ class PdfTable
             fn (array $column) => $this->fit($column['label'], $column['width'] - 2 * self::PAD_X, $this->bold, $size),
             $this->columns,
         );
-        $height = max(1, ...array_map('count', $labels)) * $lineHeight + 2 * (self::PAD_Y + 1);
+        $height = max(1, ...array_map('count', $labels)) * $lineHeight + 2 * (self::PAD_Y + 2);
 
-        $this->canvas->filled_rectangle(self::MARGIN_X, $y, $this->tableWidth(), $height, self::HEAD_FILL);
+        $this->roundRect(self::MARGIN_X, $y, $this->tableWidth(), $height, [self::RADIUS, self::RADIUS, 0, 0], self::BRAND);
 
         foreach ($this->columns as $i => $column) {
             foreach ($labels[$i] as $n => $label) {
-                $this->cellText($column, $label, $y + self::PAD_Y + 1 + $n * $lineHeight, $this->bold, $size, self::BRAND);
+                $this->cellText($column, $label, $y + self::PAD_Y + 2 + $n * $lineHeight, $this->bold, $size, self::WHITE);
             }
         }
 
-        $y += $height;
-        $this->canvas->line(self::MARGIN_X, $y, self::MARGIN_X + $this->tableWidth(), $y, self::HEAD_RULE, 0.8);
-
-        return $y;
+        return $y + $height;
     }
 
-    /** What the register is, bottom left, and "3 / 41" bottom right, on every page. */
-    private function footer(string $label): void
+    /** The table's rounded outline, from its header to its last row on this page. */
+    private function frame(float $top, float $bottom): void
     {
-        $y = $this->canvas->get_height() - 22;
+        $this->roundRect(self::MARGIN_X, $top, $this->tableWidth(), $bottom - $top, array_fill(0, 4, self::RADIUS), self::FRAME, 0.7);
+    }
+
+    /**
+     * On every page, under a hairline: what the register is on the left,
+     * "Confidential" in the middle when it holds people's records, and
+     * "Page 3 of 41" on the right.
+     */
+    private function footer(string $label, bool $confidential): void
+    {
+        $height = $this->canvas->get_height();
+        $y = $height - 22;
+        $left = self::MARGIN_X;
         $right = self::MARGIN_X + $this->tableWidth();
 
-        $this->canvas->page_text(self::MARGIN_X, $y, $label, $this->regular, 6.5, self::SOFT);
+        $this->canvas->page_line($left, $y - 6, $right, $y - 6, self::RULE, 0.6);
+        $this->canvas->page_text($left, $y, $label, $this->regular, 6.5, self::SOFT);
+
+        if ($confidential) {
+            $notice = 'Confidential — contains patient and clinic records';
+            $width = $this->measure($notice, $this->regular, 6.5);
+            $this->canvas->page_text(($left + $right - $width) / 2, $y, $notice, $this->regular, 6.5, self::SOFT);
+        }
+
         $this->canvas->page_script(function (int $page, int $pages) use ($y, $right) {
-            $text = "{$page} / {$pages}";
+            $text = "Page {$page} of {$pages}";
             $width = $this->canvas->get_text_width($text, $this->regular, 6.5);
 
             $this->canvas->text($right - $width, $y, $text, $this->regular, 6.5, self::SOFT);
         });
+    }
+
+    /**
+     * A rectangle with rounded corners, filled or outlined, drawn as a
+     * polygon — the canvas has no rounded rectangle of its own.
+     *
+     * @param  array{0: float|int, 1: float|int, 2: float|int, 3: float|int}  $radii  top-left, top-right, bottom-right, bottom-left
+     * @param  list<float>  $color
+     * @param  float|null  $stroke  a line width to outline; null fills
+     */
+    private function roundRect(float $x, float $y, float $width, float $height, array $radii, array $color, ?float $stroke = null): void
+    {
+        if ($width <= 0 || $height <= 0) {
+            return;
+        }
+
+        $limit = min($width, $height) / 2;
+        [$tl, $tr, $br, $bl] = array_map(fn ($radius) => min((float) $radius, $limit), $radii);
+        $points = [];
+
+        // Each corner's arc, clockwise from the left edge; the page's y runs downwards.
+        $corner = function (float $cx, float $cy, float $radius, float $from) use (&$points) {
+            if ($radius <= 0) {
+                array_push($points, $cx, $cy);
+
+                return;
+            }
+
+            for ($step = 0; $step <= 6; $step++) {
+                $angle = deg2rad($from + 15 * $step);
+                array_push($points, $cx + $radius * cos($angle), $cy + $radius * sin($angle));
+            }
+        };
+
+        $corner($x + $tl, $y + $tl, $tl, 180);
+        $corner($x + $width - $tr, $y + $tr, $tr, 270);
+        $corner($x + $width - $br, $y + $height - $br, $br, 0);
+        $corner($x + $bl, $y + $height - $bl, $bl, 90);
+
+        $this->canvas->polygon($points, $color, $stroke, [], $stroke === null);
     }
 
     private function cellText(array $column, string $text, float $y, string $font, float $size, array $ink): void

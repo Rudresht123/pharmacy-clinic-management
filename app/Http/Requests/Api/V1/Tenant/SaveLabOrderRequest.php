@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1\Tenant;
 
 use App\Models\Tenant\Appointment;
 use App\Models\Tenant\LabOrderItem;
+use App\Models\Tenant\LabTest;
 use App\Models\Tenant\LabTestCatalog;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -51,6 +52,10 @@ class SaveLabOrderRequest extends FormRequest
             'items.*.test_name' => ['required', 'string', 'max:191'],
             'items.*.test_code' => ['nullable', 'string', 'max:40'],
             'items.*.specimen' => ['nullable', Rule::in(LabOrderItem::SPECIMENS)],
+            // The doctor's note on this one test — "Fasting".
+            'items.*.instructions' => ['nullable', 'string', 'max:191'],
+            // The line the doctor had only typed in the consultation that this test now is.
+            'items.*.replaces' => ['nullable', 'string', 'max:191'],
 
             /*
              * Which priced test this line is, when the doctor picked one from
@@ -63,6 +68,13 @@ class SaveLabOrderRequest extends FormRequest
              * client that could name its own price could bill whatever it
              * liked.
              */
+            'items.*.lab_test_id' => [
+                'nullable',
+                'integer',
+                Rule::exists(LabTest::class, 'id')->whereNull('deleted_at'),
+            ],
+
+            // The old price list's id, still understood: it maps to the test it became.
             'items.*.lab_test_catalog_id' => [
                 'nullable',
                 'integer',

@@ -17,7 +17,12 @@ class LabOrderItemResource extends JsonResource
             'id' => $this->id,
             'test_name' => $this->test_name,
             'test_code' => $this->test_code,
+            // The test-master test it is; null for a test typed by hand.
+            'lab_test_id' => $this->lab_test_id,
+            'department_name' => $this->relationLoaded('labTest') ? $this->labTest?->department?->name : null,
+            'sample_type_name' => $this->relationLoaded('labTest') ? $this->labTest?->sampleType?->name : null,
             'specimen' => $this->specimen,
+            'instructions' => $this->instructions,
             'status' => $this->status,
 
             'result_value' => $this->result_value,

@@ -134,8 +134,10 @@ class RoleTemplates
                      * off — that stays with whoever ran the sample.
                      */
                     'laboratory.view',
+                    'laboratory.dashboard',
                     // Reads how the lab is set up, like the pharmacy's; saving is head office's.
                     'laboratory.settings_view',
+                    'laboratory.catalog_view',
 
                     'medicines.view',
                     'pharmacy.view',
@@ -392,8 +394,11 @@ class RoleTemplates
                     'customers.records_view',
                     'customers.contact',
                     'laboratory.view',
+                    'laboratory.dashboard',
                     'laboratory.process',
                     'laboratory.complete',
+                    // What each test reads and its ranges, looked up at the bench.
+                    'laboratory.catalog_view',
                     'documents.view',
                     'documents.upload',
                 ],
@@ -601,6 +606,9 @@ class RoleTemplates
                      */
                     'laboratory.settings_view',
                     'laboratory.settings_manage',
+                    // The test menu and its prices, like every other price list.
+                    'laboratory.catalog_view',
+                    'laboratory.catalog_manage',
                     'settings.audit',
                 ],
             ],

@@ -3,6 +3,8 @@ import { getValidationErrors, resolveErrorMessage } from '@/shared/api/http';
 import { notify } from '@/shared/utils/notify';
 import { PrescriptionEditor } from '@/core/prescriptions/components/PrescriptionEditor';
 import { flushPrescription } from '@/core/prescriptions/lines';
+import { LabOrderEditor } from '@/core/laboratory/ordering/LabOrderEditor';
+import { flushLabOrders } from '@/core/laboratory/ordering/api';
 import { DocumentsPanel } from '@/core/documents/components/DocumentsPanel';
 import { useTenantAuth } from '@/core/tenant-auth/TenantAuthProvider';
 import { useSaveConsultation } from '../api';
@@ -167,6 +169,16 @@ export function ConsultationPanel({
     /* Level two and level three, together — see the tab list. */
     const documents = modules.includes('documents') && can('documents.view');
 
+    /*
+     * Investigations are real lab orders where the laboratory runs here and
+     * this doctor may order (decision D1). Elsewhere they stay a typed note.
+     * In lab mode the consultation's own list is the server's to keep in step
+     * with the orders, so "Save notes" does not send it.
+     */
+    const labMode = modules.includes('laboratory') && can('laboratory.order') && can('laboratory.view');
+    const forSave = (consultation: Consultation): Partial<Consultation> =>
+        labMode ? { ...consultation, investigations: undefined } : consultation;
+
     const save = useSaveConsultation(appointmentId);
 
     const [draft, setDraft] = useState<Consultation>(saved);
@@ -221,10 +233,13 @@ export function ConsultationPanel({
         setDiagnosis('');
     }
 
-    function submit() {
+    async function submit() {
         setErrors({});
 
-        save.mutate(draft, {
+        // New tests go to the lab with the notes — there is no separate send.
+        if (labMode && !(await flushLabOrders(appointmentId))) return;
+
+        save.mutate(forSave(draft), {
             onError: (error) => {
                 const found = getValidationErrors(error);
 
@@ -416,6 +431,10 @@ export function ConsultationPanel({
                     */}
                     <PrescriptionEditor appointmentId={appointmentId} fallback={draft.prescription} />
 
+                    {labMode ? (
+                        <LabOrderEditor appointmentId={appointmentId} typed={draft.investigations} />
+                    ) : (
+                    <>
                     <div className="cn-row">
                         <i className="cn-icon is-amber ti ti-flask" aria-hidden="true" />
                         <span className="cn-label">Investigations</span>
@@ -541,6 +560,8 @@ export function ConsultationPanel({
                                 Order a test
                             </button>
                         </div>
+                    )}
+                    </>
                     )}
 
                     <div className="cn-row">
@@ -757,6 +778,13 @@ export function ConsultationPanel({
                         className="cn-finish"
                         disabled={completing || save.isPending}
                         onClick={async () => {
+                            // Tests added but not yet sent go to the lab first.
+                            if (labMode && !(await flushLabOrders(appointmentId))) {
+                                if (tab !== 'clinical') onTab('clinical');
+
+                                return;
+                            }
+
                             if (!(await flushPrescription(appointmentId))) return;
 
                             setErrors({});
@@ -771,7 +799,7 @@ export function ConsultationPanel({
                              * because nothing had been written yet.
                              */
                             try {
-                                await save.mutateAsync(draft);
+                                await save.mutateAsync(forSave(draft));
                             } catch (error) {
                                 const found = getValidationErrors(error);
 

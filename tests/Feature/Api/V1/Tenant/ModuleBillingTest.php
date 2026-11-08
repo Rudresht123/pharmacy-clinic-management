@@ -10,7 +10,8 @@ use App\Models\Tenant\Customer;
 use App\Models\Tenant\Doctor;
 use App\Models\Tenant\Invoice;
 use App\Models\Tenant\InvoiceItem;
-use App\Models\Tenant\LabTestCatalog;
+use App\Models\Tenant\LabDepartment;
+use App\Models\Tenant\LabTest;
 use App\Models\Tenant\Location;
 use App\Models\Tenant\Medicine;
 use App\Models\Tenant\OrganizationModuleSetting;
@@ -82,8 +83,14 @@ class ModuleBillingTest extends TenantTestCase
                 'name' => 'Asha Rane', 'phone' => '9810000011', 'is_active' => true,
             ])->id;
 
-            $this->cbc = LabTestCatalog::on('organization')->create([
-                'name' => 'CBC', 'code' => 'CBC', 'price' => 300, 'tax_percent' => 0, 'active' => true,
+            // The test master replaced the old lab price list on 2026-11-08.
+            $this->cbc = LabTest::on('organization')->create([
+                'code' => 'CBC',
+                'name' => 'CBC',
+                'department_id' => LabDepartment::on('organization')->create(['name' => 'Haematology'])->id,
+                'price' => 300,
+                'tax_percent' => 0,
+                'is_active' => true,
             ])->id;
         });
 
@@ -190,7 +197,7 @@ class ModuleBillingTest extends TenantTestCase
     {
         return $this->postJson('/api/v1/tenant/lab-orders', [
             'appointment_id' => $appointmentId,
-            'items' => [['test_name' => 'CBC', 'lab_test_catalog_id' => $this->cbc]],
+            'items' => [['test_name' => 'CBC', 'lab_test_id' => $this->cbc]],
         ])->assertCreated()->json('data');
     }
 

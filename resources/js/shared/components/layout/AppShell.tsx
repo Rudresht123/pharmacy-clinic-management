@@ -46,6 +46,11 @@ interface AppShellProps {
      * warning (expiring soon, in grace). Nothing when there is nothing to say.
      */
     contentBanner?: React.ReactNode;
+    /**
+     * Floats over every page and stays while the person moves between them —
+     * the tenant's export tray, watching files being made in the background.
+     */
+    overlay?: React.ReactNode;
 }
 
 /**
@@ -72,6 +77,7 @@ export function AppShell({
     headerSearch,
     headerExtra,
     contentBanner,
+    overlay,
 }: AppShellProps) {
     const { settings, update } = useAppSettings();
 
@@ -183,6 +189,8 @@ export function AppShell({
             </main>
 
             <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+            {overlay}
         </div>
     );
 }

@@ -1,7 +1,11 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Tenant\LabDashboardController;
 use App\Http\Controllers\Api\V1\Tenant\LabMasterController;
+use App\Http\Controllers\Api\V1\Tenant\LabOrderableController;
+use App\Http\Controllers\Api\V1\Tenant\LabReferenceRangeController;
 use App\Http\Controllers\Api\V1\Tenant\LabSettingController;
+use App\Http\Controllers\Api\V1\Tenant\LabTestController;
 use App\Support\Laboratory\LabMasters;
 use App\Support\Modules\ScreenTicks;
 use Illuminate\Support\Facades\Route;
@@ -44,6 +48,43 @@ Route::middleware('module:laboratory')->prefix('lab')->name('lab.')->group(funct
             ->whereIn('master', LabMasters::keys())
             ->name('masters.index');
     });
+
+    /*
+    | The test master. Read by the Lab tests screen (and by whoever may change
+    | it); a test and its parameters are written together under catalog_manage.
+    | Reference ranges are a clinical decision with a tick of their own.
+    */
+    Route::middleware(ScreenTicks::gate(ScreenTicks::LAB_CATALOG))->group(function () {
+        Route::get('tests', [LabTestController::class, 'index'])->name('tests.index');
+        Route::get('tests/{test}', [LabTestController::class, 'show'])->whereNumber('test')->name('tests.show');
+        Route::get('parameters/{parameter}/ranges', [LabReferenceRangeController::class, 'index'])
+            ->whereNumber('parameter')
+            ->name('parameters.ranges.index');
+    });
+
+    Route::middleware('permission:laboratory.catalog_manage')->group(function () {
+        Route::post('tests', [LabTestController::class, 'store'])->name('tests.store');
+        Route::put('tests/{test}', [LabTestController::class, 'update'])->whereNumber('test')->name('tests.update');
+        Route::delete('tests/{test}', [LabTestController::class, 'destroy'])->whereNumber('test')->name('tests.destroy');
+        Route::put('tests/{test}/prices', [LabTestController::class, 'savePrices'])
+            ->whereNumber('test')
+            ->name('tests.prices');
+    });
+
+    Route::put('parameters/{parameter}/ranges', [LabReferenceRangeController::class, 'update'])
+        ->whereNumber('parameter')
+        ->middleware('permission:laboratory.ranges_manage')
+        ->name('parameters.ranges.update');
+
+    // The lab's day and trend, from its own orders.
+    Route::get('dashboard', [LabDashboardController::class, 'show'])
+        ->middleware('permission:laboratory.dashboard')
+        ->name('dashboard');
+
+    // What can be ordered, priced for the branch: the doctor's and the desk's picker.
+    Route::get('orderables', [LabOrderableController::class, 'index'])
+        ->middleware(ScreenTicks::gate(ScreenTicks::LAB_ORDERABLES))
+        ->name('orderables');
 
     Route::middleware('permission:laboratory.settings_manage')->group(function () {
         Route::post('masters/{master}', [LabMasterController::class, 'store'])

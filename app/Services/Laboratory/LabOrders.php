@@ -6,7 +6,7 @@ use App\Models\Tenant\Appointment;
 use App\Models\Tenant\Consultation;
 use App\Models\Tenant\LabOrder;
 use App\Models\Tenant\LabOrderItem;
-use App\Models\Tenant\LabTestCatalog;
+use App\Models\Tenant\LabTest;
 use App\Models\Tenant\User;
 use App\Services\Billing\BillingTriggerResolver;
 use App\Services\Clinic\ClinicEvent;
@@ -96,6 +96,7 @@ class LabOrders
             $order->refresh();
 
             $this->syncItems($order, $data['items'] ?? []);
+            $this->mirrorIntoConsultation((int) $appointment->id, $this->replaced($data));
 
             // A lab that bills when tests are ordered bills now.
             $this->billing()->onLabOrdered($order);
@@ -140,6 +141,10 @@ class LabOrders
 
             if (array_key_exists('items', $data)) {
                 $this->syncItems($locked, $data['items'] ?? []);
+
+                if ($locked->appointment_id) {
+                    $this->mirrorIntoConsultation((int) $locked->appointment_id, $this->replaced($data));
+                }
 
                 // A bill already drawn follows the tests while nothing is paid.
                 $this->billing()->onLabOrderChanged($locked);
@@ -299,6 +304,10 @@ class LabOrders
             $this->billing()->onLabOrderChanged($order);
             $this->refreshVisit($order);
 
+            if ($order->appointment_id) {
+                $this->mirrorIntoConsultation((int) $order->appointment_id);
+            }
+
             return $fresh;
         });
     }
@@ -336,6 +345,10 @@ class LabOrders
 
             // A withdrawn order is no longer work the visit is waiting on.
             $this->refreshVisit($locked);
+
+            if ($locked->appointment_id) {
+                $this->mirrorIntoConsultation((int) $locked->appointment_id);
+            }
 
             return $locked->load('items');
         });
@@ -385,15 +398,21 @@ class LabOrders
              */
             $values = [...$values, ...$this->priceFrom($line, $order->location_id)];
 
+            // The doctor's note on the test; left as it was when not sent.
+            if (array_key_exists('instructions', $line)) {
+                $note = trim((string) ($line['instructions'] ?? ''));
+                $values['instructions'] = $note === '' ? null : mb_substr($note, 0, 191);
+            }
+
             if ($item) {
                 /*
                  * An existing line keeps the price it was ordered at unless
-                 * the test itself is being changed to a different catalogue
-                 * entry — repricing a line somebody already agreed to is the
-                 * thing the snapshot exists to prevent.
+                 * the test itself is being changed to a different one from the
+                 * test master — repricing a line somebody already agreed to is
+                 * the thing the snapshot exists to prevent.
                  */
-                if (($line['lab_test_catalog_id'] ?? null) === null) {
-                    unset($values['price_snapshot'], $values['tax_percent_snapshot'], $values['lab_test_catalog_id']);
+                if (empty($line['lab_test_id']) && empty($line['lab_test_catalog_id'])) {
+                    unset($values['price_snapshot'], $values['tax_percent_snapshot'], $values['lab_test_id']);
                 }
 
                 $item->fill($values)->save();
@@ -410,43 +429,116 @@ class LabOrders
     }
 
     /**
-     * The catalogue price for a line, as a snapshot.
+     * The test-master price for a line, as a snapshot.
      *
-     * Resolved by explicit id first, then by `test_code` — a doctor picking
-     * "CBC" from a dropdown sends the id, and an integration posting a code
-     * still gets priced. Neither found means a freehand test: no id, no
-     * price, no charge.
+     * Resolved by the test's id first; then by an old price-list id (the
+     * migration recorded which test each became); then by `test_code` — a
+     * doctor picking "CBC" sends the id, and an integration posting a code
+     * still gets priced. None found means a freehand test: no test, no price,
+     * no charge. The price is the branch's own where it has one.
      *
      * @param  array<string, mixed>  $line
      * @return array<string, mixed>
      */
     private function priceFrom(array $line, ?int $locationId): array
     {
-        $entry = null;
-
-        if (! empty($line['lab_test_catalog_id'])) {
-            $entry = LabTestCatalog::query()
-                ->forBranch($locationId)
-                ->find((int) $line['lab_test_catalog_id']);
-        } elseif (! empty($line['test_code'])) {
-            $entry = LabTestCatalog::query()
+        $test = match (true) {
+            ! empty($line['lab_test_id']) => LabTest::query()->find((int) $line['lab_test_id']),
+            ! empty($line['lab_test_catalog_id']) => LabTest::query()
+                ->where('legacy_catalog_id', (int) $line['lab_test_catalog_id'])
+                ->first(),
+            ! empty($line['test_code']) => LabTest::query()
                 ->active()
-                ->forBranch($locationId)
-                ->where('code', $line['test_code'])
-                /* A branch's own price beats the organisation default. */
-                ->orderByRaw('location_id IS NULL')
-                ->first();
-        }
+                ->whereRaw('lower(code) = ?', [mb_strtolower(trim((string) $line['test_code']))])
+                ->first(),
+            default => null,
+        };
 
-        if (! $entry) {
+        if (! $test) {
             return [];
         }
 
+        $price = app(LabCatalog::class)->priceAt($test, $locationId);
+
         return [
-            'lab_test_catalog_id' => $entry->id,
-            'price_snapshot' => $entry->price,
-            'tax_percent_snapshot' => $entry->tax_percent,
+            'lab_test_id' => $test->id,
+            'price_snapshot' => $price['price'],
+            'tax_percent_snapshot' => $price['tax_percent'],
         ];
+    }
+
+    /**
+     * Keep the consultation's Investigations in step with what was sent to the lab.
+     *
+     * The lab order is the record the lab works from; the consultation's
+     * `investigations` list is what the patient file, "My investigations", the
+     * doctor's day and the visit's write-up rule read. So every test on the
+     * visit's live orders is written there too (marked with its order line),
+     * cancelled ones are taken out, and a line the doctor had only typed is
+     * dropped once it has been sent — matched by what the doctor's screen says
+     * it replaced, or by the test's own name, code or short name ("cbc" is the
+     * CBC). It is the same request, now with the lab. Lines typed and never
+     * sent stay as they are.
+     *
+     * @param  list<string>  $replaced  typed lines this save says it sent, lower-cased
+     */
+    private function mirrorIntoConsultation(int $appointmentId, array $replaced = []): void
+    {
+        $consultation = Consultation::on('organization')->where('appointment_id', $appointmentId)->first();
+
+        if (! $consultation) {
+            return;
+        }
+
+        $items = LabOrderItem::on('organization')
+            ->with('labTest')
+            ->whereHas('order', fn ($order) => $order
+                ->where('appointment_id', $appointmentId)
+                ->where('status', '!=', LabOrder::CANCELLED))
+            ->where('status', '!=', LabOrderItem::CANCELLED)
+            ->orderBy('lab_order_id')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $ordered = $items->map(fn (LabOrderItem $item) => [
+            'test' => $item->test_name,
+            'notes' => $item->instructions,
+            'lab_order_id' => $item->lab_order_id,
+            'lab_order_item_id' => $item->id,
+        ]);
+
+        $sent = $items
+            ->flatMap(fn (LabOrderItem $item) => [
+                $item->test_name, $item->test_code, $item->labTest?->code, $item->labTest?->short_name, $item->labTest?->name,
+            ])
+            ->filter()
+            ->map(fn ($name) => mb_strtolower(trim((string) $name)))
+            ->merge($replaced)
+            ->unique()
+            ->all();
+
+        $typed = collect($consultation->investigations ?? [])
+            ->filter(fn ($line) => is_array($line) && empty($line['lab_order_item_id']))
+            ->reject(fn (array $line) => in_array(mb_strtolower(trim((string) ($line['test'] ?? ''))), $sent, true));
+
+        $consultation->forceFill(['investigations' => [...$typed->values()->all(), ...$ordered->all()]])->save();
+    }
+
+    /**
+     * The typed consultation lines a save says its tests replace, lower-cased.
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<string>
+     */
+    private function replaced(array $data): array
+    {
+        return collect($data['items'] ?? [])
+            ->pluck('replaces')
+            ->filter(fn ($text) => is_string($text) && trim($text) !== '')
+            ->map(fn (string $text) => mb_strtolower(trim($text)))
+            ->values()
+            ->all();
     }
 
     /**
